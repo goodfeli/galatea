@@ -1,0 +1,513 @@
+.. _deepgm:
+
+Modèles probabilistes pour les architectures profondes
+======================================================
+
+On s'intéresse particulièrement au modèle de la machine
+de Boltzmann, dont certaines variantes sont utilisées
+dans des architectures profondes comme les *Deep Belief Networks*
+et les *Deep Boltzmann Machines*. Voir la section 5
+de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.
+
+La distribution de Boltzmann est généralement sur des variables binaires :math:`x_i \in \{0,1\}`, avec
+
+.. math::
+
+ P(x) = \frac{e^{x' W x + b'x}}{\sum_{\tilde x} \tilde{x}' W \tilde{x} + b'\tilde{x}}
+
+où le dénominateur est simplement un facteur de normalisation pour que :math:`\sum_x P(x)=1`,
+et les :math:`W_{ij}` indiquent la nature de l'interaction (e.g. positive = :math:`x_i`
+et :math:`x_j` veulent prendre la même valeur) entre les paires de variables, et :math:`b_i`
+indique la propension de :math:`x_i` à prendre la valeur 1.
+
+
+Rappels sur les modèles graphiques probabilistes
+================================================
+
+Voir 
+
+`Graphical models: probabilistic inference <http://www.cs.berkeley.edu/~jordan/papers/jordan-weiss.ps>`_.
+M. I. Jordan and Y. Weiss. In M. Arbib (Ed.), The Handbook of Brain Theory and Neural Networks, 2nd edition. 
+Cambridge, MA: MIT Press, 2002.
+
+
+On peut écrire certaines distributions :math:`P(x)` pour un
+vecteur de variables :math:`x=(x_1,x_2,\ldots)` sous la forme
+
+.. math::
+ P(x) = \frac{1}{Z} \prod_c \psi_c(x_c)
+
+où :math:`Z` est le facteur de normalisation (appelée **fonction de partition**),
+et la somme est sur des cliques (des sous-ensembles :math:`x_c` des éléments du vecteur :math:`x`),
+et les :math:`\psi_c(.)` sont des fonctions (une par clique) qui indiquent comment
+intéragissent les variables de chaque clique.
+
+Un cas particulier où :math:`Z` peut-être simplifié un
+peu (factorisé sur les cliques) est celui des *modèles dirigés* où les variables 
+sont structurées dans un graphe dirigé acyclique, avec un ordre topologique
+associant un ensemble de parents :math:`parents(x_i)` à chaque
+variable :math:`x_i`:
+
+.. math::
+ P(x) = \prod_i P_i(x_i | parents(x_i))
+
+où donc on voit qu'il y a une clique pour chaque variable et ses parents,
+i.e., :math:`P_i(x_i | parents(x_i)) = \psi_i(x_i, parents(x_i))/Z_i`.
+
+Dans le cas général (représenté avec un graphe non-dirigé), les
+fonctions de potentiel :math:`\psi_c` sont directement paramétrisées,
+souvent dans l'espace du logarithme de :math:`\psi_c`, ce qui
+donne lieu à la formulation appelée **champs aléatoire de Markov**:
+
+.. math::
+ P(x) = \frac{1}{Z} e^{-\sum_c E_c(x_c)}
+
+où :math:`E(x)=\sum_c E_c(x_c)`, comme fonction de :math:`x`, 
+est appelée **fonction d'énergie**. La fonction d'énergie
+de la machine de Boltzmann est donc un polynôme du second
+degré en :math:`x`. La paramétrisation la plus
+commune des champs aléatoires de Markov a la forme suivante:
+
+.. math::
+ P(x) = \frac{1}{Z} e^{-\sum_c \theta_c f_c(x_c)}
+
+où les seuls paramètres libres sont les :math:`\theta_c`,
+et où donc la log-vraisemblance complète (quand :math:`x`
+est complètement observé dans chaque exemple) est *log-linéaire*
+en les paramètres :math:`\theta`, et on peut facilement
+montrer qu'elle est **convexe** en :math:`\theta`.
+
+
+Inférence
+---------
+
+Un des obstacles les plus importants à l'application pratique
+de la plupart des modèles probabilistes est l'**inférence**:
+étant données certaines variables (un sous-ensemble de :math:`x`),
+prédire la distribution marginale (chacune séparément) ou jointe
+de certaines autres. Soit :math:`x=(v,h)` avec :math:`h` (*hidden*)
+les variables non-observées que l'on veut prédire, et :math:`v` (*visible*)
+la partie observée. On voudrait calculer ou tout au moins
+échantillonner de
+
+.. math::
+   P(h | v).
+
+L'inférence est évidemment utile si certaines des variables
+sont manquantes, ou simplement si pendant l'utilisation du modèle,
+on veuille prédire une variable (par exemple la classe de l'image)
+étant donnée d'autres (par exemple l'image). Notons que si le
+modèle a des variables cachées (jamais observées dans les données)
+qu'on ne cherche pas à prédire directement,
+on devra quand même implicitement *marginaliser* sur ces variables (sommer
+sur toutes les configurations de ces variables).
+
+L'inférence est aussi une composante essentielle de l'apprentissage,
+soit pour calculer un gradient directement (voir ci-bas le cas
+de la machine de Boltzmann), soit parce qu'on utilise l'algorithme
+E-M (Expectation-Maximization), qui requière une marginalisation
+sur toutes les variables cachées.
+
+En général, l'inférence exacte a un coût de calcul exponentiel dans la taille
+des cliques du graphe (en fait de la partie non-observée du graphe),
+car on doit considérer toutes les combinaisons possibles des valeurs
+des variables dans chaque clique. Voir la section 3.4
+de `Graphical models: probabilistic inference <http://www.cs.berkeley.edu/~jordan/papers/jordan-weiss.ps>`_
+pour un survol des méthodes exactes d'inférence.
+
+Une forme simplifiée d'inférence consiste à trouver non pas toute
+la distribution mais seulement le mode (la configuation de valeurs la plus probable)
+de la distribution:
+
+.. math::
+   h^* = {\rm argmax}_{v} P(h | v)
+
+En anglais on appelle cela l'inférence **MAP = Maximum A Posteriori**.
+
+Inférence approximative
+-----------------------
+
+Les deux familles principales d'inférence approximative pour les
+modèles probabilistes sont
+l'inférence par MCMC (chaîne de Markov Monte-Carlo) et l'inférence
+variationnelle.
+
+Le principe de l'inférence variationnelle est le suivant. On
+va définir un modèle plus simple que le modèle cible (celui qui nous intéresse),
+dans lequel l'inférence sera facile, avec un jeu de variables semblables
+(mais généralement avec des dépendances plus simples entre elles que
+dans le modèle cible). On va ensuite optimiser les
+paramètres du modèle simple de façon à ce qu'il s'approche le
+plus possible du modèle cible. On va finalement faire l'inférence
+en utilisant le modèle simple.
+Voir la section 4.2
+de `Graphical models: probabilistic inference <http://www.cs.berkeley.edu/~jordan/papers/jordan-weiss.ps>`_
+pour plus de détails et un survol.
+
+Inférence par MCMC
+------------------
+
+En général, la loi :math:`P(h | v)`
+peut être exponentiellement chère à représenter (en terme du nombre
+de variables cachées, car il faut considérer toutes les configurations
+des :math:`h`).
+Le principe de l'inférence par Monte-Carlo est que l'on va
+approximer la distribution :math:`P(h | v)`
+par des échantillons tirés de cette loi. En effet, en pratique
+on a seulement besoin de faire une espérance (par exemple l'espérance
+du gradient) sous cette loi conditionnelle. On va donc remplacer
+l'espérance recherchée par une moyenne sur ces échantillons. 
+Voir la page du `site du zéro sur Monte-Carlo <http://www.siteduzero.com/tutoriel-3-133680-toute-la-puissance-de-monte-carlo.html>`_ 
+pour une introduction en douceur.
+
+Malheureusement, pour la plupart des modèles probabilistes,
+même tirer de :math:`P(h | v)` de manière
+exacte n'est pas faisable facilement (en un temps de calcul
+qui n'est pas exponentiel dans la dimension de :math:`h`).
+C'est pourquoi l'approche la plus générale est basée sur
+une *approximation* de l'échantillonage Monte-Carlo,
+appelé Chaîne de Markov Monte-Carlo (MCMC en anglais).
+
+Une chaîne de Markov (d'ordre 1) est 
+une suite de variables aléatoires :math:`Z_1,Z_2,\ldots`, telle que 
+:math:`Z_k` est indépendente de :math:`Z_{k-2}, Z_{k-3}, \ldots`
+étant donnée :math:`Z_{k-1}`:
+
+.. math::
+  P(Z_k | Z_{k-1}, Z_{k-2}, Z_{k-3}, \ldots) = P(Z_k | Z_{k-1}) 
+ 
+  P(Z_1 \ldots Z_n) = P(Z_1) \prod_{k=2}^n P(Z_k|Z_{k-1})
+
+Le principe du tirage MCMC est que l'on va construire une
+chaîne de Markov dont la distribution marginale asymptotique,
+i.e., la loi de :math:`Z_n`, quand :math:`n \rightarrow \infty`,
+converge vers une distribution cible, telle que
+:math:`P(h | v)` ou :math:`P(x)`.
+
+Échantillonage de Gibbs
+-----------------------
+
+Il existe de nombreuses méthodes d'échantillonage MCMC. Celle
+la plus couramment utilisée pour les architectures
+profondes est la **méthode d'échantillonage de Gibbs**
+(*Gibbs sampling*). Elle est simple et présente une certaine
+analogie avec le fonctionnement plausible du cerveau,
+où chaque neurone décide d'envoyer des impulsions
+avec un certain aléa, en fonction des impulsions qu'il
+reçoit d'autres neurones. 
+
+Supposons que l'on veuille échantillonner de la loi :math:`P(x)`
+où :math:`x` est un groupe de variables :math:`x_i`
+(et optionnellement on pourrait avoir des variables conditionnantes,
+mais elles ne changent rien à la procédure à part de conditionner
+tout, donc nous les ignorons dans la notation ici). 
+On notera :math:`x_{-i}=(x_1,x_2,\ldots,x_{i-1},x_{i+1},\ldots,x_n)`,
+soit toutes les variables de :math:`x` sauf :math:`x_i`.
+L'échantillonage de Gibbs ordinaire est donné par l'algorithme suivant:
+
+* Choisir un :math:`x` initial de manière arbitraire (aléatoire ou pas)
+* Pour chaque pas de la chaîne de Markov
+
+  * Itérer sur chaque :math:`x_k` dans :math:`x`
+
+    * Tirer :math:`x_k` de la loi conditionnelle :math:`P(x_k | x_{-k})`
+
+Dans certains cas on peut regrouper les variables dans :math:`x`
+en blocs ou groupes de variables tels que tirer d'un groupe étant donnés les autres
+est facile. Dans ce cas il est avantageux d'interpréter l'algorithme
+ci-haut avec :math:`x_i` le i-eme groupe plutôt que la i-eme
+variable. On appelle cela l'échantillonage de Gibbs par blocs.
+
+Le Gradient dans un Champs de Markov
+====================================
+
+Voir
+`Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_
+pour les dérivations en détail.
+
+Les champs de Markov sont des modèles probabilistes non-dirigés
+où la fonction d'énergie est *linéaire en terme des paramètres*
+:math:`\theta` du modèle:
+
+.. math::
+  P(x) \propto e^{-\sum_i \theta_i f_i(x)}
+
+où les :math:`f_i(.)` sont appelées les *statistiques suffisantes*
+du modèles car les espérances :math:`E[f_i(x)]` sont suffisantes
+pour caractériser la distribution et estimer les paramètres.
+Notons que :math:`e^{\theta_i f_i(x)} = \psi_i(x)` est
+associé à chaque clique du modèle (en général seulement
+un sous-vecteur de :math:`x` influence :math:`f_i(x)`).
+
+Revenons au statistiques suffisantes. 
+On peut montrer que le gradient de la log-vraisemblance
+se développe ainsi:
+
+.. math::
+  \frac{-\log P(x)}{\partial \theta_i} = f_i(x) - \sum_x P(x) f_i(x)
+
+et le gradient moyen sur les exemples d'apprentissage :math:`x_t`
+est donc
+
+.. math::
+  \frac{1}{T} \sum_t \frac{-\log P(x_t)}{\partial \theta_i} = 
+            \frac{1}{T}\sum_t f_i(x_t) - \sum_x P(x) f_i(x)
+
+On voit donc que le gradient est annullé quand *la moyenne des
+statistiques suffisantes sur la distribution d'apprentissage 
+égale leur espérance sur le modèle P*.
+
+Malheureusement, même calculer le gradient est difficile.
+On ne veut pas sommer sur tous les :math:`x` possibles, mais
+heureusement, on peut obtenir une approximation Monte-Carlo
+en faisant un ou plusieurs tirages de :math:`P(x)`, ce qui
+donne un gradient stochastique. En général, cependant, même
+faire un tirage sans biais de :math:`P(x)` est exponentiellement
+coûteux, et on utilise donc une méthode MCMC.
+
+On appelle **'partie positive'** la partie du gradient
+dûe au numérateur de la probabilité (:math:`-f_i(x)`),
+et **'partie négative'** la partie correspondant au gradient
+de la fonction de partition (le dénominateur).
+
+Marginalisation sur les variables cachées
+-----------------------------------------
+
+Quand certaines variables sont cachées, le gradient devient
+un peu plus compliqué car il faut marginaliser sur les
+variables cachées. Soit :math:`x=(v,h)`, avec :math:`v` la partie visible
+et :math:`h` la partie cachée, avec les statistiques
+des fonctions des deux, :math:`f_i(v,h)`. Le gradient
+moyen de la moins log-vraisemblance des données
+observées devient
+
+.. math::
+  \frac{1}{T} \sum_t \frac{-\log P(v_t)}{\partial \theta_i} = 
+            \frac{1}{T}\sum_t \sum_h P(h|v_t) f_i(v_t,h) - \sum_{h,v} P(v,h) f_i(v,h).
+
+Il faudra donc dans ce cas généralement se résoudre à du MCMC
+non seulement pour la partie négative mais aussi pour la partie
+négative, pour échantillonner :math:`P(h|v_t)`.
+
+La Machine de Boltzmann
+=======================
+
+La machine de Boltzmann est un modèle probabiliste non-dirigé,
+une forme particulière de *champs de Markov* dans laquelle
+certaines variables sont observées (parfois) et d'autres
+ne le sont jamais (les variables cachées), et où la
+*fonction d'énergie* est un **polynôme du second degré**
+par rapport aux variables:
+
+.. math::
+   E(x) = -d'x - x'Ax
+
+La machine de Boltzmann classique a des variables binaires
+et l'inférence est faite par une MCMC de Gibbs, ce qui nécessite
+de faire des tirages de :math:`P(x_i | x_{-i})`, et l'on
+peut montrer facilement que
+
+.. math::
+   P(x_i=1 | x_{-i}) = {\rm sigmoid}(d_i + \omega_i x_{-i})
+
+où :math:`\omega_i` est la i-ème rangée de :math:`A` sauf
+le i-ème élément, et dans ce modèle la diagonale de :math:`A` 
+est 0. On voit le lien avec les réseaux de neurones.
+
+.. _rbm:
+
+La Machine de Boltzmann Restreinte
+----------------------------------
+
+En anglais *Restricted Boltzmann Machine* ou RBM, c'est une
+machine de Boltzmann sans *connections latérales* entre
+les :math:`v_i` ou entre les :math:`h_i`. La fonction
+d'énergie devient donc
+
+.. math::
+   E(v,h) = -b'h - c'v - v'W h.
+
+où la matrice A est donc pleine de zéro sauf dans sa sous-matrice W.
+L'avantage de cette restriction dans la connectivité est
+que l'inférence :math:`P(h|v)` (et aussi :math:`P(v|h)`)
+devient très facile et analytique et se *factorise*:
+
+.. math::
+   P(h|v) = \prod_i P(h_i|v)
+
+et
+
+.. math::
+   P(v|h) = \prod_i P(v_i|h)
+
+Dans le cas où les variables (= unités) sont binaires, on obtient
+encore la formule de neurone sigmoidal:
+
+.. math::
+   P(h_j=1 | v) = {\rm sigmoid}(b_j + \sum_i W_{ij} v_i)
+
+   P(v_i=1 | h) = {\rm sigmoid}(c_i + \sum_j W_{ij} h_j)
+
+Un autre avantage de la RBM c'est qu'on peut calculer
+analytiquement :math:`P(v)` a une constante près
+(cette constante est la fonction de partition :math:`Z`). Cela permet 
+aussi de définir une généralisation de la notion de
+fonction d'énergie au cas où on veut marginaliser
+sur les variables cachées: **l'énergie libre**
+(*free energy*, aussi inspirée de considérations physiques):
+
+.. math::
+   P(v) = \frac{e^{-FE(v)}}{Z} = \sum_h P(v,h) = \frac{\sum_h e^{-E(v,h)}}{Z}
+
+   FE(v) = -\log \sum_h e^{-E(v,h)}
+
+et dans le cas des RBMs, on a
+
+.. math::
+   FE(v) = -b'v - \sum_i \log \sum_{h_i} e^{h_i (c_i + v' W_{.i})}
+
+où la somme sur :math:`h_i` est une somme sur les valeurs que les variables
+cachées peuvent prendre, ce qui, dans le cas d'unités binaires donne
+
+.. math::
+   FE(v) = -b'v - \sum_i \log (1 + e^{c_i + v' W_{.i}}) 
+
+   FE(v) = -b'v - \sum_i {\rm softplus}(c_i + v' W_{.i}) 
+
+
+Gibbs dans les RBMs
+-------------------
+
+Bien que tirer de :math:`P(h|v)` est facile et immédiat dans une RBM,
+tirer de :math:`P(v)` ou de :math:`P(v,h)` ne peut pas se faire de 
+manière exacte et se fait donc généralement par une MCMC, la plus commune
+étant la MCMC de Gibbs *par bloc*, où l'on prend avantage du fait
+que les tirages :math:`P(h|v)` et :math:`P(v|h)` sont faciles:
+
+.. math::
+   v^{(1)} \sim {\rm exemple\;\; d'apprentissage}
+
+   h^{(1)} \sim P(h | v^{(1)})
+
+   v^{(2)} \sim P(v | h^{(1)})
+
+   h^{(2)} \sim P(h | v^{(2)})
+
+   v^{(3)} \sim P(v | h^{(2)})
+
+   \ldots
+
+Pour visualiser les données générées à l'étape :math:`k`, il vaut mieux utiliser les espérances
+(i.e. :math:`E[v^{(k)}_i|h^{(k-1)}]=P(v^{(k)}_i=1|h^{(k-1)})`) 
+qui sont moins bruitées que les échantillons :math:`v^{(k)}` eux-mêmes.
+
+.. _trainrbm:
+
+Entraînement des RBMs
+=====================
+
+Le gradient exact sur les paramètres d'une RBM (pour un exemple :math:`v`) est
+
+.. math::
+   \frac{\partial \log P(v)}{\partial W} = v' E[h | v] - E[v' h]
+
+   \frac{\partial \log P(v)}{\partial b} = E[h | v] - E[h]
+
+   \frac{\partial \log P(v)}{\partial c} = v - E[v]
+
+où les espérances sont prises sur la loi de la RBM. Les espérances
+conditionnelles sont calculables analytiquement (puisque
+:math:`E[h_i | v]=P(h_i=1|v)=` sortie du neurone caché, pour des :math:`h_i` binaires)
+mais les espérances inconditionnelles doivent se faire par MCMC.
+
+Divergence Contrastive
+----------------------
+
+La première et plus simple approximation de :math:`E[v' h]`, i.e., pour
+obtenir des 'exemples négatifs' (pour la 'partie négative' du gradient),
+consiste à faire une courte chaîne de Gibbs (de k étapes) *commencée sur un
+exemple d'apprentissage*.  On appelle cet algorithme CD-k
+(*Contrastive Divergence with k steps*). Voir l'algorithme 1
+dans `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_:
+
+.. math::
+  W \leftarrow W + \epsilon( v_1 \hat{h}_1' - v_2 \hat{h}'_2 )
+
+  b \leftarrow b + \epsilon( \hat{h}_1 - \hat{h}'_2 )
+
+  c \leftarrow c + \epsilon( v_1 - \hat{v}_2 )
+
+où :math:`\epsilon` est le pas de gradient, et l'on réfère à la notation
+de la chaîne de Gibbs des RBMs ci-haut, avec
+:math:`\hat{h}'_1` dénote le vecteur des probabilités :math:`P(h_i=1|v_1)`
+et de la même manière :math:`\hat{h}'_{2i}=P(h_i=1|v_2), \hat{v}'_{2i}=P(v_i=1|h_1)`.
+
+Ce qui est étonnant c'est que même avec k=1, on obtient
+des RBMs qui fonctionnent bien dans le sens qu'elles extraient
+des bonnes caractéristiques des entrées (ce qu'on peut vérifier
+visuellement en regardant les filtres, les reconstructions
+stochastiques après 1 étape de Gibbs, ou bien quantitativement
+en initialisant chaque couche d'un réseau profond avec W et b par pré-entraînement
+de la RBM associée à chaque couche).
+
+On peut montrer que CD-1 est très proche de l'entraînement d'un auto-encodeur
+par minimisation de l'erreur de reconstruction, et on voit que l'erreur
+de reconstruction diminue de manière assez monotone pendant l'entraînement
+par CD-1.
+
+On peut aussi montrer que CD-k tends vers le vrai gradient (en espérance) quand 
+k devient grand, mais à ce moment on multiplie le temps de calcul par k.
+
+Divergence Contrastive Persistente
+----------------------------------
+
+Pour obtenir un estimateur moins biaisé du vrai gradient sans augmenter
+beaucoup le temps de calcul, on peut utiliser l'algorithme de Divergence
+Contrastive Persistente (en anglais *Persistent Contrastive Divergence*,
+ou PCD). Plutôt que de redémarrer une chaîne de Gibbs après avoir vu
+chaque exemple :math:`v`, il s'agit de garder une chaîne de Gibbs toujours en activité
+pour obtenir nos échantillons d'exemples négatifs. Cette chaîne est
+un peu particulière car ses probabilités de transition changent
+(lentement), au fur et à mesure qu'on met à jour les paramètres de
+la RBM. Soit :math:`(v^-,h^-)` l'état de notre chaîne négative. 
+L'algorithme d'apprentissage est le suivant:
+
+.. math::
+  \hat{h}_i = P(h_i=1 | v)
+
+  \forall i, \hat{v}^-_i = P(v_i=1 | h^-)
+
+  v^- \sim \hat{v}^-
+
+  \forall i, \widehat{h_i}^- = P(h_i=1 | v^-)
+
+  h^- \sim \hat{h}^-
+
+  W \leftarrow W + \epsilon( v \hat{h}' - v^- (\hat{h}^-)' )
+
+  b \leftarrow b + \epsilon( \hat{h} - \hat{h}^- )
+
+  c \leftarrow c + \epsilon( v - \hat{v}^- )
+
+
+On trouve expérimentalement que PCD est meilleur en terme de génération
+d'exemples (et en terme de vraisemblance :math:`\log P(v)`)
+que CD-k, et est moins sensible à l'initialisation de la
+chaîne de Gibbs.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

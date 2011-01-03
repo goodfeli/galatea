@@ -1,0 +1,265 @@
+
+.. _gradient:
+
+Introduction to Gradient-Based Learning
+=======================================
+
+Consider a cost function :math:`C` which maps a parameter vector :math:`\theta`
+to a scalar :math:`C(\theta)` which we would like to minimize. In machine
+learning the cost function is typically the average or the expectation of
+a loss functional:
+
+.. math:: C(\theta) = \frac{1}{n} \sum_{i=1}^n L(f_\theta, z_i)
+
+(this is called the *training loss*) or
+
+.. math:: C(\theta) = \int L(f_\theta, z) P(z) dz
+
+(this is called the *generalization loss*), where in supervised
+learning we have :math:`z=(x,y)` and :math:`f_\theta(x)`
+is a prediction of :math:`y`, indexed by the parameters :math:`theta`.
+
+.. _grad: 
+
+The Gradient
+------------
+
+The gradient of the function :math:`C` of a single scalar :math:`\theta` is formally defined as follows:
+
+.. math::
+
+ \frac{\partial C(\theta)}{\partial \theta} = \lim_{\delta \theta \rightarrow 0}
+   \frac{C(\theta + \delta \theta) - C(\theta)}{\delta \theta}
+
+Hence it is the variation :math:`\Delta C` induced by a change :math:`\Delta \theta`,
+when :math:`\Delta \theta` is very small.
+
+When :math:`\theta` is a vector, the gradient :math:`\frac{\partial C(\theta)}{\partial \theta}`
+is a vector with one element :math:`\frac{\partial C(\theta)}{\partial \theta_i}`
+per :math:`\theta_i`, where we consider the other
+parameters fixed, we only make the change :math:`\Delta \theta_i` and we measure
+the resulting :math:`\Delta C`. When :math:`\Delta \theta_i` is small then
+:math:`\frac{\Delta C}{\Delta \theta_i}` becomes :math:`\frac{\partial C(\theta)}{\partial \theta_i}`.
+
+.. _gd:
+
+Gradient Descent
+----------------
+
+We want to find a :math:`\theta` that minimizes :math:`C(\theta)`.
+If we are able to solve 
+
+.. math::
+   \frac{\partial C(\theta)}{\partial \theta} = 0
+
+then we can find the minima (and maxima and saddle points), but in general
+we are not able to find the solutions of this equation, so we use numerical
+optimization methods. Most of these are based on the idea of *local descent*:
+iteratively modify :math:`\theta` so as to decrease :math:`C(\theta)`, until
+we cannot anymore, i.e., we have arrived at a local minimum (maybe global
+if we are lucky).
+
+The simplest of all these gradient-based optimization techniques is
+gradient descent. There are many variants of gradient descent, so
+we define here *ordinary gradient descent*:
+
+.. math::
+    \theta^{k+1} = \theta^k - \epsilon_k    \frac{\partial C(\theta^k)}{\partial \theta^k} 
+
+where :math:`\theta^k` represents our parameters at iteration :math:`k`
+and :math:`\epsilon_k` is a scalar that is called the **learning rate**, which
+can either be chosen fixed, adaptive or according to a fixed decreasing schedule.
+
+.. _sgd:
+
+Stochastic Gradient Descent
+---------------------------
+
+We exploit the fact that :math:`C` is an average, generally over i.i.d.
+(independently and identically distributed) examples, to make updates to :math:`\theta`
+much more often, in the extreme (and most common) case after each example:
+
+.. math::
+    \theta^{k+1} = \theta^k - \epsilon_k    \frac{\partial L(\theta^k,z)}{\partial \theta^k} 
+
+where :math:`z` is the next example from the training set, or the next example
+sampled from the training distribution, in the **online** setting (where we have not
+a fixed-size training set but instead access to a stream of examples from
+the data generating process). Stochastic Gradient Descent (SGD) is a more
+general principle in which the update direction is a random variable
+whose expectations is the true gradient of interest. The convergence
+conditions of SGD are similar to those for gradient descent, in spite
+of the added randomness.
+
+SGD can be **much faster** than ordinary (also called batch) gradient descent,
+because it makes updates much more often. This is especially true for large
+datasets, or in the online setting. In fact, in machine learning tasks,
+one only uses ordinary gradient descent instead of SGD when the function
+to minimize cannot be decomposed as above (as a mean).
+
+.. _minibatch:
+
+Minibatch Stochastic Gradient Descent
+-------------------------------------
+
+This is a minor variation on SGD in which we obtain the update direction by
+taking the average over a small batch (minibatch) of :math:`B` examples (e.g. 10, 20 or 100).
+The main advantage is that instead of doing :math:`B` Vector x Matrix products 
+one can often do a Matrix x Matrix product where the first matrix has :math:`B` rows,
+and the latter can be implemented more efficiently (sometimes 2 to 10 times faster,
+depending on the sizes of the matrices). 
+
+Minibatch SGD has the advantage that it works with a slightly less noisy
+estimate of the gradient (more so as :math:`B` increases). However, as
+the minibatch size increases, the number of updates done per computation
+done decreases (eventually it becomes very inefficient, like batch gradient
+descent). There is an optimal trade-off (in terms of computational efficiency)
+that may vary depending on the data distribution and the particulars of
+the class of function considered, as well as how computations are implemented
+(e.g. parallelism can make a difference).
+
+.. _momentum:
+
+Momentum
+--------
+
+Another variation that is similar in spirit to minibatch SGD is the use of
+so-called momentum: the idea is to compute on-the-fly (online) a moving
+average of the past gradients, and use this moving average instead of
+the current example's gradient, in the update equation.
+The moving average is typically an exponentially decaying moving
+average, i.e.,
+
+.. math::
+ \Delta \theta^{k+1} = \alpha \Delta \theta^k + (1-\alpha) \frac{\partial L(\theta^k,z)}{\partial \theta^k}
+
+where :math:`\alpha` is a hyper-parameter that controls the how much
+weight is given in this average to older vs most recent gradients.
+
+.. _lrate:
+
+Choosing the Learning Rate Schedule
+-----------------------------------
+
+If the step size is too large -- larger than twice the largest eigenvalue of the
+second derivative matrix (Hessian) of :math:`C` --, then gradient steps will go upward
+instead of downward. If the step size is too small, then convergence is slower.
+
+The most common choices of learning rate schedule (:math:`\epsilon_k`) are the following:
+
+* constant schedule, :math:`\epsilon_k = \epsilon_0`: this is the most common choice. 
+  It in theory gives an exponentially larger 
+  weight to recent examples, and is particularly appropriate in a non-stationary
+  environment, where the distribution may change. It is very robust but
+  error will stop improving after a while, where a smaller learning rate could
+  yield a more precise solution (approaching the minimum a bit more).
+
+* :math:`1/k` schedule: :math:`\epsilon_k = \epsilon_0 \frac{\tau}{\tau + k}`.
+
+  This schedule is guaranteed to reach asymptotic convergence (as :math:`k \rightarrow \infty`)
+  because it satisfies the following requirements:
+
+  .. math:: \sum_{k=1}^\infty \epsilon_k = \infty
+
+  .. math:: \sum_{k=1}^\infty \epsilon_k^2 < \infty
+
+  and this is true for any :math:`\tau` but :math:`\epsilon_0` must be small enough
+  (to avoid divergence, where the error rises instead of decreasing
+
+  A disadvantage is that an additional hyper-parameter :math:`\tau` is introduced.
+  Another is that in spite of its guarantees, a poor choice of :math:`\tau` can
+  yield very slow convergence.
+
+.. _flowgraph:
+
+Flow Graphs, Chain Rule and Backpropagation: Efficient Computation of the Gradient
+----------------------------------------------------------------------------------
+
+Consider a function (in our case it is :math:`L(\theta,z)`) of several arguments,
+and we wish to compute it as well as its derivative (gradient) w.r.t. some of its
+arguments. We will decompose the computation of the function in terms of
+elementary computations for which partial derivatives are easy to compute,
+forming a *flow graph* (as already discussed :ref:`there <depth>`).
+A flow graph is an acyclic graph where each node represents the result
+of a computation that is performed using the values associated with
+connected nodes of the graph. It has input nodes (with no predecessors)
+and output nodes (with no successors).
+
+Each node of the flow graph is associated with a symbolic expression
+that defines how its value is computed in terms of the values of its children
+(the nodes from which it takes its input). We will focus on flow graphs
+for the purpose of efficiently computing gradients, so we will keep track
+of gradients with respect to a special output node (denoted :math:`L`
+here to refer to a loss to be differentiated with respect to parameters,
+in our case). We will associate with  each node 
+
+ * the node value
+ * the symbolic expression that specifies how to compute the node value in terms
+   of the value of its predecessors (children)
+ * the partial derivative of :math:`L` with respect to the node value
+ * the symbolic expressions that specify to how compute the partial derivative
+   of each node value with respect to the values of its predecessors.
+
+Let :math:`L` be the output scalar node of the flow graph, and consider
+an arbitrary node :math:`u` whose parents (those nodes :math:`v_i` taking the value
+computed at :math:`u` as input). 
+In addition to the value :math:`u` (abuse of notation) associated
+with node :math:`u`, we will also associate with each node :math:`u`
+a partial derivative :math:`\frac{\partial L}{\partial u}`.
+
+The **chain rule for derivatives** specifies how the partial
+derivative :math:`\frac{\partial L}{\partial u}` for a node :math:`u`
+can be obtained **recursively** from the partial derivatives :math:`\frac{\partial L}{\partial v_i}`
+for its parents :math:`v_i`:
+
+.. math::
+  \frac{\partial L}{\partial u} = \sum_i \frac{\partial L}{\partial v_i} \frac{\partial v_i}{\partial u}
+
+Note that :math:`\frac{\partial L}{\partial L} = 1` which starts the recursion at the
+root node of the graph (node that in general it is a graph, not a tree, because there
+may be multiple paths from a given node to the root -- output -- node).
+Note also that each :math:`\frac{\partial v_i}{\partial u}` is an expression (and a corresponding
+value, when the inputs are given) that is associated with an *arc* of the graph
+(and each arc is associated with one such partial derivative).
+
+Note how the gradient computations involved in this recipe *go exactly in the
+opposite direction* compared to those required to compute :math:`L`.
+In fact we say that gradients are **back-propagated**, following the
+arcs *backwards*. The instantiation of this procedure for computing
+gradients in the case of feedforward multi-layer neural networks
+is called the :ref:`**back-propagation algorithm** <backprop>`.
+
+In the example already shown :ref:`earlier <depth>`, 
+:math:`L=sin(a^2+b/a)` and there are two paths from :math:`a` to :math:`L`.
+
+This recipe gives us the following nice guarantee. If the computation of :math:`L`
+is expressed with :math:`n` computations expressed through :math:`n` nodes
+(and each node computation requires a constant computation time)
+and :math:`m` arcs, then
+computing all the partial derivatives  :math:`\frac{\partial L}{\partial u}`
+requires (at most) :math:`O(m)` computations, using the above recursion
+(in general, with a bounded in-degree, this is also :math:`O(n)`).
+Furthermore, this is a lower bound, i.e., it is not possible to 
+compute the gradients faster (up to an additive and multiplicative constant).
+
+Note that there are many ways in which to compute these gradients, and
+whereas the above algorithm is the fastest one, it is easy to write
+down an apparently simple recursion that would instead be exponentially
+slower, e.g., in :math:`O(2^n)`. In general 
+:math:`\frac{\partial L}{\partial u}` can be written as 
+a sum over all paths in the graph from :math:`u` to :math:`L`
+of the products of the partial derivatives along each path.
+
+An illustration of this is with a graph with the following structure: 
+
+.. math::
+   x_t = f(x_{t-1}, y_{t-1})
+
+   y_t = g(x_{t-1}, y_{t-1})
+
+where there are :math:`n/2` such :math:`(x_t,y_t)` pairs of node, ending with 
+:math:`L=h(x_n,y_n)` and with input nodes :math:`x_0` and :math:`y_0`.
+The number of paths from :math:`x_0` to :math:`L` is :math:`2^{n-1}`.
+Note by mental construction how the number of paths doubles as we
+increase :math:`n` by 1.
+

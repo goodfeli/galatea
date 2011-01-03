@@ -1,0 +1,64 @@
+
+.. _deepchallenge:
+
+Le défi d'entraîner des réseaux de neurones profonds
+====================================================
+
+Ceci est un résumé de la section 4.2 de
+`Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.
+
+* Plusieurs résultats expérimentaux confirment que l'entraînement de réseaux de neurones (supervisés, initialisation aléatoire)
+est plus difficile quand ils sont profonds (3, 4 ou 5 couches cachées) que pas profonds (1 ou 2 couche cachée).
+Voir `Why Does Unsupervised Pre-training Help Deep Learning? <http://www.iro.umontreal.ca/~lisa/publications2/index.php/publications/show/438>`_.
+L'erreur de généralisation est toujours pire, mais l'erreur d'apprentissage peut être pire ou meilleure.
+Cela explique sans doute l'absence des architectures profondes dans la littérature scientifique avant 2006
+(sauf pour les réseaux à convolution).
+
+* Explications proposées:
+
+  * L'entraînement est coïncé dans des minima locaux, des plateaux, (ou bien sortir de l'apparent minimum
+    nécessiterait de passer par des zones de courbure trop élevée, où il faudrait un pas de gradient minuscule
+    pendant très longtemps pour en sortir).
+  * Plus le réseau est profond, plus le degré de non-linéarité du réseau augmente, ce qui augmenterait les
+    chances de trouver ces obstacles à l'optimisation.
+  * On peut plus facilement optimiser les couches près de la sortie, donc les couches inférieures restent
+    avec des transformations pas très utiles de l'entrée; le gradient se propage 'mal' en descendant les
+    couches, peut-être trop diffusé pour être utile pour guider l'apprentissage des couches inférieures.
+    Cela est confirmé par le succès des algorithmes comme celui de Weston et al (ICML 2008) qui 
+    guident une ou plusieurs couches intermédiaires par un algorithme d'apprentissage non-supervisé.
+    L'hypothèse de diffusion du gradient est cohérente avec l'observation qu'il est possible d'entraîner
+    avec succès des réseaux *à convolution* profonds.
+
+* L'avantage pour les réseaux profonds de faire un pré-entraînement non-supervisé est clair. Quelles en sont les raisons?
+C'est l'objet principal de `Why Does Unsupervised Pre-training Help Deep Learning? <http://www.iro.umontreal.ca/~lisa/publications2/index.php/publications/show/438>`_
+et aussi de la section 4.2 de Learning Deep Architectures for AI.
+En voici les explications proposées et les conclusions expérimentales principales:
+
+  * L'entraînement non-supervisé utilisé est local à chaque couche (pas besoin d'une optimisation qui coordonne toutes les couches).
+    Ainsi on remarque qu'une machine de Boltzmann profonde et un auto-encodeur profond ne fonctionne pas bien non plus si ils ne
+    sont pas pré-entraînés avec des RBMs (apprentissage local à chaque couche).
+  * Le pré-entraînement non-supervisé se comporte comme un régulariseur, qui favorise les poids des couches inférieures qui
+    sont cohérentes avec un bon modèle de la distribution des entrées, :math:`P(x)`. Il peut nuire si on a pas assez d'unités
+    cachées. L'a priori exploité est que les transformations des entrées qui sont bonnes pour :math:`P(x)` sont proches
+    de transformations qui sont bonnes pour :math:`P(y|x)`. Cet a priori est similaire à celui utilisé en apprentissage
+    semi-supervisé (d'un lien entre :math:`P(y|x)` et :math:`P(x)` vues comme des fonctions de :math:`x`).
+  * Il semble que le pré-entraînement non-supervisé initialise l'apprentissage supervisé dans une *bonne région* de l'espace
+    des paramètres, à partir de laquelle une descente locale trouve une meilleure solution que celles trouvées à partir d'initialisation
+    aléatoire. Les régions explorées pendant l'apprentissage supervisé sont très différentes selon que l'on initialise aléatoirement
+    ou par pré-entraînement non-supervisé.
+  * Un pré-entraînement supervisé aide mais pas autant qu'un pré-entraînement non-supervisé, peut-être parce qu'il est trop vorace
+    (élimine des projections qui seront seulement utile dans le contexte d'une architecture plus profonde) et qu'il n'exploite pas
+    l'a priori du pré-entraînement non-supervisé.
+  * Contrairement aux régulariseurs habituels, l'effet du pré-entraînement non-supervisé ne disparaît pas quand le nombre
+    d'exemples devient grand, à cause de son lien avec l'optimisation non-convexe (même avec beaucoup d'exemples, l'apprentissage
+    avec initialisation aléatoire reste dans une région moins intéressante, minimum local).
+  * On a pas un problème d'optimisation au sens habituel du terme parce qu'on peut réduire l'erreur d'apprentissage
+    (et même l'amener à 0 avec suffisamment d'unités cachées dans les couches de sortie) en optimisant bien les dernières
+    couches, mais pour bien généraliser, il faut aussi que les couches inférieures soient bien entraînées (à capter
+    des caractéristiques pertinentes des entrées).
+  * Il faut plus d'unités cachées quand on utilise le pré-entraînement non-supervisé, **peut-être** parce que la plupart
+    des unités cachées apprises par entraînement non-supervisé apprennent des fonctions qui ne sont pas très pertinentes
+    à la classification, alors que certaines sont très utiles (plus utiles que celles obtenues par initialisation aléatoires).
+
+
+

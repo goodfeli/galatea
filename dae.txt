@@ -1,0 +1,46 @@
+.. _dae:
+
+Auto-encodeurs débruitants vs auto-encodeurs ordinaires
+=======================================================
+
+Un auto-encodeur débruitant est comme un auto-encodeur, à la différence que
+pendant l'apprentissage, l'entrée vue par l'auto-encodeur n'est pas l'entrée
+brute mais une version stochastiquement corrompue. L'auto-encodeur débruitant
+est donc entraîné à reconstruire l'entrée originale à partir de la version
+bruitée. Voir l'article d'ICML 2008:
+`Denoising Auto-Encoders <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/217>`_.
+
+
+Différences principales entre les auto-encodeurs ordinaires et les auto-encodeurs débruitants:
+
+.. list-table:: Comparaison des auto-encodeurs ordinaires et débruitants
+   :widths: 20 30 30
+   :header-rows: 1
+
+   * - Aspect
+     - Auto-encodeurs ordinaires
+     - Auto-encodeurs débruitants
+   * - ce que ça fait
+     - trouver une représentation compacte
+     - capter la distribution jointe des entrées
+   * - critère d'apprentissage
+     - déterministe
+     - stochastique
+   * - nombre d'unités cachées
+     - on doit le limiter pour éviter d'apprendre l'identité                                        
+     - on peut avoir autant d'unités cachées que nécessaire pour capter la distribution
+   * - choix de la capacité (nombre d'unités cachées)
+     - impossible à partir du critère d'erreur de reconstruction, car toujours plus basse avec plus d'unités
+     - on peut utiliser la moyenne de l'erreur de reconstruction    
+   * - choix du nombre d'itérations d'apprentissage                       
+     - impossible à partir de l'erreur de reconstruction: utiliser l'erreur classification après ajustement supervisé
+     -  on peut faire du early stopping sur l'erreur de reconstruction moyenne
+   * - choix de la quantité de corruption des entrées                
+     - non-applicable                                        
+     - on ne peut pas utiliser l'erreur de reconstruction: utiliser l'erreur de classification après ajustement supervisé
+                                                                                          
+
+
+
+
+
