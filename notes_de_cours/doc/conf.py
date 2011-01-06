@@ -39,10 +39,10 @@ templates_path = ['.templates']
 source_suffix = '.txt'
 
 # The master toctree document.
-master_doc = 'contents'
+master_doc = 'contents_fr'
 
 # General substitutions.
-#project = 'Cours IFT6266 H10'
+#project = 'Cours IFT6266 H11'
 copyright = 'Yoshua Bengio'
 
 # The default replacements for |version| and |release|, also used in various
@@ -51,7 +51,7 @@ copyright = 'Yoshua Bengio'
 # The short X.Y version.
 #version = '1.0'
 # The full version, including alpha/beta/rc tags.
-release = '31.03.2010'
+release = '2011.01.05'
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -95,7 +95,7 @@ html_theme = 'sphinxdoc'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-html_title = 'Notes de cours IFT6266 Hiver 2010'
+html_title = 'Notes de cours IFT6266 Hiver 2011'
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #html_short_title = None
@@ -112,7 +112,7 @@ html_title = 'Notes de cours IFT6266 Hiver 2010'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['.static', 'images']
+#html_static_path = ['.static', 'images']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -165,7 +165,7 @@ latex_font_size = '11pt'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, document class [howto/manual]).
 latex_documents = [
-  ('contents', 'ift6266H10.tex', 'Notes de cours IFT6266 H10',
+  ('contents', 'ift6266H11.tex', 'Notes de cours IFT6266 H11',
    'Universit\\\'e de Montr\\\'eal, DIRO', 'manual'),
 ]
 

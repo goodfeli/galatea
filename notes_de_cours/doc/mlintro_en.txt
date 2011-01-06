@@ -1,11 +1,13 @@
-.. _mlintro:
+.. _mlintro_en:
+
+:ref:`Version en français <mlintro_fr>`
 
 Very Brief Introduction to Machine Learning for AI
 ==================================================
 
 The topics summarized here are covered in these `slides <http://www.iro.umontreal.ca/~pift6266/H10/intro_diapos.pdf>`_.
 
-.. _Intelligence:
+.. _Intelligence_en:
 
 Intelligence
 ------------
@@ -16,7 +18,7 @@ and reproduction, for most animals). To take better decisions requires *knowledg
 in a form that is *operational*, i.e., can be used to interpret sensory data
 and use that information to take decisions.
 
-.. _AI:
+.. _AI_en:
 
 Artificial Intelligence
 -----------------------
@@ -36,7 +38,7 @@ of what a human would do given a particular request or input).
 How do we get machines to acquire that kind of intelligence? Using data and examples to 
 build operational knowledge is what learning is about.
 
-.. _ML:
+.. _ML_en:
 
 Machine Learning
 ----------------
@@ -44,13 +46,13 @@ Machine Learning
 Machine learning has a long history and numerous textbooks have been written that
 do a good job of covering its main principles. Among the recent ones I suggest:
 
-* `Chris Bishop, "Pattern Recognition and Machine Learning", 2007 <http://research.microsoft.com/en-us/um/people/cmbishop/prml/>`_
+* `Christopher M. Bishop, "Pattern Recognition and Machine Learning", 2007 <http://research.microsoft.com/en-us/um/people/cmbishop/prml/>`_
 * `Simon Haykin, "Neural Networks: a Comprehensive Foundation", 2009 (3rd edition) <http://books.google.ca/books?id=K7P36lKzI_QC&dq=simon+haykin+neural+networks+book&source=gbs_navlinks_s>`_
 * `Richard O. Duda, Peter E. Hart and David G. Stork, "Pattern Classification", 2001 (2nd edition) <http://www.rii.ricoh.com/~stork/DHS.html>`_
 
 Here we focus on a few concepts that are most relevant to this course.
 
-.. _learning:
+.. _learning_en:
 
 Formalization of Learning
 -------------------------
@@ -67,7 +69,7 @@ a decision function :math:`f` and an example :math:`z`, and returns
 a real-valued scalar. We want to minimize the expected value of
 :math:`L(f,Z)` under the unknown generating process :math:`P(Z)`.
 
-.. _supervised:
+.. _supervised_en:
 
 Supervised Learning
 -------------------
@@ -93,7 +95,7 @@ The most common examples are
 
   .. math:: f_Y(X) \geq 0 \;\;,\; \sum_i f_i(X) = 1
 
-.. _unsupervised:
+.. _unsupervised_en:
 
 Unsupervised Learning
 ---------------------
@@ -111,8 +113,8 @@ kind of unsupervised learning algorithms are those that construct a
 new representation for :math:`Z`. Many deep learning algorithms fall
 in this category, and so does Principal Components Analysis.
 
-.. _local:
-    
+.. _local_en:
+
 Local Generalization
 --------------------
 
@@ -136,7 +138,7 @@ and that we care about about all the :math:`10^n` configurations of these
 one example of each of these :math:`10^n` configurations in order to
 be able to generalize to all of them.
 
-.. _distributed:
+.. _distributed_en:
 
 Distributed versus Local Representation and Non-Local Generalization
 --------------------------------------------------------------------

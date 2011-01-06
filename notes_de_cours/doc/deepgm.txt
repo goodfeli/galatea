@@ -441,7 +441,7 @@ dans `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/pu
 où :math:`\epsilon` est le pas de gradient, et l'on réfère à la notation
 de la chaîne de Gibbs des RBMs ci-haut, avec
 :math:`\hat{h}^{(1)}` dénote le vecteur des probabilités :math:`P(h^{(1)}_i=1|v_1)`
-et de la même manière :math:`\hat{h}^{(2)}_i=P(h^{(2)}_i=1|v^{(2)}).
+et de la même manière :math:`\hat{h}^{(2)}_i=P(h^{(2)}_i=1|v^{(2)})`.
 
 Ce qui est étonnant c'est que même avec k=1, on obtient
 des RBMs qui fonctionnent bien dans le sens qu'elles extraient

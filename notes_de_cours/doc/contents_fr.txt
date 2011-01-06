@@ -1,0 +1,22 @@
+
+.. _contents_fr:
+
+:ref:`English version <contents_en>`
+
+========
+Contenu
+========
+
+.. toctree::
+   :maxdepth: 2
+
+   plan
+   mlintro_fr
+   deepintro
+   gradient
+   mlp
+   deepchallenge
+   dae
+   deepgm
+
+

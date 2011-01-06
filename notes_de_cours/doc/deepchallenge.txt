@@ -8,11 +8,11 @@ Ceci est un résumé de la section 4.2 de
 `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.
 
 * Plusieurs résultats expérimentaux confirment que l'entraînement de réseaux de neurones (supervisés, initialisation aléatoire)
-est plus difficile quand ils sont profonds (3, 4 ou 5 couches cachées) que pas profonds (1 ou 2 couche cachée).
-Voir `Why Does Unsupervised Pre-training Help Deep Learning? <http://www.iro.umontreal.ca/~lisa/publications2/index.php/publications/show/438>`_.
-L'erreur de généralisation est toujours pire, mais l'erreur d'apprentissage peut être pire ou meilleure.
-Cela explique sans doute l'absence des architectures profondes dans la littérature scientifique avant 2006
-(sauf pour les réseaux à convolution).
+  est plus difficile quand ils sont profonds (3, 4 ou 5 couches cachées) que pas profonds (1 ou 2 couche cachée).
+  Voir `Why Does Unsupervised Pre-training Help Deep Learning? <http://www.iro.umontreal.ca/~lisa/publications2/index.php/publications/show/438>`_.
+  L'erreur de généralisation est toujours pire, mais l'erreur d'apprentissage peut être pire ou meilleure.
+  Cela explique sans doute l'absence des architectures profondes dans la littérature scientifique avant 2006
+  (sauf pour les réseaux à convolution).
 
 * Explications proposées:
 
@@ -30,9 +30,9 @@ Cela explique sans doute l'absence des architectures profondes dans la littérat
     avec succès des réseaux *à convolution* profonds.
 
 * L'avantage pour les réseaux profonds de faire un pré-entraînement non-supervisé est clair. Quelles en sont les raisons?
-C'est l'objet principal de `Why Does Unsupervised Pre-training Help Deep Learning? <http://www.iro.umontreal.ca/~lisa/publications2/index.php/publications/show/438>`_
-et aussi de la section 4.2 de Learning Deep Architectures for AI.
-En voici les explications proposées et les conclusions expérimentales principales:
+  C'est l'objet principal de `Why Does Unsupervised Pre-training Help Deep Learning? <http://www.iro.umontreal.ca/~lisa/publications2/index.php/publications/show/438>`_
+  et aussi de la section 4.2 de Learning Deep Architectures for AI.
+  En voici les explications proposées et les conclusions expérimentales principales:
 
   * L'entraînement non-supervisé utilisé est local à chaque couche (pas besoin d'une optimisation qui coordonne toutes les couches).
     Ainsi on remarque qu'une machine de Boltzmann profonde et un auto-encodeur profond ne fonctionne pas bien non plus si ils ne

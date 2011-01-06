@@ -21,13 +21,9 @@ Date                Sujets                  À lire en priorité
 ---------
 
 * Introduction au cours, objectifs du cours, modalités d'évaluation (`plan de cours <http://cours.iro.umontreal.ca/file.php/507/plan_H11.pdf>`_)
-* :ref:`mlintro`
 
-  * :ref:`Intelligence`
-  * :ref:`AI`
-  * :ref:`ML`
-  * :ref:`learning`
-  * :ref:`supervised`
-  * :ref:`unsupervised`
-  * :ref:`local`
-  * :ref:`distributed`
+.. toctree::
+    :maxdepth: 2
+
+    mlintro_fr
+
