@@ -1,5 +1,7 @@
 
-.. _contents:
+.. _contents_en:
+
+:ref:`Version en français <contents_fr>`
 
 ========
 Contents
@@ -9,7 +11,7 @@ Contents
    :maxdepth: 2
 
    plan
-   mlintro
+   mlintro_en
    deepintro
    gradient
    mlp
