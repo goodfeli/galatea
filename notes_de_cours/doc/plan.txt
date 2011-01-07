@@ -11,7 +11,7 @@ Date                Sujets                  À lire en priorité
 `6 janvier`_        Intro au cours          `plan de cours <http://cours.iro.umontreal.ca/file.php/507/plan_H11.pdf>`_ .
 
                     Intro à                 `diapos. <http://www.iro.umontreal.ca/~pift6266/H10/intro_diapos.pdf>`_ .
-                    l'apprentissage         Notes introductoires sur :ref:`l'apprentissage <mlintro>`,
+                    l'apprentissage         Notes introductoires sur :ref:`l'apprentissage <mlintro_fr>`,
                                             Sec. 1 et 2 de `Scaling Learning Algorithms towards AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
 
 ==================  ======================  ===============================================================================================

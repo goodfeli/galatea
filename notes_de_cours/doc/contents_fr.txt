@@ -12,7 +12,7 @@ Contenu
 
    plan
    mlintro_fr
-   deepintro
+   deepintro_fr
    gradient
    mlp
    deepchallenge

@@ -1,0 +1,200 @@
+.. _deepintro_fr:
+
+:ref:`English version <deepintro_en>`
+
+Introduction aux algorithmes d'apprentissage profonds
+=====================================================
+
+Pour une revue récente de l'apprentissage profond, voir:
+`Yoshua Bengio, Learning Deep Architectures for AI, Foundations and Trends
+in Machine Learning, 2(1), 2009
+<http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_
+
+.. _depth_fr:
+
+Profondeur
+----------
+
+Les calculs effectués pour produire une sortie à partir d'entrées peuvent être
+représentés par un **graphe de flot**: un graphe de flot est un graphe qui
+représente un calcul, dans lequel chaque nœud représente une opération élémentaire
+et une valeur (le résultat de cette opération sur les enfants de ce nœud).
+Les nœuds d'entrée n'ont pas d'enfants, et les nœuds de sortie n'ont pas de
+parents.
+Considérons l'ensemble des opérations possibles dans chaque nœud, et
+l'ensemble des structures de graphes possibles, cela définit une famille de
+fonctions.
+
+Le graphe de flot de l'expression :math:`sin(a^2 + b/a)` peut être représenté
+par un graph avec :
+
+* deux nœuds d'entrée, :math:`a` et :math:`b` ;
+
+* un nœud pour la division, :math:`b/a`, dont les entrées (les enfants) sont
+  :math:`a` et :math:`b` ;
+
+* un nœud pour le carré, prenant seulement :math:`a` comme entrée ;
+
+* un nœud pour l'addition, dont la valeur serait :math:`a^2+b/a`, prenant
+  comme entrées les nœuds :math:`a^2` et :math:`b/a` ;
+
+* un nœud de sortie calculant le sinus, dont la seule entrée est le nœud
+  d'addition.
+
+Une propriété particulière d'un tel *graphe de flot* est la **profondeur** :
+la longueur du plus long chemin depuis une entrée jusqu'à une sortie.
+
+La profondeur d'un réseau de neurones traditionnel (sans récurrence) peut être
+considérée comme égale au nombre de couches (c'est-à-dire le nombre de couches
+cachées plus 1, pour la couche de sortie).
+Les machines à vecteurs de support *(support vector machines, SVM)* ont une
+profondeur de 2 : un pour la sortie des noyaux ou l'espace de redescription
+*(feature space)*, et un pour la combinaison linéaire qui produit la sortie.
+
+.. _motivations_fr:
+
+Motivations pour les architectures profondes
+--------------------------------------------
+
+Les motivations principales pour étudier les algorithmes d'apprentissage pour
+des architectures profondes sont les suivantes :
+
+* :ref:`Le manque de profondeur peut être nuisible <insufficientdepth_fr>`
+* :ref:`Le cerveau a une architecture profonde <brain_fr>`
+* :ref:`Les processus cognitifs semblent être profonds <cognition_fr>`
+
+.. _insufficientdepth_fr:
+
+Manque de profondeur
+--------------------
+
+Une profondeur de 2 est suffisante dans de nombreux cas pour approcher
+n'importe quelle fonction avec une précision arbitraire. C'est le
+cas, par exemple, pour les portes logiques, les neurones formels (à
+seuil), les neurones avec une fonction d'activation sigmoïdale, et
+les unités à base radiale *(radial basis function, RBF)* comme dans
+les SVMs.  Mais cette possibilité a un prix : le nombre de nœuds
+requis dans le graphe (c'est-à-dire le nombre d'opérations, mais aussi
+le nombre de paramètres à entraîner) peut devenir très large.
+
+En fait, des résultats théoriques indiquent que, pour certaines
+familles de fonctions, le nombre de nœuds nécessaires peut grandir
+selon l'exponentielle du nombre de dimensions des entrées. Cela a été montré
+pour les portes logiques, les neurones formels, ainsi que les neurones à base
+radiale (RBF). Dans ce dernier cas, Hastad a montré que certaines familles de
+fonctions, qui peuvent être représentées efficacement (de façon compacte) avec
+:math:`O(n)` nœuds (pour :math:`n` entrées) lorsque la profondeur est
+:math:`d`, onb besoin d'un nombre exponentiel de nœuds (:math:`O(2^n)`)
+lorsque la profondeur est limitées à :math:`d-1`.
+
+Une architecture profonde peut être vue comme une forme de factorisation. La
+plupart des fonctions choisies au hasard ne peuvent pas être représentées
+efficacement, que ce soit avec une architecture profonde, ou peu profonde. En
+revanche, beaucoup de fonctions qui peuvent être représentées efficacement par
+une architecture profonde ne peuvent pas l'être avec une architecture peu
+profonde (voir l'exemple des polynômes dans `l'article de revue de Bengio
+<http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_).
+L'existence d'une représentation compacte et profonde indique qu'il existe une
+certaine structure dans la fonction représentée. Si la fonction n'a pas de
+structure du tout, il sera de toutes façons impossible de généraliser.
+
+.. _brain_fr:
+
+Architecture profonde du cerveau
+--------------------------------
+
+Les nombreuses études du cortex visuel montrent qu'il existe une série
+d'aires, qui contiennent chacune une représentation de l'entrée (le
+champ visuel), et des signaux se propagent d'une aire à la suivante
+(il y a aussi des connexions directes entre aires éloignées, et des
+chemins parallèles, donc la réalité est un peu plus complexe).
+
+Notons que les représentations dans le cerveau ne sont ni complètement denses
+et distribuées, ni purement locales, mais entre les deux : ce sont des
+représentations **éparses** (ou clairsemées, *sparse*). Environ 1 \% des
+neurones sont actifs simultanément dans le cerveau. Considérant le grand
+nombre de neurones, cela reste une représentation (exponentiellement)
+efficace.
+
+.. _cognition_fr:
+
+Profondeur des processus cognitifs
+----------------------------------
+
+* Les humains organisent leurs idées et leurs concepts de façon hiérarchique.
+
+* Les humains apprennent d'abord des concepts simples, et les combinent
+  ensuite pour représenter des concepts plus abstrait.
+
+* Les ingénieurs (généralement humains) construisent des solutions en
+  combinant de nombreux niveaux d'abstraction et de traitement.
+
+Nous aimerions arriver à apprendre et découvrir ces concepts (peut-être que
+l'ingénierie des connaissances n'a pas fonctionné car l'introspection n'était
+pas adéquate).
+L'introspection des concepts exprimable par le langage suggère aussi une
+représentation *éparse* : la description d'une entrée donnée (par exemple, une
+scène visuelle) fait appel uniquement à une faiblle fraction de tous les mots
+et concepts existants.
+
+.. _breakthrough_fr:
+
+Percée dans l'apprentissage des architectures profondes
+-------------------------------------------------------
+
+Avant 2006, les tentatives d'entraîner des architectures profondes avaient
+échoué : un réseau de neurones supervisé (non récurrent) profond donnait de
+moins bons résultats (en erreur d'entraînement et en erreur de test) que des
+réseaux moins profonds (1 ou 2 couches cachées).
+
+Trois articles, publiés en 2006, ont changé cela, dans le sillage du travail
+révolutionnaire de Hinton sur les *deep belief networks* (DBNs) :
+
+* Hinton, G. E., Osindero, S. and Teh, Y.,
+  `A fast learning algorithm for deep belief nets
+  <http://www.cs.toronto.edu/%7Ehinton/absps/fastnc.pdf>`_
+  Neural Computation 18:1527-1554, 2006
+
+* Yoshua Bengio, Pascal Lamblin, Dan Popovici and Hugo Larochelle,
+  `Greedy Layer-Wise Training of Deep Networks
+  <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/190>`_,
+  in J. Platt et al. (Eds), Advances in Neural Information Processing Systems
+  19 (NIPS 2006), pp. 153-160, MIT Press, 2007
+
+* Marc'Aurelio Ranzato, Christopher Poultney, Sumit Chopra and Yann LeCun
+  `Efficient Learning of Sparse Representations with an Energy-Based Model
+  <http://yann.lecun.com/exdb/publis/pdf/ranzato-06.pdf>`_,
+  in J. Platt et al. (Eds), Advances in Neural Information Processing Systems
+  (NIPS 2006), MIT Press, 2007
+
+Les trois principes-clés suivants sont utilisés dans ces trois articles :
+
+* L'apprentissage non supervisé de représentations est utilisé pour
+  pré-entraîner chaque couche.
+
+* L'apprentissage non supervisé se fait une couche à la fois, chaque couche
+  entraînée après la couche du dessous. La représentation apprise par une
+  couche est utilisée comme entrée par la couche suivante (du dessus).
+
+* L'apprentissage supervisé est utilisé pour raffiner toutes les couches
+  pré-entraînées (ainsi que la couche de sortie, et éventuellement d'autres
+  couches supplémentaires).
+
+Les DBNs utilisent des RBMs pour la phase non supervisée (l'apprentissage de
+représentations à chaque couche).
+L'article de Bengio et al. explore et compare des RBMs et des
+*auto-encodeurs* (un auto-encodeur est un réseau de neurones entraîné
+pour prédire sa propre entrée, en passant par une couche cachée qui
+sert de représentation intermédiaire).
+L'article de Ranzato et al. utilise des auto-encodeurs épars (qui sont
+similaires au *codage épars* (sparse coding) dans le contexte d'une
+architecture à *convolution*. Les auto-encodeurs et les architectures à
+convolution seront abordés plus tard dans le cours.
+
+Depuis 2006, une pléthore d'autres articles sur le sujet de l'apprentissage
+profond ont été publiés, certains exploitant d'autres principes pour guider
+l'entraînement de représentations intermédiaires.
+Voir `Learning Deep Architectures for AI
+<http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_
+pour une revue.
+

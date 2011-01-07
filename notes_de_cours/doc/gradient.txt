@@ -179,7 +179,7 @@ Consider a function (in our case it is :math:`L(\theta,z)`) of several arguments
 and we wish to compute it as well as its derivative (gradient) w.r.t. some of its
 arguments. We will decompose the computation of the function in terms of
 elementary computations for which partial derivatives are easy to compute,
-forming a *flow graph* (as already discussed :ref:`there <depth>`).
+forming a *flow graph* (as already discussed :ref:`there <depth_en>`).
 A flow graph is an acyclic graph where each node represents the result
 of a computation that is performed using the values associated with
 connected nodes of the graph. It has input nodes (with no predecessors)
