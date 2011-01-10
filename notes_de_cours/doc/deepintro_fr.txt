@@ -26,29 +26,29 @@ l'ensemble des structures de graphes possibles, cela définit une famille de
 fonctions.
 
 Le graphe de flot de l'expression :math:`sin(a^2 + b/a)` peut être représenté
-par un graph avec :
+par un graphe avec:
 
-* deux nœuds d'entrée, :math:`a` et :math:`b` ;
+* deux noeuds d'entrée, :math:`a` et :math:`b`;
 
 * un nœud pour la division, :math:`b/a`, dont les entrées (les enfants) sont
-  :math:`a` et :math:`b` ;
+  :math:`a` et :math:`b`;
 
-* un nœud pour le carré, prenant seulement :math:`a` comme entrée ;
+* un nœud pour le carré, prenant seulement :math:`a` comme entrée;
 
 * un nœud pour l'addition, dont la valeur serait :math:`a^2+b/a`, prenant
-  comme entrées les nœuds :math:`a^2` et :math:`b/a` ;
+  comme entrées les nœuds :math:`a^2` et :math:`b/a`;
 
 * un nœud de sortie calculant le sinus, dont la seule entrée est le nœud
   d'addition.
 
-Une propriété particulière d'un tel *graphe de flot* est la **profondeur** :
+Une propriété particulière d'un tel *graphe de flot* est la **profondeur**:
 la longueur du plus long chemin depuis une entrée jusqu'à une sortie.
 
 La profondeur d'un réseau de neurones traditionnel (sans récurrence) peut être
 considérée comme égale au nombre de couches (c'est-à-dire le nombre de couches
 cachées plus 1, pour la couche de sortie).
 Les machines à vecteurs de support *(support vector machines, SVM)* ont une
-profondeur de 2 : un pour la sortie des noyaux ou l'espace de redescription
+profondeur de 2: un pour la sortie des noyaux ou l'espace de redescription
 *(feature space)*, et un pour la combinaison linéaire qui produit la sortie.
 
 .. _motivations_fr:
@@ -133,7 +133,7 @@ Nous aimerions arriver à apprendre et découvrir ces concepts (peut-être que
 l'ingénierie des connaissances n'a pas fonctionné car l'introspection n'était
 pas adéquate).
 L'introspection des concepts exprimable par le langage suggère aussi une
-représentation *éparse* : la description d'une entrée donnée (par exemple, une
+représentation *éparse*: la description d'une entrée donnée (par exemple, une
 scène visuelle) fait appel uniquement à une faiblle fraction de tous les mots
 et concepts existants.
 

@@ -8,6 +8,9 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  ===============================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  ===============================================================================================
+`10 janvier`_       Intro aux               Notes introductoires sur les :ref:`architectures profondes <deepintro_fr>`,
+                    architectures           Sec. 1 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
+                    profondes
 `6 janvier`_        Intro au cours          `plan de cours <http://cours.iro.umontreal.ca/file.php/507/plan_H11.pdf>`_ .
 
                     Intro à                 `diapos. <http://www.iro.umontreal.ca/~pift6266/H10/intro_diapos.pdf>`_ .
@@ -16,6 +19,14 @@ Date                Sujets                  À lire en priorité
 
 ==================  ======================  ===============================================================================================
 
+
+10 Janvier
+----------
+
+.. toctree::
+    :maxdepth: 2
+
+    deepintro_fr
 
 6 Janvier
 ---------

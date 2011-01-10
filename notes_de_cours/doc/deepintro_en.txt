@@ -50,6 +50,7 @@ The main motivations for studying learning algorithms for deep architectures are
 * `Insufficient depth can hurt`_
 * `The brain has a deep architecture`_
 * `Cognitive processes seem deep`_
+* `Statistical sharing`_
 
 .. _insufficientdepth_en:
 
@@ -110,6 +111,47 @@ It would be nice to learn / discover these concepts
 Introspection of linguistically expressible concepts also suggests a *sparse* representation:
 only a small fraction of all possible words/concepts are applicable to a particular input
 (say a visual scene).
+
+.. _statistical_sharing_en:
+
+Statistical Sharing
+-------------------
+
+Intermediate representations can be exploited to *share statistical strength*.
+First, if deeper
+architectures can be more efficient in terms of number of computational units (to represent
+the same function), that in principle means that the number of parameters than need to be
+estimated is smaller, which gives rise to greater statistical efficiency. Another way
+to see this is to consider the sharing of statistical strength that occurs when different
+components of an architecture are *re-used* for different purposes (e.g., in the computation
+for different outputs, or different tasks, or in the computation for different intermediate
+features). Since the parameters of a component are used for different purposes, they
+share statistical strength among the different examples (or parts of examples) that rely
+on these parameters. This is similar and related to the sharing of statistical strength
+that occurs in distributed representations. For example, if the parameters of
+one hidden unit of an RBM are "used" for many examples (because that unit turns
+on for many examples), then there is more information available to estimate those
+parameters. When a new configuration of the input is presented, it may not correspond
+to any of those seen in the training set, but its "components" (possibly represented
+at a higher level of abstraction in intermediate representations) may have been seen
+previously.
+Sharing of statistical strength is a core idea
+behind many advances in machine learning. Components and parameters are shared across
+tasks in the case of multi-task learning, and deep architectures are particularly
+well suited for multi-task learning~(Collobert & Weston, ICML'2008). Similarly semi-supervised
+learning exploits statistical sharing between the tasks of learning the 
+input distribution P(X) and learning the conditional distribution P(Y|X).
+Because deep learning algorithms often rely heavily on unsupervised learning,
+they are well suited to exploit this particular form of statistical sharing.
+A very related form of sharing occurs in self-taught learning~(Raina et al, 2007),
+whereby we consider unlabeled training data from P(X|Y) for a set of classes Y's but really
+care about generalizing to tasks P(Y|X) for a different set of Y's. Recent
+work showed that deep learners benefit more from the self-taught learning 
+and multi-task learning frameworks than shallow learners~(Bengio et al, NIPS 2010 
+deep learning workshop).
+This is also a form of out-of-domain generalization, for which deep learners are also
+well suited, as shown in (Bengio et al, NIPS 2010 deep learning workshop) for pattern recognition
+and in (Glorot et al, 2011) for natural language processing (sentiment analysis).
 
 .. _breakthrough_en:
 
