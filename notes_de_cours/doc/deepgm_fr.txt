@@ -1,4 +1,4 @@
-.. _deepgm:
+.. _deepgm_fr:
 
 Modèles probabilistes pour les architectures profondes
 ======================================================

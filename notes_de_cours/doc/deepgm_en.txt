@@ -1,4 +1,4 @@
-.. _deepgm:
+.. _deepgm_en:
 
 Probabilistic models for deep architectures
 ===========================================
@@ -181,88 +181,89 @@ distribution, such as  :math:`P(h | v)` or :math:`P(x)`.
 Gibbs sampling
 --------------
 
+Numerous MCMC-based sampling methods exist. The one most commonly
+used for deep architectures is **Gibbs sampling**. It is simple and
+presents a cer
 Il existe de nombreuses méthodes d'échantillonage MCMC. Celle
 la plus couramment utilisée pour les architectures
 profondes est la **méthode d'échantillonage de Gibbs**
-(*Gibbs sampling*). Elle est simple et présente une certaine
-analogie avec le fonctionnement plausible du cerveau,
-où chaque neurone décide d'envoyer des impulsions
-avec un certain aléa, en fonction des impulsions qu'il
-reçoit d'autres neurones. 
+(*Gibbs sampling*). It is simple and has a certain plausible
+analogy with the functioning of the brain, where each neuron
+decides to send signals with a certain probability as a function
+of the signals it receives from other neurons.
 
-Supposons que l'on veuille échantillonner de la loi :math:`P(x)`
-où :math:`x` est un groupe de variables :math:`x_i`
-(et optionnellement on pourrait avoir des variables conditionnantes,
-mais elles ne changent rien à la procédure à part de conditionner
-tout, donc nous les ignorons dans la notation ici). 
-On notera :math:`x_{-i}=(x_1,x_2,\ldots,x_{i-1},x_{i+1},\ldots,x_n)`,
-soit toutes les variables de :math:`x` sauf :math:`x_i`.
-L'échantillonage de Gibbs ordinaire est donné par l'algorithme suivant:
+Let us suppose that we wish to sample from the distribution :math:`P(x)`
+where :math:`x` is a set of variables :math:`x_i` (we could optionally
+have a set of variables upon which we have conditioned, but this would
+not change the procedure, so we ignore them in the following description).
 
-* Choisir un :math:`x` initial de manière arbitraire (aléatoire ou pas)
-* Pour chaque pas de la chaîne de Markov
+Let :math:`x_{-i}=(x_1,x_2,\ldots,x_{i-1},x_{i+1},\ldots,x_n)`, i.e.
+all variables in :math:`x` excluding :math:`x_i`. Gibbs sampling is
+performed using the following algorithm:
 
-  * Itérer sur chaque :math:`x_k` dans :math:`x`
+* Choose an initial value of :math:`x` in an arbitrary manner (random or not)
+* For each step of the Markov chain: 
 
-    * Tirer :math:`x_k` de la loi conditionnelle :math:`P(x_k | x_{-k})`
+  * Iterate over each :math:`x_k` in :math:`x`
 
-Dans certains cas on peut regrouper les variables dans :math:`x`
-en blocs ou groupes de variables tels que tirer d'un groupe étant donnés les autres
-est facile. Dans ce cas il est avantageux d'interpréter l'algorithme
-ci-haut avec :math:`x_i` le i-eme groupe plutôt que la i-eme
-variable. On appelle cela l'échantillonage de Gibbs par blocs.
+    * Draw :math:`x_k` from the conditional distribution :math:`P(x_k | x_{-k})`
 
-Le Gradient dans un Champs de Markov Log-Linéaire
--------------------------------------------------
+In some cases one can group variables in :math:`x` into *blocks* or groups of
+variables such that drawing samples for an entire group, given the others, is
+easy. In this case it is advantageous ti interpret the algorithm above with
+:math:`x_i` as the :math:`i^{\mathrm{th}}` group rather than the
+:math:`i^{\mathrm{th}}` variable.  This is known as *block Gibbs sampling*.
 
-Voir
-`Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_
-pour les dérivations en détail.
+The gradient in a log-linear Markov random field
+------------------------------------------------
 
-Les champs de Markov log-linéaires sont des modèles probabilistes non-dirigés
-où la fonction d'énergie est *linéaire en terme des paramètres*
-:math:`\theta` du modèle:
+See 
+`Learning Deep Architectures for AI
+<http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_
+for detailed derivations.
+
+Log-linear Markov random fields are undirected probabilistic models where
+the energy function is *linear in the parameters* :math:`\theta` of the model:
 
 .. math::
   P(x) \propto e^{-\sum_i \theta_i f_i(x)}
 
-où les :math:`f_i(.)` sont appelées les *statistiques suffisantes*
-du modèles car les espérances :math:`E[f_i(x)]` sont suffisantes
-pour caractériser la distribution et estimer les paramètres.
-Notons que :math:`e^{\theta_i f_i(x)} = \psi_i(x)` est
-associé à chaque clique du modèle (en général seulement
-un sous-vecteur de :math:`x` influence :math:`f_i(x)`).
+where :math:`f_i(.)` are known as *sufficient statistics*
+of the model, because the expectations :math:`\mathbb{E}[f_i(x)]` are
+sufficient for characterizing the distribution and estimating parameters.
 
-Revenons au statistiques suffisantes. 
-On peut montrer que le gradient de la log-vraisemblance
-se développe ainsi:
+Note that :math:`e^{\theta_i f_i(x)} = \psi_i(x)` is associated with
+each clique in the model (in general, only a sub-vector of :math:`x`
+influences each :math:`f_i(x)`).
+
+Getting back to sufficient statistics, one can show that the 
+gradient of the log likelihood is as follows:
 
 .. math::
   \frac{-\log P(x)}{\partial \theta_i} = f_i(x) - \sum_x P(x) f_i(x)
 
-et le gradient moyen sur les exemples d'apprentissage :math:`x_t`
-est donc
+and the average gradient over training examples :math:`x_t` is thus
 
 .. math::
   \frac{1}{T} \sum_t \frac{-\log P(x_t)}{\partial \theta_i} = 
             \frac{1}{T}\sum_t f_i(x_t) - \sum_x P(x) f_i(x)
 
-On voit donc que le gradient est annullé quand *la moyenne des
-statistiques suffisantes sur la distribution d'apprentissage 
-égale leur espérance sur le modèle P*.
+Thus, it is clear that the gradient vanishes when *the average
+of the sufficient statistics under the training distribution
+equals their expectation under the model distribution :math:`P`*.
 
-Malheureusement, même calculer le gradient est difficile.
-On ne veut pas sommer sur tous les :math:`x` possibles, mais
-heureusement, on peut obtenir une approximation Monte-Carlo
-en faisant un ou plusieurs tirages de :math:`P(x)`, ce qui
-donne un gradient stochastique. En général, cependant, même
-faire un tirage sans biais de :math:`P(x)` est exponentiellement
-coûteux, et on utilise donc une méthode MCMC.
+Unfortunately, calculating this gradient is difficult. We do not want
+to sum over all possible :math:`x`, but fortunately one can obtain
+a Monte-Carlo approximation  by one or more draws from :math:`P(x)`,
+which gives us a noisy estimate of the gradient. In general, however,
+even to obtain an unbiased sample from :math:`P(x)` is exponentially
+costly, and thus one must use an MCMC method.
 
-On appelle **'partie positive'** la partie du gradient
-dûe au numérateur de la probabilité (:math:`-f_i(x)`),
-et **'partie négative'** la partie correspondant au gradient
-de la fonction de partition (le dénominateur).
+We refer to the terms of the gradient due to the numerator of
+the probability density (:math:`-f_i(x)`) as the **'positive phase'**
+gradient, and the terms of the gradient corresponding to the partition
+function (denominator of the probability density) as the 
+**'negative phase'** gradient.
 
 Marginalisation sur les variables cachées
 -----------------------------------------
