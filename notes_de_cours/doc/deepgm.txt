@@ -38,7 +38,7 @@ vecteur de variables :math:`x=(x_1,x_2,\ldots)` sous la forme
  P(x) = \frac{1}{Z} \prod_c \psi_c(x_c)
 
 où :math:`Z` est le facteur de normalisation (appelée **fonction de partition**),
-et la somme est sur des cliques (des sous-ensembles :math:`x_c` des éléments du vecteur :math:`x`),
+et le produit est sur des cliques (des sous-ensembles :math:`x_c` des éléments du vecteur :math:`x`),
 et les :math:`\psi_c(.)` sont des fonctions (une par clique) qui indiquent comment
 intéragissent les variables de chaque clique.
 
