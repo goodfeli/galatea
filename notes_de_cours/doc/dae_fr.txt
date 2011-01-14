@@ -1,4 +1,4 @@
-.. _dae:
+.. _dae_fr:
 
 Auto-encodeurs débruitants vs auto-encodeurs ordinaires
 =======================================================
