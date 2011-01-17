@@ -74,12 +74,12 @@ Here are common loss functionals, with the associated output non-linearity:
   loss in the 2-class case (the output for the one of the classes is actually
   redundant).
 
-.. _backprop:
+.. _backprop_en:
 
 The Back-Propagation Algorithm
 ------------------------------
 
-We just apply the recursive gradient computation algorithm seen :ref:`previously <flowgraph>`
+We just apply the recursive gradient computation algorithm seen :ref:`previously <flowgraph_en>`
 to the graph formed naturally by the MLP, with one node for each input unit,
 hidden unit and output unit. Note that each parameter (weight or bias) also
 corresponds to a node, and the final 
@@ -162,7 +162,7 @@ Training Multi-Layer Neural Networks
 ====================================
 
 Many algorithms have been proposed to train multi-layer neural networks
-but the most commonly used ones are :ref:`gradient-based <gradient>`.
+but the most commonly used ones are :ref:`gradient-based <gradient_en>`.
 
 Two fundamental issues guide the various strategies employed in training MLPs:
 
@@ -364,7 +364,7 @@ garantir la convergence asymptotique. Pour certains
 problèmes (surtout de classification) cela ne semble pas
 nécessaire, et peut même nuire. Une cédule de descente raisonnable est par
 exemple :math:`\epsilon_t = \frac{\epsilon_0 \tau}{t + \tau}`
-comme discuté :ref:`ici <lrate>`.
+comme discuté :ref:`ici <lrate_fr>`.
 Si on pouvait le calculer, le pas de gradient optimal
 serait :math:`\frac{1}{\lambda_{\rm max}}`, i.e., l'inverse
 de la valeur propre la plus grande de la matrice Hessienne,
@@ -393,7 +393,7 @@ Jusqu'à quelques dizaines de milliers d'exemples, la descente
 de gradient conjugués reste une des meilleures techniques
 pour l'optimisation des réseaux de neurones. Au-delà il vaut
 généralement mieux s'en tenir au gradient stochastique
-ou à sa version :ref:`minibatch <minibatch>`.
+ou à sa version :ref:`minibatch <minibatch_fr>`.
 
 Initialisation des paramètres
 -----------------------------
