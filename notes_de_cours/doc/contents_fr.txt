@@ -16,7 +16,7 @@ Contenu
    gradient_fr
    mlp
    deepchallenge
-   dae
-   deepgm
+   dae_fr
+   deepgm_fr
 
 

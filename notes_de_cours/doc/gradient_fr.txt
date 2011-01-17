@@ -10,7 +10,7 @@ paramètres :math:`\theta` à un scalaire :math:`C(\theta)`, que nous voulons
 minimiser. En apprentissage machine, la fonction de coût est généralement la
 moyenne, ou l'espérance, de la fonction d'erreur :math:`L` :
 
-..math:: C(\theta) = \frac{1}{n} \sum_{i=1}^n L(f_\theta, z_i)
+.. math:: C(\theta) = \frac{1}{n} \sum_{i=1}^n L(f_\theta, z_i)
 
 (c'est ce que l'on appelle l'*erreur d'entraînement*), ou
 

@@ -1,5 +1,7 @@
 .. _dae_en:
 
+:ref:`Version française <dae_fr>`
+
 Denoising autoencoders vs. ordinary autoencoders
 ================================================
 
@@ -40,7 +42,7 @@ autoencoders:
      - not applicable
      - Cannot use reconstruction error: use classification error after supervised
        fine-tuning
-                                                                                          
+
 
 
 
