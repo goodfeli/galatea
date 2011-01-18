@@ -14,7 +14,7 @@ Contenu
    mlintro_fr
    deepintro_fr
    gradient_fr
-   mlp
+   mlp_fr
    deepchallenge
    dae_fr
    deepgm_fr

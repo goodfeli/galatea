@@ -1,28 +1,31 @@
 
-.. _mlp:
+.. _mlp_en:
+
+.. :ref:`Version en français <mlp_fr>`
 
 Introduction to Multi-Layer Perceptrons (Feedforward Neural Networks)
 =====================================================================
 
-.. _mln:
+.. _mln_en:
 
 Multi-Layer Neural Networks
 ---------------------------
 
 An MLP (for Multi-Layer Perceptron) or multi-layer neural network defines
 a family of functions. Let us first consider the most classical case
-of a single hidden layer neural network, mapping a 
+of a single hidden layer neural network, mapping a
 :math:`d`-vector to an :math:`m`-vector (e.g. for regression):
 
 .. math::
 
   g(x) = b + W \tanh(c + V x)
 
-where :math:`x` is a :math:`d`-vector (the input), 
-:math:`V` is an :math:`k \times d` matrix (called input-to-hidden weights),
-:math:`c` is a :math:`k`-vector (called hidden units offsets or hidden unit biases),
-:math:`b` is an :math:`m`-vector (called output units offset or output units biases),
-and :math:`W` is an :math:`m \times h` matrix (called hidden-to-output weights).
+where:
+* :math:`x` is a :math:`d`-vector (the input),
+* :math:`V` is an :math:`k \times d` matrix (called input-to-hidden weights),
+* :math:`c` is a :math:`k`-vector (called hidden units offsets or hidden unit biases),
+* :math:`b` is an :math:`m`-vector (called output units offset or output units biases),
+* and :math:`W` is an :math:`m \times h` matrix (called hidden-to-output weights).
 
 The vector-valued function :math:`h(x)=\tanh(c + V x)` is called
 the output of the **hidden layer**. Note how the output is an affine
@@ -31,7 +34,7 @@ may be tacked on to it in some network architectures.
 The elements of the hidden layer are called *hidden units*.
 
 The kind of operation computed by the above :math:`h(x)` can be
-applied on :math:`h(x)` itself, but with different parameters 
+applied on :math:`h(x)` itself, but with different parameters
 (different biases and weights). This would give rise to a
 feedforward multi-layer network with two hidden layers. More generally,
 one can build a deep neural network by stacking more such layers.
@@ -39,7 +42,7 @@ Each of these layers may have a different dimension (:math:`k` above).
 A common variant is to have *skip connections*, i.e., a layer can take as
 input not only the layer at the previous level but also some of the lower layers.
 
-.. _loss:
+.. _loss_en:
 
 Most Common Training Criteria and Output Non-Linearities
 --------------------------------------------------------
@@ -51,21 +54,27 @@ Here are common loss functionals, with the associated output non-linearity:
 
 * for ordinary (L2) regression: no non-linearity (:math:`r(a)=a`), squared loss 
   :math:`L(f,(x,y))=||f(x)-y||^2 = \sum_i (f_i(x) - y_i)^2`.
+
 * for median (L1) regression: no non-linearity (:math:`r(a)=a`), absolute value
   loss :math:`L(f,(x,y))=|f(x)-y|_1 = \sum_i |f_i(x) - y_i|`.
+
 * for 2-way probabilistic classification: sigmoid non-linearity 
   (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a}`, applied element by element), 
   and **cross-entropy loss** :math:`L(f,(x,y))= -y \log f(x) -(1-y)\log(1-f(x))`
   for :math:`y` binary. Note that the sigmoid output :math:`f(x)` is in the (0,1) interval,
   and corresponds to an estimator of :math:`P(y=1|x)`. The predicted
   class is 1 if :math:`f(x)>\frac{1}{2}`.
+
 * for multiple binary probabilistic classification: each output element
   is treated as above.
+
 * for 2-way hard classification with hinge loss: no non-linearity (:math:`r(a)=a`)
   and the hinge loss is :math:`L(f,(x,y))= \max(0,1 - (2y-1) f(x))` (again for
   binary :math:`y`). This is the SVM classifier loss.
+
 * the above can be generalized to multiple classes by separately considering the
   binary classifications of each class against the others.
+
 * multi-way probabilistic classification: softmax non-linearity
   (:math:`r_i(a) = e^{a_i}/\sum_j e^{a_j}` with one output per class) 
   with the negative log-likelihood
@@ -144,7 +153,7 @@ is also a node.
      * :math:`\frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}`
      * :math:`\frac{\partial L}{\partial a_{k-1,j}} = \frac{\partial L}{\partial h_{k-1,j}} \frac{\partial h_{k-1,j}}{\partial a_{k-1,j}}=\frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)`
 
-.. _logreg:
+.. _logreg_en:
 
 Logistic Regression
 -------------------
@@ -156,7 +165,7 @@ It corresponds to a probabilistic linear classifier and the
 training criterion is convex in terms of the parameters
 (which garantees that there is only one minimum, which is global).
 
-.. _trainmlp:
+.. _trainmlp_en:
 
 Training Multi-Layer Neural Networks
 ====================================
