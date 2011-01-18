@@ -1,0 +1,102 @@
+.. _mlp_fr:
+
+:ref:`English version <mlp_en>`
+
+Introduction aux perceptrons multi-couches (réseaux de neurones à propagation avant)
+====================================================================================
+
+On appelle réseau de neurone "à propagation avant" *(feedforward neural
+network)* un réseau de neurone sans connection récurrente.
+
+.. _mln_fr:
+
+Réseaux de neurones multi-couches
+---------------------------------
+
+Un perceptron multi-couches *(multi-layer perceptron, MLP)*, ou réseau de
+neurones multi-couches, définit une famille de fonctions. Considérons d'abord
+le cas le plus classique, celui d'un réseau de neurones à une couche cachée,
+qui associe à un vecteur de dimension :math:`d` un vecteur de longueur
+:math:`m` (par exemple, pour effectuer une régression) :
+
+.. math::
+
+    g(x) = b + W \tanh(c + V x)
+
+où :
+
+* :math:`x` est un vecteur de longueur :math:`d` (l'entrée) ;
+* :math:`V` est une matrice :math:`k \times d` (les poids de la couche
+  d'entrée vers la couche cachée) ;
+* :math:`c` est un vecteur de longueur :math:`k` (les biais de la couche
+  cachée) ;
+* :math:`b` est un vecteur de longueur :math:`m` (les biais de la couche de
+  sortie) ;
+* :math:`W` est une matrice :math:`m \times h` (les poids de la couche cachée
+  vers la couche de sortie).
+
+La fonction :math:`h(x) = \tanh(x + V x)`, qui retourne un vecteur, est
+appelée la sortie de la **couche cachée**. Notons que dans le réseau
+ci-dessus, la sortie est une transformation affine de la couche cachée. Une
+non-linéarité peut être appliquée par dessus dans certaines architectures.
+Les éléments de la couche cachée sont appelés *unités cachées*.
+
+Il est possible d'appliquer à nouveau le même genre de transformation à
+:math:`h(x)` elle-même, avec des paramètres (biais et poids) différents. Cela
+donnerait un réseau de neurones multi-couches (à propagation avant) avec deux
+couches cachées. De manière plus générale, on peut construire un réseau de
+neurones profond en empilant plusieurs de ces couches. Chacune des couches
+peut avoir une taille différente (le :math:`k` utilisé ci-dessus).
+Une variante commune est l'ajout de *connexions directes*, c'est-à-dire qu'une
+couche peut prendre comme entrée à la fois la couche précédente et d'autres
+couches plus basses (plus proches de l'entrée).
+
+.. _loss_fr:
+
+Critères d'entraînements communs et non-linéarités de sortie
+------------------------------------------------------------
+
+Soit :math:`f(x) = r(g(x))`, où :math:`r` représente la fonction non-linéaire
+de sortie. En apprentissage supervisé, la sortie :math:`f(x)` peut être
+comparée avec une valeur cible, :math:`y`, par une fonction d'erreur,
+:math:`L(f,(x,y))`.
+Voici quelques fonctions d'erreur utilisées communément, avec la non-linéarité
+de sortie correspondante :
+
+* Pour une régression (L2) ordinaire : pas de non-linéarité (:math:`r(a)=a`),
+  erreur quadratique :math:`L(f,(x,y))=\left\|f(x)-y\right\|^2 = \sum_i (f_i(x) - y_i)^2`.
+
+* Pour une régression médiane (L1) : pas de non-linéarité (:math:`r(a)=a`),
+  erreur absolue : :math:`L(f,(x,y))=|f(x)-y|_1 = \sum_i |f_i(x) - y_i|`.
+
+* Pour la classification probabiliste à deux classes : la non-linéarité est
+  la sigmoïde logistique (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a}`, appliquée
+  élément par élément), et l'erreur est l'**entropie croisée**
+  *(cross-entropy)* :math:`L(f,(x,y))= -y \log f(x) -(1-y)\log(1-f(x))`,
+  pour :math:`y` binaire.
+  Notons que la sortie de la sigmoide :math:`f(x)` est dans l'intervalle
+  :math:`(0,1)`, et correspond à un estimateur de :math:`P(y=1|x)`. La classe
+  1 est prédite si :math:`f(x) > \frac{1}{2}`.
+
+* Pour la classification binaire multiple : chaque élément du vecteur de
+  sortie est traité comme ci-dessus.
+
+* Pour la classification dure à deux classes, avec l'erreur charnière *(hinge
+  loss)* : pas de non-linéarité, et l'erreur charnière est
+  :math:`L(f,(x,y))=\max(0,1 - (2y-1) f(x))` (ici aussi, pour :math:`y`
+  binaire). C'est l'erreur utilisée par les classifieurs comme les machines à
+  vecteurs de support *(support vector machines, SVM)*.
+
+* Le cas ci-dessus peut être généralisé à des classes multiples, en
+  considérant séparément la classification binaire de chaque classe contre
+  toutes les autres.
+
+* Pour la classification probabilistique multi-classes : la non-linéarité est
+  le softmax (:math:`r_i(a) = e^{a_i}/\sum_j e^{a_j}`, avec une sortie par
+  classe), l'erreur est la log-vraisemblance négative,
+  :math:`L(f,(x,y)) = - \log f_y(x)`.
+  Notons que :math:`\sum_i f_i(x)=1` et que :math:`0<f_i(x)<1`.
+  Notons aussi que c'est équivalent à l'entropie croisée dans le cas de 2
+  classes (la sortie pour la deuxième classe est en faite redondante).
+
+
