@@ -8,6 +8,10 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  ===============================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  ===============================================================================================
+`17 janvier`_       Le calcul du gradient   Notes sur le :ref:`calcul du gradient <flowgraph>`.
+`13 janvier`_       Intro aux               Notes introductoires sur les :ref:`architectures profondes <deepintro_fr>`,
+                    architectures           Sec. 1 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
+                    profondes               Notes sur le :ref:`gradient <gradient>`.
 `10 janvier`_       Intro aux               Notes introductoires sur les :ref:`architectures profondes <deepintro_fr>`,
                     architectures           Sec. 1 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
                     profondes
@@ -18,6 +22,30 @@ Date                Sujets                  À lire en priorité
                                             Sec. 1 et 2 de `Scaling Learning Algorithms towards AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
 
 ==================  ======================  ===============================================================================================
+
+17 Janvier
+----------
+* :ref:`gradient`
+
+  * :ref:`flowgraph`
+
+* :ref:`mlp`
+
+  * :ref:`mln`
+  * :ref:`loss`
+
+13 Janvier
+----------
+
+* :ref:`Introduction aux algorithmes d'apprentissage profond<deepintro_fr>`
+
+  * :ref:`breakthrough_fr`
+
+* :ref:`gradient`
+
+  * :ref:`grad`
+  * :ref:`gd`
+  * :ref:`sgd`
 
 
 10 Janvier
