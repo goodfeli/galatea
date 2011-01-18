@@ -229,7 +229,7 @@ arcs *backwards*. The instantiation of this procedure for computing
 gradients in the case of feedforward multi-layer neural networks
 is called the :ref:`**back-propagation algorithm** <backprop>`.
 
-In the example already shown :ref:`earlier <depth>`, 
+In the example already shown :ref:`earlier <depth_en>`, 
 :math:`L=sin(a^2+b/a)` and there are two paths from :math:`a` to :math:`L`.
 
 This recipe gives us the following nice guarantee. If the computation of :math:`L`
