@@ -243,7 +243,7 @@ Notons que la récursion commence à :math:`\frac{\partial L}{\partial L} = 1`,
 pour le nœud racine du graphe (dans le cas général, c'est bien un graphe et
 non un arbre, car il peut y avoir plusieurs chemins entre un nœud donné et le
 nœud racine, ou sortie).
-Notons qussi que chaque :math:`\frac{\partial v_i}{\partial u}` est une
+Notons aussi que chaque :math:`\frac{\partial v_i}{\partial u}` est une
 expression (à laquelle correspond une valeur, lorsque les valeurs d'entrée
 sont données) associée à un *arc* du graphe (et chaque arc est associé à
 une dérivée partielle de ce type).
@@ -253,7 +253,7 @@ exactement *dans le sens opposé* des calculs utilisés pour calculer :math:`L`.
 En fait, on dit que les gradients sont **rétropropagés**, en suivant les
 arcs *dans le sens inverse*. L'utilisation de cette procédure pour calculer
 le gradient dans le cas de réseaux de neurones (sans récurrence) multi-couches
-est appelée l'algorithme de la :ref:`**rétropropagation du gradient**
+est appelée l'algorithme de la :ref:`rétropropagation du gradient
 <backprop_fr>`.
 
 Dans l'exemple vu :ref:`plus tôt <depth_fr>`, :math:`L=sin(a^2+b/a)`, et il y

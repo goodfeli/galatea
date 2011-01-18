@@ -32,7 +32,7 @@ considérées utiles (nous considérons généralement la *bonne* décision comm
 celle qui est la plus utile).
 Cependant, il existe de nombreuses tâches faciles à réaliser pour des animaux
 ou des humains, mais qui restent hors d'atteinte pour les ordinateurs, au
-début du 21`e`:sup: siècle. La plupart de ces tâches font partie de ce que
+début du 21 :sup:`e` siècle. La plupart de ces tâches font partie de ce que
 l'on appelle l'*intelligence artificielle* (IA), ce qui inclut les tâches de
 perception, et de contrôle. Comment se fait-il que nous n'ayons pas réussi à
 écrire de programmes réalisant ces tâches ? Je crois que la principale raison
