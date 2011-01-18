@@ -1,186 +1,227 @@
+.. _mlp_fr:
 
-.. _mlp_en:
+:ref:`English version <mlp_en>`
 
-.. :ref:`Version en français <mlp_fr>`
+Introduction aux perceptrons multi-couches (réseaux de neurones à propagation avant)
+====================================================================================
 
-Introduction to Multi-Layer Perceptrons (Feedforward Neural Networks)
-=====================================================================
+On appelle réseau de neurone "à propagation avant" *(feedforward neural
+network)* un réseau de neurone sans connection récurrente.
 
-.. _mln_en:
+.. _mln_fr:
 
-Multi-Layer Neural Networks
----------------------------
+Réseaux de neurones multi-couches
+---------------------------------
 
-An MLP (for Multi-Layer Perceptron) or multi-layer neural network defines
-a family of functions. Let us first consider the most classical case
-of a single hidden layer neural network, mapping a
-:math:`d`-vector to an :math:`m`-vector (e.g. for regression):
+Un perceptron multi-couches (PMC, ou *multi-layer perceptron, MLP*), ou réseau de
+neurones multi-couches, définit une famille de fonctions. Considérons d'abord
+le cas le plus classique, celui d'un réseau de neurones à une couche cachée,
+qui associe à un vecteur de dimension :math:`d` un vecteur de longueur
+:math:`m` (par exemple, pour effectuer une régression) :
 
 .. math::
 
-  g(x) = b + W \tanh(c + V x)
+    g(x) = b + W \tanh(c + V x)
 
-where:
-* :math:`x` is a :math:`d`-vector (the input),
-* :math:`V` is an :math:`k \times d` matrix (called input-to-hidden weights),
-* :math:`c` is a :math:`k`-vector (called hidden units offsets or hidden unit biases),
-* :math:`b` is an :math:`m`-vector (called output units offset or output units biases),
-* and :math:`W` is an :math:`m \times h` matrix (called hidden-to-output weights).
+où :
 
-The vector-valued function :math:`h(x)=\tanh(c + V x)` is called
-the output of the **hidden layer**. Note how the output is an affine
-transformation of the hidden layer, in the above network. A non-linearity
-may be tacked on to it in some network architectures.
-The elements of the hidden layer are called *hidden units*.
+* :math:`x` est un vecteur de longueur :math:`d` (l'entrée) ;
+* :math:`V` est une matrice :math:`k \times d` (les poids de la couche
+  d'entrée vers la couche cachée) ;
+* :math:`c` est un vecteur de longueur :math:`k` (les biais de la couche
+  cachée) ;
+* :math:`b` est un vecteur de longueur :math:`m` (les biais de la couche de
+  sortie) ;
+* :math:`W` est une matrice :math:`m \times h` (les poids de la couche cachée
+  vers la couche de sortie).
 
-The kind of operation computed by the above :math:`h(x)` can be
-applied on :math:`h(x)` itself, but with different parameters
-(different biases and weights). This would give rise to a
-feedforward multi-layer network with two hidden layers. More generally,
-one can build a deep neural network by stacking more such layers.
-Each of these layers may have a different dimension (:math:`k` above).
-A common variant is to have *skip connections*, i.e., a layer can take as
-input not only the layer at the previous level but also some of the lower layers.
+La fonction :math:`h(x) = \tanh(x + V x)`, qui retourne un vecteur, est
+appelée la sortie de la **couche cachée**. Notons que dans le réseau
+ci-dessus, la sortie est une transformation affine de la couche cachée. Une
+non-linéarité peut être appliquée par dessus dans certaines architectures.
+Les éléments de la couche cachée sont appelés *unités cachées*.
 
-.. _loss_en:
+Il est possible d'appliquer à nouveau le même genre de transformation à
+:math:`h(x)` elle-même, avec des paramètres (biais et poids) différents. Cela
+donnerait un réseau de neurones multi-couches (à propagation avant) avec deux
+couches cachées. De manière plus générale, on peut construire un réseau de
+neurones profond en empilant plusieurs de ces couches. Chacune des couches
+peut avoir une taille différente (le :math:`k` utilisé ci-dessus).
+Une variante commune est l'ajout de *connexions directes*, c'est-à-dire qu'une
+couche peut prendre comme entrée à la fois la couche précédente et d'autres
+couches plus basses (plus proches de l'entrée).
 
-Most Common Training Criteria and Output Non-Linearities
---------------------------------------------------------
+.. _loss_fr:
 
-Let :math:`f(x)=r(g(x))` with :math:`r` representing the output non-linearity function.
-In supervised learning, the output :math:`f(x)` can be compared with
-a target value :math:`y` through a loss functional :math:`L(f,(x,y))`.
-Here are common loss functionals, with the associated output non-linearity:
+Critères d'entraînements communs et non-linéarités de sortie
+------------------------------------------------------------
 
-* for ordinary (L2) regression: no non-linearity (:math:`r(a)=a`), squared loss 
-  :math:`L(f,(x,y))=||f(x)-y||^2 = \sum_i (f_i(x) - y_i)^2`.
+Soit :math:`f(x) = r(g(x))`, où :math:`r` représente la fonction non-linéaire
+de sortie. En apprentissage supervisé, la sortie :math:`f(x)` peut être
+comparée avec une valeur cible, :math:`y`, par une fonction d'erreur,
+:math:`L(f,(x,y))`.
+Voici quelques fonctions d'erreur utilisées communément, avec la non-linéarité
+de sortie correspondante :
 
-* for median (L1) regression: no non-linearity (:math:`r(a)=a`), absolute value
-  loss :math:`L(f,(x,y))=|f(x)-y|_1 = \sum_i |f_i(x) - y_i|`.
+* Pour une régression (L2) ordinaire : pas de non-linéarité (:math:`r(a)=a`),
+  erreur quadratique :math:`L(f,(x,y))=\left\|f(x)-y\right\|^2 = \sum_i (f_i(x) - y_i)^2`.
 
-* for 2-way probabilistic classification: sigmoid non-linearity 
-  (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a}`, applied element by element), 
-  and **cross-entropy loss** :math:`L(f,(x,y))= -y \log f(x) -(1-y)\log(1-f(x))`
-  for :math:`y` binary. Note that the sigmoid output :math:`f(x)` is in the (0,1) interval,
-  and corresponds to an estimator of :math:`P(y=1|x)`. The predicted
-  class is 1 if :math:`f(x)>\frac{1}{2}`.
+* Pour une régression médiane (L1) : pas de non-linéarité (:math:`r(a)=a`),
+  erreur absolue : :math:`L(f,(x,y))=|f(x)-y|_1 = \sum_i |f_i(x) - y_i|`.
 
-* for multiple binary probabilistic classification: each output element
-  is treated as above.
+* Pour la classification probabiliste à deux classes : la non-linéarité est
+  la sigmoïde logistique (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a}`, appliquée
+  élément par élément), et l'erreur est l'**entropie croisée**
+  *(cross-entropy)* :math:`L(f,(x,y))= -y \log f(x) -(1-y)\log(1-f(x))`,
+  pour :math:`y` binaire.
+  Notons que la sortie de la sigmoide :math:`f(x)` est dans l'intervalle
+  :math:`(0,1)`, et correspond à un estimateur de :math:`P(y=1|x)`. La classe
+  1 est prédite si :math:`f(x) > \frac{1}{2}`.
 
-* for 2-way hard classification with hinge loss: no non-linearity (:math:`r(a)=a`)
-  and the hinge loss is :math:`L(f,(x,y))= \max(0,1 - (2y-1) f(x))` (again for
-  binary :math:`y`). This is the SVM classifier loss.
+* Pour la classification binaire multiple : chaque élément du vecteur de
+  sortie est traité comme ci-dessus.
 
-* the above can be generalized to multiple classes by separately considering the
-  binary classifications of each class against the others.
+* Pour la classification dure à deux classes, avec l'erreur charnière *(hinge
+  loss)* : pas de non-linéarité, et l'erreur charnière est
+  :math:`L(f,(x,y))=\max(0,1 - (2y-1) f(x))` (ici aussi, pour :math:`y`
+  binaire). C'est l'erreur utilisée par les classifieurs comme les machines à
+  vecteurs de support *(support vector machines, SVM)*.
 
-* multi-way probabilistic classification: softmax non-linearity
-  (:math:`r_i(a) = e^{a_i}/\sum_j e^{a_j}` with one output per class) 
-  with the negative log-likelihood
-  loss :math:`L(f,(x,y)) = - \log f_y(x)`. Note that :math:`\sum_i f_i(x)=1`
-  and :math:`0<f_i(x)<1`. Note also how this is equivalent to the cross-entropy
-  loss in the 2-class case (the output for the one of the classes is actually
-  redundant).
+* Le cas ci-dessus peut être généralisé à des classes multiples, en
+  considérant séparément la classification binaire de chaque classe contre
+  toutes les autres.
 
-.. _backprop_en:
+* Pour la classification probabilistique multi-classes : la non-linéarité est
+  le softmax (:math:`r_i(a) = e^{a_i}/\sum_j e^{a_j}`, avec une sortie par
+  classe), l'erreur est la log-vraisemblance négative,
+  :math:`L(f,(x,y)) = - \log f_y(x)`.
+  Notons que :math:`\sum_i f_i(x)=1` et que :math:`0<f_i(x)<1`.
+  Notons aussi que c'est équivalent à l'entropie croisée dans le cas de 2
+  classes (la sortie pour la deuxième classe est en faite redondante).
 
-The Back-Propagation Algorithm
-------------------------------
+.. _backprop_fr:
 
-We just apply the recursive gradient computation algorithm seen :ref:`previously <flowgraph_en>`
-to the graph formed naturally by the MLP, with one node for each input unit,
-hidden unit and output unit. Note that each parameter (weight or bias) also
-corresponds to a node, and the final 
+L'algorithme de rétropropagation
+--------------------------------
 
-Let us formalize a notation for MLPs with more than one hidden layer.
-Let us denote with :math:`h_i` the output *vector* of the i-th layer,
-starting with :math:`h_0=x` (the input), and finishing with
-a special output layer :math:`h_L` which produces the
-prediction or output of the network. 
+Il s'agit simplement d'appliquer l'algorithme récursif de calcul du gradient,
+vu :ref:`précédemment <flowgraph_fr>`, au graphe formé par le PMC, avec un
+nœud par unité d'entrée, par unité cachée, et par unité de sortie. Notons que
+chaque paramètre (biais ou poids) correspond aussi à un nœud.
 
-With tanh units in the hidden layers, we have (in matrix-vector notation):
+Voici quelques conventions de notation pour les PMC avec plus d'une couche
+cachée. On note :math:`h_i` le *vecteur* de sortie de la couche :math:`i`, en
+commençant par :math:`h_0(x) = x` (l'entrée), jusqu'à la couche de sortie,
+:math:`h_L`, qui produit la prédiction, ou sortie, du réseau.
 
-* for :math:`k = 1` to :math:`L-1`:
+Avec des unités tanh (dont la fonction d'activation est la tangente
+hyperbolique) dans les couches cachées, nous avons (en utilisant la notation
+matricielle) :
 
- * :math:`h_k = {\rm tanh}(b_k + W_k h_{k-1})`
+* Pour :math:`k = 1` à :math:`L-1`:
 
-   where :math:`b_k` is a vector of biases and :math:`W_k` is a matrix of weights connecting layer :math:`k-1` to layer :math:`k`.
-   The scalar computation associated with a single unit :math:`i` of layer :math:`k` is
+  * :math:`h_k = {\rm tanh}(b_k + W_k h_{k-1})`
 
-   :math:`h_{ki} = {\rm tanh}(b_{ki} + \sum_j W_{kij} h_{k-1,j})`
+    où :math:`b_k` est un vecteur de biais, et :math:`W_k` est une matrice de
+    poids, connectant la couche :math:`k-1` à la couche :math:`k`.
+    Le calcul scalaire associé à une unité donnée :math:`i` de la couche
+    :math:`k` est
+    :math:`h_{ki} = {\rm tanh}(b_{ki} + \sum_j W_{kij} h_{k-1,j})`.
 
-In the case of a probabilistic classifier, we would then have a softmax output layer, e.g.,
+Dans le cas d'un classifieur probabiliste, nous avons un softmax sur la couche
+de sortie, c'est-à-dire :
 
 * :math:`p = h_L = {\rm softmax}(b_L + W_L h_{L-1})`
 
-where we used :math:`p` to denote the output because it is a vector indicating
-a probability distribution over classes. And the loss is
+où nous notons la sortie :math:`p` parce que c'est un vecteur indiquant une
+distribution de probabilité sur les classes. L'erreur est
 
 * :math:`L = - \log p_y`
 
-where :math:`y` is the target class, i.e., we want to maximize :math:`p_y=P(Y=y|x)`, an
-estimator of the conditional probability of class :math:`y` given input :math:`x`.
+où :math:`y` est la classe cible, c'est-à-dire que l'on veut maximiser
+:math:`p_y=P(Y=y|x)`, qui est un estimateur de la probabilité conditionnelle
+de la classe :math:`y` étant donnée l'entrée :math:`x`.
 
-Let us now see how the recursive application of the chain rule in flow graphs
-is instantiated in this structure.  First of all, let us denote 
+Voyons maintenant comment se fait, dans cette structure, l'application
+récursive de la règle de dérivation en chaîne dans un graphe de
+flot. Soit
 
 :math:`a_k=b_k + W_k h_{k-1}`
 
-(for the argument of the non-linearity at each level) and note (from a small derivation) that
+l'argument de la non-linéarité à chaque couche, que nous appellerons le
+potentiel, notons que (par une dérivation rapide)
 
 :math:`\frac{\partial(- \log p_y)}{\partial a_{L,i}} = (p_i - 1_{y=i})`
 
-and that
+et que
 
 :math:`\frac{\partial \tanh(u)}{\partial u} = (1-\tanh(u)^2)`.
 
-Now let us apply the back-propagation recipe in the corresponding flow graph. Each parameter (each weight and
-each bias) is a node, each neuron potential :math:`a_{ik}` and each neuron output :math:`h_{ik}` 
-is also a node. 
+Maintenant, appliquons la méthode de la rétropropagation dans le graphe de
+flot correspondant. Chaque paramètre (chaque poids et chaque biais) est un
+nœud, le potentiel :math:`a_{ik}` et la sortie :math:`h_{ik}` de chaque
+neurone est aussi un nœud.
 
-* starting at the output node: :math:`\frac{\partial L}{\partial L} = 1`
-* then compute the gradient with respect to each pre-softmax sum :math:`a_{L,i}`: 
-  :math:`\frac{\partial L}{\partial a_{L,i}} = \frac{\partial L}{\partial L} \frac{\partial L}{\partial a_{L,i}} = (p_i - 1_{y=i})`
-* We can now repeat the same recipe for each layer. For :math:`k=L` down to 1
+* On part du nœud de sortie: :math:`\frac{\partial L}{\partial L} = 1`
 
-  * obtain trivially the gradient wrt biases: 
-    :math:`\frac{\partial L}{\partial b_{k,i}} = \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial b_{k,i}}=\frac{\partial L}{\partial a_{k,i}}`
-  * compute the gradient wrt weights: 
-    :math:`\frac{\partial L}{\partial W_{k,i,j}} = \frac{\partial L}{\partial a_{k,i}}\frac{\partial a_{k,i}}{\partial W_{k,i,j}} = \frac{\partial L}{\partial a_{k,i}} h_{k-1,j}`
-  * back-propagate the gradient into lower layer, if :math:`k>1`:
+* Ensuite, on calcule le gradient de :math:`L` par rapport à chacune des sommes
+  précédant le softmax, :math:`a_{L,i}`:
+  :math:`\frac{\partial L}{\partial a_{L,i}} = \frac{\partial L}{\partial L}
+  \frac{\partial L}{\partial a_{L,i}} = (p_i - 1_{y=i})`.
 
-     * :math:`\frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}`
-     * :math:`\frac{\partial L}{\partial a_{k-1,j}} = \frac{\partial L}{\partial h_{k-1,j}} \frac{\partial h_{k-1,j}}{\partial a_{k-1,j}}=\frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)`
+* Maintenant, on peut répéter la procédure pour chaque couche. Pour
+  :math:`k=L` descendant jusqu'à 1 :
 
-.. _logreg_en:
+  * On obtient facilement le gradient de :math:`L` par rapport aux biais :
+    :math:`\frac{\partial L}{\partial b_{k,i}} =
+    \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial b_{k,i}}
+    = \frac{\partial L}{\partial a_{k,i}}`.
 
-Logistic Regression
--------------------
+  * On calcule le gradient par rapport aux poids :
+    :math:`\frac{\partial L}{\partial W_{k,i,j}} = \frac{\partial L}{\partial
+    a_{k,i}}\frac{\partial a_{k,i}}{\partial W_{k,i,j}} = \frac{\partial
+    L}{\partial a_{k,i}} h_{k-1,j}`.
 
-Logistic regression is a special case of the MLP with no hidden layer
-(the input is directly connected to the output) and the cross-entropy
-(sigmoid output) or negative log-likelihood (softmax output) loss.
-It corresponds to a probabilistic linear classifier and the
-training criterion is convex in terms of the parameters
-(which garantees that there is only one minimum, which is global).
+  * On rétropropage le gradient vers la couche précédente, si :math:`k>1` :
 
-.. _trainmlp_en:
+    * :math:`\frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial
+      L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} =
+      \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}`
 
-Training Multi-Layer Neural Networks
-====================================
+    * :math:`\frac{\partial L}{\partial a_{k-1,j}} = \frac{\partial
+      L}{\partial h_{k-1,j}} \frac{\partial h_{k-1,j}}{\partial
+      a_{k-1,j}}=\frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)`
 
-Many algorithms have been proposed to train multi-layer neural networks
-but the most commonly used ones are :ref:`gradient-based <gradient_en>`.
+.. _logreg_fr:
 
-Two fundamental issues guide the various strategies employed in training MLPs:
+Régression logistique
+---------------------
 
- * training as efficiently as possible, i.e., getting training error
-   down as quickly as possible, avoiding to get stuck in narrow
-   valleys or even local minima of the cost function,
+La régression logistique est un cas particulier de PMC, qui n'a pas de couche
+cachée (l'entrée est directement connectée à la sortie), dont l'erreur est
+l'entropie croisée (sortie sigmoïde), ou la log-vraisemblance négative (sortie
+softmax). C'est un classifieur linéaire probabiliste, et le critère
+d'entraînement est convexe selon les paramètres (ce qui garantit qu'il existe
+un seul minimum, global).
 
- * controlling capacity so as to achieve the largest capacity
-   avoids overfitting, i.e., to minimize generalization error.
+.. _trainmlp_fr:
+
+L'entraînement de réseaux de neurones multi-couches
+===================================================
+
+De nombreux algorithmes pour entraîner des réseaux de neurones multi-couches
+ont été proposés, mais les plus couramment utilisés sont :ref:`à base de
+gradient <gradient_fr>`.
+
+Deux principes fondamentaux guident les différentes stratégies employées pour
+entraîner des PMC :
+
+* Entraîner aussi efficacement que possible, c'est-à-dire faire baisser
+  l'erreur d'entraînement aussi vite que possible, éviter d'être bloqué dans
+  une vallée étroite ou un minimum local de la fonction de coût ;
+
+* Contrôler la capacité, de manière à éviter le sur-apprentissage,
+  afin de minimiser l'erreur de généralisation.
 
 Problème fondamentalement difficile d'optimisation
 --------------------------------------------------

@@ -13,10 +13,10 @@ Contents
    plan
    mlintro_en
    deepintro_en
-   gradient
+   gradient_en
    mlp
    deepchallenge
-   dae
-   deepgm
+   dae_en
+   deepgm_en
 
 

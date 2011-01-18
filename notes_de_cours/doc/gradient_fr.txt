@@ -1,0 +1,293 @@
+.. _gradient_fr:
+
+:ref:`English version <gradient_en>`
+
+Introduction à l'apprentissage par descente de gradient
+=======================================================
+
+Considérons une fonction de coût :math:`C`, qui associe un vecteur de
+paramètres :math:`\theta` à un scalaire :math:`C(\theta)`, que nous voulons
+minimiser. En apprentissage machine, la fonction de coût est généralement la
+moyenne, ou l'espérance, de la fonction d'erreur :math:`L` :
+
+.. math:: C(\theta) = \frac{1}{n} \sum_{i=1}^n L(f_\theta, z_i)
+
+(c'est ce que l'on appelle l'*erreur d'entraînement*), ou
+
+.. math:: C(\theta) = \int L(f_\theta, z) P(z) dz
+
+(c'est l'*erreur de généralisation*). En apprentissage supervisé, on a
+:math:`z=(x,y)`, et :math:`f_\theta(x)` est une prédiction de :math:`y`,
+indexée par les paramètres :math:`\theta`.
+
+.. _grad_fr:
+
+Le gradient
+-----------
+
+Le gradient de la fonction :math:`C` par rapport à un scalaire :math:`\theta`
+est défini formellement comme suit :
+
+.. math::
+
+  \frac{\partial C(\theta)}{\partial \theta} =
+    \lim_{\delta \theta \rightarrow 0}
+    \frac{C(\theta + \delta \theta) - C(\theta)}{\delta \theta}
+
+C'est-à-dire que c'est la variation :math:`\Delta C` provoquée par un
+changement :math:`\Delta \theta`, dans la limite où :math:`\Delta \theta`
+est très petit.
+
+Lorsque :math:`\theta` est un vecteur, le gradient
+:math:`\frac{\partial C(\theta)}{\partial \theta}`
+est un vecteur, contenant un élément
+:math:`\frac{\partial C(\theta)}{\partial \theta_i}`
+pour chaque :math:`\theta_i`, en considérant les autres paramètres fixés :
+on fait le changement :math:`\Delta \theta_i`, et on mesure le
+:math:`\Delta C` résultant. Lorsque :math:`\Delta \theta_i` est petit, alors
+:math:`\frac{\Delta C}{\Delta \theta_i}` devient
+:math:`\frac{\partial C(\theta)}{\partial \theta_i}`.
+
+.. _gd_fr:
+
+Descente de gradient
+--------------------
+
+Nous voulons trouver une valeur de :math:`\theta` qui minimise
+:math:`C(\theta)`. Si nous arrivons à résoudre
+
+.. math::
+    \frac{\partial C(\theta)}{\partial \theta} = 0
+
+alors nous pouvons trouver les minimums (et les maximums, et les points de
+selle), mais généralement nous ne sommes pas capables de trouver les solutions
+de cette équation, donc nous utilisons des méthodes numériques d'optimisation.
+La plupart de ces méthodes reposent sur l'idée de la *descente locale* :
+on modifie itérativement :math:`\theta` pour diminuer :math:`C(\theta)`,
+jusqu'à ce que ça devienne impossible, c'est-à-dire que nous sommes arrivés à
+un minimum local (et peut-être global, avec de la chance).
+
+La technique la plus simple, parmi les techniques d'optimisation à base de
+gradient, est la descente de gradient. Il existe de nombreuses variantes de
+descente de gradient, commençons par la *descente de gradient ordinaire* :
+
+.. math::
+    \theta^{k+1} = \theta^k - \epsilon_k  \frac{\partial C(\theta^k)}{\partial \theta^k}
+
+où :math:`\theta^k` représente nos paramètres à l'itération :math:`k`, et
+:math:`\epsilon_k` est un scalaire appelé **pas de gradient** *(learning
+rate)*, qui peut être fixé, adaptatif, ou déterminé par un échéancier
+*(schedule)*.
+
+.. _sgd_fr:
+
+Descente de gradient stochastique
+---------------------------------
+
+Pour la descente de gradient stochastique, nous exploitons le fait que
+:math:`C` est une moyenne sur des exemples généralement i.i.d. (indépendants
+et identiquement distribués) pour faire des mises à jour de :math:`\theta` de
+manière beaucoup plus fréquente, à la limite (et dans le cas le plus commun)
+après chaque exemple :
+
+.. math::
+    \theta^{k+1} = \theta^k - \epsilon_k    \frac{\partial L(\theta^k,z)}{\partial \theta^k}
+
+où :math:`z` est le prochain exemple dans l'ensemble d'entraînement, ou le
+prochain exemple tiré de la distribution d'entraînement dans le cas **en
+ligne** *(online)* (où l'on n'a pas accès à un ensemble d'entraînement de
+taille fixe, mais à un flux d'exemples provenant d'un processus de génération
+de données).
+
+La descente de gradient stochastique *(stochastic gradient descent, SGD)* est
+un principe plus général, dans lequel la direction de la mise à jour est une
+variable aléatoire, dont l'espérance est le véritable gradient qui nous
+intéresse. Les conditions de convergence de la SGD sont similaires à celles de
+la descente de gradient, malgré la plus grande quantité de hasard.
+
+La SGD peut être **beaucoup plus rapide** que la descente de gradient
+ordinaire *(batch)*, parce que le nombre de mises à jour est beaucoup plus
+grand. C'est particulièrement vrai pour des jeux de données volumineux, ou
+pour le cas en ligne. En fait, dans les tâches d'apprentissage machine, on
+n'utilise la descente de gradient ordinaire (au lieu de stochastique) que
+lorsque la fonction à minimiser ne peut pas être décomposée comme ci-dessus
+(comme une moyenne).
+
+.. _minibatch_fr:
+
+Descente de gradient stochastique par mini-lots
+-----------------------------------------------
+
+C'est une variante de la SGD, dans laquelle on obtient la direction de la mise
+à jour en prenant la moyenne de l'erreur sur un petit nombre d'exemples
+(mini-lot, ou *minibatch*) :math:`B` (par exemple, 10, 20 ou 100).
+L'avantage principal est qu'au lieu d'effectuer :math:`B` produits
+vecteur-matrice, on peut souvent faire un produit matrice-matrice, la première
+matrice ayant :math:`B` rangées, ce qui peut être implémenté de façon beaucoup
+plus efficace (parfois 2 à 10 fois plus rapide, selon la taille des matrices).
+
+La SGD par mini-lots a l'avantage de travailler avec un estimé du gradient qui
+est moins bruité (de moins en moins bruité lorsque :math:`B` augmente). Par
+contre, lorsque la taille du lot augmente, le nombre de mises à jour diminue
+par rapport au nombre de calculs faits (à la limite, cela devient très
+inefficace, autant que la descente de gradient ordinaire).
+Il y a un compromis optimal (en terme d'efficacité computationnelle), qui peut
+varier selon la distribution des données et les particularités de la classe de
+fonctions considérée, ainsi que de la manière dont les calculs sont réalisés
+(l'architecture matérielle et le parallélisme peuvent faire une différence).
+
+.. _momentum_fr:
+
+Inertie *(momentum)*
+--------------------
+
+Une autre variation, dont l'esprit est similaire à celui de la SGD par
+mini-lots, est l'utilisation d'un terme dit d'inertie *(momentum)*:
+l'idée est de calculer à la volée une moyenne mobile des gradients précédents,
+et d'utiliser cette moyenne mobile, et non le gradient de l'exemple courant,
+dans la formule de mise à jour.
+La moyenne mobile est généralement une moyenne mobile exponentielle :
+
+.. math::
+    \Delta \theta^{k+1} = \alpha \Delta \theta^k + (1-\alpha) \frac{\partial L(\theta^k,z)}{\partial \theta^k}
+
+où :math:`\alpha` est un hyper-paramètre contrôlant le poids relatif des
+gradients plus ancients par rapport aux plus récents.
+
+.. _lrate_fr:
+
+Choisir l'échéancier du pas de gradient
+---------------------------------------
+
+Si le pas de gradient est trop grand -- plus grand que le double de la plus
+grande valeur propre de la dérivée seconde (hessienne) de :math:`C` --, alors
+les mises à jour font augmenter le coût au lieu de le diminuer. Si le pas de
+gradient est trop petit, la convergence est plus lente.
+
+Les choix d'échéancier du pas de gradient (:math:`\epsilon_k`) sont les
+suivants:
+
+* Valeur constante, :math:`\epsilon_k = \epsilon_0` : c'est le choix le plus
+  commun. En théorie, il donne un poids exponentiellement plus grand aux
+  exemples les plus récents, et il est particulièrement adapté dans un
+  environnement non stationnaire, où la distribution peut changer.
+  Il est très robuste, mais l'erreur arrête de diminué après un certain temps,
+  alors qu'un pas de gradient plus petit pourrait donner une solution plus
+  précise (s'approcher un peu plus du minimum).
+
+* Diminution en :math:`1/k` :
+  :math:`\epsilon_k = \epsilon_0 \frac{\tau}{\tau + k}`.
+  Il est garanti que cet échéancier arrivera à converger asymptotiquement
+  (lorsque :math:`k \rightarrow \infty`), car il satisfait aux conditions
+  suivantes :
+
+  .. math:: \sum_{k=1}^\infty \epsilon_k = \infty
+
+  .. math:: \sum_{k=1}^\infty \epsilon_k^2 < \infty
+
+  Cette garantie est vraie quel que soit :math:`\tau`, mais :math:`\epsilon_0`
+  doit être assez petit pour éviter de diverger (lorsque l'erreur augmente au
+  lieu de diminuer).
+
+  Un des inconvénients est l'ajout d'un nouvel hyper-paramètre :math:`\tau`.
+  Un autre problème est que, malgré les garanties, un mauvais choix de
+  :math:`\tau` peut entraîner une convergence très lente.
+
+.. _flowgraph_fr:
+
+Graphes de flot, dérivée en chaîne et rétropropagation : calcul efficace du gradient
+------------------------------------------------------------------------------------
+
+Considérons une fonction (dans notre cas, ce sera :math:`L(\theta,z)`) de
+plusieurs arguments, nous voulons calculer sa valeur, ainsi que celle de sa
+dérivée (son gradient) par rapport à certains de ses arguments. Nous allons
+décomposer le calcul de la fonction en termes de calculs élémentaires, pour
+lesquels les dérivées partielles sont faciles à calculer, formant ainsi un
+*graphe de flot* (comme déjà mentionné :ref:`ici <depth_fr>`).
+Un graphe de flot est un graphe dirigé acyclique, où chaque nœud représente le
+résultat d'un calcul qui est effectué sur les valeurs associées aux nœuds du
+graphe qui lui sont connectés. Le graphe a des nœuds d'entrée (sans
+prédécesseurs), et des nœuds de sortie (sans sucesseurs).
+
+Chaque nœud du graphe de flot est associé à une expression symbolique, qui
+définit comment sa valeur est calculée à partir des valeurs de ses enfants
+(les nœuds qui lui servent d'entrées). Nous nous concentrerons sur
+l'utilisation des graphes de flot pour un calcul efficace du gradient, plus
+particulièrement du gradient d'un nœud de sortie particulier, scalaire (noté
+:math:`L` ici, on s'intéresse au gradient d'une fonction d'erreur par rapport
+aux paramètres). À chaque nœud, nous associerons :
+
+* la valeur du nœud,
+* l'expression symbolique qui spécifie comment calculer la valeur du nœud à
+  partir des valeurs de ses prédécesseurs (ses enfants),
+* la dérivée partielle de :math:`L` par rapport à la valeur du nœud,
+* l'expression symbolique qui spécifie comment calculer la valeur de cette
+  dérivée partielle, à partir des valeurs de ses prédécesseurs.
+
+Soit :math:`L` le nœud de sortie scalaire du graphe de flot, considérons un
+nœud arbitraire :math:`u`, dont les parent (les nœuds qui
+prennent comme entrée la valeur calculée par :math:`u`) sont :math:`v_i`.
+En plus de la valeur :math:`u` (c'est un abus de notation) associée au nœud
+:math:`u`, nous allons aussi associer à chaque nœud :math:`u` une dérivée
+partielle : :math:`\frac{\partial L}{\partial u}`.
+
+La **règle de dérivation en chaîne** spécifie comment la dérivée partielle
+:math:`\frac{\partial L}{\partial u}` pour un nœud :math:`u` peut être
+obtenue, de manière **récursive**, à partir des dérivées partielles
+:math:`\frac{\partial L}{\partial v_i}` pour ses parents :math:`v_i` :
+
+.. math::
+  \frac{\partial L}{\partial u} = \sum_i \frac{\partial L}{\partial v_i} \frac{\partial v_i}{\partial u}
+
+Notons que la récursion commence à :math:`\frac{\partial L}{\partial L} = 1`,
+pour le nœud racine du graphe (dans le cas général, c'est bien un graphe et
+non un arbre, car il peut y avoir plusieurs chemins entre un nœud donné et le
+nœud racine, ou sortie).
+Notons aussi que chaque :math:`\frac{\partial v_i}{\partial u}` est une
+expression (à laquelle correspond une valeur, lorsque les valeurs d'entrée
+sont données) associée à un *arc* du graphe (et chaque arc est associé à
+une dérivée partielle de ce type).
+
+On remarque que les calculs de gradient utilisés dans cette méthode vont
+exactement *dans le sens opposé* des calculs utilisés pour calculer :math:`L`.
+En fait, on dit que les gradients sont **rétropropagés**, en suivant les
+arcs *dans le sens inverse*. L'utilisation de cette procédure pour calculer
+le gradient dans le cas de réseaux de neurones (sans récurrence) multi-couches
+est appelée l'algorithme de la :ref:`rétropropagation du gradient
+<backprop_fr>`.
+
+Dans l'exemple vu :ref:`plus tôt <depth_fr>`, :math:`L=sin(a^2+b/a)`, et il y
+a deux chemins de :math:`a` vers :math:`L`.
+
+Cette méthode nous donne certaines garanties. Si le calcul de :math:`L`
+s'exprime par :math:`n` calculs, matérialisés par :math:`n` nœuds (et que
+le calcul chaque nœud requiert un temps constant) et :math:`m` arcs, alors
+le calcul de toutes les dérivées partielles
+:math:`\frac{\partial L}{\partial u}` requiert (au plus) :math:`O(m)` calculs,
+en utilisant la récursion ci-dessus (en général, le nombre d'entrées d'un nœud
+est borné, et c'est aussi :math:`O(n)`).
+De plus, c'est aussi une borne inférieure, c'est-à-dire qu'il n'est pas
+possible de calculer le gradient plus vite (à une constante additive et
+multiplicative près).
+
+Notons enfin qu'il existe de nombreuses manières de calculer ces gradients, et
+qu'alors que l'algorithme ci-dessus est le plus rapide, il est facile d'écrire
+une récursion, apparemment simple, qui serait exponentiellement plus lente,
+c'est-à-dire en :math:`O(2^n)`. De manière générale,
+:math:`\frac{\partial L}{\partial u}` peut être écrite comme la somme, sur
+tous les chemins du graphe de :math:`u` à :math:`L`, du produit des dérivées
+partielles selon chaque chemin.
+
+Illustrons cela avec un graphe qui a la structure suivante :
+
+.. math::
+    x_t = f(x_{t-1}, y_{t-1})
+
+    y_t = g(x_{t-1}, y_{t-1})
+
+où il existe :math:`p = n/2` paires de nœuds :math:`(x_t,y_t)`, terminant par
+:math:`L=h(x_p,y_p)`, et dont les nœuds d'entrée sont :math:`x_0` et
+:math:`y_0`.
+Le nombre de chemins de :math:`x_0` à :math:`L` est
+:math:`2^{p} = 2^{n/2} = (\sqrt{2})^n`. Par construction, à chaque fois que
+l'on ajoute une paire de nœuds, le nombre de chemins est doublé.
