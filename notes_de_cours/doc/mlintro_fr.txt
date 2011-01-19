@@ -188,6 +188,10 @@ exponentielle.  De manière générale, pour les algorithmes
 d'apprentissage, les représentations distribuées ont la capacité de
 capturer "exponentiellement" plus de variations que les représentations
 locales, pour le même nombre de paramètres libres.
+Ainsi, ils ont le potentiel pour une meilleure généralisation, puisque la
+théorie de l'apprentissage montre que le nombre d'exemple requis (pour
+atteindre un certain degré de performance en généralisation) pour ajuster
+:math:`O(B)` degrés de liberté effectifs est :math:`O(B)`.
 
 La différence entre les représentations locales et distribuées peut
 aussi être illustrée par la différence entre le partitionnement
