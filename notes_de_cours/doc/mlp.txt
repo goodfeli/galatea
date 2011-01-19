@@ -20,6 +20,7 @@ of a single hidden layer neural network, mapping a
   g(x) = b + W \tanh(c + V x)
 
 where:
+
 * :math:`x` is a :math:`d`-vector (the input),
 * :math:`V` is an :math:`k \times d` matrix (called input-to-hidden weights),
 * :math:`c` is a :math:`k`-vector (called hidden units offsets or hidden unit biases),
@@ -111,46 +112,56 @@ With tanh units in the hidden layers, we have (in matrix-vector notation):
 
 In the case of a probabilistic classifier, we would then have a softmax output layer, e.g.,
 
-* :math:`p = h_L = {\rm softmax}(b_L + W_L h_{L-1})`
+.. math:: p = h_L = {\rm softmax}(b_L + W_L h_{L-1})
 
 where we used :math:`p` to denote the output because it is a vector indicating
 a probability distribution over classes. And the loss is
 
-* :math:`L = - \log p_y`
+.. math:: L = - \log p_y
 
 where :math:`y` is the target class, i.e., we want to maximize :math:`p_y=P(Y=y|x)`, an
 estimator of the conditional probability of class :math:`y` given input :math:`x`.
 
 Let us now see how the recursive application of the chain rule in flow graphs
-is instantiated in this structure.  First of all, let us denote 
+is instantiated in this structure.  First of all, let us denote
 
-:math:`a_k=b_k + W_k h_{k-1}`
+.. math:: a_k=b_k + W_k h_{k-1}
 
 (for the argument of the non-linearity at each level) and note (from a small derivation) that
 
-:math:`\frac{\partial(- \log p_y)}{\partial a_{L,i}} = (p_i - 1_{y=i})`
+.. math:: \frac{\partial(- \log p_y)}{\partial a_{L,i}} = (p_i - 1_{y=i})
 
 and that
 
-:math:`\frac{\partial \tanh(u)}{\partial u} = (1-\tanh(u)^2)`.
+.. math:: \frac{\partial \tanh(u)}{\partial u} = (1-\tanh(u)^2).
 
 Now let us apply the back-propagation recipe in the corresponding flow graph. Each parameter (each weight and
 each bias) is a node, each neuron potential :math:`a_{ik}` and each neuron output :math:`h_{ik}` 
 is also a node. 
 
-* starting at the output node: :math:`\frac{\partial L}{\partial L} = 1`
-* then compute the gradient with respect to each pre-softmax sum :math:`a_{L,i}`: 
-  :math:`\frac{\partial L}{\partial a_{L,i}} = \frac{\partial L}{\partial L} \frac{\partial L}{\partial a_{L,i}} = (p_i - 1_{y=i})`
-* We can now repeat the same recipe for each layer. For :math:`k=L` down to 1
+* starting at the output node:
 
-  * obtain trivially the gradient wrt biases: 
-    :math:`\frac{\partial L}{\partial b_{k,i}} = \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial b_{k,i}}=\frac{\partial L}{\partial a_{k,i}}`
-  * compute the gradient wrt weights: 
-    :math:`\frac{\partial L}{\partial W_{k,i,j}} = \frac{\partial L}{\partial a_{k,i}}\frac{\partial a_{k,i}}{\partial W_{k,i,j}} = \frac{\partial L}{\partial a_{k,i}} h_{k-1,j}`
+  .. math:: \frac{\partial L}{\partial L} = 1
+
+* then compute the gradient with respect to each pre-softmax sum :math:`a_{L,i}`:
+
+  .. math:: \frac{\partial L}{\partial a_{L,i}} = \frac{\partial L}{\partial L} \frac{\partial L}{\partial a_{L,i}} = (p_i - 1_{y=i})
+
+* We can now repeat the same recipe for each layer. For :math:`k=L` down to 1:
+
+  * obtain trivially the gradient wrt biases:
+
+    .. math:: \frac{\partial L}{\partial b_{k,i}} = \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial b_{k,i}}=\frac{\partial L}{\partial a_{k,i}}
+
+  * compute the gradient wrt weights:
+
+    .. math:: \frac{\partial L}{\partial W_{k,i,j}} = \frac{\partial L}{\partial a_{k,i}}\frac{\partial a_{k,i}}{\partial W_{k,i,j}} = \frac{\partial L}{\partial a_{k,i}} h_{k-1,j}
+
   * back-propagate the gradient into lower layer, if :math:`k>1`:
 
-     * :math:`\frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}`
-     * :math:`\frac{\partial L}{\partial a_{k-1,j}} = \frac{\partial L}{\partial h_{k-1,j}} \frac{\partial h_{k-1,j}}{\partial a_{k-1,j}}=\frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)`
+     .. math:: \frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}
+
+       \frac{\partial L}{\partial a_{k-1,j}} = \frac{\partial L}{\partial h_{k-1,j}} \frac{\partial h_{k-1,j}}{\partial a_{k-1,j}}=\frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)
 
 .. _logreg_en:
 

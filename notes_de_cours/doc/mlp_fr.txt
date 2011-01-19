@@ -131,12 +131,12 @@ matricielle) :
 Dans le cas d'un classifieur probabiliste, nous avons un softmax sur la couche
 de sortie, c'est-à-dire :
 
-* :math:`p = h_L = {\rm softmax}(b_L + W_L h_{L-1})`
+.. math:: p = h_L = {\rm softmax}(b_L + W_L h_{L-1})
 
 où nous notons la sortie :math:`p` parce que c'est un vecteur indiquant une
 distribution de probabilité sur les classes. L'erreur est
 
-* :math:`L = - \log p_y`
+.. math:: L = - \log p_y
 
 où :math:`y` est la classe cible, c'est-à-dire que l'on veut maximiser
 :math:`p_y=P(Y=y|x)`, qui est un estimateur de la probabilité conditionnelle
@@ -146,51 +146,62 @@ Voyons maintenant comment se fait, dans cette structure, l'application
 récursive de la règle de dérivation en chaîne dans un graphe de
 flot. Soit
 
-:math:`a_k=b_k + W_k h_{k-1}`
+.. math:: a_k=b_k + W_k h_{k-1}
 
 l'argument de la non-linéarité à chaque couche, que nous appellerons le
 potentiel, notons que (par une dérivation rapide)
 
-:math:`\frac{\partial(- \log p_y)}{\partial a_{L,i}} = (p_i - 1_{y=i})`
+.. math:: \frac{\partial(- \log p_y)}{\partial a_{L,i}} = (p_i - 1_{y=i})
 
 et que
 
-:math:`\frac{\partial \tanh(u)}{\partial u} = (1-\tanh(u)^2)`.
+.. math:: \frac{\partial \tanh(u)}{\partial u} = (1-\tanh(u)^2).
 
 Maintenant, appliquons la méthode de la rétropropagation dans le graphe de
 flot correspondant. Chaque paramètre (chaque poids et chaque biais) est un
 nœud, le potentiel :math:`a_{ik}` et la sortie :math:`h_{ik}` de chaque
 neurone est aussi un nœud.
 
-* On part du nœud de sortie: :math:`\frac{\partial L}{\partial L} = 1`
+* On part du nœud de sortie:
+
+  .. math:: \frac{\partial L}{\partial L} = 1
 
 * Ensuite, on calcule le gradient de :math:`L` par rapport à chacune des sommes
   précédant le softmax, :math:`a_{L,i}`:
-  :math:`\frac{\partial L}{\partial a_{L,i}} = \frac{\partial L}{\partial L}
-  \frac{\partial L}{\partial a_{L,i}} = (p_i - 1_{y=i})`.
+
+  .. math:: \frac{\partial L}{\partial a_{L,i}}
+    = \frac{\partial L}{\partial L}
+      \frac{\partial L}{\partial a_{L,i}}
+    = (p_i - 1_{y=i}).
 
 * Maintenant, on peut répéter la procédure pour chaque couche. Pour
   :math:`k=L` descendant jusqu'à 1 :
 
   * On obtient facilement le gradient de :math:`L` par rapport aux biais :
-    :math:`\frac{\partial L}{\partial b_{k,i}} =
-    \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial b_{k,i}}
-    = \frac{\partial L}{\partial a_{k,i}}`.
+
+    .. math:: \frac{\partial L}{\partial b_{k,i}}
+      = \frac{\partial L}{\partial a_{k,i}}
+        \frac{\partial a_{k,i}}{\partial b_{k,i}}
+      = \frac{\partial L}{\partial a_{k,i}}.
 
   * On calcule le gradient par rapport aux poids :
-    :math:`\frac{\partial L}{\partial W_{k,i,j}} = \frac{\partial L}{\partial
-    a_{k,i}}\frac{\partial a_{k,i}}{\partial W_{k,i,j}} = \frac{\partial
-    L}{\partial a_{k,i}} h_{k-1,j}`.
+
+    .. math:: \frac{\partial L}{\partial W_{k,i,j}}
+      = \frac{\partial L}{\partial a_{k,i}}
+        \frac{\partial a_{k,i}}{\partial W_{k,i,j}}
+      = \frac{\partial L}{\partial a_{k,i}} h_{k-1,j}.
 
   * On rétropropage le gradient vers la couche précédente, si :math:`k>1` :
 
-    * :math:`\frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial
-      L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} =
-      \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}`
+    .. math:: \frac{\partial L}{\partial h_{k-1,j}}
+      = \sum_i \frac{\partial L}{\partial a_{k,i}}
+               \frac{\partial a_{k,i}}{\partial h_{k-1,j}}
+      = \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}
 
-    * :math:`\frac{\partial L}{\partial a_{k-1,j}} = \frac{\partial
-      L}{\partial h_{k-1,j}} \frac{\partial h_{k-1,j}}{\partial
-      a_{k-1,j}}=\frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)`
+      \frac{\partial L}{\partial a_{k-1,j}}
+      = \frac{\partial L}{\partial h_{k-1,j}}
+        \frac{\partial h_{k-1,j}}{\partial a_{k-1,j}}
+      = \frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)
 
 .. _logreg_fr:
 
