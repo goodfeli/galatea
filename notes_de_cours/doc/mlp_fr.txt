@@ -70,7 +70,7 @@ de sortie correspondante :
   erreur absolue : :math:`L(f,(x,y))=|f(x)-y|_1 = \sum_i |f_i(x) - y_i|`.
 
 * Pour la classification probabiliste à deux classes : la non-linéarité est
-  la sigmoïde logistique (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a}`, appliquée
+  la sigmoïde logistique (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a})`, appliquée
   élément par élément), et l'erreur est l'**entropie croisée**
   *(cross-entropy)* :math:`L(f,(x,y))= -y \log f(x) -(1-y)\log(1-f(x))`,
   pour :math:`y` binaire.

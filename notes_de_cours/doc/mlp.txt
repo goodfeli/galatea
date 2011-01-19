@@ -58,8 +58,8 @@ Here are common loss functionals, with the associated output non-linearity:
 * for median (L1) regression: no non-linearity (:math:`r(a)=a`), absolute value
   loss :math:`L(f,(x,y))=|f(x)-y|_1 = \sum_i |f_i(x) - y_i|`.
 
-* for 2-way probabilistic classification: sigmoid non-linearity 
-  (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a}`, applied element by element), 
+* for 2-way probabilistic classification: sigmoid non-linearity
+  (:math:`r(a)={\rm sigmoid}(a)=1/(1+e^{-a})`, applied element by element),
   and **cross-entropy loss** :math:`L(f,(x,y))= -y \log f(x) -(1-y)\log(1-f(x))`
   for :math:`y` binary. Note that the sigmoid output :math:`f(x)` is in the (0,1) interval,
   and corresponds to an estimator of :math:`P(y=1|x)`. The predicted
