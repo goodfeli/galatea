@@ -126,7 +126,7 @@ matricielle) :
     poids, connectant la couche :math:`k-1` à la couche :math:`k`.
     Le calcul scalaire associé à une unité donnée :math:`i` de la couche
     :math:`k` est
-    :math:`h_{ki} = {\rm tanh}(b_{ki} + \sum_j W_{kij} h_{k-1,j})`.
+    :math:`h_{k,i} = {\rm tanh}(b_{k,i} + \sum_j W_{k,i,j} h_{k-1,j})`.
 
 Dans le cas d'un classifieur probabiliste, nous avons un softmax sur la couche
 de sortie, c'est-à-dire :
@@ -159,7 +159,7 @@ et que
 
 Maintenant, appliquons la méthode de la rétropropagation dans le graphe de
 flot correspondant. Chaque paramètre (chaque poids et chaque biais) est un
-nœud, le potentiel :math:`a_{ik}` et la sortie :math:`h_{ik}` de chaque
+nœud, le potentiel :math:`a_{k,i}` et la sortie :math:`h_{k,i}` de chaque
 neurone est aussi un nœud.
 
 * On part du nœud de sortie:
@@ -196,7 +196,7 @@ neurone est aussi un nœud.
     .. math:: \frac{\partial L}{\partial h_{k-1,j}}
       = \sum_i \frac{\partial L}{\partial a_{k,i}}
                \frac{\partial a_{k,i}}{\partial h_{k-1,j}}
-      = \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}
+      = \sum_i \frac{\partial L}{\partial a_{k,i}} W_{k,i,j}
 
       \frac{\partial L}{\partial a_{k-1,j}}
       = \frac{\partial L}{\partial h_{k-1,j}}

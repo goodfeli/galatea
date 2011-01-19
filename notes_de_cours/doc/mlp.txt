@@ -108,7 +108,7 @@ With tanh units in the hidden layers, we have (in matrix-vector notation):
    where :math:`b_k` is a vector of biases and :math:`W_k` is a matrix of weights connecting layer :math:`k-1` to layer :math:`k`.
    The scalar computation associated with a single unit :math:`i` of layer :math:`k` is
 
-   :math:`h_{ki} = {\rm tanh}(b_{ki} + \sum_j W_{kij} h_{k-1,j})`
+   :math:`h_{k,i} = {\rm tanh}(b_{k,i} + \sum_j W_{k,i,j} h_{k-1,j})`
 
 In the case of a probabilistic classifier, we would then have a softmax output layer, e.g.,
 
@@ -136,7 +136,7 @@ and that
 .. math:: \frac{\partial \tanh(u)}{\partial u} = (1-\tanh(u)^2).
 
 Now let us apply the back-propagation recipe in the corresponding flow graph. Each parameter (each weight and
-each bias) is a node, each neuron potential :math:`a_{ik}` and each neuron output :math:`h_{ik}` 
+each bias) is a node, each neuron potential :math:`a_{k,i}` and each neuron output :math:`h_{k,i}`
 is also a node. 
 
 * starting at the output node:
@@ -159,7 +159,7 @@ is also a node.
 
   * back-propagate the gradient into lower layer, if :math:`k>1`:
 
-     .. math:: \frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{ki}} W_{k,i,j}
+     .. math:: \frac{\partial L}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{k,i}} \frac{\partial a_{k,i}}{\partial h_{k-1,j}} = \sum_i \frac{\partial L}{\partial a_{k,i}} W_{k,i,j}
 
        \frac{\partial L}{\partial a_{k-1,j}} = \frac{\partial L}{\partial h_{k-1,j}} \frac{\partial h_{k-1,j}}{\partial a_{k-1,j}}=\frac{\partial L}{\partial h_{k-1,j}} (1 - h_{k-1,j}^2)
 
