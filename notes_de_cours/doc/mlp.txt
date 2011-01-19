@@ -96,12 +96,12 @@ corresponds to a node, and the final
 Let us formalize a notation for MLPs with more than one hidden layer.
 Let us denote with :math:`h_i` the output *vector* of the i-th layer,
 starting with :math:`h_0=x` (the input), and finishing with
-a special output layer :math:`h_L` which produces the
+a special output layer :math:`h_K` which produces the
 prediction or output of the network. 
 
 With tanh units in the hidden layers, we have (in matrix-vector notation):
 
-* for :math:`k = 1` to :math:`L-1`:
+* for :math:`k = 1` to :math:`K-1`:
 
  * :math:`h_k = {\rm tanh}(b_k + W_k h_{k-1})`
 
@@ -112,7 +112,7 @@ With tanh units in the hidden layers, we have (in matrix-vector notation):
 
 In the case of a probabilistic classifier, we would then have a softmax output layer, e.g.,
 
-.. math:: p = h_L = {\rm softmax}(b_L + W_L h_{L-1})
+.. math:: p = h_K = {\rm softmax}(b_K + W_K h_{K-1})
 
 where we used :math:`p` to denote the output because it is a vector indicating
 a probability distribution over classes. And the loss is
@@ -129,7 +129,7 @@ is instantiated in this structure.  First of all, let us denote
 
 (for the argument of the non-linearity at each level) and note (from a small derivation) that
 
-.. math:: \frac{\partial(- \log p_y)}{\partial a_{L,i}} = (p_i - 1_{y=i})
+.. math:: \frac{\partial(- \log p_y)}{\partial a_{K,i}} = (p_i - 1_{y=i})
 
 and that
 
@@ -143,11 +143,11 @@ is also a node.
 
   .. math:: \frac{\partial L}{\partial L} = 1
 
-* then compute the gradient with respect to each pre-softmax sum :math:`a_{L,i}`:
+* then compute the gradient with respect to each pre-softmax sum :math:`a_{K,i}`:
 
-  .. math:: \frac{\partial L}{\partial a_{L,i}} = \frac{\partial L}{\partial L} \frac{\partial L}{\partial a_{L,i}} = (p_i - 1_{y=i})
+  .. math:: \frac{\partial L}{\partial a_{K,i}} = \frac{\partial L}{\partial L} \frac{\partial L}{\partial a_{K,i}} = (p_i - 1_{y=i})
 
-* We can now repeat the same recipe for each layer. For :math:`k=L` down to 1:
+* We can now repeat the same recipe for each layer. For :math:`k=K` down to 1:
 
   * obtain trivially the gradient wrt biases:
 

@@ -112,13 +112,13 @@ chaque paramètre (biais ou poids) correspond aussi à un nœud.
 Voici quelques conventions de notation pour les PMC avec plus d'une couche
 cachée. On note :math:`h_i` le *vecteur* de sortie de la couche :math:`i`, en
 commençant par :math:`h_0(x) = x` (l'entrée), jusqu'à la couche de sortie,
-:math:`h_L`, qui produit la prédiction, ou sortie, du réseau.
+:math:`h_K`, qui produit la prédiction, ou sortie, du réseau.
 
 Avec des unités tanh (dont la fonction d'activation est la tangente
 hyperbolique) dans les couches cachées, nous avons (en utilisant la notation
 matricielle) :
 
-* Pour :math:`k = 1` à :math:`L-1`:
+* Pour :math:`k = 1` à :math:`K-1`:
 
   * :math:`h_k = {\rm tanh}(b_k + W_k h_{k-1})`
 
@@ -131,7 +131,7 @@ matricielle) :
 Dans le cas d'un classifieur probabiliste, nous avons un softmax sur la couche
 de sortie, c'est-à-dire :
 
-.. math:: p = h_L = {\rm softmax}(b_L + W_L h_{L-1})
+.. math:: p = h_K = {\rm softmax}(b_K + W_K h_{K-1})
 
 où nous notons la sortie :math:`p` parce que c'est un vecteur indiquant une
 distribution de probabilité sur les classes. L'erreur est
@@ -151,7 +151,7 @@ flot. Soit
 l'argument de la non-linéarité à chaque couche, que nous appellerons le
 potentiel, notons que (par une dérivation rapide)
 
-.. math:: \frac{\partial(- \log p_y)}{\partial a_{L,i}} = (p_i - 1_{y=i})
+.. math:: \frac{\partial(- \log p_y)}{\partial a_{K,i}} = (p_i - 1_{y=i})
 
 et que
 
@@ -167,15 +167,15 @@ neurone est aussi un nœud.
   .. math:: \frac{\partial L}{\partial L} = 1
 
 * Ensuite, on calcule le gradient de :math:`L` par rapport à chacune des sommes
-  précédant le softmax, :math:`a_{L,i}`:
+  précédant le softmax, :math:`a_{K,i}`:
 
-  .. math:: \frac{\partial L}{\partial a_{L,i}}
+  .. math:: \frac{\partial L}{\partial a_{K,i}}
     = \frac{\partial L}{\partial L}
-      \frac{\partial L}{\partial a_{L,i}}
+      \frac{\partial L}{\partial a_{K,i}}
     = (p_i - 1_{y=i}).
 
 * Maintenant, on peut répéter la procédure pour chaque couche. Pour
-  :math:`k=L` descendant jusqu'à 1 :
+  :math:`k=K` descendant jusqu'à 1 :
 
   * On obtient facilement le gradient de :math:`L` par rapport aux biais :
 
