@@ -1,6 +1,6 @@
-.. _gradient_fr:
-
 :ref:`English version <gradient_en>`
+
+.. _gradient_fr:
 
 Introduction à l'apprentissage par descente de gradient
 =======================================================

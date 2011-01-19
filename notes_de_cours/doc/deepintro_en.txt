@@ -1,6 +1,6 @@
-.. _deepintro_en:
-
 :ref:`Version en français <deepintro_fr>`
+
+.. _deepintro_en:
 
 Introduction to Deep Learning Algorithms
 ========================================

@@ -1,6 +1,6 @@
-.. _mlintro_en:
-
 :ref:`Version en français <mlintro_fr>`
+
+.. _mlintro_en:
 
 Very Brief Introduction to Machine Learning for AI
 ==================================================

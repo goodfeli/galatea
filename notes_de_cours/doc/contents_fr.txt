@@ -1,7 +1,6 @@
+:ref:`English version <contents_en>`
 
 .. _contents_fr:
-
-:ref:`English version <contents_en>`
 
 ========
 Contenu

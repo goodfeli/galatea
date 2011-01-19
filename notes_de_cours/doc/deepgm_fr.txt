@@ -1,6 +1,6 @@
-.. _deepgm_fr:
-
 :ref:`English version <deepgm_en>`
+
+.. _deepgm_fr:
 
 Modèles probabilistes pour les architectures profondes
 ======================================================

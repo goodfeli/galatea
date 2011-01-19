@@ -1,7 +1,6 @@
+.. :ref:`Version en français <mlp_fr>`
 
 .. _mlp_en:
-
-.. :ref:`Version en français <mlp_fr>`
 
 Introduction to Multi-Layer Perceptrons (Feedforward Neural Networks)
 =====================================================================

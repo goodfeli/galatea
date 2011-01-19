@@ -1,6 +1,6 @@
-.. _dae_fr:
-
 :ref:`English version <dae_en>`
+
+.. _dae_fr:
 
 Auto-encodeurs débruitants vs auto-encodeurs ordinaires
 =======================================================

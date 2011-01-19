@@ -8,10 +8,10 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  ===============================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  ===============================================================================================
-`17 janvier`_       Le calcul du gradient   Notes sur le :ref:`calcul du gradient <flowgraph>`.
+`17 janvier`_       Le calcul du gradient   Notes sur le :ref:`calcul du gradient <flowgraph_fr>`.
 `13 janvier`_       Intro aux               Notes introductoires sur les :ref:`architectures profondes <deepintro_fr>`,
                     architectures           Sec. 1 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
-                    profondes               Notes sur le :ref:`gradient <gradient>`.
+                    profondes               Notes sur le :ref:`gradient <gradient_fr>`.
 `10 janvier`_       Intro aux               Notes introductoires sur les :ref:`architectures profondes <deepintro_fr>`,
                     architectures           Sec. 1 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
                     profondes
@@ -25,27 +25,27 @@ Date                Sujets                  À lire en priorité
 
 17 Janvier
 ----------
-* :ref:`gradient`
+* :ref:`gradient_fr`
 
-  * :ref:`flowgraph`
+  * :ref:`flowgraph_fr`
 
-* :ref:`mlp`
+* :ref:`mlp_fr`
 
-  * :ref:`mln`
-  * :ref:`loss`
+  * :ref:`mln_fr`
+  * :ref:`loss_fr`
 
 13 Janvier
 ----------
 
-* :ref:`Introduction aux algorithmes d'apprentissage profond<deepintro_fr>`
+* :ref:`Introduction aux algorithmes d'apprentissage profond <deepintro_fr>`
 
   * :ref:`breakthrough_fr`
 
-* :ref:`gradient`
+* :ref:`gradient_fr`
 
-  * :ref:`grad`
-  * :ref:`gd`
-  * :ref:`sgd`
+  * :ref:`grad_fr`
+  * :ref:`gd_fr`
+  * :ref:`sgd_fr`
 
 
 10 Janvier

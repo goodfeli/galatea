@@ -1,6 +1,6 @@
-.. _mlp_fr:
-
 :ref:`English version <mlp_en>`
+
+.. _mlp_fr:
 
 Introduction aux perceptrons multi-couches (réseaux de neurones à propagation avant)
 ====================================================================================

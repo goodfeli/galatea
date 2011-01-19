@@ -1,6 +1,6 @@
-.. _dae_en:
-
 :ref:`Version française <dae_fr>`
+
+.. _dae_en:
 
 Denoising autoencoders vs. ordinary autoencoders
 ================================================

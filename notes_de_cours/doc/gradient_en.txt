@@ -1,6 +1,6 @@
-.. _gradient_en:
+:ref:`Version en français <gradient_fr>`
 
-:ref:`Version française <gradient_fr>`
+.. _gradient_en:
 
 Introduction to Gradient-Based Learning
 =======================================

@@ -1,6 +1,6 @@
-.. _mlintro_fr:
-
 :ref:`English version <mlintro_en>`
+
+.. _mlintro_fr:
 
 Introduction rapide à l'apprentissage machine pour l'IA
 =======================================================
