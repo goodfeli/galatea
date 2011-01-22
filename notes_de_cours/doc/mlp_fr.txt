@@ -256,7 +256,7 @@ Choix de l'architecture
 En principe, une manière d'accélérer la descente de gradient
 est de faire des choix qui rendent la matrice
 Hessienne :math:`\frac{\partial^2 C}{\partial \theta_i \partial \theta_j}`
-mieux conditionnée. La dérivée second dans une certaine
+mieux conditionnée. La dérivée seconde dans une certaine
 direction indique la courbure de la fonction de coût dans
 cette direction. Plus la courbure est grande (vallée étroite)
 et plus petites doivent être les mises à jour des paramètres
@@ -394,9 +394,9 @@ Quand le nombre d'exemples est grand (plusieurs milliers)
 la descente de gradient stochastique est souvent le
 meilleur choix (surtout pour la classification),
 en terme de vitesse et en terme de contrôle de la
-capacité (il est plus difficile d'avoir de l'overfitting
+capacité: il est plus difficile d'avoir de l'overfitting
 avec la descente de gradient stochastique.
-En effet, la descente de gradient stochastique
+En effet, la descente de tique
 ne tombe pas facilement dans les minima très pointus 
 (qui ne généralisent pas bien, car une légére
 perturbation des données déplaçant la surface
