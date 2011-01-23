@@ -1,0 +1,37 @@
+This directory contain the 5 dataset from the 
+
+Unsupervised and Transfer Learning Challenge(UTLC)
+
+The web page is at: http://www.causality.inf.ethz.ch/home.php
+
+Dataset 	 Domain                         nbFeat	Sparsity(%)	nb train Transfer num.	nb valid nb test
+AVICENNA 	 Arabic manuscripts		120	0.00		150205	50000	  	4096	4096	
+HARRY 		 Human action recognition 	5000 	98.12 		69652 	20000 		4096 	4096 	
+RITA 		 Object recognition 		7200 	1.19 		111808 	24000 		4096 	4096 	
+SYLVESTER 	 Ecology 			100 	0.00 		572820 	100000 		4096 	4096 	
+TERRY 		 Text recognition 		47236 	99.84 		217034 	40000 		4096 	4096 	
+ULE (toy data) 	 Handwritten digits 		784 	80.85 		26808 	10000 		4096 	4096 	
+
+TO load them you can use pylearn.datasets.utlc.*
+
+The datasets avicenna, harry, rita ans sylvester have been stored in
+the compressed filetensor format. They will result in ndarray in memory.
+
+The dataset harry, terry, ule have been stored as pickle of
+scipy.sparse.csr_matrix. Terry have been stored like this because they
+are very sparse and use too much memory otherwise. harry would use
+much memory, but with care that could work. I also put ule like this
+to allow you to test a small sparse dataset in your algo to know if
+they accept it.
+
+     	   stored ndarray memory size  sparse memory size
+Dataset    dtype  train+valid+test     train+valid+test
+
+avicenna   int16  38Mb		       
+harry	   int16  780Mb		       ???
+rita	   uint8  1728Mb	       
+sylvester  int16  116Mb		       
+terry	   int16  21GB(don't exist!)   ???
+ule	   uint8  27Mb	     	       ???
+
+No shuffling or rescaling have been done!
