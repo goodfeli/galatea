@@ -300,8 +300,8 @@ sera la plus longue dans la direction la plus "plate"
    pas bien avec plus de deux couches (mais voir les travaux depuis 2006 sur
    l'initialisation non-supervisée vorace pour les architectures profondes).
 
- * Pour la *régression* ou avec des *cibles réelles* et non-bornées 
-   en général, 
+ * Pour la *régression* ou avec des *cibles réelles* et non-bornées
+   en général,
    il vaut généralement mieux
    utiliser des neurones *linéaires* à la couche de sortie.
    Pour la *classification*, il vaut généralement mieux
@@ -313,7 +313,7 @@ sera la plus longue dans la direction la plus "plate"
    elle peut aussi être initialisée directement par le résultat
    d'une régression linéaire des sorties sur les entrées. Les
    neurones cachées servent alors seulement à apprendre la partie
-   non-linéaire manquante. 
+   non-linéaire manquante.
 
  * Une architecture avec poids partagés, ou bien le partage
    de certains éléments de l'architecture (e.g., la première couche)
@@ -321,7 +321,7 @@ sera la plus longue dans la direction la plus "plate"
    significativement améliorer la généralisation. Voir aussi
    la discussion à venir sur les réseaux à convolution.
 
- * Il vaut mieux utiliser utiliser une non-linéarité symétrique
+ * Il vaut mieux utiliser une non-linéarité symétrique
    dans les couches cachées (comme la tanh, et non pas la
    sigmoide), afin d'améliorer le conditionnement du Hessien
    et éviter la saturation des couches cachées.
@@ -345,12 +345,12 @@ le conditionnement du Hessien est optimal quand les entrées
 sont normalisées (donc avec matrice de covariance = identité),
 ce qui peut se faire en les projetant dans l'espace des
 vecteurs propres de la matrice :math:`X' X`, où :math:`X` est la matrice
-de dimension nombre d'exemples par nombre d'entrées. 
+de dimension nombre d'exemples par nombre d'entrées.
 
 Traitement des sorties désirées
 -------------------------------
 
-Dans le cas d'apprentissage par minimisation d'un coût 
+Dans le cas d'apprentissage par minimisation d'un coût
 quadratique, on doit s'assurer que les sorties désirées
 
  * sont toujours dans l'intervalle des valeurs que
@@ -368,12 +368,12 @@ quadratique, on doit s'assurer que les sorties désirées
    et les SVMs, mais en pénalisant les écarts à la surface de décision au-delà d'une
    marge). Dans le cas multiclasse, ça donne
 
-   .. math: 
-        \sum_i (-1^{1_{y=i}}f_i(x) + 1)_+, 
+   .. math:
+        \sum_i (-1^{1_{y=i}}f_i(x) + 1)_+,
 
-   où :math:`x_+ = x 1_{x>0}` est la *partie positive* 
+   où :math:`x_+ = x 1_{x>0}` est la *partie positive*
    et :math:`f_i(x)` est la sortie (sans non-linéarité) pour la classe :math:`i`.
- 
+
 Codage des sorties désirées et des entrées discrètes
 ----------------------------------------------------
 
@@ -397,7 +397,7 @@ en terme de vitesse et en terme de contrôle de la
 capacité (il est plus difficile d'avoir de l'overfitting
 avec la descente de gradient stochastique.
 En effet, la descente de gradient stochastique
-ne tombe pas facilement dans les minima très pointus 
+ne tombe pas facilement dans les minima très pointus
 (qui ne généralisent pas bien, car une légére
 perturbation des données déplaçant la surface
 d'erreur donnerait une très mauvaise performance),
@@ -481,7 +481,7 @@ gradients le soit aussi quand on les propage de la sortie
 vers l'entrée.
 Pour atteindre cet objectif,
 on peut argumenter que les poids initiaux
-devraient être initialisés de manière uniforme 
+devraient être initialisés de manière uniforme
 dans un intervalle :math:`[-\sqrt{6/(n_i + n_o)}, \sqrt{6/(n_i+n_o)}]`, où :math:`n_i`
 est le *fan-in*, i.e., le nombre d'entrées du neurone, le nombre
 de neurones de la couche précédente, et :math:`n_o` est le *fan-out*,
@@ -499,7 +499,7 @@ est la saturation des neurones, souvent dûe à une
 mauvaise normalisation des entrées ou des sorties
 désirées ou une mauvaise initialisation des poids,
 ou bien à l'utilisation de la sigmoide plutôt qu'une
-fonction de non-linéarité symétrique comme la tanh. 
+fonction de non-linéarité symétrique comme la tanh.
 On peut contrôler cela on observant la
 distribution des sorties des neurones (en particulier,
 la moyenne des valeurs absolues de la somme pondérée
@@ -521,11 +521,11 @@ visent donc à chercher ce minimum (evidemment de
 façon approximative).
 
  * **early stopping**: il s'agit d'une
-   des techniques les plus populaires et les plus 
+   des techniques les plus populaires et les plus
    efficaces, mais elle ne marche pas bien quand le
    nombre d'exemples disponibles est très petit. L'idée est très
    simple: on utilise un ensemble d'exemples de
-   **validation** non-utilisés pour l'apprentissage 
+   **validation** non-utilisés pour l'apprentissage
    par descente de gradient pour estimer l'erreur
    de généralisation au fur et à mesure que l'apprentissage
    itératif progresse (normalement, après chaque époque
@@ -533,7 +533,7 @@ façon approximative).
    On garde les paramètres correspondant au minimum
    de cette courbe d'erreur de généralisation estimée
    (et on peut s'arrêter quand cette erreur commence
-   à remonter sérieusement ou qu'un minimum a été 
+   à remonter sérieusement ou qu'un minimum a été
    atteint depuis un certain nombre d'époques). Cela
    a l'avantage de répondre à une des questions difficile
    de l'optimisation, qui est: quand arrêter?
@@ -545,9 +545,9 @@ façon approximative).
  * *contrôle du nombre d'unités cachées*: ce
    nombre influence directement la capacité. Dans ce cas
    il faut malheureusement faire plusieurs d'expériences
-   d'apprentissage, à moins d'utiliser un algorithme 
+   d'apprentissage, à moins d'utiliser un algorithme
    d'apprentissage *constructif* (qui rajoute des ressources
-   au fur et à mesure), voir l'algorithme de 
+   au fur et à mesure), voir l'algorithme de
    cascade-correlation (Fahlman, 1990). On peut utiliser un ensemble de
    validation ou la validation croisée pour estimer
    l'erreur de généralisation. Il faut faire attention
@@ -558,7 +558,7 @@ façon approximative).
    trop grand est surtout que les calculs sont plus longs, car le
    nombre accru de paramètre est généralement compensé par
    le early stopping. Par contre quand le nombre d'unités cachées
-   est trop petit, l'effet sur l'erreur de généralisation et 
+   est trop petit, l'effet sur l'erreur de généralisation et
    sur l'erreur d'apprentissage peut être beaucoup plus grand.
    On va généralement choisir la taille des réseau de façon
    empirique, en gardant ces considérations à l'esprit pour
@@ -569,7 +569,7 @@ façon approximative).
    but est de pénaliser
    les poids forts. En effet, on peut montrer que la
    capacité est bornée par la magnitude des poids du
-   réseau de neurones. On rajoute la pénalité 
+   réseau de neurones. On rajoute la pénalité
 
    .. math::
      \lambda \sum_i \theta_i^2
@@ -584,7 +584,7 @@ façon approximative).
    **hyper-paramètre**) qui
    minimise l'erreur de généralisation estimée.
    On l'estime avec un ensemble de validation ou bien
-   par *validation croisée*. 
+   par *validation croisée*.
 
    Une forme de régularisation
    de plus en plus utilisée comme alternative à la régularisation L2
