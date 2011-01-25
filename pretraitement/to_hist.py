@@ -7,10 +7,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 
-print "Usage: to_hist.py {avicenna, ule, harry, rita, sylvester}"
+print "Usage: to_hist.py {avicenna, ule, harry, rita, sylvester, terry}"
 
 assert len(sys.argv)==2
-assert sys.argv[1] in ['avicenna','ule','harry','rita','sylvester']#,'terry']
+assert sys.argv[1] in ['avicenna','ule','harry','rita','sylvester','terry']
 name = sys.argv[1]
 
 tops=dict(avicenna=0.03,ule=0.01,harry=0.001)
@@ -24,14 +24,14 @@ if name in bins:
 else:
     bin = 150
 if name != "terry":
-    train, valid, test = utlc.load_ndarray_dataset(name)
+    train, valid, test = utlc.load_ndarray_dataset(name, normalize=False)
     train = train.flatten()[0:1e6]
-else:
-    train, valid, test = utlc.load_sparse_dataset(name)
-    import pdb;pdb.set_trace()
-    train = train#[0:1e6]
-print "min=%f, max=%f, mean=%f, std=%f of the train part of this dataset"%(
+    print "For dataset %s their is %f%% of number that are 0"%(name, float((train==0).sum())/train.size)
+    print "min=%f, max=%f, mean=%f, std=%f of the train part of this dataset"%(
     train.min(), train.max(), train.mean(), train.std())
+else:
+    train, valid, test = utlc.load_sparse_dataset(name, normalize=False)
+    train = train.data[0:1e6]
 del valid
 del test
 x = train
