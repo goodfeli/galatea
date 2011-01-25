@@ -12,7 +12,6 @@ wget http://www.causality.inf.ethz.ch/ul_data/terry_text.zip
 wget http://www.causality.inf.ethz.ch/ul_data/ule_text.zip
 
 TODO: pylearn.io.sparse? That will use numpy.tofile?
-TODO: pylearn.datasets/utlc.py to load all of them.
 """
 
 import cPickle
