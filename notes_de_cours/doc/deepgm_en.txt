@@ -4,8 +4,8 @@ Probabilistic models for deep architectures
 ===========================================
 
 Of particular interest are Boltzmann machine models, certain
-variants of which are used in deep architectures such as 
-*Deep Belief Networks* and *Deep Boltzmann Machines*. 
+variants of which are used in deep architectures such as
+*Deep Belief Networks* and *Deep Boltzmann Machines*.
 See section 5 of `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.
 
 The Boltzmann distribution is generally defined on binary variables
@@ -16,9 +16,9 @@ The Boltzmann distribution is generally defined on binary variables
  P(x) = \frac{e^{x' W x + b'x}}{\sum_{\tilde x} \tilde{x}' W \tilde{x} + b'\tilde{x}}
 
 where the denominator is simply a normalizing constant such that
-:math:`\sum_x P(x)=1`, and the :math:`W_{ij}` indicates the nature 
+:math:`\sum_x P(x)=1`, and the :math:`W_{ij}` indicates the nature
 of the interaction (e.g. a positive value indicates that :math:`x_i`
-et :math:`x_j` prefer to take the same value)  between pairs of 
+et :math:`x_j` prefer to take the same value)  between pairs of
 variables, and :math:`b_i` indicates the inclination of a given
 :math:`x_i` to take a value of 1.
 
@@ -29,11 +29,11 @@ Readings on probabilistic graphical models
 See
 
 `Graphical models: probabilistic inference <http://www.cs.berkeley.edu/~jordan/papers/jordan-weiss.ps>`_.
-M. I. Jordan and Y. Weiss. In M. Arbib (Ed.), The Handbook of Brain Theory and Neural Networks, 2nd edition. 
+M. I. Jordan and Y. Weiss. In M. Arbib (Ed.), The Handbook of Brain Theory and Neural Networks, 2nd edition.
 Cambridge, MA: MIT Press, 2002.
 
 
-Certain distributions can be written :math:`P(x)` for 
+Certain distributions can be written :math:`P(x)` for
 a vector of variables :math:`x=(x_1,x_2,\ldots)` in the form
 
 .. math::
@@ -44,10 +44,10 @@ and the product is over *cliques* (subsets :math:`x_c` of elements of the vector
 and the :math:`\psi_c(.)` are functions (one per clique) that indicate how
 the variables in each clique interact.
 
-A particular case where :math:`Z` may be simplified a bit (factorized 
-over cliques) is the case of *directed models* where variables 
+A particular case where :math:`Z` may be simplified a bit (factorized
+over cliques) is the case of *directed models* where variables
 are structured as a directed acyclic graph, with a topological ordering
-that associates a group of *parent variables* :math:`parents(x_i)` with 
+that associates a group of *parent variables* :math:`parents(x_i)` with
 each variable :math:`x_i`:
 
 .. math::
@@ -58,7 +58,7 @@ i.e., :math:`P_i(x_i | parents(x_i)) = \psi_i(x_i, parents(x_i))/Z_i`.
 
 In the general case (represented with an undirected graph), the
 potential functions :math:`\psi_c` are directly parameterized,
-often in the space of logarithms of :math:`\psi_c`,  
+often in the space of logarithms of :math:`\psi_c`,
 leading to a formulation known as a **Markov random field**:
 
 .. math::
@@ -66,7 +66,7 @@ leading to a formulation known as a **Markov random field**:
 
 where:math:`E(x)=\sum_c E_c(x_c)` is called the **energy function**.
 The energy function  of a Boltzmann machine is a second degree polynomial
-in :math:`x`. The most common parameterization of Markov random fields 
+in :math:`x`. The most common parameterization of Markov random fields
 has the following form, which is **log-linear**:
 
 .. math::
@@ -75,7 +75,7 @@ has the following form, which is **log-linear**:
 where the only free parameters are the :math:`\theta_c`,
 and where the complete log likelihood (when :math:`x`
 est completely observed in each training example) est *log-linear*
-in the parameters :math:`\theta`. One can easily 
+in the parameters :math:`\theta`. One can easily
 show that this function is  **convex** in :math:`\theta`.
 
 
@@ -89,18 +89,18 @@ predict the marginal distribution (separately for each) or joint
 distribution of certain other variables.
 Let :math:`x=(v,h)` with :math:`h` (*hidden*) being the variables
 we would like to predict, and :math:`v` (*visible*)
-being the observed subset. 
-One would like to calculate, or at least sample from, 
+being the observed subset.
+One would like to calculate, or at least sample from,
 
 .. math::
    P(h | v).
 
 Inference is obviously useful if certain variables are missing, or
-if, while using the model, we wish to predict a certain variable 
+if, while using the model, we wish to predict a certain variable
 (for example the class of an image) given some other variables
 (for example, the image itself). Note that if the model
 has hidden variables (variables that are *never* observed in the data)
-we do not try to predict the values directly 
+we do not try to predict the values directly
 qu'on ne cherche pas à prédire directement, but we will still implicitly
 *marginalize* over these variables (sum over all configurations
 of these variables).
@@ -118,7 +118,7 @@ of `Graphical models: probabilistic inference <http://www.cs.berkeley.edu/~jorda
 for a survey of exact inference methods.
 
 A simplifed form ofinference consists of calculatign not the entire
-distribution, but only the mode (the most likely configuration of 
+distribution, but only the mode (the most likely configuration of
 values) of the distribution:
 
 .. math::
@@ -157,24 +157,24 @@ samples.
 
 See the page `site du zéro sur Monte-Carlo
 <http://www.siteduzero.com/tutoriel-3-133680-toute-la-puissance-de-monte-carlo.html>`_
-(in French) for a gentle introduction. 
+(in French) for a gentle introduction.
 
 Unfortunately, for most probabilistic models, even sampling from :math:`P(h |
 v)` exactly is not feasible (taking time exponential in the dimension of de
 :math:`h`). Therefore the most general approach is based on an *approximation*
 of Monte-Carlo sampling called Markov chain Monte Carlo (MCMC).
 
-A (first order) Markov chain is a sequence of random variables  
-:math:`Z_1,Z_2,\ldots`, where :math:`Z_k` is independent of 
+A (first order) Markov chain is a sequence of random variables
+:math:`Z_1,Z_2,\ldots`, where :math:`Z_k` is independent of
 :math:`Z_{k-2}, Z_{k-3}, \ldots` given :math:`Z_{k-1}`:
 
 .. math::
-  P(Z_k | Z_{k-1}, Z_{k-2}, Z_{k-3}, \ldots) = P(Z_k | Z_{k-1}) 
- 
+  P(Z_k | Z_{k-1}, Z_{k-2}, Z_{k-3}, \ldots) = P(Z_k | Z_{k-1})
+
   P(Z_1 \ldots Z_n) = P(Z_1) \prod_{k=2}^n P(Z_k|Z_{k-1})
 
 The goal of MCMC is to construct a Markov chain whose asymptotic
-marginal distribution, i.e. the distribution of :math:`Z_n` as 
+marginal distribution, i.e. the distribution of :math:`Z_n` as
 :math:`n \rightarrow \infty`, converges towards a given target
 distribution, such as  :math:`P(h | v)` or :math:`P(x)`.
 
@@ -202,7 +202,7 @@ all variables in :math:`x` excluding :math:`x_i`. Gibbs sampling is
 performed using the following algorithm:
 
 * Choose an initial value of :math:`x` in an arbitrary manner (random or not)
-* For each step of the Markov chain: 
+* For each step of the Markov chain:
 
   * Iterate over each :math:`x_k` in :math:`x`
 
@@ -217,7 +217,7 @@ easy. In this case it is advantageous ti interpret the algorithm above with
 The gradient in a log-linear Markov random field
 ------------------------------------------------
 
-See 
+See
 `Learning Deep Architectures for AI
 <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_
 for detailed derivations.
@@ -236,7 +236,7 @@ Note that :math:`e^{\theta_i f_i(x)} = \psi_i(x)` is associated with
 each clique in the model (in general, only a sub-vector of :math:`x`
 influences each :math:`f_i(x)`).
 
-Getting back to sufficient statistics, one can show that the 
+Getting back to sufficient statistics, one can show that the
 gradient of the log likelihood is as follows:
 
 .. math::
@@ -245,7 +245,7 @@ gradient of the log likelihood is as follows:
 and the average gradient over training examples :math:`x_t` is thus
 
 .. math::
-  \frac{1}{T} \sum_t \frac{-\log P(x_t)}{\partial \theta_i} = 
+  \frac{1}{T} \sum_t \frac{-\log P(x_t)}{\partial \theta_i} =
             \frac{1}{T}\sum_t f_i(x_t) - \sum_x P(x) f_i(x)
 
 Thus, it is clear that the gradient vanishes when *the average
@@ -262,7 +262,7 @@ costly, and thus one must use an MCMC method.
 We refer to the terms of the gradient due to the numerator of
 the probability density (:math:`-f_i(x)`) as the **'positive phase'**
 gradient, and the terms of the gradient corresponding to the partition
-function (denominator of the probability density) as the 
+function (denominator of the probability density) as the
 **'negative phase'** gradient.
 
 Marginalisation sur les variables cachées
@@ -277,7 +277,7 @@ moyen de la moins log-vraisemblance des données
 observées devient
 
 .. math::
-  \frac{1}{T} \sum_t \frac{-\log P(v_t)}{\partial \theta_i} = 
+  \frac{1}{T} \sum_t \frac{-\log P(v_t)}{\partial \theta_i} =
             \frac{1}{T}\sum_t \sum_h P(h|v_t) f_i(v_t,h) - \sum_{h,v} P(v,h) f_i(v,h).
 
 Il faudra donc dans ce cas généralement se résoudre à du MCMC
@@ -365,9 +365,9 @@ où la somme sur :math:`h_i` est une somme sur les valeurs que les variables
 cachées peuvent prendre, ce qui, dans le cas d'unités binaires donne
 
 .. math::
-   FE(v) = -b'v - \sum_i \log (1 + e^{c_i + v' W_{.i}}) 
+   FE(v) = -b'v - \sum_i \log (1 + e^{c_i + v' W_{.i}})
 
-   FE(v) = -b'v - \sum_i {\rm softplus}(c_i + v' W_{.i}) 
+   FE(v) = -b'v - \sum_i {\rm softplus}(c_i + v' W_{.i})
 
 
 Gibbs dans les RBMs
@@ -450,7 +450,7 @@ par minimisation de l'erreur de reconstruction, et on voit que l'erreur
 de reconstruction diminue de manière assez monotone pendant l'entraînement
 par CD-1.
 
-On peut aussi montrer que CD-k tends vers le vrai gradient (en espérance) quand 
+On peut aussi montrer que CD-k tends vers le vrai gradient (en espérance) quand
 k devient grand, mais à ce moment on multiplie le temps de calcul par k.
 
 Divergence Contrastive Persistente
@@ -464,7 +464,7 @@ chaque exemple :math:`v`, il s'agit de garder une chaîne de Gibbs toujours en a
 pour obtenir nos échantillons d'exemples négatifs. Cette chaîne est
 un peu particulière car ses probabilités de transition changent
 (lentement), au fur et à mesure qu'on met à jour les paramètres de
-la RBM. Soit :math:`(v^-,h^-)` l'état de notre chaîne négative. 
+la RBM. Soit :math:`(v^-,h^-)` l'état de notre chaîne négative.
 L'algorithme d'apprentissage est le suivant:
 
 .. math::
@@ -504,7 +504,7 @@ de l'un (étant donnée son entrée), i.e., les :math:`P(h|v)` ou bien des
 Le pseudo-code de l'entraînement *vorace* couche par couche d'une pile de RBMs
 est présenté dans la section 6.1 (algorithme 2) de
 `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.
-Pour entraîner la k-ième RBM, on propage soit des échantillons 
+Pour entraîner la k-ième RBM, on propage soit des échantillons
 (:math:`h \sim P(h|v)`) ou des posterieurs (:math:`P(h|v)`) à travers
 les k-1 premières RBMs, et on les utilise comme données d'entraînement
 pour la k-ième RBM. On les entraîne donc une à la fois: une fois qu'on
@@ -543,7 +543,7 @@ celui des unités cachées dans la RBM k+1.
 Dépliement d'une RBM et équivalence RBM - DBN
 ---------------------------------------------
 
-On peut montrer (voir section 8.1 de 
+On peut montrer (voir section 8.1 de
 `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.)
 qu'une RBM correspond à un DBN avec une architecture particulière, dont les poids
 sont partagés entre toutes les couches: le niveau 1 du DBN utilise les poids W de la RBM,
@@ -554,7 +554,7 @@ Remarquons que dans cette équivalence, le DBN a des tailles de couches qui alte
 (nombre de visibles de la RBM, nombre de cachées de la RBM, nombre de visibles de la RBM, etc.).
 
 En fait on peut continuer le dépliement d'une RBM jusqu'à l'infini et obtenir un réseau
-dirigé infini à poids partagés, équivalent. Voir la figure 13 de la même section 8.1. 
+dirigé infini à poids partagés, équivalent. Voir la figure 13 de la même section 8.1.
 On peut voir que ce réseau infini correspond
 exactement à une chaîne de Gibbs (infinie) qui culmine (finit) sur la couche visible
 de la RBM originale, i.e., qui génère les mêmes exemples. Les couches paires correspondent
@@ -567,7 +567,7 @@ Finalement, on peut montrer que si on prend une RBM, qu'on la déplie une fois
 du DBN correspondant. Dans le passage d'une RBM à un DBN, on remplace
 la marginale P(h) de la RBM (qui est obtenue implicitement à travers
 les paramètres de la RBM, et par exemple une chaîne de Gibbs dans la RBM)
-par la distribution générée par la partie de DBN au-dessus de cette RBM 
+par la distribution générée par la partie de DBN au-dessus de cette RBM
 (le DBN formé de toutes les couches au-dessus de h), puisque ce h correspond
 aux unités visibles de ce DBN. La démo est simple et instructive, et
 utilise la lettre Q pour les probabilités selon la RBM (du bas)
@@ -579,9 +579,9 @@ aussi que P(x|h)=Q(x|h), mais ce n'est pas vrai pour P(h|x) et Q(h|x).
 
   \log P(x) = \left(\sum_{h} Q(h|x)\right) \log P(x) = \sum_{h} Q(h|x) \log \frac{P(x,h)}{P(h|x)}
 
-  \log P(x) = \sum_{h} Q(h|x) \log \frac{P(x,h)}{P(h|x)} \frac{Q(h|x)}{Q(h|x)} 
+  \log P(x) = \sum_{h} Q(h|x) \log \frac{P(x,h)}{P(h|x)} \frac{Q(h|x)}{Q(h|x)}
 
-  \log P(x) = H_{Q(h|x)} + \sum_{h} Q(h|x) \log P(x, h) + \sum_{h} Q(h|x) \log \frac{Q(h|x)}{P(h|x)} 
+  \log P(x) = H_{Q(h|x)} + \sum_{h} Q(h|x) \log P(x, h) + \sum_{h} Q(h|x) \log \frac{Q(h|x)}{P(h|x)}
 
   \log P(x) = KL(Q(h|x)||P(h|x)) + H_{Q(h|x)} + \sum_{h} Q(h|x) \left(\log P(h) + \log P(x|h) \right)
 
@@ -637,7 +637,7 @@ les machines de Boltzmann profondes. Dans les deux cas, le fait d'initialiser
 chaque couche selon un entraînement local à la couche semble aider
 beaucoup. Salakutdinov obtient des résultats meilleurs avec sa machine
 de Boltzmann profonde qu'avec un DBN équivalent, mais l'entraînement
-est plus long. 
+est plus long.
 
 
 
