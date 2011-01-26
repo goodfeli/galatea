@@ -501,9 +501,9 @@ is presented in section 6.1 (algorithm 2) of `Learning Deep Architectures
 for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_. To train the :math:`k^{\mathrm{th}}` RBM, we propagate forward
 samples :math:`h \sim P(h|v)` or the posteriors :math:`P(h|v)` through
 the :math:`k-1` previously trained RBMs and use them as data for training
-the :math:`k^{\mathrm{th]}` RBM. They are trained one at a time: once
-we stop training the :math:`k^{\mathrm{th]}`, we move on to the
-:math:`{k+1}^{\mathrm{th]}`.
+the :math:`k^{\mathrm{th}}` RBM. They are trained one at a time: once
+we stop training the :math:`k^{\mathrm{th}}`, we move on to the
+:math:`{k+1}^{\mathrm{th}}`.
 
 An RBM has the same parameterization as a layer in a classic neural network
 (with logistic sigmoid hidden units), with the difference that we use

@@ -34,7 +34,7 @@ Contents
    mlintro_en
    deepintro_en
    gradient_en
-   mlp
+   mlp_en
    deepchallenge
    dae_en
    deepgm_en

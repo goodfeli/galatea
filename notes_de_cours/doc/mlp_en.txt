@@ -427,7 +427,7 @@ blocked on a plateau of the cost function due to the very small gradients on
 certain parameters (and thus a very badly conditioned Hessian).
 
 Controlling the effective capacity
----------------------------------
+----------------------------------
 
 Vapnik's theory of *structural risk minimization* tells us that  there exists
 an optimal capacity around which the generalization error increases (i.e.
