@@ -1,6 +1,6 @@
-.. _mlintro_en:
-
 :ref:`Version en français <mlintro_fr>`
+
+.. _mlintro_en:
 
 Very Brief Introduction to Machine Learning for AI
 ==================================================
@@ -104,11 +104,15 @@ In unsupervised learning we are learning a function :math:`f` which helps to
 characterize the unknown distribution :math:`P(Z)`. Sometimes :math:`f` is
 directly an estimator of :math:`P(Z)` itself (this is called density estimation).
 In many other cases :math:`f` is an attempt to characterize where the density
-concentrates. Clustering algorithms divide up the input space in regions
+concentrates.
+
+Clustering algorithms divide up the input space in regions
 (often centered around a prototype example or centroid). Some clustering
-algorithms create a hard partition (e.g. the k-means algorithm) while others 
+algorithms create a hard partition (e.g. the k-means algorithm) while others
 construct a soft partition (e.g. a Gaussian mixture model) which assign
-to each :math:`Z` a probability of belonging to each cluster. Another
+to each :math:`Z` a probability of belonging to each cluster.
+
+Another
 kind of unsupervised learning algorithms are those that construct a
 new representation for :math:`Z`. Many deep learning algorithms fall
 in this category, and so does Principal Components Analysis.
@@ -119,15 +123,18 @@ Local Generalization
 --------------------
 
 The vast majority of learning algorithms exploit a single principle for achieving generalization:
-local generalization. It assumes that if input example :math:`x_i` is close to 
+local generalization. It assumes that if input example :math:`x_i` is close to
 input example :math:`x_j`, then the corresponding outputs :math:`f(x_i)` and :math:`f(x_j)`
 should also be close. This is basically the principle used to perform local
-interpolation. This principle is very powerful, but it has limitations:
+interpolation.
+
+This principle is very powerful, but it has limitations:
 what if we have to extrapolate? or equivalently, what if the target unknown function
 has many more variations than the number of training examples? in that case there
 is no way that local generalization will work, because we need at least as many
 examples as there are ups and downs of the target function, in order to cover
 those variations and be able to generalize by this principle.
+
 This issue is deeply connected to the so-called **curse of dimensionality** for
 the following reason. When the input space is high-dimensional, it is easy for
 it to have a number of variations of interest that is exponential in the number
@@ -145,7 +152,8 @@ Distributed versus Local Representation and Non-Local Generalization
 
 A simple-minded binary local representation of integer :math:`N` is a sequence of :math:`B` bits
 such that :math:`N<B`, and all bits are 0 except the :math:`N`-th one. A simple-minded
-binary distributed representation of integer :math:`N` is a sequence of :math:`log_2 B`
+binary distributed representation of integer :math:`N` is a sequence of
+:math:`B = log_2 N + 1`
 bits with the usual binary encoding for :math:`N`. In this example we see
 that distributed representations can be exponentially more efficient than local ones.
 In general, for learning algorithms, distributed representations have the potential
@@ -175,6 +183,7 @@ region to each configuration of the representation bits
 (these bits are called the hidden units, in neural network parlance).
 The number of parameters of the RBM is roughly equal to the number these
 bits times the input dimension.
+
 Again, we see that the number of regions representable
 by an RBM or a PCA (distributed representation) can grow exponentially in the number of
 parameters, whereas the number of regions representable

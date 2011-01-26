@@ -1,3 +1,5 @@
+:ref:`English version <deepgm_en>`
+
 .. _deepgm_fr:
 
 Modèles probabilistes pour les architectures profondes
@@ -315,7 +317,7 @@ où :math:`\omega_i` est la i-ème rangée de :math:`A` sauf
 le i-ème élément, et dans ce modèle la diagonale de :math:`A` 
 est 0. On voit le lien avec les réseaux de neurones.
 
-.. _rbm:
+.. _rbm_fr:
 
 La Machine de Boltzmann Restreinte
 ----------------------------------
@@ -402,7 +404,7 @@ Pour visualiser les données générées à l'étape :math:`k`, il vaut mieux ut
 (i.e. :math:`E[v^{(k)}_i|h^{(k-1)}]=P(v^{(k)}_i=1|h^{(k-1)})`) 
 qui sont moins bruitées que les échantillons :math:`v^{(k)}` eux-mêmes.
 
-.. _trainrbm:
+.. _trainrbm_fr:
 
 Entraînement des RBMs
 =====================
@@ -496,7 +498,7 @@ d'exemples (et en terme de vraisemblance :math:`\log P(v)`)
 que CD-k, et est moins sensible à l'initialisation de la
 chaîne de Gibbs.
 
-.. _dbn:
+.. _dbn_fr:
 
 RBMs empilés et DBNs
 ====================

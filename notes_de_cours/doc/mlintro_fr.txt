@@ -1,6 +1,6 @@
-.. _mlintro_fr:
-
 :ref:`English version <mlintro_en>`
+
+.. _mlintro_fr:
 
 Introduction rapide à l'apprentissage machine pour l'IA
 =======================================================
@@ -32,7 +32,7 @@ considérées utiles (nous considérons généralement la *bonne* décision comm
 celle qui est la plus utile).
 Cependant, il existe de nombreuses tâches faciles à réaliser pour des animaux
 ou des humains, mais qui restent hors d'atteinte pour les ordinateurs, au
-début du 21`e`:sup: siècle. La plupart de ces tâches font partie de ce que
+début du 21 :sup:`e` siècle. La plupart de ces tâches font partie de ce que
 l'on appelle l'*intelligence artificielle* (IA), ce qui inclut les tâches de
 perception, et de contrôle. Comment se fait-il que nous n'ayons pas réussi à
 écrire de programmes réalisant ces tâches ? Je crois que la principale raison
@@ -81,7 +81,7 @@ décrire l'apprentissage. Nous disposons d'exemples d'entraînement
 où les :math:`z_i` sont des exemples générés par un processus **inconnu**
 :math:`P(Z)`.
 
-Nous avons également une fonction de coût :math:`L`, qui prend comme arguments
+Nous avons également une fonction d'erreur :math:`L`, qui prend comme arguments
 une fonction de décision :math:`f` et un exemple :math:`z`, et qui renvoie un
 scalaire réel. Nous voulons minimizer l'espérance de :math:`L(f,Z)` sous le
 processus stochastique :math:`P(Z)`.
@@ -96,14 +96,14 @@ Dans l'apprentissage supervisé, chaque exemple est une paire (entrée, cible):
 Les deux exemples de problèmes supervisés les plus fréquents sont
 
 * La régression : :math:`Y` est un réel, ou un vecteur de réels, la sortie de
-  :math:`f` est dans le même espace que :math:`Y`, et la fonction de coût est
+  :math:`f` est dans le même espace que :math:`Y`, et l'erreur est
   souvent l'erreur quadratique:
 
   .. math::
       L(f,(X,Y)) = \left\| f(X) - Y \right\|^2
 
 * La classification: :math:`Y` est un entier fini (c'est-à-dire un symbole),
-  qui correspond à l'indice d'une classe, et la fonction de coût utilisée est
+  qui correspond à l'indice d'une classe, et la fonction d'erreur utilisée est
   souvent la log-vraisemblance conditionnelle négative, en interprétant
   :math:`f_i(X)` comme une estimation de :math:`P(Y=i|X)`:
 
@@ -188,6 +188,10 @@ exponentielle.  De manière générale, pour les algorithmes
 d'apprentissage, les représentations distribuées ont la capacité de
 capturer "exponentiellement" plus de variations que les représentations
 locales, pour le même nombre de paramètres libres.
+Ainsi, ils ont le potentiel pour une meilleure généralisation, puisque la
+théorie de l'apprentissage montre que le nombre d'exemple requis (pour
+atteindre un certain degré de performance en généralisation) pour ajuster
+:math:`O(B)` degrés de liberté effectifs est :math:`O(B)`.
 
 La différence entre les représentations locales et distribuées peut
 aussi être illustrée par la différence entre le partitionnement

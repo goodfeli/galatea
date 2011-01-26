@@ -1,3 +1,5 @@
+:ref:`Version française <deepgm_fr>`
+
 .. _deepgm_en:
 
 Probabilistic models for deep architectures

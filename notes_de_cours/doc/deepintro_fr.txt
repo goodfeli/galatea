@@ -1,6 +1,6 @@
-.. _deepintro_fr:
-
 :ref:`English version <deepintro_en>`
+
+.. _deepintro_fr:
 
 Introduction aux algorithmes d'apprentissage profonds
 =====================================================
@@ -136,6 +136,67 @@ L'introspection des concepts exprimable par le langage suggère aussi une
 représentation *éparse*: la description d'une entrée donnée (par exemple, une
 scène visuelle) fait appel uniquement à une faiblle fraction de tous les mots
 et concepts existants.
+
+.. _statistical_sharing_fr:
+
+Partage statistique
+-------------------
+
+Les représentations intermédiaires peuvent être exploitées pour *partager
+la force statistique*, en mettant à contribution différents contextes.
+Premièrement, si des architectures plus profondes peuvent être plus efficaces
+en termes du nombre d'unités de calcul (pour représenter la même fonction),
+cela signifie en principe que le nombre de paramètres à estimer est plus
+petit, ce qui entraîne une plus grande efficacité statistique.
+
+Une autre façon de comprendre le partage de la force statistique, c'est de
+considérer ce qui se passe lorsque différents composants de
+l'architecture sont *réutilisés* pour différents usages (par exemple, pour le
+calcul de différentes sorties, ou pour différentes tâches, ou pour le calcul
+de différentes représentations intermédiaires). Comme les paramètres de ce
+composant sont utilisés dans différents contextes, cela permet d'utiliser plus
+d'information (qui vient de plus d'exemples, ou de parties d'exemples) pour
+estimer ces paramètres, donc de réduire l'incertitude sur ces paramètres.
+
+Ce partage est similaire à celui qui a lieur dans l'apprentissage de
+représentations distribuées. Par exemple, si les paramètres d'une unité
+cachées d'une RBM sont "utilisés" pour beaucoup d'exemples (parce que cette
+unité est activée pour beaucoup d'exemples), alors il existe plus
+d'information disponible pour estimer ces paramètres. Lorsqu'une nouvelle
+configuration des entrées se présente, même si elle ne correspond à aucun des
+exemples vus pendant l'entraînement, ses "composantes" (qui peuvent être
+représentées explicitement, à un plus haut niveau d'abstraction, dans une
+couche intermédiaire) peuvent avoir été vues précédemment.
+
+Le partage de la force statistique est une idée fondamentale derrière de
+nombreuses avances dans l'apprentissage machine. Des composants et des
+paramètres sont partagés entre différentes tâches dans le cas de
+l'apprentissage multi-tâches *(multi-task learning)*, et les architectures
+profondes sont particulièrement adaptées pour l'apprentissage multi-tâches
+(Collobert & Weston, ICML2008). De la même manière, l'apprentissage
+semi-supervisé exploite le partage statistique entre les deux tâches
+suivantes : apprendre la distribution des entrées :math:`P(X)`, et apprendre la
+distribution conditionnelle :math:`P(Y|X)`. Comme les algorithmes
+d'apprentissage profond reposent souvent sur l'apprentissage non supervisé,
+ils sont bien positionnés pour exploiter cette forme particulière de partage
+statistique.
+
+Une forme voisine de partage est exploitée par l'apprentissage autodidacte
+*(self-taught learning)*, (Raina et al, 2007), où l'on utilise pendant
+l'entraînement des exemples non étiquetés, provenant de :math:`P(X|Y)`, pour
+un ensemble de classes Y donné, mais où le but est de généraliser à de
+à des tâches :math:`P(Y|X)` pour un ensemble de tâches Y différentes.
+Des travaux récents ont montré que des architectures profondes bénéficient
+plus de l'apprentissage autodidacte et de l'apprentissage multi-tâches que les
+architectures peu profondes (Bengio et al, NIPS 2010 deep learning workshop).
+
+C'est aussi une forme de généralisation hors-domaine *(out-of-domain
+generalization)*, domaine dans lequel les architectures profondes sont
+également appropriées, comme montré dans (Bengio et al, NIPS 2010 deep
+learning workshop) en ce qui concerne la reconnaissance de patrons *(pattern
+recognition)* et dans (Glorot et al, 2011) pour le traitement du langage
+naturel *(natural language processing, NLP)*, plus particulièrement l'analyse
+de sentiment.
 
 .. _breakthrough_fr:
 

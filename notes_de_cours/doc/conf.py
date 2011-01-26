@@ -39,7 +39,7 @@ templates_path = ['.templates']
 source_suffix = '.txt'
 
 # The master toctree document.
-master_doc = 'contents_fr'
+master_doc = 'contents'
 
 # General substitutions.
 #project = 'Cours IFT6266 H11'

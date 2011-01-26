@@ -1,3 +1,5 @@
+:ref:`English version <dae_en>`
+
 .. _dae_fr:
 
 Auto-encodeurs débruitants vs auto-encodeurs ordinaires
@@ -27,18 +29,18 @@ Différences principales entre les auto-encodeurs ordinaires et les auto-encodeu
      - déterministe
      - stochastique
    * - nombre d'unités cachées
-     - on doit le limiter pour éviter d'apprendre l'identité                                        
+     - on doit le limiter pour éviter d'apprendre l'identité
      - on peut avoir autant d'unités cachées que nécessaire pour capter la distribution
    * - choix de la capacité (nombre d'unités cachées)
      - impossible à partir du critère d'erreur de reconstruction, car toujours plus basse avec plus d'unités
-     - on peut utiliser la moyenne de l'erreur de reconstruction    
-   * - choix du nombre d'itérations d'apprentissage                       
+     - on peut utiliser la moyenne de l'erreur de reconstruction
+   * - choix du nombre d'itérations d'apprentissage
      - impossible à partir de l'erreur de reconstruction: utiliser l'erreur classification après ajustement supervisé
      -  on peut faire du early stopping sur l'erreur de reconstruction moyenne
-   * - choix de la quantité de corruption des entrées                
-     - non-applicable                                        
+   * - choix de la quantité de corruption des entrées
+     - non-applicable
      - on ne peut pas utiliser l'erreur de reconstruction: utiliser l'erreur de classification après ajustement supervisé
-                                                                                          
+
 
 
 

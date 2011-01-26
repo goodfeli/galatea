@@ -8,6 +8,13 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  ===============================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  ===============================================================================================
+`20 janvier`_       Réseaux de neurones     `Efficient Backprop <http://yann.lecun.com/exdb/publis/pdf/lecun-98b.pdf>`_. 
+                                            `Intro au tutorial profond de Theano <http://deeplearning.net/tutorial/intro.html>`_.
+                                            `Démarrage du tutoriel <http://deeplearning.net/tutorial/gettingstarted.html>`_.
+`17 janvier`_       Le calcul du gradient   Notes sur le :ref:`calcul du gradient <flowgraph_fr>`.
+`13 janvier`_       Intro aux               Notes introductoires sur les :ref:`architectures profondes <deepintro_fr>`,
+                    architectures           Sec. 1 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
+                    profondes               Notes sur le :ref:`gradient <gradient_fr>`.
 `10 janvier`_       Intro aux               Notes introductoires sur les :ref:`architectures profondes <deepintro_fr>`,
                     architectures           Sec. 1 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
                     profondes
@@ -18,6 +25,36 @@ Date                Sujets                  À lire en priorité
                                             Sec. 1 et 2 de `Scaling Learning Algorithms towards AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
 
 ==================  ======================  ===============================================================================================
+
+20 Janvier
+----------
+* :ref:`mlp_fr`
+
+  * :ref:`mln_fr`
+  * :ref:`loss_fr`
+
+* Introduction à `Theano <http://www.iro.umontreal.ca/~lisa/deep/theanodoc/>`_
+* Intro au `tutoriel profond de Theano <http://deeplearning.net/tutorial/intro.html>`_
+
+17 Janvier
+----------
+* :ref:`gradient_fr`
+
+  * :ref:`flowgraph_fr`
+
+
+13 Janvier
+----------
+
+* :ref:`Introduction aux algorithmes d'apprentissage profond <deepintro_fr>`
+
+  * :ref:`breakthrough_fr`
+
+* :ref:`gradient_fr`
+
+  * :ref:`grad_fr`
+  * :ref:`gd_fr`
+  * :ref:`sgd_fr`
 
 
 10 Janvier
