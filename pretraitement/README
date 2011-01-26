@@ -66,7 +66,7 @@ much memory, but if we take care that could work. I also put ule like this
 to allow you to test a small sparse dataset in your algo to know if
 they accept it.
 
-Normalizatino done and note by Yoshua:
+Normalization done and note by Yoshua:
 avicenna: soustraire la moyenne puis diviser par l'écart-type 
           (NOTE: résultat réel, reconstruire avec erreur quadratique, unités linéaires)
 ule: diviser par le max  
