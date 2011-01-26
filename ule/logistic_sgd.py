@@ -37,6 +37,8 @@ __docformat__ = 'restructedtext en'
 
 import numpy, time, cPickle, gzip, sys, os
 
+from pylearn.datasets.utlc import load_ndarray_dataset
+
 import theano
 import theano.tensor as T
 
@@ -154,10 +156,7 @@ def load_data(dataset):
     print '... loading data'
 
     # Load the dataset 
-    f = gzip.open(dataset,'rb')
-    train_set, valid_set, test_set = cPickle.load(f)
-    f.close()
-
+    train_set, valid_set, test_set = load_ndarray_dataset('ule')
 
     def shared_dataset(data_xy):
         """ Function that loads the dataset into shared variables
@@ -190,7 +189,7 @@ def load_data(dataset):
 
 
 
-def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000, dataset='../data/mnist.pkl.gz',
+def sgd_optimization_mnist(learning_rate=0.13, n_epochs=1000, dataset='/data/lisa/data/UTLC/filetensor/ule_',
         batch_size = 600):
     """
     Demonstrate stochastic gradient descent optimization of a log-linear 
