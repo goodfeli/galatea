@@ -154,11 +154,16 @@ def load_data(dataset):
     # LOAD DATA #
     #############
     print '... loading data'
-
+    
     # Load the dataset 
-    train_set, valid_set, test_set = load_ndarray_dataset('ule')
+    if dataset in set(['ule', 'avicenna', 'rita', 'sylvester']):
+        train_set, valid_set, test_set = load_ndarray_dataset(dataset)
+    elif dataset == 'harry':
+        raise NotImplementedError('Use the sparse implementation in ./sparse/..')
+    else:
+        raise NotImplementedError('dataset %s has to be one of [ule, avicenna, harry, rita, sylvester, harry]')%(dataset)
 
-    def shared_dataset(data_xy):
+    def shared_dataset(data_x):
         """ Function that loads the dataset into shared variables
         
         The reason we store our dataset in shared variables is to allow 
@@ -167,9 +172,7 @@ def load_data(dataset):
         is needed (the default behaviour if the data is not in a shared 
         variable) would lead to a large decrease in performance.
         """
-        data_x, data_y = data_xy
         shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
-        shared_y = theano.shared(numpy.asarray(data_y, dtype=theano.config.floatX))
         # When storing data on the GPU it has to be stored as floats
         # therefore we will store the labels as ``floatX`` as well
         # (``shared_y`` does exactly that). But during our computations
@@ -177,13 +180,13 @@ def load_data(dataset):
         # floats it doesn't make sense) therefore instead of returning 
         # ``shared_y`` we will have to cast it to int. This little hack
         # lets ous get around this issue
-        return shared_x, T.cast(shared_y, 'int32')
+        return shared_x #, T.cast(shared_y, 'int32')
 
-    test_set_x,  test_set_y  = shared_dataset(test_set)
-    valid_set_x, valid_set_y = shared_dataset(valid_set)
-    train_set_x, train_set_y = shared_dataset(train_set)
+    test_set_x  = shared_dataset(test_set)
+    valid_set_x = shared_dataset(valid_set)
+    train_set_x = shared_dataset(train_set)
 
-    rval = [(train_set_x, train_set_y), (valid_set_x,valid_set_y), (test_set_x, test_set_y)]
+    rval = [train_set_x, valid_set_x, test_set_x]
     return rval
 
 
