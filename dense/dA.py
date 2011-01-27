@@ -36,7 +36,7 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-from logistic_sgd import load_data
+from dense.logistic_sgd import load_data
 from utils import tile_raster_images
 
 import PIL.Image
@@ -219,11 +219,11 @@ class dA(object):
 
 
 
-def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='../data/mnist.pkl.gz',
+def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
         batch_size = 20, output_folder = 'dA_plots' ):
 
     """
-    This demo is tested on MNIST
+    This demo is tested on ULE
 
     :type learning_rate: float
     :param learning_rate: learning rate used for training the DeNosing AutoEncoder
@@ -236,7 +236,8 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='../data/mnist.
 
     """
     datasets = load_data(dataset)
-    train_set_x, train_set_y = datasets[0]
+    train_set_x = datasets[0]
+    d = train_set_x.value.shape[1]
 
     # compute number of minibatches for training, validation and testing
     n_train_batches = train_set_x.value.shape[0] / batch_size
@@ -257,7 +258,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='../data/mnist.
     theano_rng = RandomStreams( rng.randint(2**30))
 
     da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = 28*28, n_hidden = 500)
+            n_visible = d, n_hidden = 500)
 
     cost, updates = da.get_cost_updates(corruption_level = 0.,
                                 learning_rate = learning_rate)
@@ -299,7 +300,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='../data/mnist.
     theano_rng = RandomStreams( rng.randint(2**30))
 
     da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = 28*28, n_hidden = 500)
+            n_visible = d, n_hidden = 500)
 
     cost, updates = da.get_cost_updates(corruption_level = 0.3,
                                 learning_rate = learning_rate)
@@ -338,4 +339,6 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='../data/mnist.
 
 
 if __name__ == '__main__':
-    test_dA()
+    for dataset in [ 'avicenna', 'rita', 'sylvester', 'ule']:
+        print 'training on %s ...'%(dataset)
+        test_dA(dataset = dataset)
