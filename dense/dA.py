@@ -324,42 +324,15 @@ class dA(object):
         end_time = time.clock()
         training_time = (end_time - start_time)
         self.loss_ = loss
-        
-def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
-        batch_size = 20, output_folder = 'dA_plots' ):
 
-    """
-    This demo is tested on ULE
-
-    :type learning_rate: float
-    :param learning_rate: learning rate used for training the DeNosing AutoEncoder
-
-    :type training_epochs: int
-    :param training_epochs: number of epochs used for training 
-
-    :type dataset: string
-    :param dataset: path to the picked dataset
-
-    """
-    datasets = load_data(dataset)
-    train_set_x = datasets[0]
-    d = train_set_x.value.shape[1]
-
-    da = dA(n_visible = d, n_hidden = 500, 
-            tied_weigths = False,
-            act_enc = 'tanh', act_dec = 'sigmoid')
-
-    da.fit(train_set_x, learning_rate, batch_size, epochs=training_epochs, cost='CE',
-            noise='gaussian', corruption_level=0.3)
- 
-    print >> sys.stderr, ('The 30% corruption code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % (training_time/60.))
-
-    image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
-                 img_shape = (28,28),tile_shape = (10,10), 
-                 tile_spacing=(1,1)))
-    image.save('filters_corruption_30.png') 
- 
-    os.chdir('../')
+    def plot_filters(self):
+        """ TODO """ 
+        image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
+                     img_shape = (28,28),tile_shape = (10,10), 
+                     tile_spacing=(1,1)))
+        image.save('filters_corruption_30.png') 
+     
+        os.chdir('../')
 
 
 if __name__ == '__main__':
