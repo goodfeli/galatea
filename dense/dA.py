@@ -324,8 +324,7 @@ class dA(object):
         end_time = time.clock()
         training_time = (end_time - start_time)
         self.loss_ = loss
-
-
+        
 def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
         batch_size = 20, output_folder = 'dA_plots' ):
 
@@ -346,24 +345,6 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
     train_set_x = datasets[0]
     d = train_set_x.value.shape[1]
 
-    # compute number of minibatches for training, validation and testing
-    #n_train_batches = train_set_x.value.shape[0] / batch_size
-
-    # allocate symbolic variables for the data
-    index = T.lscalar()    # index to a [mini]batch 
-    x     = T.matrix('x')  # the data is presented as rasterized images
-
-    
-    if not os.path.isdir(output_folder):
-        os.makedirs(output_folder)
-    os.chdir(output_folder)
-    ####################################
-    # BUILDING THE MODEL NO CORRUPTION #
-    ####################################
-
-    rng        = numpy.random.RandomState(123)
-    theano_rng = RandomStreams( rng.randint(2**30))
-
     da = dA(n_visible = d, n_hidden = 500, 
             tied_weigths = False,
             act_enc = 'tanh', act_dec = 'sigmoid')
@@ -371,77 +352,6 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
     da.fit(train_set_x, learning_rate, batch_size, epochs=training_epochs, cost='CE',
             noise='gaussian', corruption_level=0.3)
  
-    cost, updates = da.get_cost_updates(corruption_level = 0.,
-                                learning_rate = learning_rate,
-                                noise = 'gaussian',
-                                cost = 'MSE')
-
-    
-    train_da = theano.function([index], cost, updates = updates,
-         givens = {x:train_set_x[index*batch_size:(index+1)*batch_size]})
-    
-    start_time = time.clock()
-
-    ############
-    # TRAINING #
-    ############
-
-    # go through training epochs
-    for epoch in xrange(training_epochs):
-        # go through trainng set
-        c = []
-        for batch_index in xrange(n_train_batches):
-            c.append(train_da(batch_index))
-
-        print 'Training epoch %d, cost '%epoch, numpy.mean(c)
-
-    end_time = time.clock()
-
-    training_time = (end_time - start_time)
-
-    print >> sys.stderr, ('The no corruption code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % ((training_time)/60.))
-    image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
-                 img_shape = (28,28),tile_shape = (10,10), 
-                 tile_spacing=(1,1)))
-    image.save('filters_corruption_0.png') 
- 
-    #####################################
-    # BUILDING THE MODEL CORRUPTION 30% #
-    #####################################
-
-    rng        = numpy.random.RandomState(123)
-    theano_rng = RandomStreams( rng.randint(2**30))
-
-    da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = d, n_hidden = 500, tied_weigths = False,
-            act_enc = 'sigmoid', act_dec = 'linear')
-
-    cost, updates = da.get_cost_updates(corruption_level = 0.3,
-                                learning_rate = learning_rate)
-
-    
-    train_da = theano.function([index], cost, updates = updates,
-         givens = {x:train_set_x[index*batch_size:(index+1)*batch_size]})
-
-    start_time = time.clock()
-
-    ############
-    # TRAINING #
-    ############
-
-    # go through training epochs
-    for epoch in xrange(training_epochs):
-        # go through trainng set
-        c = []
-        for batch_index in xrange(n_train_batches):
-            c.append(train_da(batch_index))
-
-        print 'Training epoch %d, cost '%epoch, numpy.mean(c)
-
-    end_time = time.clock()
-
-    training_time = (end_time - start_time)
-
     print >> sys.stderr, ('The 30% corruption code for file '+os.path.split(__file__)[1]+' ran for %.2fm' % (training_time/60.))
 
     image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
@@ -453,6 +363,27 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
 
 
 if __name__ == '__main__':
-    for dataset in ['ule', 'avicenna', 'rita', 'sylvester']:
-        print 'training on %s ...'%(dataset)
-        test_dA(dataset = dataset)
+    # you can train a denoising autoencoder using this cmd:
+    # python <thisfile> dataset #hidden_units tied_weights act_enc act_dec
+    # costtype learning_rate batchsize epochs noise_type corruption_level
+    dataset = sys.argv[1]
+    n_hidden = int(sys.argv[2])
+    tied_weights = bool(sys.argv[3])
+    act_enc= sys.argv[4]
+    act_dec= sys.argv[5]
+    cost_type= sys.argv[6]
+    learning_rate= float(sys.argv[7])
+    batch_size= int(sys.argv[8])
+    epochs= int(sys.argv[9])
+    noise_type= sys.argv[10]
+    corruption_level = float(sys.argv[11])
+
+    datasets = load_data(dataset)
+    train_set_x = datasets[0]
+    d = train_set_x.value.shape[1]
+    da = dA(n_visible = d, n_hidden = n_hidden, 
+            tied_weigths = tied_weights,
+            act_enc = act_enc, act_dec = act_dec)
+    da.fit(train_set_x, learning_rate, batch_size, epochs=epochs, cost=cost_type,
+            noise=noise_type, corruption_level=corruption_level)
+ 
