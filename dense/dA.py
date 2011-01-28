@@ -68,8 +68,8 @@ class dA(object):
     """
 
     def __init__(self,
-                 numpy_rng,
-                 theano_rng = None,
+                 seed_params = None,
+                 seed_noise = None,
                  input = None,
                  n_visible= 784,
                  n_hidden= 500, 
@@ -135,9 +135,24 @@ class dA(object):
         self.act_enc = act_enc
         self.act_dec = act_dec
 
+        # create a numpy random generator
+        # this is used for the initialization of the parameters
+        if not seed_params:
+            numpy_rng        = numpy.random.RandomState(123)
+            self.seed_params = 123
+        else:
+            self.seed_params = seed_params
+            numpy_rng        = numpy.random.RandomState(seed_params)
+        self.numpy_rng = numpy_rng
+
         # create a Theano random generator that gives symbolic random values
-        if not theano_rng : 
-            theano_rng = RandomStreams(rng.randint(2**30))
+        # this is used for adding noise to the input
+        if not seed_noise: 
+            theano_rng = RandomStreams(self.numpy_rng.randint(2**30))
+            self.seed_noise = 2**30
+        else:
+            self.seed_noise = seed_noise
+            theano_rng = RandomStreams(self.numpy_rng.randint(seed_noise))
         self.theano_rng = theano_rng
 
         # note : W' was written as `W_prime` and b' as `b_prime`
@@ -147,7 +162,7 @@ class dA(object):
             # 4*sqrt(6./(n_hidden+n_visible))the output of uniform if
             # converted using asarray to dtype
             # theano.config.floatX so that the code is runable on GPU
-            initial_W = numpy.asarray( numpy_rng.uniform( 
+            initial_W = numpy.asarray(self.numpy_rng.uniform( 
                       low  = -4*numpy.sqrt(6./(n_hidden+n_visible)), 
                       high =  4*numpy.sqrt(6./(n_hidden+n_visible)), 
                       size = (n_visible, n_hidden)), dtype = theano.config.floatX)
@@ -173,7 +188,7 @@ class dA(object):
         else:
             if not W_prime:
                 # not sure about the initialization
-                initial_W_prime = numpy.asarray( numpy_rng.uniform(
+                initial_W_prime = numpy.asarray(self.numpy_rng.uniform(
                       low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
                       high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
                       size = (n_hidden, n_visible)), dtype = theano.config.floatX)
@@ -349,8 +364,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
     rng        = numpy.random.RandomState(123)
     theano_rng = RandomStreams( rng.randint(2**30))
 
-    da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = d, n_hidden = 500, 
+    da = dA(n_visible = d, n_hidden = 500, 
             tied_weigths = False,
             act_enc = 'tanh', act_dec = 'sigmoid')
 
