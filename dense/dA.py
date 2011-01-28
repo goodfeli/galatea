@@ -269,7 +269,46 @@ class dA(object):
     
         return (cost, updates)
 
+    def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
+            noise='gaussian', corruption_level=0.3):
+        """ This fucntion fits the dA to the dataset given
+        some hyper-parameters   """
+        # compute number of minibatches for training, validation and testing
+        n_train_batches = dataset.value.shape[0] / batch_size
 
+        # allocate symbolic variables for the data
+        index = T.lscalar()    # index to a [mini]batch 
+
+        cost, updates = self.get_cost_updates(corruption_level = corruption_level,
+                                learning_rate = learning_rate,
+                                noise = noise,
+                                cost = cost)
+
+
+        train_da = theano.function([index], cost, updates = updates,
+            givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
+    
+        start_time = time.clock()
+
+        ############
+        # TRAINING #
+        ############
+        loss = []
+        # go through training epochs
+        for epoch in xrange(epochs):
+            tic = time.clock()
+            # go through trainng set
+            c = []
+            for batch_index in xrange(n_train_batches):
+                c.append(train_da(batch_index))
+            toc = time.clock()
+            loss.append(numpy.mean(c))
+            print 'Training epoch %d, time spent (min) %f,  cost '%(epoch,(toc-tic)/60.), numpy.mean(c)
+            toc = tic
+
+        end_time = time.clock()
+        training_time = (end_time - start_time)
+        self.loss_ = loss
 
 
 def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
@@ -293,7 +332,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
     d = train_set_x.value.shape[1]
 
     # compute number of minibatches for training, validation and testing
-    n_train_batches = train_set_x.value.shape[0] / batch_size
+    #n_train_batches = train_set_x.value.shape[0] / batch_size
 
     # allocate symbolic variables for the data
     index = T.lscalar()    # index to a [mini]batch 
@@ -315,6 +354,9 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
             tied_weigths = False,
             act_enc = 'tanh', act_dec = 'sigmoid')
 
+    da.fit(train_set_x, learning_rate, batch_size, epochs=training_epochs, cost='CE',
+            noise='gaussian', corruption_level=0.3)
+ 
     cost, updates = da.get_cost_updates(corruption_level = 0.,
                                 learning_rate = learning_rate,
                                 noise = 'gaussian',
