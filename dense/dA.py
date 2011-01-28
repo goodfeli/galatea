@@ -232,7 +232,7 @@ class dA(object):
         else:
             raise NotImplementedError('Decoder function %s is not implemented yet')%(self.act_dec)
 
-    def get_cost_updates(self, corruption_level, learning_rate):
+    def get_cost_updates(self, corruption_level, learning_rate, cost = 'CE'):
         """ This function computes the cost and the updates for one trainng
         step of the dA """
 
@@ -241,7 +241,13 @@ class dA(object):
         z       = self.get_reconstructed_input(y)
         # note : we sum over the size of a datapoint; if we are using minibatches,
         #        L will  be a vector, with one entry per example in minibatch
-        L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 ) 
+        if cost == 'CE':
+            L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 ) 
+        elif cost == 'MSE':
+            L = T.sum( (self.x-z)**2, axis=1 )
+        else:
+            raise NotImplementedError('This cost function %s is not implemented yet')%(cost)
+
         # note : L is now a vector, where each element is the cross-entropy cost 
         #        of the reconstruction of the corresponding example of the 
         #        minibatch. We need to compute the average of all these to get 
@@ -305,7 +311,8 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
             act_enc = 'tanh', act_dec = 'sigmoid')
 
     cost, updates = da.get_cost_updates(corruption_level = 0.,
-                                learning_rate = learning_rate)
+                                learning_rate = learning_rate,
+                                cost = 'MSE')
 
     
     train_da = theano.function([index], cost, updates = updates,
