@@ -34,7 +34,8 @@ import numpy, time, cPickle, gzip, sys, os
 
 import theano
 import theano.tensor as T
-from theano.tensor.shared_randomstreams import RandomStreams
+#from theano.tensor.shared_randomstreams import RandomStreams
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
 from dense.logistic_sgd import load_data
 from utils import tile_raster_images
@@ -193,7 +194,7 @@ class dA(object):
         if not self.tied_weights:
             self.params.append(self.W_prime)
 
-    def get_corrupted_input(self, input, corruption_level):
+    def get_corrupted_input(self, input, corruption_level, noise='binomial'):
         """ This function keeps ``1-corruption_level`` entries of the inputs the same 
         and zero-out randomly selected subset of size ``coruption_level`` 
         Note : first argument of theano.rng.binomial is the shape(size) of 
@@ -211,8 +212,12 @@ class dA(object):
                 is always 0 or 1, this don't change the result. This is needed to allow
                 the gpu to work correctly as it only support float32 for now.
         """
-        return  self.theano_rng.binomial( size = input.shape, n = 1, p =  1 - corruption_level, dtype=theano.config.floatX) * input
-
+        if noise == 'binomial':
+            return  self.theano_rng.binomial( size = input.shape, n = 1, p =  1 - corruption_level, dtype=theano.config.floatX) * input
+        elif noise == 'gaussian':
+            return input + self.theano_rng.normal( size = input.shape, avg=0, std = corruption_level, dtype=theano.config.floatX)
+        else:
+            raise NotImplementedError('This noise %s is not implemented yet'%(noise))
     
     def get_hidden_values(self, input):
         """ Computes the values of the hidden layer """
@@ -221,7 +226,7 @@ class dA(object):
         elif self.act_enc == 'tanh':
             return T.tanh(T.dot(input, self.W) + self.b)
         else:
-            raise NotImplementedError('Encoder function %s is not implemented yet')%(self.act_enc)
+            raise NotImplementedError('Encoder function %s is not implemented yet'%(self.act_enc))
 
     def get_reconstructed_input(self, hidden ):
         """ Computes the reconstructed input given the values of the hidden layer """
@@ -230,13 +235,13 @@ class dA(object):
         elif self.act_dec == 'linear':
             return T.dot(hidden, self.W_prime) + self.b_prime
         else:
-            raise NotImplementedError('Decoder function %s is not implemented yet')%(self.act_dec)
+            raise NotImplementedError('Decoder function %s is not implemented yet'%(self.act_dec))
 
-    def get_cost_updates(self, corruption_level, learning_rate, cost = 'CE'):
+    def get_cost_updates(self, corruption_level, learning_rate, cost = 'CE', noise = 'binomial'):
         """ This function computes the cost and the updates for one trainng
         step of the dA """
 
-        tilde_x = self.get_corrupted_input(self.x, corruption_level)
+        tilde_x = self.get_corrupted_input(self.x, corruption_level, noise)
         y       = self.get_hidden_values( tilde_x)
         z       = self.get_reconstructed_input(y)
         # note : we sum over the size of a datapoint; if we are using minibatches,
@@ -246,7 +251,7 @@ class dA(object):
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
-            raise NotImplementedError('This cost function %s is not implemented yet')%(cost)
+            raise NotImplementedError('This cost function %s is not implemented yet'%(cost))
 
         # note : L is now a vector, where each element is the cross-entropy cost 
         #        of the reconstruction of the corresponding example of the 
@@ -312,6 +317,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
 
     cost, updates = da.get_cost_updates(corruption_level = 0.,
                                 learning_rate = learning_rate,
+                                noise = 'gaussian',
                                 cost = 'MSE')
 
     
