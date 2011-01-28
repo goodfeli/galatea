@@ -131,7 +131,7 @@ class dA(object):
         self.tied_weights = tied_weigths
 
         assert act_enc in set(['sigmoid', 'tanh'])
-        assert act_dec in set(['sigmoid', 'linear'])
+        assert act_dec in set(['sigmoid', 'softplus', 'linear'])
         self.act_enc = act_enc
         self.act_dec = act_dec
 
@@ -249,6 +249,10 @@ class dA(object):
             return  T.nnet.sigmoid(T.dot(hidden, self.W_prime) + self.b_prime)
         elif self.act_dec == 'linear':
             return T.dot(hidden, self.W_prime) + self.b_prime
+        elif self.act_dec == 'softplus':
+            def softplus(x):
+                return T.log(1. + T.exp(x))
+            return softplus(T.dot(hidden, self.W_prime) + self.b_prime)
         else:
             raise NotImplementedError('Decoder function %s is not implemented yet'%(self.act_dec))
 
@@ -346,7 +350,6 @@ if __name__ == '__main__':
     # !! ne pas lancer la commande avec rita il va falloir splitter le dataset qui ne tient pas en memoire
     # !! python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
-    # python dA.py harry 500 True 'sigmoid' 'softplus' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
     # 
 
