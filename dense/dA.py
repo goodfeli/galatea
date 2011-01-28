@@ -66,8 +66,17 @@ class dA(object):
 
     """
 
-    def __init__(self, numpy_rng, theano_rng = None, input = None, n_visible= 784, n_hidden= 500, 
-               W = None, bhid = None, bvis = None):
+    def __init__(self,
+                 numpy_rng,
+                 theano_rng = None,
+                 input = None,
+                 n_visible= 784,
+                 n_hidden= 500, 
+                 tied_weigths = True,
+                 W = None,
+                 W_prime = None,
+                 bhid = None,
+                 bvis = None):
         """
         Initialize the dA class by specifying the number of visible units (the 
         dimension d of the input ), the number of hidden units ( the dimension 
@@ -116,10 +125,12 @@ class dA(object):
         """
         self.n_visible = n_visible
         self.n_hidden  = n_hidden
+        self.tied_weights = tied_weigths
 
         # create a Theano random generator that gives symbolic random values
         if not theano_rng : 
             theano_rng = RandomStreams(rng.randint(2**30))
+        self.theano_rng = theano_rng
 
         # note : W' was written as `W_prime` and b' as `b_prime`
         if not W:
@@ -148,9 +159,20 @@ class dA(object):
         self.b = bhid
         # b_prime corresponds to the bias of the visible
         self.b_prime = bvis
-        # tied weights, therefore W_prime is W transpose
-        self.W_prime = self.W.T 
-        self.theano_rng = theano_rng
+
+        if self.tied_weights:
+            self.W_prime = self.W.T 
+        else:
+            if not W_prime:
+                # not sure about the initialization
+                initial_W_prime = numpy.asarray( numpy_rng.uniform(
+                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
+                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
+                      size = (n_hidden, n_visible)), dtype = theano.config.floatX)
+                W_prime = theano.shared(value = initial_W_prime, name ='W_prime')
+
+            self.W_prime = W_prime
+
         # if no input is given, generate a variable representing the input
         if input == None : 
             # we use a matrix because we expect a minibatch of several examples,
@@ -160,6 +182,9 @@ class dA(object):
             self.x = input
 
         self.params = [self.W, self.b, self.b_prime]
+
+        if not self.tied_weights:
+            self.params.append(self.W_prime)
 
     def get_corrupted_input(self, input, corruption_level):
         """ This function keeps ``1-corruption_level`` entries of the inputs the same 
@@ -300,7 +325,7 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
     theano_rng = RandomStreams( rng.randint(2**30))
 
     da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = d, n_hidden = 500)
+            n_visible = d, n_hidden = 500, tied_weigths = False)
 
     cost, updates = da.get_cost_updates(corruption_level = 0.3,
                                 learning_rate = learning_rate)
@@ -339,6 +364,6 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
 
 
 if __name__ == '__main__':
-    for dataset in [ 'avicenna', 'rita', 'sylvester', 'ule']:
+    for dataset in ['ule', 'avicenna', 'rita', 'sylvester']:
         print 'training on %s ...'%(dataset)
         test_dA(dataset = dataset)
