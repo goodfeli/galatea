@@ -366,6 +366,17 @@ if __name__ == '__main__':
     # you can train a denoising autoencoder using this cmd:
     # python <thisfile> dataset #hidden_units tied_weights act_enc act_dec
     # costtype learning_rate batchsize epochs noise_type corruption_level
+    #
+    # here a few examples
+    #
+    # python dA.py avicenna 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
+    # !! ne pas lancer la commande avec rita il va falloir splitter le dataset qui ne tient pas en memoire
+    # !! python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3
+    # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
+    # python dA.py harry 500 True 'sigmoid' 'softplus' 'MSE' 0.01 20 50 'gaussian' 0.3
+    # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
+    # 
+
     dataset = sys.argv[1]
     n_hidden = int(sys.argv[2])
     tied_weights = bool(sys.argv[3])
