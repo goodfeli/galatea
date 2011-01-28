@@ -73,6 +73,8 @@ class dA(object):
                  n_visible= 784,
                  n_hidden= 500, 
                  tied_weigths = True,
+                 act_enc = 'sigmoid',
+                 act_dec = 'sigmoid',
                  W = None,
                  W_prime = None,
                  bhid = None,
@@ -126,6 +128,11 @@ class dA(object):
         self.n_visible = n_visible
         self.n_hidden  = n_hidden
         self.tied_weights = tied_weigths
+
+        assert act_enc in set(['sigmoid', 'tanh'])
+        assert act_dec in set(['sigmoid', 'linear'])
+        self.act_enc = act_enc
+        self.act_dec = act_dec
 
         # create a Theano random generator that gives symbolic random values
         if not theano_rng : 
@@ -209,12 +216,22 @@ class dA(object):
     
     def get_hidden_values(self, input):
         """ Computes the values of the hidden layer """
-        return T.nnet.sigmoid(T.dot(input, self.W) + self.b)
+        if self.act_enc == 'sigmoid':
+            return T.nnet.sigmoid(T.dot(input, self.W) + self.b)
+        elif self.act_enc == 'tanh':
+            return T.tanh(T.dot(input, self.W) + self.b)
+        else:
+            raise NotImplementedError('Encoder function %s is not implemented yet')%(self.act_enc)
 
     def get_reconstructed_input(self, hidden ):
         """ Computes the reconstructed input given the values of the hidden layer """
-        return  T.nnet.sigmoid(T.dot(hidden, self.W_prime) + self.b_prime)
-    
+        if self.act_dec == 'sigmoid':
+            return  T.nnet.sigmoid(T.dot(hidden, self.W_prime) + self.b_prime)
+        elif self.act_dec == 'linear':
+            return T.dot(hidden, self.W_prime) + self.b_prime
+        else:
+            raise NotImplementedError('Decoder function %s is not implemented yet')%(self.act_dec)
+
     def get_cost_updates(self, corruption_level, learning_rate):
         """ This function computes the cost and the updates for one trainng
         step of the dA """
@@ -283,7 +300,9 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
     theano_rng = RandomStreams( rng.randint(2**30))
 
     da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = d, n_hidden = 500)
+            n_visible = d, n_hidden = 500, 
+            tied_weigths = False,
+            act_enc = 'tanh', act_dec = 'sigmoid')
 
     cost, updates = da.get_cost_updates(corruption_level = 0.,
                                 learning_rate = learning_rate)
@@ -325,7 +344,8 @@ def test_dA( learning_rate = 0.1, training_epochs = 15, dataset ='ule',
     theano_rng = RandomStreams( rng.randint(2**30))
 
     da = dA(numpy_rng = rng, theano_rng = theano_rng, input = x,
-            n_visible = d, n_hidden = 500, tied_weigths = False)
+            n_visible = d, n_hidden = 500, tied_weigths = False,
+            act_enc = 'sigmoid', act_dec = 'linear')
 
     cost, updates = da.get_cost_updates(corruption_level = 0.3,
                                 learning_rate = learning_rate)
