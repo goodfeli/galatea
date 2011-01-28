@@ -79,3 +79,13 @@ sylvester:  soustraire la moyenne puis diviser par l'écart-type
           (NOTE: résultat réel, reconstruire avec erreur quadratique, unités linéaires, 
 	  ou bien bien scaler par rapport au max et utiliser des sigmoides)
 terry: diviser par 300.
+
+transfer label:
+Currently only the ule transfer label are available.
+
+They have been stored in the filetensor and sparse format. It is a matrix with
+the same number of row as the train set. It is shuffled the same way as the train set.
+So the train set and the transfer label are correctly aligned.
+
+Each columns represent a class.Not all class have a column. So for some example we 
+don't know the class(the row contain only 0). We also don't know the number of class I think...

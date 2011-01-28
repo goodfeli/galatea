@@ -147,6 +147,30 @@ if "--terry" in todo:
     write_dataset('terry', train, valid, test, pickle=True)
     print "You must manually compress the created file with gzip!"
 
+def load_transfer(name, dtype=None, permute_as_train=False):
+    """ 
+    This version use much more memory
+    as numpy.loadtxt use much more memory!
+    
+    But we don't loose the shape info in the file!
+    """
+    if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
+        raise Exception("The directory with the original data for %s is not their"%name)
+    transfer = numpy.loadtxt(os.path.join(ROOT_PATH,name+"_text",name+'_transfer.label'),
+                          dtype=dtype)
+    if permute_as_train:
+        rng = numpy.random.RandomState([1,2,3])
+        perm = rng.permutation(transfer.shape[0])
+        transfer = transfer[perm]
+    return transfer
+
+def write_transfer(name, transfer, pickle=False):
+    print "Wrinting labelt", name
+    if pickle:
+        cPickle.dump(transfer, open(name+'_transfer.npy','wb'))
+    else:
+        pylearn.io.filetensor.write(open(name+'_transfer.ft','wb'), transfer)
+
 if "--ule" in todo:
     train, valid, test = load_dataset('ule', dtype='uint8', permute_train=True)
     write_dataset('ule', train, valid, test)
@@ -155,3 +179,9 @@ if "--ule" in todo:
     test = scipy.sparse.csr_matrix(test)
     write_dataset('ule', train, valid, test, pickle=True)
     print "You must manually compress the created file with gzip!"
+    del train, valid, test
+    transfer = load_transfer('ule', dtype='uint8', permute_as_train=True)
+    write_transfer('ule', transfer)
+    transfer = scipy.sparse.csr_matrix(transfer)
+    write_transfer('ule', transfer, pickle=True)
+    
