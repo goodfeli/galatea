@@ -290,7 +290,7 @@ class dA(object):
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
             noise='gaussian', corruption_level=0.3):
-        """ This fucntion fits the dA to the dataset given
+        """ This function fits the dA to the dataset given
         some hyper-parameters   """
         # compute number of minibatches for training, validation and testing
         n_train_batches = dataset.value.shape[0] / batch_size
@@ -326,18 +326,56 @@ class dA(object):
             toc = tic
 
         end_time = time.clock()
-        training_time = (end_time - start_time)
+        self.training_time = (end_time - start_time)/60.
         self.loss_ = loss
 
-    def plot_filters(self):
-        """ TODO """ 
-        image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
-                     img_shape = (28,28),tile_shape = (10,10), 
-                     tile_spacing=(1,1)))
-        image.save('filters_corruption_30.png') 
-     
-        os.chdir('../')
+    def get_denoising_error(self, dataset, cost, noise, corruption_level):
+        """ This function returns the denoising error over the dataset """
+        batch_size = 100
+        # compute number of minibatches for training, validation and testing
+        n_train_batches = dataset.value.shape[0] / batch_size
 
+        # allocate symbolic variables for the data
+        index = T.lscalar()    # index to a [mini]batch 
+
+        cost, updates = self.get_cost_updates(corruption_level = corruption_level,
+                                learning_rate = 0.,
+                                noise = noise,
+                                cost = cost)
+
+
+        get_error = theano.function([index], cost, updates = {},
+            givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
+
+        denoising_error = []
+        # go through the dataset
+        for batch_index in xrange(n_train_batches):
+            denoising_error.append(get_error(batch_index))
+
+        return numpy.mean(denoising_error)
+
+def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
+    act_dec, learning_rate, batch_size, epochs, cost_type,
+    noise_type, corruption_level):
+
+    datasets = load_data(dataset)
+    train_set_x = datasets[0]
+    d = train_set_x.value.shape[1]
+    da = dA(n_visible = d, n_hidden = n_hidden, 
+            tied_weigths = tied_weights,
+            act_enc = act_enc, act_dec = act_dec)
+    da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
+            noise_type, corruption_level)
+
+    if save_dir:
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+        cPickle.dump(da, open(save_dir + 'dae.pkl', 'wb'))
+
+    denoising_error = da.get_denoising_error(train_set_x, cost_type,
+        noise_type, corruption_level)
+
+    return denoising_error
 
 if __name__ == '__main__':
     # you can train a denoising autoencoder using this cmd:
@@ -352,7 +390,6 @@ if __name__ == '__main__':
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
     # 
-
     dataset = sys.argv[1]
     n_hidden = int(sys.argv[2])
     tied_weights = bool(sys.argv[3])
@@ -364,13 +401,8 @@ if __name__ == '__main__':
     epochs= int(sys.argv[9])
     noise_type= sys.argv[10]
     corruption_level = float(sys.argv[11])
+    save_dir = './'
 
-    datasets = load_data(dataset)
-    train_set_x = datasets[0]
-    d = train_set_x.value.shape[1]
-    da = dA(n_visible = d, n_hidden = n_hidden, 
-            tied_weigths = tied_weights,
-            act_enc = act_enc, act_dec = act_dec)
-    da.fit(train_set_x, learning_rate, batch_size, epochs=epochs, cost=cost_type,
-            noise=noise_type, corruption_level=corruption_level)
- 
+    main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
+        act_dec, learning_rate, batch_size, epochs, cost_type,
+        noise_type, corruption_level)
