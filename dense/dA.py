@@ -331,6 +331,7 @@ class dA(object):
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
     noise_type, corruption_level):
+    ''' main function used for training '''
 
     datasets = load_data(dataset)
     train_set_x = datasets[0]
@@ -348,7 +349,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     denoising_error = da.get_denoising_error(train_set_x, cost_type,
         noise_type, corruption_level)
 
-    return denoising_error
+    return denoising_error, time_spent, loss
 
 if __name__ == '__main__':
     # you can train a denoising autoencoder using this cmd:
