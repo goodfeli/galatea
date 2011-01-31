@@ -34,8 +34,8 @@ avi_mean = 514.62248464301717
 avi_std  = 6.901698313710936
 harry_std = 1
 rita_max = 290
-syl_mean = 0
-syl_std  = 1
+syl_mean = 235.22886219217503
+syl_std  = 173.08160705637636
 terry_max = 300
 ule_max = 255
 
@@ -76,8 +76,7 @@ class dataset(object):
 	def set_filepath(self):
 		folder = 'filetensor'
 		extension = '.ft'
-		# root = config.data_root()
-		root = "/data/lisa/data/"
+		root = config.data_root()
 
 		if self.sparse:
 			folder = 'sparse'
@@ -101,6 +100,7 @@ class dataset(object):
 		self.final_set = load_fromfile(self.final_path, self.loader)
 		self.valid_set = load_fromfile(self.valid_path, self.loader)
 
+		# this should go away, data will be normalized during preprocessing
 		if self.normalized:
 			for set in ["devel_set", "final_set", "valid_set"]:
 				self.__dict__[set] = self.normalize(self.__dict__[set])
@@ -125,5 +125,4 @@ def load_fromfile(fname, loader):
     finally:
         if f:
             f.close()
-
     return d
