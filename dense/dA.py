@@ -1,36 +1,4 @@
-"""
- This tutorial introduces denoising auto-encoders (dA) using Theano.
-
- Denoising autoencoders are the building blocks for SdA. 
- They are based on auto-encoders as the ones used in Bengio et al. 2007.
- An autoencoder takes an input x and first maps it to a hidden representation
- y = f_{\theta}(x) = s(Wx+b), parameterized by \theta={W,b}. The resulting 
- latent representation y is then mapped back to a "reconstructed" vector 
- z \in [0,1]^d in input space z = g_{\theta'}(y) = s(W'y + b').  The weight 
- matrix W' can optionally be constrained such that W' = W^T, in which case 
- the autoencoder is said to have tied weights. The network is trained such 
- that to minimize the reconstruction error (the error between x and z).
-
- For the denosing autoencoder, during training, first x is corrupted into 
- \tilde{x}, where \tilde{x} is a partially destroyed version of x by means 
- of a stochastic mapping. Afterwards y is computed as before (using 
- \tilde{x}), y = s(W\tilde{x} + b) and z as s(W'y + b'). The reconstruction 
- error is now measured between z and the uncorrupted input x, which is 
- computed as the cross-entropy : 
-      - \sum_{k=1}^d[ x_k \log z_k + (1-x_k) \log( 1-z_k)]
-
-
- References :
-   - P. Vincent, H. Larochelle, Y. Bengio, P.A. Manzagol: Extracting and 
-   Composing Robust Features with Denoising Autoencoders, ICML'08, 1096-1103,
-   2008
-   - Y. Bengio, P. Lamblin, D. Popovici, H. Larochelle: Greedy Layer-Wise
-   Training of Deep Networks, Advances in Neural Information Processing 
-   Systems 19, 2007
-
-"""
-
-import numpy, time, cPickle, gzip, sys, os
+import numpy, time, cPickle, gzip, sys, os, copy
 
 import theano
 import theano.tensor as T
@@ -78,54 +46,13 @@ class dA(object):
                  act_dec = 'sigmoid',
                  W = None,
                  W_prime = None,
-                 bhid = None,
-                 bvis = None):
-        """
-        Initialize the dA class by specifying the number of visible units (the 
-        dimension d of the input ), the number of hidden units ( the dimension 
-        d' of the latent or hidden space ) and the corruption level. The 
-        constructor also receives symbolic variables for the input, weights and 
-        bias. Such a symbolic variables are useful when, for example the input is 
-        the result of some computations, or when weights are shared between the 
-        dA and an MLP layer. When dealing with SdAs this always happens,
-        the dA on layer 2 gets as input the output of the dA on layer 1, 
-        and the weights of the dA are used in the second stage of training 
-        to construct an MLP.
+                 b = None,
+                 b_prime = None):
 
-        :type numpy_rng: numpy.random.RandomState
-        :param numpy_rng: number random generator used to generate weights
+        # using cPickle serialization
+        self.__initargs__ = copy.copy(locals())
+        del self.__initargs__['self']
 
-        :type theano_rng: theano.tensor.shared_randomstreams.RandomStreams
-        :param theano_rng: Theano random generator; if None is given one is generated
-                     based on a seed drawn from `rng`
-
-        :type input: theano.tensor.TensorType
-        :param input: a symbolic description of the input or None for standalone
-                      dA
-
-        :type n_visible: int
-        :param n_visible: number of visible units
-
-        :type n_hidden: int
-        :param n_hidden:  number of hidden units
-
-        :type W: theano.tensor.TensorType
-        :param W: Theano variable pointing to a set of weights that should be 
-                  shared belong the dA and another architecture; if dA should 
-                  be standalone set this to None
-
-        :type bhid: theano.tensor.TensorType
-        :param bhid: Theano variable pointing to a set of biases values (for 
-                     hidden units) that should be shared belong dA and another 
-                     architecture; if dA should be standalone set this to None
-
-        :type bvis: theano.tensor.TensorType
-        :param bvis: Theano variable pointing to a set of biases values (for 
-                     visible units) that should be shared belong dA and another
-                     architecture; if dA should be standalone set this to None
-
-
-        """
         self.n_visible = n_visible
         self.n_hidden  = n_hidden
         self.tied_weights = tied_weigths
@@ -168,20 +95,20 @@ class dA(object):
                       size = (n_visible, n_hidden)), dtype = theano.config.floatX)
             W = theano.shared(value = initial_W, name ='W')
 
-        if not bvis:
-            bvis = theano.shared(value = numpy.zeros(n_visible, 
+        if not b_prime:
+            b_prime = theano.shared(value = numpy.zeros(n_visible, 
                                          dtype = theano.config.floatX))
 
-        if not bhid:
-            bhid = theano.shared(value = numpy.zeros(n_hidden,
+        if not b:
+            b = theano.shared(value = numpy.zeros(n_hidden,
                                 dtype = theano.config.floatX), name ='b')
 
 
         self.W = W
         # b corresponds to the bias of the hidden 
-        self.b = bhid
+        self.b = b
         # b_prime corresponds to the bias of the visible
-        self.b_prime = bvis
+        self.b_prime = b_prime
 
         if self.tied_weights:
             self.W_prime = self.W.T 
@@ -291,7 +218,9 @@ class dA(object):
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
             noise='gaussian', corruption_level=0.3):
         """ This function fits the dA to the dataset given
-        some hyper-parameters   """
+        some hyper-parameters and returns the loss evolution
+        and the time spent during training   """
+
         # compute number of minibatches for training, validation and testing
         n_train_batches = dataset.value.shape[0] / batch_size
 
@@ -313,6 +242,7 @@ class dA(object):
         # TRAINING #
         ############
         loss = []
+        print '... training model...'
         # go through training epochs
         for epoch in xrange(epochs):
             tic = time.clock()
@@ -326,9 +256,51 @@ class dA(object):
             toc = tic
 
         end_time = time.clock()
-        self.training_time = (end_time - start_time)/60.
-        self.loss_ = loss
+        training_time = (end_time - start_time)/60.
 
+        return training_time, loss
+
+    def save(self, save_dir):
+        """ save the parameters of the model """
+        print '... saving model'
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+
+        save_file = open(save_dir + 'model.pkl','wb')
+        cPickle.dump(self.__initargs__, save_file, -1)
+        cPickle.dump(self.W.value, save_file, -1)
+        if not self.tied_weights:
+            cPickle.dump(self.W_prime.value, save_file, -1)
+        cPickle.dump(self.b.value, save_file, -1)
+        cPickle.dump(self.b_prime.value, save_file, -1)
+        save_file.close()
+ 
+    def load(self, load_dir):
+        """ load the model """
+        print '... loading model'
+        save_file = open(load_dir + 'model.pkl','r')
+        args = cPickle.load(save_file)
+        self.__init__(
+                 seed_params = args['seed_params'],
+                 seed_noise = args['seed_noise'],
+                 input = args['input'],
+                 n_visible= args['n_visible'],
+                 n_hidden= args['n_hidden'], 
+                 tied_weigths = args['tied_weigths'],
+                 act_enc = args['act_enc'],
+                 act_dec = args['act_dec'],
+                 W = args['W'],
+                 W_prime = args['W_prime'],
+                 b = args['b'],
+                 b_prime = args['b_prime'])
+
+        self.W.value = cPickle.load(save_file)
+        if not self.tied_weights:
+            self.W_prime.value = cPickle.load(save_file)
+        self.b.value = cPickle.load(save_file)
+        self.b_prime.value = cPickle.load(save_file)
+        save_file.close()
+    
     def get_denoising_error(self, dataset, cost, noise, corruption_level):
         """ This function returns the denoising error over the dataset """
         batch_size = 100
@@ -354,6 +326,8 @@ class dA(object):
 
         return numpy.mean(denoising_error)
 
+      
+
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
     noise_type, corruption_level):
@@ -364,13 +338,12 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     da = dA(n_visible = d, n_hidden = n_hidden, 
             tied_weigths = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
-    da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
+
+    time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
             noise_type, corruption_level)
 
     if save_dir:
-        if not os.path.isdir(save_dir):
-            os.makedirs(save_dir)
-        cPickle.dump(da, open(save_dir + 'dae.pkl', 'wb'))
+        da.save(save_dir)
 
     denoising_error = da.get_denoising_error(train_set_x, cost_type,
         noise_type, corruption_level)
