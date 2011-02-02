@@ -348,7 +348,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     denoising_error = da.get_denoising_error(train_set_x, cost_type,
         noise_type, corruption_level)
-
+    print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
     return denoising_error, time_spent, loss
 
 if __name__ == '__main__':
