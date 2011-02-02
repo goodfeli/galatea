@@ -60,12 +60,15 @@ def load_dataset(name, subset, permute_train=True, normalize=True):
             rng = numpy.random.RandomState([1,2,3])
             perm = rng.permutation(size)
 
-			# tricky, data = data[perm] will in fact permute nothing on a sparse format
+	    # tricky, data = data[perm] will in fact permute nothing on a sparse format
+	    # as we move around the value with its coordinate.
+	    # The call to coo_matrix will put the coordinate in the original order.
             for i in range(data.shape[0]):
+		# The first row os the sparse marix is empty as the sparce
+		# matrix index start at 0, but in the file it start at 1
                 data[i,0] = perm[data[i,0]-1]
-
         data = scipy.sparse.coo_matrix((data[:,2], (data[:,0],data[:,1])))
-
+	data = scipy.sparse.csr_matrix(data)
     else:
 
         size = 4096
@@ -81,7 +84,7 @@ def load_dataset(name, subset, permute_train=True, normalize=True):
             perm = rng.permutation(data.shape[0])
             data = data[perm]
 
-        data = scipy.sparse.coo_matrix(data)
+        data = scipy.sparse.csr_matrix(data)
 
     return data
 
