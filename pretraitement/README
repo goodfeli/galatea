@@ -1,4 +1,4 @@
-This directory contain the 6 datasets from the 
+This directory contain the 6 datasets from the
 
 Unsupervised and Transfer Learning Challenge(UTLC)
 
@@ -14,14 +14,20 @@ ULE (toy data) 	 Handwritten digits 		784 	80.85 		26808 	 4096 	  4096 	  10000
 
     	 	 	     	memory size(2)
     	 	 Nb element(1)  int16   float32 original value range 	    original type
-AVICENNA 	 19M		~38Mb	~76Mb	0-999	       	     	    int
-HARRY		 389M		~780Mb	~1560Mb	tr(0-451)va(0-19)te(0-24)   int
-RITA		 864M		~1728Mb	~3456Mb	tr/va/te 0-230	     	    int
-SYLVESTER	 58M		~116Mb	~232Mb	0-999	 	     	    int
-TERRY		 10368M		~21Gb	~43Gb	tr(2-999)va(3-728)te(2-684) int
-ULE		 27M		~55Mb	~110Mb	0-255			    int
+AVICENNA 	 19M		~38MB	~76MB	0-999	       	     	    int
+HARRY		 389M		~780MB	~1560MB	tr(0-451)va(0-19)te(0-24)   int
+RITA		 864M		~1728MB	~3456MB	tr/va/te 0-230	     	    int
+SYLVESTER	 58M		~116MB	~232MB	0-999	 	     	    int
+TERRY		 10368M		~21GB	~43GB	tr(2-999)va(3-728)te(2-684) int
+ULE		 27M		~55MB	~110MB	0-255			    int
 (1)(nb rows train+valid+test)*nbFeat/1000./1000
 (2) if stored in an ndarray.
+
+    	      	 memory size of sparse format.
+    	 	 uint8 int16   float32 float64
+HARRY		       42MB    56MB    84MB
+TERRY		       98MB    131MB   196MB
+ULE		 25MB		41MB   60MB
 
        	      stored dtype    dtype after normalization
 AVICENNA      int16  	      floatX
@@ -82,6 +88,10 @@ terry: diviser par 300.
 
 transfer label:
 Currently only the ule transfer label are available.
+
+ule train/valid/test label:
+As ule is a toy dataset, we have the label of the part. They can be loaded
+with the function pylearn.datasets.utlc.load_ndarray_label()
 
 They have been stored in the filetensor and sparse format. It is a matrix with
 the same number of row as the train set. It is shuffled the same way as the train set.
