@@ -1,17 +1,5 @@
-""" 
-This is a script to transform the data from Unsupervised and Transfer Learning Challenge(UTLC)
-
-see the README file for defail of what have been done.
-
-dataset:
-wget http://www.causality.inf.ethz.ch/ul_data/avicenna_text.zip
-wget http://www.causality.inf.ethz.ch/ul_data/harry_text.zip
-wget http://www.causality.inf.ethz.ch/ul_data/rita_text.zip
-wget http://www.causality.inf.ethz.ch/ul_data/sylvester_text.zip
-wget http://www.causality.inf.ethz.ch/ul_data/terry_text.zip
-wget http://www.causality.inf.ethz.ch/ul_data/ule_text.zip
-
-TODO: pylearn.io.sparse? That will use numpy.tofile?
+"""
+Load a sparse UTLC dataset and saves it in the filetensor format.
 """
 
 import os
@@ -29,6 +17,14 @@ ROOT_PATH = '/part/02/Tmp/saintjaf/utlc/raw'
 datasets_avail = ["avicenna","harry","rita","sylvester","ule"]
 subset = ["devel", "valid", "final"]
 
+datasets_shape = {
+		"avicenna_devel" : 150205,
+		"harry_devel" : 69652,
+		"rita_devel" : 111808,
+		"sylvester_devel" : 572820,
+		"terry_devel" : 217034,
+		"ule_devel" : 26808 }
+
 # normalize functions
 def normalize_gaussian(mean, std, set):
 	return (set - mean) / std
@@ -43,7 +39,6 @@ harry_std = 1.0
 rita_max = 290.0
 syl_mean = 235.22886219217503
 syl_std  = 173.08160705637636
-terry_max = 300.0
 ule_max = 255.0
 
 datasets_normalizer= {
@@ -51,7 +46,6 @@ datasets_normalizer= {
 		"harry"     : fc.partial(normalize_maximum, harry_std),
 		"rita"      : fc.partial(normalize_maximum, rita_max),
 		"sylvester" : fc.partial(normalize_gaussian, syl_mean, syl_std),
-		"terry"     : fc.partial(normalize_maximum, terry_max),
 		"ule"       : fc.partial(normalize_maximum, ule_max) }
 
 def load_dataset(name, subset, permute_train=True, normalize=True):
@@ -60,6 +54,13 @@ def load_dataset(name, subset, permute_train=True, normalize=True):
 
     data = numpy.fromfile(os.path.join(ROOT_PATH,name+'_text',name+'_'+subset+'.data'),
                            dtype=numpy.float32, sep=' ')
+
+    size = 4096
+    if subset == "devel":
+        size = datasets_shape[name + "_devel"]
+    data = data.reshape(size, data.shape[0]/size)
+
+    print data.shape
 
     if permute_train:
         rng = numpy.random.RandomState([1,2,3])

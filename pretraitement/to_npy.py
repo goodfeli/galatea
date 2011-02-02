@@ -164,12 +164,45 @@ def load_transfer(name, dtype=None, permute_as_train=False):
         transfer = transfer[perm]
     return transfer
 
-def write_transfer(name, transfer, pickle=False):
-    print "Wrinting labelt", name
+def write(name, data, pickle=False):
     if pickle:
-        cPickle.dump(transfer, open(name+'_transfer.npy','wb'))
+        cPickle.dump(data, open(name+'.npy','wb'))
     else:
-        pylearn.io.filetensor.write(open(name+'_transfer.ft','wb'), transfer)
+        pylearn.io.filetensor.write(open(name+'.ft','wb'), data)
+    
+
+def write_transfer(name, transfer, pickle=False):
+    print "Wrinting transfer labels", name
+    write(name+'_transfer', transfer, pickle)
+
+def write_label(name, trainl, validl, testl):
+    print "Wrinting labels", name
+    write(name+'_trainl', trainl)
+    write(name+'_validl', validl)
+    write(name+'_testl', testl)
+
+def load_label(name, dtype=None, permute_train=False):
+    """ 
+    This version use much more memory
+    as numpy.loadtxt use much more memory!
+    
+    But we don't loose the shape info in the file!
+    """
+    if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
+        raise Exception("The directory with the original data for %s is not their"%name)
+    train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',name+'_devel.label'),
+                          dtype=dtype)
+    if permute_train:
+        rng = numpy.random.RandomState([1,2,3])
+        perm = rng.permutation(train.shape[0])
+        train = train[perm]
+    valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
+                                       name+'_valid.label'),
+                          dtype=dtype)
+    test = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
+                                      name+'_final.label'),
+                         dtype=dtype)
+    return train, valid, test
 
 if "--ule" in todo:
     train, valid, test = load_dataset('ule', dtype='uint8', permute_train=True)
@@ -184,4 +217,9 @@ if "--ule" in todo:
     write_transfer('ule', transfer)
     transfer = scipy.sparse.csr_matrix(transfer)
     write_transfer('ule', transfer, pickle=True)
-    
+    del transfer
+    # We create the label data too
+    # But don't forget this will never be available for the other dataset
+    # This is needed to transform their example in python
+    trainl, validl, testl = load_label('ule', dtype=None, permute_train=True)
+    write_label('ule', trainl, validl, testl)
