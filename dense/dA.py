@@ -236,8 +236,8 @@ class dA(object):
             train_da = theano.function([index], cost, updates = updates,
                 givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
     	else:
-		    max=float(dataset.value.max())
-		    datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
+            max=float(dataset.value.max())
+            datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
             train_da = theano.function([], cost, updates = updates,
                     givens = {self.x:datasetB})
 
@@ -258,7 +258,7 @@ class dA(object):
             for batch_index in xrange(n_train_batches):
                 if normalize:
         	        c.append(train_da(batch_index))
-		        else:
+                else:
                     datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
                     c.append(train_da())
             toc = time.clock()
@@ -372,8 +372,9 @@ if __name__ == '__main__':
     # here a few examples
     #
     # python dA.py avicenna 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
-    # !! ne pas lancer la commande avec rita il va falloir splitter le dataset qui ne tient pas en memoire
-    # !! python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3
+    # attention ajouter un zero a la fin de la commande pour rita qui indique que
+    # les donnes ne sont pas normalisees et qu'il y a un hack !!
+    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0 
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
     # 
