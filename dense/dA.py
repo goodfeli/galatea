@@ -223,11 +223,8 @@ class dA(object):
 
 	
         # compute number of minibatches for training, validation and testing
-        if normalize:
-		n_train_batches = dataset.value.shape[0] / batch_size
-	else:
-		n_train_batches = dataset.shape[0] / batch_size
-
+        n_train_batches = dataset.value.shape[0] / batch_size
+	
         # allocate symbolic variables for the data
         index = T.lscalar()    # index to a [mini]batch 
 
@@ -239,9 +236,11 @@ class dA(object):
 	        train_da = theano.function([index], cost, updates = updates,
         	    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
     	else:
-		max=dataset.max()
-		train_da = theano.function([index], cost, updates = updates,
-                    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]/max})
+		max=float(dataset.value.max())
+		datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
+
+		train_da = theano.function([], cost, updates = updates,
+                    givens = {self.x:datasetB})
 
         start_time = time.clock()
 
@@ -258,7 +257,11 @@ class dA(object):
             # go through trainng set
             c = []
             for batch_index in xrange(n_train_batches):
-                c.append(train_da(batch_index))
+		if normalize:
+        	        c.append(train_da(batch_index))
+		else:
+			datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
+			c.append(train_da())
             toc = time.clock()
             loss.append(numpy.mean(c))
             print 'Training epoch %d, time spent (min) %f,  cost '%(epoch,(toc-tic)/60.), numpy.mean(c)
@@ -345,11 +348,8 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     datasets = load_data(dataset,normalize)
     train_set_x = datasets[0]
 
-    if normalize:
-    	d = train_set_x.value.shape[1]
-    else:
-	d = train_set_x.shape[1]
-
+    d = train_set_x.value.shape[1]
+    
     da = dA(n_visible = d, n_hidden = n_hidden, 
             tied_weigths = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
