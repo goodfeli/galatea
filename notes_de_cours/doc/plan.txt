@@ -8,7 +8,11 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  =========================================================================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  =========================================================================================================================================
-`27 janvier`_       Auto-encodeurs,          Section 4.6 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.
+`3 février`_        Modèles probabilistes,  Intro aux :ref:`deepgm_fr`.
+                    Lancer de jobs au LISA  
+                                            `Jobman <http://www.assembla.com/wiki/show/ift6266h11/Jobman_au_DIRO>`_.
+`31 janvier`_       Modèles probabilistes   Intro aux :ref:`deepgm_fr`.
+`27 janvier`_       Auto-encodeurs,         Section 4.6 de `Learning Deep Architectures for AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/239>`_.
                     DAE                     `Denoising Auto-Encoders <http://www.iro.umontreal.ca/~lisa/publications2/index.php/publications/show/217>`_
 `24 janvier`_       python, numpy, Theano   Documentation sur `python <http://www.python.org/>`_, 
                                             `numpy <http://numpy.scipy.org/>`_, et `Theano <http://www.iro.umontreal.ca/~lisa/deep/theanodoc/>`_.
@@ -32,7 +36,15 @@ Date                Sujets                  À lire en priorité
 
 ==================  ======================  =========================================================================================================================================
 
+3 Février
+---------
 
+*  Suite de l'intro aux :ref:`deepgm_fr`.
+
+31 Janvier
+----------
+
+*  Intro aux :ref:`deepgm_fr`.
 
 27 Janvier
 ----------
