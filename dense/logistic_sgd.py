@@ -143,7 +143,7 @@ class LogisticRegression(object):
             raise NotImplementedError()
 
 
-def load_data(dataset):
+def load_data(dataset, normalize=True):
     ''' Loads the dataset
 
     :type dataset: string
@@ -157,7 +157,7 @@ def load_data(dataset):
     
     # Load the dataset 
     if dataset in set(['ule', 'avicenna', 'rita', 'sylvester']):
-        train_set, valid_set, test_set = load_ndarray_dataset(dataset)
+        train_set, valid_set, test_set = load_ndarray_dataset(dataset,normalize)
     elif dataset == 'harry':
         raise NotImplementedError('Use the sparse implementation in ./sparse/..')
     else:
@@ -182,11 +182,18 @@ def load_data(dataset):
         # lets ous get around this issue
         return shared_x #, T.cast(shared_y, 'int32')
 
-    test_set_x  = shared_dataset(test_set)
-    valid_set_x = shared_dataset(valid_set)
-    train_set_x = shared_dataset(train_set)
-
-    rval = [train_set_x, valid_set_x, test_set_x]
+    if normalize:
+	test_set_x  = shared_dataset(test_set)
+	valid_set_x = shared_dataset(valid_set)
+	train_set_x = shared_dataset(train_set)
+	rval = [train_set_x, valid_set_x, test_set_x]
+    else:
+	max = train_set.max()
+	test_set_x  = shared_dataset(test_set/max)
+	valid_set_x = shared_dataset(valid_set/max)
+	train_set_x = shared_dataset(train_set/max)
+	rval = [train_set_x, valid_set_x, test_set_x]
+    
     return rval
 
 

@@ -232,7 +232,6 @@ class dA(object):
                                 noise = noise,
                                 cost = cost)
 
-
         train_da = theano.function([index], cost, updates = updates,
             givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
     
@@ -330,10 +329,10 @@ class dA(object):
 
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
-    noise_type, corruption_level):
+    noise_type, corruption_level,normalize=True):
     ''' main function used for training '''
 
-    datasets = load_data(dataset)
+    datasets = load_data(dataset,normalize)
     train_set_x = datasets[0]
     d = train_set_x.value.shape[1]
     da = dA(n_visible = d, n_hidden = n_hidden, 
@@ -376,7 +375,10 @@ if __name__ == '__main__':
     noise_type= sys.argv[10]
     corruption_level = float(sys.argv[11])
     save_dir = './'
-
+    if (len(sys.argv) > 12):   # loading un-normalized data in memory (rita)
+	normalize=bool(sys.argv[12])
+    else:
+	normalize=True
     main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         act_dec, learning_rate, batch_size, epochs, cost_type,
-        noise_type, corruption_level)
+        noise_type, corruption_level,normalize)
