@@ -153,7 +153,7 @@ def load_data(dataset, normalize=True):
     #############
     # LOAD DATA #
     #############
-    print '... loading data'
+    print '... loading data', normalize
     
     # Load the dataset 
     if dataset in set(['ule', 'avicenna', 'rita', 'sylvester']):
@@ -188,11 +188,7 @@ def load_data(dataset, normalize=True):
 	train_set_x = shared_dataset(train_set)
 	rval = [train_set_x, valid_set_x, test_set_x]
     else:
-	max = train_set.max()
-	test_set_x  = shared_dataset(test_set/max)
-	valid_set_x = shared_dataset(valid_set/max)
-	train_set_x = shared_dataset(train_set/max)
-	rval = [train_set_x, valid_set_x, test_set_x]
+	rval = [train_set, valid_set, test_set]
     
     return rval
 

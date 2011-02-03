@@ -216,13 +216,17 @@ class dA(object):
         return (cost, updates)
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
-            noise='gaussian', corruption_level=0.3):
+            noise='gaussian', corruption_level=0.3, normalize=True):
         """ This function fits the dA to the dataset given
         some hyper-parameters and returns the loss evolution
         and the time spent during training   """
 
+	
         # compute number of minibatches for training, validation and testing
-        n_train_batches = dataset.value.shape[0] / batch_size
+        if normalize:
+		n_train_batches = dataset.value.shape[0] / batch_size
+	else:
+		n_train_batches = dataset.shape[0] / batch_size
 
         # allocate symbolic variables for the data
         index = T.lscalar()    # index to a [mini]batch 
@@ -231,10 +235,14 @@ class dA(object):
                                 learning_rate = learning_rate,
                                 noise = noise,
                                 cost = cost)
+	if normalize:
+	        train_da = theano.function([index], cost, updates = updates,
+        	    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
+    	else:
+		max=dataset.max()
+		train_da = theano.function([index], cost, updates = updates,
+                    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]/max})
 
-        train_da = theano.function([index], cost, updates = updates,
-            givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
-    
         start_time = time.clock()
 
         ############
@@ -243,6 +251,8 @@ class dA(object):
         loss = []
         print '... training model...'
         # go through training epochs
+
+
         for epoch in xrange(epochs):
             tic = time.clock()
             # go through trainng set
@@ -334,13 +344,18 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     datasets = load_data(dataset,normalize)
     train_set_x = datasets[0]
-    d = train_set_x.value.shape[1]
+
+    if normalize:
+    	d = train_set_x.value.shape[1]
+    else:
+	d = train_set_x.shape[1]
+
     da = dA(n_visible = d, n_hidden = n_hidden, 
             tied_weigths = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
 
     time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
-            noise_type, corruption_level)
+            noise_type, corruption_level,normalize)
 
     if save_dir:
         da.save(save_dir)
@@ -375,10 +390,12 @@ if __name__ == '__main__':
     noise_type= sys.argv[10]
     corruption_level = float(sys.argv[11])
     save_dir = './'
+
     if (len(sys.argv) > 12):   # loading un-normalized data in memory (rita)
-	normalize=bool(sys.argv[12])
+	normalize = bool(int(sys.argv[12]))
     else:
 	normalize=True
+
     main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         act_dec, learning_rate, batch_size, epochs, cost_type,
         noise_type, corruption_level,normalize)
