@@ -172,7 +172,10 @@ def load_data(dataset, normalize=True):
         is needed (the default behaviour if the data is not in a shared 
         variable) would lead to a large decrease in performance.
         """
-        shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
+	if normalize:
+	        shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
+	else:
+		shared_x = theano.shared(numpy.asarray(data_x, dtype="uint8"))
         # When storing data on the GPU it has to be stored as floats
         # therefore we will store the labels as ``floatX`` as well
         # (``shared_y`` does exactly that). But during our computations
@@ -182,14 +185,11 @@ def load_data(dataset, normalize=True):
         # lets ous get around this issue
         return shared_x #, T.cast(shared_y, 'int32')
 
-    if normalize:
-	test_set_x  = shared_dataset(test_set)
-	valid_set_x = shared_dataset(valid_set)
-	train_set_x = shared_dataset(train_set)
-	rval = [train_set_x, valid_set_x, test_set_x]
-    else:
-	rval = [train_set, valid_set, test_set]
-    
+    test_set_x  = shared_dataset(test_set)
+    valid_set_x = shared_dataset(valid_set)
+    train_set_x = shared_dataset(train_set)
+    rval = [train_set_x, valid_set_x, test_set_x]
+        
     return rval
 
 
