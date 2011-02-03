@@ -232,14 +232,13 @@ class dA(object):
                                 learning_rate = learning_rate,
                                 noise = noise,
                                 cost = cost)
-	if normalize:
-	        train_da = theano.function([index], cost, updates = updates,
-        	    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
+        if normalize:
+            train_da = theano.function([index], cost, updates = updates,
+                givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
     	else:
-		max=float(dataset.value.max())
-		datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
-
-		train_da = theano.function([], cost, updates = updates,
+		    max=float(dataset.value.max())
+		    datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
+            train_da = theano.function([], cost, updates = updates,
                     givens = {self.x:datasetB})
 
         start_time = time.clock()
@@ -257,11 +256,11 @@ class dA(object):
             # go through trainng set
             c = []
             for batch_index in xrange(n_train_batches):
-		if normalize:
+                if normalize:
         	        c.append(train_da(batch_index))
-		else:
-			datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
-			c.append(train_da())
+		        else:
+                    datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
+                    c.append(train_da())
             toc = time.clock()
             loss.append(numpy.mean(c))
             print 'Training epoch %d, time spent (min) %f,  cost '%(epoch,(toc-tic)/60.), numpy.mean(c)
@@ -392,9 +391,9 @@ if __name__ == '__main__':
     save_dir = './'
 
     if (len(sys.argv) > 12):   # loading un-normalized data in memory (rita)
-	normalize = bool(int(sys.argv[12]))
+        normalize = bool(int(sys.argv[12]))
     else:
-	normalize=True
+        normalize=True
 
     main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         act_dec, learning_rate, batch_size, epochs, cost_type,
