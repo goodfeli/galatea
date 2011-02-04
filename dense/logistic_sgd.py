@@ -153,13 +153,13 @@ def load_data(dataset, normalize=True):
     #############
     # LOAD DATA #
     #############
-    print '... loading data', normalize
+    print '... loading data'
     
     # Load the dataset 
-    if dataset in set(['ule', 'avicenna', 'rita', 'sylvester']):
+    if dataset in set(['ule', 'avicenna', 'rita', 'sylvester','harry']):
         train_set, valid_set, test_set = load_ndarray_dataset(dataset,normalize)
-    elif dataset == 'harry':
-        raise NotImplementedError('Use the sparse implementation in ./sparse/..')
+    #elif dataset == 'harry':
+    #    raise NotImplementedError('Use the sparse implementation in ./sparse/..')
     else:
         raise NotImplementedError('dataset %s has to be one of [ule, avicenna, harry, rita, sylvester, harry]')%(dataset)
 
@@ -172,10 +172,10 @@ def load_data(dataset, normalize=True):
         is needed (the default behaviour if the data is not in a shared 
         variable) would lead to a large decrease in performance.
         """
-	if normalize:
-	        shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
-	else:
-		shared_x = theano.shared(numpy.asarray(data_x))
+        if normalize:
+            shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
+        else:            
+            shared_x = theano.shared(numpy.asarray(data_x))
         # When storing data on the GPU it has to be stored as floats
         # therefore we will store the labels as ``floatX`` as well
         # (``shared_y`` does exactly that). But during our computations

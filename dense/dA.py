@@ -236,7 +236,13 @@ class dA(object):
             train_da = theano.function([index], cost, updates = updates,
                 givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
     	else:
-            max=float(dataset.value.max())
+            if dataset.value.shape[1]==7200:
+                #q&d pour detecter rita
+                print 'rocks'
+                max=float(dataset.value.max())
+            else:
+                max=0.69336046033925791
+                #0.69336046033925791 std for harry
             datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
             train_da = theano.function([], cost, updates = updates,
                     givens = {self.x:datasetB})
@@ -393,8 +399,8 @@ if __name__ == '__main__':
 
     if (len(sys.argv) > 12):   # loading un-normalized data in memory (rita)
         normalize = bool(int(sys.argv[12]))
-        if dataset != 'rita':
-                    raise NotImplementedError('for now the normalization on the fly is only allowed for rita, may change...')
+        if not dataset in ['rita','harry']:
+            raise NotImplementedError('for now the normalization on the fly is only allowed for rita & harry, may change...')
 
     else:
         normalize=True
