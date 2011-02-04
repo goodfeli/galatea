@@ -175,7 +175,7 @@ def load_data(dataset, normalize=True):
 	if normalize:
 	        shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX))
 	else:
-		shared_x = theano.shared(numpy.asarray(data_x, dtype="uint8"))
+		shared_x = theano.shared(numpy.asarray(data_x))
         # When storing data on the GPU it has to be stored as floats
         # therefore we will store the labels as ``floatX`` as well
         # (``shared_y`` does exactly that). But during our computations
