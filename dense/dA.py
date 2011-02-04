@@ -393,6 +393,9 @@ if __name__ == '__main__':
 
     if (len(sys.argv) > 12):   # loading un-normalized data in memory (rita)
         normalize = bool(int(sys.argv[12]))
+        if dataset != 'rita':
+                    raise NotImplementedError('for now the normalization on the fly is only allowed for rita, may change...')
+
     else:
         normalize=True
 
