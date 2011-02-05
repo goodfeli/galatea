@@ -340,7 +340,7 @@ class dA(object):
             else:
                 max=0.69336046033925791
             datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
-            get_error = theano.function(, cost, updates = {},
+            get_error = theano.function([], cost, updates = {},
                 givens = {self.x:datasetB})     
 
 
