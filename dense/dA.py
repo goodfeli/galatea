@@ -238,7 +238,6 @@ class dA(object):
     	else:
             if dataset.value.shape[1]==7200:
                 #q&d pour detecter rita
-                print 'rocks'
                 max=float(dataset.value.max())
             else:
                 max=0.69336046033925791
@@ -383,7 +382,11 @@ if __name__ == '__main__':
     # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0 
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
-    # 
+    #
+    # Pour harry si l'on n'exploite pas la spacité on peut lancer avec normalisation à 
+    # la volée (0 à la fin comme rita)
+    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0 
+    #
     dataset = sys.argv[1]
     n_hidden = int(sys.argv[2])
     tied_weights = bool(sys.argv[3])
