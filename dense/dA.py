@@ -331,7 +331,7 @@ class dA(object):
                                 noise = noise,
                                 cost = cost)
 
-        if normqlize:
+        if normalize:
             get_error = theano.function([index], cost, updates = {},
                 givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
         else:
@@ -378,7 +378,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         da.save(save_dir)
 
     denoising_error = da.get_denoising_error(train_set_x, cost_type,
-        noise_type, corruption_level)
+        noise_type, corruption_level,normalize)
     print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
     return denoising_error, time_spent, loss
 
