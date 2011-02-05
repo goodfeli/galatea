@@ -317,7 +317,7 @@ class dA(object):
         self.b_prime.value = cPickle.load(save_file)
         save_file.close()
     
-    def get_denoising_error(self, dataset, cost, noise, corruption_level):
+    def get_denoising_error(self, dataset, cost, noise, corruption_level,normalize):
         """ This function returns the denoising error over the dataset """
         batch_size = 100
         # compute number of minibatches for training, validation and testing
@@ -331,14 +331,27 @@ class dA(object):
                                 noise = noise,
                                 cost = cost)
 
+        if normqlize:
+            get_error = theano.function([index], cost, updates = {},
+                givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
+        else:
+            if dataset.value.shape[1]==7200:
+                 max=float(dataset.value.max())
+            else:
+                max=0.69336046033925791
+            datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
+            get_error = theano.function(, cost, updates = {},
+                givens = {self.x:datasetB})     
 
-        get_error = theano.function([index], cost, updates = {},
-            givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
 
         denoising_error = []
         # go through the dataset
         for batch_index in xrange(n_train_batches):
-            denoising_error.append(get_error(batch_index))
+            if normalize:
+                denoising_error.append(get_error(batch_index))
+            else:
+                datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
+                denoising_error.append(get_error())
 
         return numpy.mean(denoising_error)
 
