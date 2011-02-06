@@ -3,12 +3,12 @@ from jobman.parse import filemerge
 
 from experiments.rita.scripts import train_dA
 
-def update_view(TABLE_NAME, batchsize):
+def update_view(TABLE_NAME):
     db = sql.db('postgres://ift6266h11@gershwin.iro.umontreal.ca/ift6266h11_sandbox_db/'+TABLE_NAME)
     # user-friendly view
     db.createView(TABLE_NAME + 'view')
 
-def first_xp(TABLE_NAME):
+def first_xp(TABLE_NAME, batchsize):
     db = sql.db('postgres://ift6266h11@gershwin.iro.umontreal.ca/ift6266h11_sandbox_db/'+TABLE_NAME)
     cnt =0
     state = DD()
