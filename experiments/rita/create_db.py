@@ -3,7 +3,7 @@ from jobman.parse import filemerge
 
 from experiments.rita.scripts import train_dA
 
-def update_view(TABLE_NAME):
+def update_view(TABLE_NAME, batchsize):
     db = sql.db('postgres://ift6266h11@gershwin.iro.umontreal.ca/ift6266h11_sandbox_db/'+TABLE_NAME)
     # user-friendly view
     db.createView(TABLE_NAME + 'view')
@@ -12,14 +12,14 @@ def first_xp(TABLE_NAME):
     db = sql.db('postgres://ift6266h11@gershwin.iro.umontreal.ca/ift6266h11_sandbox_db/'+TABLE_NAME)
     cnt =0
     state = DD()
-    prefix = '/data/lisa/exp/ift6266h11/' + TABLE_NAME + '/'
+    prefix = '/data/lisatmp/ift6266h11/' + TABLE_NAME + '/'
 
     state.dataset = 'rita'
     state.nhidden = 500
     state.tied_weights = True
     state.act_enc = 'sigmoid'
     state.act_dec = 'sigmoid'
-    state.batchsize = 1
+    state.batchsize = batchsize
     state.epochs = 50
     state.cost_type = 'CE'
     state.noise_type = 'gaussian'
