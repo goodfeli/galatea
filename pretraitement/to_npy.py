@@ -31,26 +31,32 @@ if len(sys.argv)<=1 or any([d not in datasets_avail for d in todo]):
 
 print "Will process datasets:", todo
 def load_dataset(name, dtype=None, permute_train=False):
-    """ 
+    """
     This version use much more memory
     as numpy.loadtxt use much more memory!
-    
+
     But we don't loose the shape info in the file!
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
         raise Exception("The directory with the original data for %s is not their"%name)
     train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',name+'_devel.data'),
                           dtype=dtype)
-    if permute_train:
-        rng = numpy.random.RandomState([1,2,3])
-        perm = rng.permutation(train.shape[0])
-        train = train[perm]
     valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
                                        name+'_valid.data'),
                           dtype=dtype)
     test = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
                                       name+'_final.data'),
                          dtype=dtype)
+
+    if permute_train:
+        rng = numpy.random.RandomState([1,2,3])
+        perm = rng.permutation(train.shape[0])
+        train = train[perm]
+        perm = rng.permutation(valid.shape[0])
+        valid = valid[perm]
+        perm = rng.permutation(test.shape[0])
+        test = test[perm]
+
     return train, valid, test
 
 def load_dataset2(name, dtype=None, rows_size=None, permute_train=False):
@@ -74,6 +80,10 @@ def load_dataset2(name, dtype=None, rows_size=None, permute_train=False):
         rng = numpy.random.RandomState([1,2,3])
         perm = rng.permutation(train.shape[0])
         train = train[perm]
+        perm = rng.permutation(valid.shape[0])
+        valid = valid[perm]
+        perm = rng.permutation(test.shape[0])
+        test = test[perm]
     return train, valid, test
 
 def load_coo_matrix(name, dtype=None, rows_size=None, permute_train=False):
@@ -85,7 +95,20 @@ def load_coo_matrix(name, dtype=None, rows_size=None, permute_train=False):
     if permute_train:
         rng = numpy.random.RandomState([1,2,3])
         perm = rng.permutation(train.shape[0])
-        train = train[perm]
+	    # tricky, data = data[perm] will in fact permute nothing on a sparse format
+	    # as we move around the value with its coordinate.
+	    # The call to coo_matrix will put the coordinate in the original order.
+		# The first row os the sparse marix is empty as the sparse
+		# matrix index start at 0, but in the file it start at 1
+        for i in range(train.shape[0]):
+            train[i,0] = perm[train[i,0]-1]
+        perm = rng.permutation(valid.shape[0])
+        for i in range(valid.shape[0]):
+            valid[i,0] = perm[valid[i,0]-1]
+        perm = rng.permutation(test.shape[0])
+        for i in range(test.shape[0]):
+            test[i,0] = perm[test[i,0]-1]
+
     valid = scipy.sparse.coo_matrix((valid[:,2],(valid[:,0],valid[:,1])))
     test = scipy.sparse.coo_matrix((test[:,2],(test[:,0],test[:,1])))
     train = scipy.sparse.coo_matrix((train[:,2],(train[:,0],train[:,1])))
@@ -148,10 +171,10 @@ if "--terry" in todo:
     print "You must manually compress the created file with gzip!"
 
 def load_transfer(name, dtype=None, permute_as_train=False):
-    """ 
+    """
     This version use much more memory
     as numpy.loadtxt use much more memory!
-    
+
     But we don't loose the shape info in the file!
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):

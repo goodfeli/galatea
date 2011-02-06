@@ -15,10 +15,11 @@ import functools as fc
 # temporaire
 ROOT_PATH = '/part/02/Tmp/saintjaf/utlc/raw'
 
-datasets_avail = ["terry", "ule"]
+datasets_avail = ["harry", "terry", "ule"]
 subset = ["devel", "valid", "final"]
 
 datasets_shape = {
+		"harry_devel" : 69652,
 		"terry_devel" : 217034,
 		"ule_devel" : 26808 }
 
@@ -30,10 +31,12 @@ def normalize_maximum(max, set):
 	return set / max
 
 # statistics
+harry_std = 1.0
 terry_max = 300.0
 ule_max = 255.0
 
 datasets_normalizer= {
+		"harry"     : fc.partial(normalize_maximum, harry_std) ,
 		"terry"     : fc.partial(normalize_maximum, terry_max) ,
 		"ule"       : fc.partial(normalize_maximum, ule_max) }
 
@@ -43,7 +46,6 @@ def load_dataset(name, subset, permute_train=True, normalize=True):
 
     data = numpy.fromfile(os.path.join(ROOT_PATH,name+'_text',name+'_'+subset+'.data'),
                            dtype=numpy.float32, sep=' ')
-
 
 	# fast and dirty.
     if name == "terry":
@@ -68,9 +70,8 @@ def load_dataset(name, subset, permute_train=True, normalize=True):
 		# matrix index start at 0, but in the file it start at 1
                 data[i,0] = perm[data[i,0]-1]
         data = scipy.sparse.coo_matrix((data[:,2], (data[:,0],data[:,1])))
-	data = scipy.sparse.csr_matrix(data)
+        data = scipy.sparse.csr_matrix(data)
     else:
-
         size = 4096
         if subset == "devel":
             size = datasets_shape[name + "_devel"]
