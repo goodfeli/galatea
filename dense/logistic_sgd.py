@@ -161,7 +161,7 @@ def load_data(dataset, normalize=True):
     #elif dataset == 'harry':
     #    raise NotImplementedError('Use the sparse implementation in ./sparse/..')
     else:
-        raise NotImplementedError('dataset %s has to be one of [ule, avicenna, harry, rita, sylvester, harry]')%(dataset)
+        raise NotImplementedError('dataset %s has to be one of [ule, avicenna, harry, rita, sylvester, harry]'%(dataset))
 
     def shared_dataset(data_x):
         """ Function that loads the dataset into shared variables
