@@ -55,7 +55,7 @@ each variable :math:`x_i`:
 .. math::
  P(x) = \prod_i P_i(x_i | parents(x_i))
 
-where it can be seen that there is one clique for variable and its parents,
+where it can be seen that there is one clique for a variable and its parents,
 i.e., :math:`P_i(x_i | parents(x_i)) = \psi_i(x_i, parents(x_i))/Z_i`.
 
 In the general case (represented with an undirected graph), the
@@ -67,7 +67,7 @@ leading to a formulation known as a **Markov random field**:
  P(x) = \frac{1}{Z} e^{-\sum_c E_c(x_c)}
 
 where:math:`E(x)=\sum_c E_c(x_c)` is called the **energy function**.
-The energy function  of a Boltzmann machine is a second degree polynomial
+The energy function of a Boltzmann machine is a second degree polynomial
 in :math:`x`. The most common parameterization of Markov random fields
 has the following form, which is **log-linear**:
 
@@ -76,7 +76,7 @@ has the following form, which is **log-linear**:
 
 where the only free parameters are the :math:`\theta_c`,
 and where the complete log likelihood (when :math:`x`
-est completely observed in each training example) est *log-linear*
+is completely observed in each training example) is *log-linear*
 in the parameters :math:`\theta`. One can easily
 show that this function is  **convex** in :math:`\theta`.
 
@@ -102,8 +102,7 @@ if, while using the model, we wish to predict a certain variable
 (for example the class of an image) given some other variables
 (for example, the image itself). Note that if the model
 has hidden variables (variables that are *never* observed in the data)
-we do not try to predict the values directly
-qu'on ne cherche pas à prédire directement, but we will still implicitly
+we do not try to predict the values directly, but we will still implicitly
 *marginalize* over these variables (sum over all configurations
 of these variables).
 
@@ -112,14 +111,14 @@ calculate gradients (as seen below in the case of Boltzmann
 machines) or in the use of the Expectation-Maximization (EM) algorithm
 which requires a marginalization over all hidden variables.
 
-in general, exact inference has a computational cost exponential
+In general, exact inference has a computational cost exponential
 in the size of the cliques of a graph (in fact, the unobserved
 part of the graph) because we must consider all possible combinations
 of values of the variables in each clique. See section 3.4
 of `Graphical models: probabilistic inference <http://www.cs.berkeley.edu/~jordan/papers/jordan-weiss.ps>`_
 for a survey of exact inference methods.
 
-A simplifed form ofinference consists of calculatign not the entire
+A simplifed form of inference consists of calculating not the entire
 distribution, but only the mode (the most likely configuration of
 values) of the distribution:
 
@@ -141,7 +140,7 @@ inference is easy, with a similar set of variables (though generally with more
 simple dependencies between variables than those contained in the target
 model). We then optimize the parameters of the simpler model so as to
 approximate the target model as closely as possible. Finally, we do inference
-using the simpler model.  See section 4.2 de `Graphical models: probabilistic
+using the simpler model.  See section 4.2 of `Graphical models: probabilistic
 inference <http://www.cs.berkeley.edu/~jordan/papers/jordan-weiss.ps>`_ for
 more details and a survey.
 
@@ -184,12 +183,8 @@ Gibbs sampling
 --------------
 
 Numerous MCMC-based sampling methods exist. The one most commonly
-used for deep architectures is **Gibbs sampling**. It is simple and
-presents a cer
-Il existe de nombreuses méthodes d'échantillonage MCMC. Celle
-la plus couramment utilisée pour les architectures
-profondes est la **méthode d'échantillonage de Gibbs**
-(*Gibbs sampling*). It is simple and has a certain plausible
+used for deep architectures is **Gibbs sampling**. It is simple
+and has a certain plausible
 analogy with the functioning of the brain, where each neuron
 decides to send signals with a certain probability as a function
 of the signals it receives from other neurons.
@@ -212,7 +207,7 @@ performed using the following algorithm:
 
 In some cases one can group variables in :math:`x` into *blocks* or groups of
 variables such that drawing samples for an entire group, given the others, is
-easy. In this case it is advantageous ti interpret the algorithm above with
+easy. In this case it is advantageous to interpret the algorithm above with
 :math:`x_i` as the :math:`i^{\mathrm{th}}` group rather than the
 :math:`i^{\mathrm{th}}` variable.  This is known as *block Gibbs sampling*.
 
@@ -256,7 +251,7 @@ equals their expectation under the model distribution :math:`P`*.
 
 Unfortunately, calculating this gradient is difficult. We do not want
 to sum over all possible :math:`x`, but fortunately one can obtain
-a Monte-Carlo approximation  by one or more draws from :math:`P(x)`,
+a Monte-Carlo approximation  by one or more samples from :math:`P(x)`,
 which gives us a noisy estimate of the gradient. In general, however,
 even to obtain an unbiased sample from :math:`P(x)` is exponentially
 costly, and thus one must use an MCMC method.
@@ -334,7 +329,7 @@ and
    P(v|h) = \prod_i P(v_i|h)
 
 In the case where the variables ("units") are binary, we obtain once again
-a sigmoid activation probability:
+have a sigmoid activation probability:
 
 .. math::
    P(h_j=1 | v) = {\rm sigmoid}(b_j + \sum_i W_{ij} v_i)
@@ -374,7 +369,7 @@ Although sampling from :math:`P(h|v)` is easy and immediate in an RBM,
 drawing samples from :math:`P(v)` or from :math:`P(v,h)` cannot be done
 exactly and is thus generally accomplished with MCMC, most commonly with
 *block Gibbs sampling*, where we take advantage of the fact that
-draws from :math:`P(h|v)` and :math:`P(v|h)` are easy:
+sampling from :math:`P(h|v)` and :math:`P(v|h)` is easy:
 
 .. math::
    v^{(1)} \sim {\rm exemple\;\; d'apprentissage}
@@ -564,7 +559,7 @@ sampling :math:`P(v|h)` (of the original RBM) and the odd layers to
 sampling :math:`P(h|v)`.
 
 Finally, it can be shown that if we take an RBM and unfold it one time
-(mirrored), trhe continued training of the new RBM on top (initialized
+(mirrored), the continued training of the new RBM on top (initialized
 with :math:`W'`) maximizes a lower bound on the log likelihood of the
 corresponding DBN. In passing from an RBM to a DBN, we replace the marginal
 distribution :math:`P(h)` of the RBM (which is encoded implicitly in
@@ -603,7 +598,7 @@ Approximate inference in DBNs
 Contrary to the RBM, inference in DBNs (inferring the states of the hidden
 units given the visible units) is very difficult. Given that we
 initialize DBNs as a stack of RBMs, in practice the following approximation
-is used: sample the :math:`h^k` iven the :math:`h^{k-1}` using the new
+is used: sample the :math:`h^k` given the :math:`h^{k-1}` using the new
 weights of level :math:`k`.  This would be exact inference if this was
 still an isolated RBM, but it is no longer exact with the DBN.
 
