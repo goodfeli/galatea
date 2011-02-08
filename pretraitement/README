@@ -56,12 +56,23 @@ TERRY     3.33   0	 0.00037
 ULE       1      0       0.1305  0.3078
 
 
-All train set have been shuffled. 
+To load them, use the code in the file pylearn.datasets.utlc.py
+
+Shuffle
+-------
+
+All train set have been shuffled.
+The valid/test can be shuffle at load time, but it is not done by default.
+
+When normalized
+---------------
 
 All dataset are normalized AT LOAD TIME or ON THE FLY(see bellow)!
 This is to allow to use a smaller dtype when storing them.
 
-To load them, use the code in the file pylearn.datasets.utlc.py
+
+File format
+-----------
 
 The datasets avicenna, harry, rita ans sylvester have been stored in
 the filetensor format. They will result in ndarray in memory.
