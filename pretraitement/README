@@ -13,13 +13,13 @@ TERRY 		 Text recognition 		47236 	99.84 		217034 	 4096 	  4096 	  40000
 ULE (toy data) 	 Handwritten digits 		784 	80.85 		26808 	 4096 	  4096 	  10000
 
     	 	 	     	memory size(2)
-    	 	 Nb element(1)  int16   float32 original value range 	    original type
-AVICENNA 	 19M		~38MB	~76MB	0-999	       	     	    int
-HARRY		 389M		~780MB	~1560MB	tr(0-451)va(0-19)te(0-24)   int
-RITA		 864M		~1728MB	~3456MB	tr/va/te 0-230	     	    int
-SYLVESTER	 58M		~116MB	~232MB	0-999	 	     	    int
-TERRY		 10368M		~21GB	~43GB	tr(2-999)va(3-728)te(2-684) int
-ULE		 27M		~55MB	~110MB	0-255			    int
+    	 	 Nb element(1)  int16   float32 float64 original value range 	    original type
+AVICENNA 	 19M		~38MB	~76MB	~150MB	0-999	       	     	    int
+HARRY		 389M		~780MB	~1560MB	~3GB	tr(0-451)va(0-19)te(0-24)   int
+RITA		 864M		~1728MB	~3456MB	~7GB	tr/va/te 0-230	     	    int
+SYLVESTER	 58M		~116MB	~232MB	~460MB	0-999	 	     	    int
+TERRY		 10368M		~21GB	~43GB	~86GB	tr(2-999)va(3-728)te(2-684) int
+ULE		 27M		~55MB	~110MB	~220MB	0-255			    int
 (1)(nb rows train+valid+test)*nbFeat/1000./1000
 (2) if stored in an ndarray.
 
@@ -31,11 +31,11 @@ ULE		 25MB		41MB   60MB
 
        	      stored dtype    dtype after normalization
 AVICENNA      int16  	      floatX
-HARRY	      int16	      float32!!!! 1.5G! or sparse floatX
-RITA	      uint8	      float32!!!! 3.5G!
+HARRY	      int16	      floatX(float32=1.5G, float64=3G) or sparse floatX
+RITA	      uint8	      floatX(float32=3.5G, float64=7G)
 SYLVESTER     int16	      floatX
 TERRY	      int16	      sparse floatX
-ULE	      uint8	      floatX
+ULE	      uint8	      floatX or sparse floatX
 
 	      train set stats before normalization
 	  max  min  mean   std   non-zeros
@@ -56,23 +56,26 @@ TERRY     3.33   0	 0.00037
 ULE       1      0       0.1305  0.3078
 
 
-All train set have been shuffled. All dataset are normalized AT LOAD TIME. 
-This allow to use a smaller dtype when storing them.
+All train set have been shuffled. 
+
+All dataset are normalized AT LOAD TIME or ON THE FLY(see bellow)!
+This is to allow to use a smaller dtype when storing them.
 
 To load them, use the code in the file pylearn.datasets.utlc.py
 
 The datasets avicenna, harry, rita ans sylvester have been stored in
 the filetensor format. They will result in ndarray in memory.
-All except have been compressed with gzip.
+Most have been compressed with gzip except when that was not usefull.
 
 The dataset harry, terry, ule have been stored as pickle of
 scipy.sparse.csr_matrix. Terry have been stored like this because it
-is very sparse and use too much memory otherwise. harry would use
-much memory, but if we take care that could work. I also put ule like this
-to allow you to test a small sparse dataset in your algo to know if
-they accept it.
+is very sparse and use too much memory otherwise(43GB in float32). harry would use
+much memory, but if we take care that could work. I also put ule
+to allow you to test a small sparse dataset in your algo.
 
-Normalization done and note by Yoshua:
+Normalization done and note by Yoshua
+-------------------------------------
+
 avicenna: soustraire la moyenne puis diviser par l'écart-type 
           (NOTE: résultat réel, reconstruire avec erreur quadratique, unités linéaires)
 ule: diviser par le max  
@@ -86,7 +89,30 @@ sylvester:  soustraire la moyenne puis diviser par l'écart-type
 	  ou bien bien scaler par rapport au max et utiliser des sigmoides)
 terry: diviser par 300.
 
-transfer label:
+On the fly normalization
+------------------------
+
+Implemented only for ndarray format, not for the sparse format.
+
+Now it is possible to do the normalization on the fly of minibatch.
+That mean we shore the data in its original dtype that take less space,
+and compute the normalization on each minibatch. So we use less memory
+and can use computer with less memory.
+
+To enable that, you must call that function:
+
+pylearn.datasets.utlc.load_ndarray_dataset(DATASET_NAME, normaliza=False, normaliza_on_the_fly=True)
+
+That will return Theano variable(and not ndarray). You MUST first take a subtensor of it(minibatch) before doing your computation on it.
+What happen is that a new Theano optimization will move the elemwise computation after the subtensor. So you won't compute the normalization
+of the full dataset.
+
+As it return Theano variable, if you do train.shape[0], it return a Theano variable. You can as theano to compute the output. 
+There is the ift6266h11.dense.logistic_sgd.get_constant(train.shape[0]) that will do it for you.
+
+Transfer label
+--------------
+
 Currently only the ule transfer label are available.
 
 ule train/valid/test label:
