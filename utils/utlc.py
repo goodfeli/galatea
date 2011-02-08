@@ -23,11 +23,11 @@ datasets_params = {    #feat  #dev    #trans  #val  #fin
 		"ule"       : [  784,  26808,  10000, 4096, 4096] }
 
 # normalize functions
-def normalize_gaussian(mean, std, set):
-	return (set.astype(theano.config.floatX) - mean) / std
+def normalize_gaussian(mean, std, dataset):
+	return (dataset.astype(theano.config.floatX) - mean) / std
 
-def normalize_maximum(max, set):
-	return set.astype(theano.config.floatX) / max
+def normalize_maximum(maximum, dataset):
+	return dataset.astype(theano.config.floatX) / maximum
 
 # statistics
 avi_mean = 514.62248464301717
