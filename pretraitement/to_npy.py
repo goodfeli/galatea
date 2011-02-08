@@ -238,8 +238,8 @@ if "--ule" in todo:
     del train, valid, test
     transfer = load_transfer('ule', dtype='uint8', permute_as_train=True)
     write_transfer('ule', transfer)
-    transfer = scipy.sparse.csr_matrix(transfer)
-    write_transfer('ule', transfer, pickle=True)
+    #transfer = scipy.sparse.csr_matrix(transfer)
+    #write_transfer('ule', transfer, pickle=True)
     del transfer
     # We create the label data too
     # But don't forget this will never be available for the other dataset
