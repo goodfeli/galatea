@@ -327,7 +327,104 @@ class dA(object):
 
         return numpy.mean(denoising_error)
 
-      
+def create_submission(dataset, save_dir_model, save_dir_submission):
+    """
+    Create submission files given the path of a model and
+    a dataset.
+
+    params:
+    * dataset
+        is a string corresponding to the name of the dataset
+    * save_dir_model
+        is the path where you saved your model
+    * save_dir_submission
+        is the path where you want to store the submission files
+    """
+    # load the dataset
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
+    valid_set_x = datasets[1]
+    test_set_x = datasets[1]
+
+    # load the model    
+    da = dA()
+    da.load(save_dir_model)
+
+    # theano functions to get representations of the dataset learned by the model
+    index = T.lscalar()    # index to a [mini]batch 
+    x = theano.tensor.matrix('input')
+
+    get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
+                                    givens = {x:valid_set_x})
+    get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
+                                    givens = {x:test_set_x})
+
+    # valid and test representations
+    valid_rep1 = get_rep_valid(0)
+    test_rep1 = get_rep_test(0)
+
+    valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
+    test_rep2 = numpy.dot(test_rep1,test_rep1.T)
+
+    # write it in a .txt file
+    valid_rep1 = numpy.floor((valid_rep1 / valid_rep1.max())*999)
+    valid_rep2 = numpy.floor((valid_rep2 / valid_rep2.max())*999)
+
+    test_rep1 = numpy.floor((test_rep1 / test_rep1.max())*999)
+    test_rep2 = numpy.floor((test_rep2 / test_rep2.max())*999)
+
+    val1 = open(save_dir_submission + dataset + '_dl_valid.prepro','w')
+    val2 = open(save_dir_submission + dataset + '_sdl_valid.prepro','w')
+    test1 = open(save_dir_submission + dataset + '_dl_test.prepro','w')
+    test2 = open(save_dir_submission + dataset + '_sdl_test.prepro','w')
+
+    vtxt1, ttxt1 = '', ''
+    vtxt2, ttxt2 = '', ''
+
+    for i in range(valid_rep1.shape[0]):
+        for j in range(valid_rep1.shape[0]):
+            vtxt2 += '%s '%int(valid_rep2[i,j])
+        for j in range(valid_rep1.shape[1]):
+            vtxt1 += '%s '%int(valid_rep1[i,j])
+        vtxt1 += '\n'
+        vtxt2 += '\n'
+    del valid_rep1, valid_rep2
+
+    for i in range(test_rep1.shape[0]):
+        for j in range(test_rep1.shape[0]):
+            ttxt2 += '%s '%int(test_rep2[i,j])
+        for j in range(test_rep1.shape[1]):
+            ttxt1 += '%s '%int(test_rep1[i,j])
+        ttxt1 += '\n'
+        ttxt2 += '\n'
+    del test_rep1, test_rep2
+
+    val1.write(vtxt1)
+    test1.write(ttxt1)
+    val2.write(vtxt2)
+    test2.write(ttxt2)
+    val1.close()
+    test1.close()
+    val2.close()
+    test2.close()
+
+    print >> sys.stderr, "... done creating files"
+
+    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_dl.zip',
+        save_dir_submission+dataset+'_dl_valid.prepro',
+        save_dir_submission+dataset+'_dl_test.prepro'))
+    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_sdl.zip',
+        save_dir_submission+dataset+'_sdl_valid.prepro',
+        save_dir_submission+dataset+'_sdl_test.prepro'))
+
+    print >> sys.stderr, "... files compressed"
+
+    os.system('rm %s %s %s %s'%(
+        save_dir_submission+dataset+'_dl_valid.prepro',
+        save_dir_submission+dataset+'_dl_test.prepro',
+        save_dir_submission+dataset+'_sdl_valid.prepro',
+        save_dir_submission+dataset+'_sdl_test.prepro'))
+
+    print >> sys.stderr, "... useless files deleted"
 
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
@@ -355,6 +452,8 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
     return denoising_error, time_spent, loss
 
+
+
 if __name__ == '__main__':
     # you can train a denoising autoencoder using this cmd:
     # python <thisfile> dataset #hidden_units tied_weights act_enc act_dec
@@ -373,6 +472,12 @@ if __name__ == '__main__':
     # la volee (0 a la fin comme rita)
     # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0 
     #
+    # example for creating submission file
+    #   create_submission('ule',
+    #       '/data/lisa/exp/mesnilgr/ift6266h11/ULE1_/2/',
+    #       '/u/mesnilgr/repos/ift6266h11/dense/')
+    #
+     
     dataset = sys.argv[1]
     n_hidden = int(sys.argv[2])
     tied_weights = bool(sys.argv[3])
