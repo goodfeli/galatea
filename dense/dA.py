@@ -5,7 +5,7 @@ import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
-from dense.logistic_sgd import load_data
+from dense.logistic_sgd import load_data, get_constant
 from utils import tile_raster_images
 
 import PIL.Image
@@ -216,14 +216,14 @@ class dA(object):
         return (cost, updates)
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
-            noise='gaussian', corruption_level=0.3, normalize=True):
+            noise='gaussian', corruption_level=0.3):
         """ This function fits the dA to the dataset given
         some hyper-parameters and returns the loss evolution
         and the time spent during training   """
 
 	
         # compute number of minibatches for training, validation and testing
-        n_train_batches = dataset.value.shape[0] / batch_size
+        n_train_batches = get_constant(dataset.shape[0]) / batch_size
 	
         # allocate symbolic variables for the data
         index = T.lscalar()    # index to a [mini]batch 
@@ -232,19 +232,8 @@ class dA(object):
                                 learning_rate = learning_rate,
                                 noise = noise,
                                 cost = cost)
-        if normalize:
-            train_da = theano.function([index], cost, updates = updates,
-                givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
-    	else:
-            if dataset.value.shape[1]==7200:
-                #q&d pour detecter rita
-                max=float(dataset.value.max())
-            else:
-                max=0.69336046033925791
-                #0.69336046033925791 std for harry
-            datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
-            train_da = theano.function([], cost, updates = updates,
-                    givens = {self.x:datasetB})
+        train_da = theano.function([index], cost, updates = updates,
+                                   givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
 
         start_time = time.clock()
 
@@ -261,11 +250,8 @@ class dA(object):
             # go through trainng set
             c = []
             for batch_index in xrange(n_train_batches):
-                if normalize:
-        	        c.append(train_da(batch_index))
-                else:
-                    datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
-                    c.append(train_da())
+                c.append(train_da(batch_index))
+
             toc = time.clock()
             loss.append(numpy.mean(c))
             print 'Training epoch %d, time spent (min) %f,  cost '%(epoch,(toc-tic)/60.), numpy.mean(c)
@@ -317,11 +303,11 @@ class dA(object):
         self.b_prime.value = cPickle.load(save_file)
         save_file.close()
     
-    def get_denoising_error(self, dataset, cost, noise, corruption_level,normalize):
+    def get_denoising_error(self, dataset, cost, noise, corruption_level):
         """ This function returns the denoising error over the dataset """
         batch_size = 100
         # compute number of minibatches for training, validation and testing
-        n_train_batches = dataset.value.shape[0] / batch_size
+        n_train_batches =  get_constant(dataset.shape[0]) / batch_size
 
         # allocate symbolic variables for the data
         index = T.lscalar()    # index to a [mini]batch 
@@ -330,28 +316,14 @@ class dA(object):
                                 learning_rate = 0.,
                                 noise = noise,
                                 cost = cost)
-
-        if normalize:
-            get_error = theano.function([index], cost, updates = {},
-                givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
-        else:
-            if dataset.value.shape[1]==7200:
-                 max=float(dataset.value.max())
-            else:
-                max=0.69336046033925791
-            datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
-            get_error = theano.function([], cost, updates = {},
-                givens = {self.x:datasetB})     
-
+        get_error = theano.function([index], cost, updates = {},
+                                    givens = {
+                self.x:dataset[index*batch_size:(index+1)*batch_size]})
 
         denoising_error = []
         # go through the dataset
         for batch_index in xrange(n_train_batches):
-            if normalize:
-                denoising_error.append(get_error(batch_index))
-            else:
-                datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
-                denoising_error.append(get_error())
+            denoising_error.append(get_error(batch_index))
 
         return numpy.mean(denoising_error)
 
@@ -359,26 +331,27 @@ class dA(object):
 
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
-    noise_type, corruption_level,normalize=True):
+    noise_type, corruption_level, normalize_on_the_fly=False):
     ''' main function used for training '''
 
-    datasets = load_data(dataset,normalize)
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     train_set_x = datasets[0]
+    valid_set_x = datasets[1]
 
-    d = train_set_x.value.shape[1]
+    d = get_constant(train_set_x.shape[1])
     
     da = dA(n_visible = d, n_hidden = n_hidden, 
             tied_weigths = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
 
     time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
-            noise_type, corruption_level,normalize)
+            noise_type, corruption_level)
 
     if save_dir:
         da.save(save_dir)
 
-    denoising_error = da.get_denoising_error(train_set_x, cost_type,
-        noise_type, corruption_level,normalize)
+    denoising_error = da.get_denoising_error(valid_set_x, cost_type,
+        noise_type, corruption_level)
     print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
     return denoising_error, time_spent, loss
 
@@ -414,13 +387,11 @@ if __name__ == '__main__':
     save_dir = './'
 
     if (len(sys.argv) > 12):   # loading un-normalized data in memory (rita)
-        normalize = bool(int(sys.argv[12]))
-        if not dataset in ['rita','harry']:
-            raise NotImplementedError('for now the normalization on the fly is only allowed for rita & harry, may change...')
+        normalize_on_the_fly = bool(int(sys.argv[12]))
 
     else:
-        normalize=True
+        normalize_on_the_fly = False
 
     main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         act_dec, learning_rate, batch_size, epochs, cost_type,
-        noise_type, corruption_level,normalize)
+        noise_type, corruption_level,normalize_on_the_fly)

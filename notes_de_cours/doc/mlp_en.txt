@@ -233,27 +233,20 @@ Thus, we want a step size equal to the inverse of the second derivative.
 One can show that the number of iterations of a gradient descent algorithm
 will be proportional to the ratio of the largest to the smallest eigenvalue
 of the Hessian matrix (with a quadratic approximation of the cost function).
-The basic reason is that the largest eigenvalue limits the maximum step size
-(one cannot go faster than the highest curvature in all possible directions,
+The basic reason is that the largest eigenvalue limits the maximum step size.
+One cannot go faster than the highest curvature in all possible directions,
+otherwise the error will increase,
 but if we use the same step size in all directions, the convergence will be
 the slowest in the flattest direction (the direction corresponding to the
 smallest eigenvalue).
 
-La raison de base en est que la plus grande valeur
-propre limite le pas de gradient maximum (on ne peut
-aller plus vite que la courbure la plus forte parmi toutes
-les directions possibles, sinon
-l'erreur remonte), mais qu'en utilisant le même pas
-de gradient dans toutes les directions, la convergence
-sera la plus longue dans la direction la plus "plate"
-(valeur propre la plus petite).
 
  * In theory *one hidden layer* suffices, but this theorem does not say that
    this representation of the function will be efficient. In practice, this
    was the most common choice before 2006, with the exception of convolutional
    neural networks (which can have 5 or 6 hidden layers, for example).
-   Sometimes one obtains muh better results with two hidden layers. *In fact,
-   we obtain a much better generalization error with even more layes*, but a
+   Sometimes one obtains much better results with two hidden layers. *In fact,
+   we obtain a much better generalization error with even more layesr*, but a
    random initailization does not work well with more than two hidden layes
    (but see the work since 2006 on greedy unsupervised initialization for deep
    architectures).
@@ -264,7 +257,7 @@ sera la plus longue dans la direction la plus "plate"
    non-linearity (sigmoid or softmax) in the output layer.
 
  * In certain cases, direct connections between the input and the output
-   layer can be useful. In the case of regression,they can also be directly
+   layer can be useful. In the case of regression, they can also be directly
    initialized by a linear regression of the outputs on the inputs. The
    hidden layer neurons then serve only to learn the missing non-linear
    part.
@@ -346,7 +339,7 @@ changes the error surface will yield very bad performance) due to noise
 induced by gradient steps and the "noisy" gradient. This noisy gradient
 also helps to escape certain local minima for the same reason.
 
-When stochastic gradient descent is used, it is *citical* that the examples
+When stochastic gradient descent is used, it is *critical* that the examples
 be **well mixed**. For example if we have many consecutive examples of the
 same class, the convergence will be very slow. It is enough to randomly
 permute the examples once per training session, in oder to eliminate all
@@ -356,8 +349,8 @@ we have no choice but to present sequences whose elements are highly
 dependent, but we can mix up the sequences (the training set is a group of
 of sequences). 
 
-In principle, the gradient step size should be gradually educed during
-learning in oder to guarantee asymptotic convergence. For certain problems
+In principle, the gradient step size should be gradually reduced during
+learning in order to guarantee asymptotic convergence. For certain problems
 (especially classification), this does not seem necessary, and can even
 hurt. A reasonable annealing schedule, for example, is 
 :math:`\epsilon_t = \frac{\epsilon_0 \tau}{t + \tau}`
@@ -380,7 +373,7 @@ generalization is often worse because of the ease with which such methods
 fall into sharp minima.
 
 Up to several tens of thousands of training examples, conjugate gradient
-descent remains one of the best optiization techniques for neural networks.
+descent remains one of the best optimization techniques for neural networks.
 Beyond that, it is generally best to stick with stochastic gradient descent
 or the :ref:`minibatch <minibatch_en>` variant thereof.
 
@@ -417,7 +410,7 @@ same interval).
 Controlling saturation
 ----------------------
 
-One frequent problems during learning is the saturation of neurons, often due
+One frequent problem during learning is the saturation of neurons, often due
 to a bad normalization of inputs or target outputs or a bad initialization of
 weights, or using the logistic signmoid instead of a symmetric nonlinearity
 such as tanh. This can be controlled by observing the distribution of outputs
