@@ -336,6 +336,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     train_set_x = datasets[0]
+    valid_set_x = datasets[1]
 
     d = get_constant(train_set_x.shape[1])
     
@@ -349,7 +350,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     if save_dir:
         da.save(save_dir)
 
-    denoising_error = da.get_denoising_error(train_set_x, cost_type,
+    denoising_error = da.get_denoising_error(valid_set_x, cost_type,
         noise_type, corruption_level)
     print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
     return denoising_error, time_spent, loss
