@@ -327,7 +327,7 @@ class dA(object):
 
         return numpy.mean(denoising_error)
 
-def create_submission(dataset, save_dir_model, save_dir_submission):
+def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on_the_fly=False):
     """
     Create submission files given the path of a model and
     a dataset.
@@ -341,8 +341,6 @@ def create_submission(dataset, save_dir_model, save_dir_submission):
         is the path where you want to store the submission files
     """
     # load the dataset
-    normalize_on_the_fly = False
-    # TODO normalize on the fly for rita during the computation of the representation
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     valid_set_x = datasets[1]
     test_set_x = datasets[1]
@@ -376,8 +374,8 @@ def create_submission(dataset, save_dir_model, save_dir_submission):
 
     val1 = open(save_dir_submission + dataset + '_dl_valid.prepro','w')
     val2 = open(save_dir_submission + dataset + '_sdl_valid.prepro','w')
-    test1 = open(save_dir_submission + dataset + '_dl_test.prepro','w')
-    test2 = open(save_dir_submission + dataset + '_sdl_test.prepro','w')
+    test1 = open(save_dir_submission + dataset + '_dl_final.prepro','w')
+    test2 = open(save_dir_submission + dataset + '_sdl_final.prepro','w')
 
     vtxt1, ttxt1 = '', ''
     vtxt2, ttxt2 = '', ''
