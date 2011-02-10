@@ -1,10 +1,21 @@
-import numpy, time, cPickle, gzip, sys, os, copy
+"""Script for running experiments."""
+# Standard library imports
+import copy
+import cPickle
+import gzip
+import os
+import sys
+import time
 
+# Third-party lbirary imports
+import argparse
+import numpy
 import theano
 import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 
+# Local imports
 from dense.logistic_sgd import load_data
 from utils import tile_raster_images
 
@@ -12,17 +23,17 @@ import PIL.Image
 
 
 class dA(object):
-    """Denoising Auto-Encoder class (dA) 
+    """Denoising Auto-Encoder class (dA)
 
-    A denoising autoencoders tries to reconstruct the input from a corrupted 
-    version of it by projecting it first in a latent space and reprojecting 
+    A denoising autoencoders tries to reconstruct the input from a corrupted
+    version of it by projecting it first in a latent space and reprojecting
     it afterwards back in the input space. Please refer to Vincent et al.,2008
     for more details. If x is the input then equation (1) computes a partially
-    destroyed version of x by means of a stochastic mapping q_D. Equation (2) 
-    computes the projection of the input into the latent space. Equation (3) 
-    computes the reconstruction of the input, while equation (4) computes the 
+    destroyed version of x by means of a stochastic mapping q_D. Equation (2)
+    computes the projection of the input into the latent space. Equation (3)
+    computes the reconstruction of the input, while equation (4) computes the
     reconstruction error.
-  
+
     .. math::
 
         \tilde{x} ~ q_D(\tilde{x}|x)                                     (1)
@@ -40,7 +51,7 @@ class dA(object):
                  seed_noise = None,
                  input = None,
                  n_visible= 784,
-                 n_hidden= 500, 
+                 n_hidden= 500,
                  tied_weigths = True,
                  act_enc = 'sigmoid',
                  act_dec = 'sigmoid',
@@ -74,7 +85,7 @@ class dA(object):
 
         # create a Theano random generator that gives symbolic random values
         # this is used for adding noise to the input
-        if not seed_noise: 
+        if not seed_noise:
             theano_rng = RandomStreams(self.numpy_rng.randint(2**30))
             self.seed_noise = 2**30
         else:
@@ -89,14 +100,14 @@ class dA(object):
             # 4*sqrt(6./(n_hidden+n_visible))the output of uniform if
             # converted using asarray to dtype
             # theano.config.floatX so that the code is runable on GPU
-            initial_W = numpy.asarray(self.numpy_rng.uniform( 
-                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)), 
-                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)), 
+            initial_W = numpy.asarray(self.numpy_rng.uniform(
+                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
+                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
                       size = (n_visible, n_hidden)), dtype = theano.config.floatX)
             W = theano.shared(value = initial_W, name ='W')
 
         if not b_prime:
-            b_prime = theano.shared(value = numpy.zeros(n_visible, 
+            b_prime = theano.shared(value = numpy.zeros(n_visible,
                                          dtype = theano.config.floatX))
 
         if not b:
@@ -105,13 +116,13 @@ class dA(object):
 
 
         self.W = W
-        # b corresponds to the bias of the hidden 
+        # b corresponds to the bias of the hidden
         self.b = b
         # b_prime corresponds to the bias of the visible
         self.b_prime = b_prime
 
         if self.tied_weights:
-            self.W_prime = self.W.T 
+            self.W_prime = self.W.T
         else:
             if not W_prime:
                 # not sure about the initialization
@@ -124,10 +135,10 @@ class dA(object):
             self.W_prime = W_prime
 
         # if no input is given, generate a variable representing the input
-        if input == None : 
+        if input == None :
             # we use a matrix because we expect a minibatch of several examples,
             # each example being a row
-            self.x = T.dmatrix(name = 'input') 
+            self.x = T.dmatrix(name = 'input')
         else:
             self.x = input
 
@@ -137,20 +148,20 @@ class dA(object):
             self.params.append(self.W_prime)
 
     def get_corrupted_input(self, input, corruption_level, noise='binomial'):
-        """ This function keeps ``1-corruption_level`` entries of the inputs the same 
-        and zero-out randomly selected subset of size ``coruption_level`` 
-        Note : first argument of theano.rng.binomial is the shape(size) of 
+        """ This function keeps ``1-corruption_level`` entries of the inputs the same
+        and zero-out randomly selected subset of size ``coruption_level``
+        Note : first argument of theano.rng.binomial is the shape(size) of
                random numbers that it should produce
-               second argument is the number of trials 
+               second argument is the number of trials
                third argument is the probability of success of any trial
-        
-                this will produce an array of 0s and 1s where 1 has a probability of 
+
+                this will produce an array of 0s and 1s where 1 has a probability of
                 1 - ``corruption_level`` and 0 with ``corruption_level``
 
-                The binomial function return int64 data type by default. 
+                The binomial function return int64 data type by default.
                 int64 multiplicated by the input type(floatX) always return float64.
                 To keep all data in floatX when floatX is float32, we set the dtype
-                of the binomial to floatX. As in our case the value of the binomial 
+                of the binomial to floatX. As in our case the value of the binomial
                 is always 0 or 1, this don't change the result. This is needed to allow
                 the gpu to work correctly as it only support float32 for now.
         """
@@ -160,7 +171,7 @@ class dA(object):
             return input + self.theano_rng.normal( size = input.shape, avg=0, std = corruption_level, dtype=theano.config.floatX)
         else:
             raise NotImplementedError('This noise %s is not implemented yet'%(noise))
-    
+
     def get_hidden_values(self, input):
         """ Computes the values of the hidden layer """
         if self.act_enc == 'sigmoid':
@@ -193,26 +204,26 @@ class dA(object):
         # note : we sum over the size of a datapoint; if we are using minibatches,
         #        L will  be a vector, with one entry per example in minibatch
         if cost == 'CE':
-            L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 ) 
+            L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
             raise NotImplementedError('This cost function %s is not implemented yet'%(cost))
 
-        # note : L is now a vector, where each element is the cross-entropy cost 
-        #        of the reconstruction of the corresponding example of the 
-        #        minibatch. We need to compute the average of all these to get 
+        # note : L is now a vector, where each element is the cross-entropy cost
+        #        of the reconstruction of the corresponding example of the
+        #        minibatch. We need to compute the average of all these to get
         #        the cost of the minibatch
         cost = T.mean(L)
 
         # compute the gradients of the cost of the `dA` with respect
-        # to its parameters 
+        # to its parameters
         gparams = T.grad(cost, self.params)
         # generate the list of updates
         updates = {}
         for param, gparam in zip(self.params, gparams):
             updates[param] = param -  learning_rate*gparam
-    
+
         return (cost, updates)
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
@@ -221,12 +232,12 @@ class dA(object):
         some hyper-parameters and returns the loss evolution
         and the time spent during training   """
 
-	
+
         # compute number of minibatches for training, validation and testing
         n_train_batches = dataset.value.shape[0] / batch_size
-	
+
         # allocate symbolic variables for the data
-        index = T.lscalar()    # index to a [mini]batch 
+        index = T.lscalar()    # index to a [mini]batch
 
         cost, updates = self.get_cost_updates(corruption_level = corruption_level,
                                 learning_rate = learning_rate,
@@ -290,7 +301,7 @@ class dA(object):
         cPickle.dump(self.b.value, save_file, -1)
         cPickle.dump(self.b_prime.value, save_file, -1)
         save_file.close()
- 
+
     def load(self, load_dir):
         """ load the model """
         print '... loading model'
@@ -301,7 +312,7 @@ class dA(object):
                  seed_noise = args['seed_noise'],
                  input = args['input'],
                  n_visible= args['n_visible'],
-                 n_hidden= args['n_hidden'], 
+                 n_hidden= args['n_hidden'],
                  tied_weigths = args['tied_weigths'],
                  act_enc = args['act_enc'],
                  act_dec = args['act_dec'],
@@ -316,7 +327,7 @@ class dA(object):
         self.b.value = cPickle.load(save_file)
         self.b_prime.value = cPickle.load(save_file)
         save_file.close()
-    
+
     def get_denoising_error(self, dataset, cost, noise, corruption_level,normalize):
         """ This function returns the denoising error over the dataset """
         batch_size = 100
@@ -324,7 +335,7 @@ class dA(object):
         n_train_batches = dataset.value.shape[0] / batch_size
 
         # allocate symbolic variables for the data
-        index = T.lscalar()    # index to a [mini]batch 
+        index = T.lscalar()    # index to a [mini]batch
 
         cost, updates = self.get_cost_updates(corruption_level = corruption_level,
                                 learning_rate = 0.,
@@ -341,7 +352,7 @@ class dA(object):
                 max=0.69336046033925791
             datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
             get_error = theano.function([], cost, updates = {},
-                givens = {self.x:datasetB})     
+                givens = {self.x:datasetB})
 
 
         denoising_error = []
@@ -355,7 +366,7 @@ class dA(object):
 
         return numpy.mean(denoising_error)
 
-      
+
 
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
@@ -366,8 +377,8 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     train_set_x = datasets[0]
 
     d = train_set_x.value.shape[1]
-    
-    da = dA(n_visible = d, n_hidden = n_hidden, 
+
+    da = dA(n_visible = d, n_hidden = n_hidden,
             tied_weigths = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
 
@@ -383,6 +394,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     return denoising_error, time_spent, loss
 
 if __name__ == '__main__':
+
     # you can train a denoising autoencoder using this cmd:
     # python <thisfile> dataset #hidden_units tied_weights act_enc act_dec
     # costtype learning_rate batchsize epochs noise_type corruption_level
