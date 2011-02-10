@@ -404,35 +404,78 @@ if __name__ == '__main__':
     # python dA.py avicenna 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # attention ajouter un zero a la fin de la commande pour rita qui indique que
     # les donnes ne sont pas normalisees et qu'il y a un hack !!
-    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0 
+    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
     #
-    # Pour harry si l'on n'exploite pas la spacite on peut lancer avec normalisation a 
+    # Pour harry si l'on n'exploite pas la spacite on peut lancer avec normalisation a
     # la volee (0 a la fin comme rita)
-    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0 
-    #
-    dataset = sys.argv[1]
-    n_hidden = int(sys.argv[2])
-    tied_weights = bool(sys.argv[3])
-    act_enc= sys.argv[4]
-    act_dec= sys.argv[5]
-    cost_type= sys.argv[6]
-    learning_rate= float(sys.argv[7])
-    batch_size= int(sys.argv[8])
-    epochs= int(sys.argv[9])
-    noise_type= sys.argv[10]
-    corruption_level = float(sys.argv[11])
-    save_dir = './'
+    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
+    parser = argparse.ArgumentParser(
+        description='Run denoising autoencoder experiments on dense features.'
+    )
+    parser.add_argument('dataset', action='store',
+                        type=str,
+                        choices=['avicenna', 'harry', 'rita', 'sylvester',
+                                 'ule'],
+                        help='Dataset on which to run experiments')
+    parser.add_argument('n_hidden', action='store',
+                        type=int,
+                        help='Number of hidden units')
+    parser.add_argument('tied_weights', action='store',
+                        type=bool,
+                        help='Whether to use tied weights')
+    parser.add_argument('act_enc', action='store',
+                        type=str,
+                        choices=['tanh', 'linear', 'softplus', 'sigmoid'],
+                        help='Activation function for the encoder')
+    parser.add_argument('act_dec', action='store',
+                        type=str,
+                        choices=['tanh', 'linear', 'softplus', 'sigmoid'],
+                        help='Activation function for the decoder')
 
-    if (len(sys.argv) > 12):   # loading un-normalized data in memory (rita)
-        normalize = bool(int(sys.argv[12]))
-        if not dataset in ['rita','harry']:
-            raise NotImplementedError('for now the normalization on the fly is only allowed for rita & harry, may change...')
+    parser.add_argument('cost_type', action='store',
+                        type=str,
+                        choices=['CE', 'MSE'],
+                        help='Cost function to use to train autoencoder')
+    parser.add_argument('learning_rate', action='store',
+                         type=float,
+                         help='Learning rate to use (float)')
+    parser.add_argument('batch_size', action='store',
+                        type=int,
+                        help='Minibatch size to use (integer)')
+    parser.add_argument('epochs', action='store',
+                         type=int,
+                         help='Number of epochs (full passes through data)')
+    parser.add_argument('noise_type', action='store',
+                         type=str,
+                         choices=['binomial', 'gaussian'],
+                         help='Noise type to use for corruption')
+    parser.add_argument('corruption_level', action='store',
+                        type=float,
+                        help='Corruption (noise) level (float)')
+    parser.add_argument('-N', '--dont-normalize', action='store_const',
+                        default=True,
+                        const=False,
+                        required=False,
+                        help='Don\'t do feature normalization')
+    parser.add_argument('-s', '--save-dir', action='store',
+                        type=str,
+                        default='.',
+                        required=False,
+                        help='Directory to which to save output')
+    args = parser.parse_args()
 
-    else:
-        normalize=True
+    if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
+        raise IOError('%s doesn\'t exist or is not accessible' % os.save_dir)
+    if not args.dont_normalize and args.dataset not in ['rita','harry']:
+        raise NotImplementedError(' '.join([
+            'for now the normalization on the fly is only allowed',
+            'for rita & harry, may change...'
+        ]))
+    main_train(args.dataset, args.save_dir, args.n_hidden,
+               args.tied_weights, args.act_enc, args.act_dec,
+               args.learning_rate, args.batch_size, args.epochs,
+               args.cost_type, args.noise_type, args.corruption_level,
+               args.normalize)
 
-    main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
-        act_dec, learning_rate, batch_size, epochs, cost_type,
-        noise_type, corruption_level,normalize)
