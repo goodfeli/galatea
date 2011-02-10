@@ -14,9 +14,7 @@ import theano
 import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
-
-# Local imports
-from dense.logistic_sgd import load_data
+from dense.logistic_sgd import load_data, get_constant
 from utils import tile_raster_images
 
 import PIL.Image
@@ -227,14 +225,14 @@ class dA(object):
         return (cost, updates)
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
-            noise='gaussian', corruption_level=0.3, normalize=True):
+            noise='gaussian', corruption_level=0.3):
         """ This function fits the dA to the dataset given
         some hyper-parameters and returns the loss evolution
         and the time spent during training   """
 
 
         # compute number of minibatches for training, validation and testing
-        n_train_batches = dataset.value.shape[0] / batch_size
+        n_train_batches = get_constant(dataset.shape[0]) / batch_size
 
         # allocate symbolic variables for the data
         index = T.lscalar()    # index to a [mini]batch
@@ -243,19 +241,8 @@ class dA(object):
                                 learning_rate = learning_rate,
                                 noise = noise,
                                 cost = cost)
-        if normalize:
-            train_da = theano.function([index], cost, updates = updates,
-                givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
-    	else:
-            if dataset.value.shape[1]==7200:
-                #q&d pour detecter rita
-                max=float(dataset.value.max())
-            else:
-                max=0.69336046033925791
-                #0.69336046033925791 std for harry
-            datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
-            train_da = theano.function([], cost, updates = updates,
-                    givens = {self.x:datasetB})
+        train_da = theano.function([index], cost, updates = updates,
+                                   givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
 
         start_time = time.clock()
 
@@ -272,11 +259,8 @@ class dA(object):
             # go through trainng set
             c = []
             for batch_index in xrange(n_train_batches):
-                if normalize:
-        	        c.append(train_da(batch_index))
-                else:
-                    datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
-                    c.append(train_da())
+                c.append(train_da(batch_index))
+
             toc = time.clock()
             loss.append(numpy.mean(c))
             print 'Training epoch %d, time spent (min) %f,  cost '%(epoch,(toc-tic)/60.), numpy.mean(c)
@@ -328,11 +312,11 @@ class dA(object):
         self.b_prime.value = cPickle.load(save_file)
         save_file.close()
 
-    def get_denoising_error(self, dataset, cost, noise, corruption_level,normalize):
+    def get_denoising_error(self, dataset, cost, noise, corruption_level):
         """ This function returns the denoising error over the dataset """
         batch_size = 100
         # compute number of minibatches for training, validation and testing
-        n_train_batches = dataset.value.shape[0] / batch_size
+        n_train_batches =  get_constant(dataset.shape[0]) / batch_size
 
         # allocate symbolic variables for the data
         index = T.lscalar()    # index to a [mini]batch
@@ -341,57 +325,143 @@ class dA(object):
                                 learning_rate = 0.,
                                 noise = noise,
                                 cost = cost)
-
-        if normalize:
-            get_error = theano.function([index], cost, updates = {},
-                givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
-        else:
-            if dataset.value.shape[1]==7200:
-                 max=float(dataset.value.max())
-            else:
-                max=0.69336046033925791
-            datasetB = theano.shared(numpy.asarray(dataset.value[0:batch_size], dtype=theano.config.floatX))
-            get_error = theano.function([], cost, updates = {},
-                givens = {self.x:datasetB})
-
+        get_error = theano.function([index], cost, updates = {},
+                                    givens = {
+                self.x:dataset[index*batch_size:(index+1)*batch_size]})
 
         denoising_error = []
         # go through the dataset
         for batch_index in xrange(n_train_batches):
-            if normalize:
-                denoising_error.append(get_error(batch_index))
-            else:
-                datasetB.value = dataset.value[batch_index*batch_size:(batch_index+1)*batch_size]/max
-                denoising_error.append(get_error())
+            denoising_error.append(get_error(batch_index))
 
         return numpy.mean(denoising_error)
 
+def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on_the_fly=False):
+    """
+    Create submission files given the path of a model and
+    a dataset.
 
+    params:
+    * dataset
+        is a string corresponding to the name of the dataset
+    * save_dir_model
+        is the path where you saved your model
+    * save_dir_submission
+        is the path where you want to store the submission files
+    """
+    # load the dataset
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
+    valid_set_x = datasets[1]
+    test_set_x = datasets[1]
+
+    # load the model
+    da = dA()
+    da.load(save_dir_model)
+
+    # theano functions to get representations of the dataset learned by the model
+    index = T.lscalar()    # index to a [mini]batch
+    x = theano.tensor.matrix('input')
+
+    get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
+                                    givens = {x:valid_set_x})
+    get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
+                                    givens = {x:test_set_x})
+
+    # valid and test representations
+    valid_rep1 = get_rep_valid(0)
+    test_rep1 = get_rep_test(0)
+
+    valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
+    test_rep2 = numpy.dot(test_rep1,test_rep1.T)
+
+    # write it in a .txt file
+    valid_rep1 = numpy.floor((valid_rep1 / valid_rep1.max())*999)
+    valid_rep2 = numpy.floor((valid_rep2 / valid_rep2.max())*999)
+
+    test_rep1 = numpy.floor((test_rep1 / test_rep1.max())*999)
+    test_rep2 = numpy.floor((test_rep2 / test_rep2.max())*999)
+
+    val1 = open(save_dir_submission + dataset + '_dl_valid.prepro','w')
+    val2 = open(save_dir_submission + dataset + '_sdl_valid.prepro','w')
+    test1 = open(save_dir_submission + dataset + '_dl_final.prepro','w')
+    test2 = open(save_dir_submission + dataset + '_sdl_final.prepro','w')
+
+    vtxt1, ttxt1 = '', ''
+    vtxt2, ttxt2 = '', ''
+
+    for i in range(valid_rep1.shape[0]):
+        for j in range(valid_rep1.shape[0]):
+            vtxt2 += '%s '%int(valid_rep2[i,j])
+        for j in range(valid_rep1.shape[1]):
+            vtxt1 += '%s '%int(valid_rep1[i,j])
+        vtxt1 += '\n'
+        vtxt2 += '\n'
+    del valid_rep1, valid_rep2
+
+    for i in range(test_rep1.shape[0]):
+        for j in range(test_rep1.shape[0]):
+            ttxt2 += '%s '%int(test_rep2[i,j])
+        for j in range(test_rep1.shape[1]):
+            ttxt1 += '%s '%int(test_rep1[i,j])
+        ttxt1 += '\n'
+        ttxt2 += '\n'
+    del test_rep1, test_rep2
+
+    val1.write(vtxt1)
+    test1.write(ttxt1)
+    val2.write(vtxt2)
+    test2.write(ttxt2)
+    val1.close()
+    test1.close()
+    val2.close()
+    test2.close()
+
+    print >> sys.stderr, "... done creating files"
+
+    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_dl.zip',
+        save_dir_submission+dataset+'_dl_valid.prepro',
+        save_dir_submission+dataset+'_dl_final.prepro'))
+    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_sdl.zip',
+        save_dir_submission+dataset+'_sdl_valid.prepro',
+        save_dir_submission+dataset+'_sdl_final.prepro'))
+
+    print >> sys.stderr, "... files compressed"
+
+    os.system('rm %s %s %s %s'%(
+        save_dir_submission+dataset+'_dl_valid.prepro',
+        save_dir_submission+dataset+'_dl_final.prepro',
+        save_dir_submission+dataset+'_sdl_valid.prepro',
+        save_dir_submission+dataset+'_sdl_final.prepro'))
+
+    print >> sys.stderr, "... useless files deleted"
 
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
-    noise_type, corruption_level,normalize=True):
+    noise_type, corruption_level, normalize_on_the_fly=False):
     ''' main function used for training '''
 
-    datasets = load_data(dataset,normalize)
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     train_set_x = datasets[0]
+    valid_set_x = datasets[1]
 
-    d = train_set_x.value.shape[1]
+    d = get_constant(train_set_x.shape[1])
 
     da = dA(n_visible = d, n_hidden = n_hidden,
             tied_weigths = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
 
     time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
-            noise_type, corruption_level,normalize)
+            noise_type, corruption_level)
 
     if save_dir:
         da.save(save_dir)
 
-    denoising_error = da.get_denoising_error(train_set_x, cost_type,
-        noise_type, corruption_level,normalize)
+    denoising_error = da.get_denoising_error(valid_set_x, cost_type,
+        noise_type, corruption_level)
     print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
     return denoising_error, time_spent, loss
+
+
 
 if __name__ == '__main__':
 
