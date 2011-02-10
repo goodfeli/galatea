@@ -411,18 +411,18 @@ def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on
 
     os.system('zip %s %s %s'%(save_dir_submission+dataset+'_dl.zip',
         save_dir_submission+dataset+'_dl_valid.prepro',
-        save_dir_submission+dataset+'_dl_test.prepro'))
+        save_dir_submission+dataset+'_dl_final.prepro'))
     os.system('zip %s %s %s'%(save_dir_submission+dataset+'_sdl.zip',
         save_dir_submission+dataset+'_sdl_valid.prepro',
-        save_dir_submission+dataset+'_sdl_test.prepro'))
+        save_dir_submission+dataset+'_sdl_final.prepro'))
 
     print >> sys.stderr, "... files compressed"
 
     os.system('rm %s %s %s %s'%(
         save_dir_submission+dataset+'_dl_valid.prepro',
-        save_dir_submission+dataset+'_dl_test.prepro',
+        save_dir_submission+dataset+'_dl_final.prepro',
         save_dir_submission+dataset+'_sdl_valid.prepro',
-        save_dir_submission+dataset+'_sdl_test.prepro'))
+        save_dir_submission+dataset+'_sdl_final.prepro'))
 
     print >> sys.stderr, "... useless files deleted"
 
