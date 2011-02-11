@@ -2,6 +2,9 @@ This directory contain the 6 datasets from the
 
 Unsupervised and Transfer Learning Challenge(UTLC)
 
+The name of the subset on the web page are devel, valid and final. We use the name here train, valid, test.
+IMPORTANT: They don't have the same meaning as the usual train, valid, test!
+
 The web page is at: http://www.causality.inf.ethz.ch/home.php
 
 Dataset 	 Domain                         nbFeat	Sparsity(%)	nb train nb valid nb test Transfer num.
