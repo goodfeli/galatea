@@ -524,6 +524,8 @@ if __name__ == '__main__':
     parser.add_argument('corruption_level', action='store',
                         type=float,
                         help='Corruption (noise) level (float)')
+    # Note that hyphens ('-') in argument names are turned into underscores
+    # ('_') after parsing
     parser.add_argument('-N', '--dont-normalize', action='store_const',
                         default=True,
                         const=False,
@@ -547,5 +549,5 @@ if __name__ == '__main__':
                args.tied_weights, args.act_enc, args.act_dec,
                args.learning_rate, args.batch_size, args.epochs,
                args.cost_type, args.noise_type, args.corruption_level,
-               args.normalize)
+               args.dont_normalize)
 
