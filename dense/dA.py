@@ -50,7 +50,7 @@ class dA(object):
                  input = None,
                  n_visible= 784,
                  n_hidden= 500,
-                 tied_weigths = True,
+                 tied_weights = True,
                  act_enc = 'sigmoid',
                  act_dec = 'sigmoid',
                  W = None,
@@ -64,7 +64,7 @@ class dA(object):
 
         self.n_visible = n_visible
         self.n_hidden  = n_hidden
-        self.tied_weights = tied_weigths
+        self.tied_weights = tied_weights
 
         assert act_enc in set(['sigmoid', 'tanh'])
         assert act_dec in set(['sigmoid', 'softplus', 'linear'])
@@ -297,7 +297,7 @@ class dA(object):
                  input = args['input'],
                  n_visible= args['n_visible'],
                  n_hidden= args['n_hidden'],
-                 tied_weigths = args['tied_weigths'],
+                 tied_weights = args['tied_weights'],
                  act_enc = args['act_enc'],
                  act_dec = args['act_dec'],
                  W = args['W'],
@@ -447,7 +447,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     d = get_constant(train_set_x.shape[1])
 
     da = dA(n_visible = d, n_hidden = n_hidden,
-            tied_weigths = tied_weights,
+            tied_weights = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
 
     time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
