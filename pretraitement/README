@@ -55,7 +55,7 @@ This allow to use a smaller dtype when storing them.
 
 To load them, use the code in the file pylearn.datasets.utlc.py
 
-The datasets avicenna, harry, rita ans sylvester have been stored in
+The datasets avicenna, harry, rita and sylvester have been stored in
 the filetensor format. They will result in ndarray in memory.
 All except have been compressed with gzip.
 
