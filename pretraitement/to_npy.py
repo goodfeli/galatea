@@ -31,26 +31,28 @@ if len(sys.argv)<=1 or any([d not in datasets_avail for d in todo]):
 
 print "Will process datasets:", todo
 def load_dataset(name, dtype=None, permute_train=False):
-    """ 
+    """
     This version use much more memory
     as numpy.loadtxt use much more memory!
-    
+
     But we don't loose the shape info in the file!
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
         raise Exception("The directory with the original data for %s is not their"%name)
     train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',name+'_devel.data'),
                           dtype=dtype)
-    if permute_train:
-        rng = numpy.random.RandomState([1,2,3])
-        perm = rng.permutation(train.shape[0])
-        train = train[perm]
     valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
                                        name+'_valid.data'),
                           dtype=dtype)
     test = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
                                       name+'_final.data'),
                          dtype=dtype)
+
+    if permute_train:
+        rng = numpy.random.RandomState([1,2,3])
+        perm = rng.permutation(train.shape[0])
+        train = train[perm]
+
     return train, valid, test
 
 def load_dataset2(name, dtype=None, rows_size=None, permute_train=False):
@@ -82,13 +84,34 @@ def load_coo_matrix(name, dtype=None, rows_size=None, permute_train=False):
     else:
         train, valid, test = load_dataset2(name, dtype, rows_size=rows_size,
                                            permute_train=False)
-    if permute_train:
+
+    # In the original file the row index start at 1, but in scipy, the row index start at 0
+    # We do this to remove the empty row this would create otherwise
+    m = train[:,0].min()
+    if m > 0:
+        train[:,0] -= m
+
+    if permute_train:        
         rng = numpy.random.RandomState([1,2,3])
-        perm = rng.permutation(train.shape[0])
-        train = train[perm]
+        # the number of rows in the matrix
+        # + 1 as the number of rows start at 0
+        # tricky, data = data[perm] will in fact permute nothing
+        # as we premute the value with its coordinate!
+        # The call to coo_matrix will put the coordinate in the original order.
+        # The first row os the sparse marix is empty as the sparse
+        # matrix index start at 0, but in the file it start at 1
+
+        # coo_matrix don't support indexing.
+        # lil_matrix support indexing of element only
+        # csr support indexing by row.
+        train_coo = scipy.sparse.coo_matrix((train[:,2],(train[:,0],train[:,1])))
+        perm = rng.permutation(train_coo.shape[0])
+        train = train_coo.tocsr()[perm].tocoo()
+    else:
+        train = scipy.sparse.coo_matrix((train[:,2],(train[:,0],train[:,1])))
+        
     valid = scipy.sparse.coo_matrix((valid[:,2],(valid[:,0],valid[:,1])))
     test = scipy.sparse.coo_matrix((test[:,2],(test[:,0],test[:,1])))
-    train = scipy.sparse.coo_matrix((train[:,2],(train[:,0],train[:,1])))
 
     return train, valid, test
 
@@ -148,10 +171,10 @@ if "--terry" in todo:
     print "You must manually compress the created file with gzip!"
 
 def load_transfer(name, dtype=None, permute_as_train=False):
-    """ 
+    """
     This version use much more memory
     as numpy.loadtxt use much more memory!
-    
+
     But we don't loose the shape info in the file!
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
@@ -164,12 +187,45 @@ def load_transfer(name, dtype=None, permute_as_train=False):
         transfer = transfer[perm]
     return transfer
 
-def write_transfer(name, transfer, pickle=False):
-    print "Wrinting labelt", name
+def write(name, data, pickle=False):
     if pickle:
-        cPickle.dump(transfer, open(name+'_transfer.npy','wb'))
+        cPickle.dump(data, open(name+'.npy','wb'))
     else:
-        pylearn.io.filetensor.write(open(name+'_transfer.ft','wb'), transfer)
+        pylearn.io.filetensor.write(open(name+'.ft','wb'), data)
+    
+
+def write_transfer(name, transfer, pickle=False):
+    print "Wrinting transfer labels", name
+    write(name+'_transfer', transfer, pickle)
+
+def write_label(name, trainl, validl, testl):
+    print "Wrinting labels", name
+    write(name+'_trainl', trainl)
+    write(name+'_validl', validl)
+    write(name+'_testl', testl)
+
+def load_label(name, dtype=None, permute_train=False):
+    """ 
+    This version use much more memory
+    as numpy.loadtxt use much more memory!
+    
+    But we don't loose the shape info in the file!
+    """
+    if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
+        raise Exception("The directory with the original data for %s is not their"%name)
+    train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',name+'_devel.label'),
+                          dtype=dtype)
+    if permute_train:
+        rng = numpy.random.RandomState([1,2,3])
+        perm = rng.permutation(train.shape[0])
+        train = train[perm]
+    valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
+                                       name+'_valid.label'),
+                          dtype=dtype)
+    test = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
+                                      name+'_final.label'),
+                         dtype=dtype)
+    return train, valid, test
 
 if "--ule" in todo:
     train, valid, test = load_dataset('ule', dtype='uint8', permute_train=True)
@@ -182,6 +238,11 @@ if "--ule" in todo:
     del train, valid, test
     transfer = load_transfer('ule', dtype='uint8', permute_as_train=True)
     write_transfer('ule', transfer)
-    transfer = scipy.sparse.csr_matrix(transfer)
-    write_transfer('ule', transfer, pickle=True)
-    
+    #transfer = scipy.sparse.csr_matrix(transfer)
+    #write_transfer('ule', transfer, pickle=True)
+    del transfer
+    # We create the label data too
+    # But don't forget this will never be available for the other dataset
+    # This is needed to transform their example in python
+    trainl, validl, testl = load_label('ule', dtype=None, permute_train=True)
+    write_label('ule', trainl, validl, testl)

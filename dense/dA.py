@@ -1,60 +1,37 @@
-"""
- This tutorial introduces denoising auto-encoders (dA) using Theano.
+"""Script for running experiments."""
+# Standard library imports
+import copy
+import cPickle
+import gzip
+import os
+import sys
+import time
 
- Denoising autoencoders are the building blocks for SdA. 
- They are based on auto-encoders as the ones used in Bengio et al. 2007.
- An autoencoder takes an input x and first maps it to a hidden representation
- y = f_{\theta}(x) = s(Wx+b), parameterized by \theta={W,b}. The resulting 
- latent representation y is then mapped back to a "reconstructed" vector 
- z \in [0,1]^d in input space z = g_{\theta'}(y) = s(W'y + b').  The weight 
- matrix W' can optionally be constrained such that W' = W^T, in which case 
- the autoencoder is said to have tied weights. The network is trained such 
- that to minimize the reconstruction error (the error between x and z).
-
- For the denosing autoencoder, during training, first x is corrupted into 
- \tilde{x}, where \tilde{x} is a partially destroyed version of x by means 
- of a stochastic mapping. Afterwards y is computed as before (using 
- \tilde{x}), y = s(W\tilde{x} + b) and z as s(W'y + b'). The reconstruction 
- error is now measured between z and the uncorrupted input x, which is 
- computed as the cross-entropy : 
-      - \sum_{k=1}^d[ x_k \log z_k + (1-x_k) \log( 1-z_k)]
-
-
- References :
-   - P. Vincent, H. Larochelle, Y. Bengio, P.A. Manzagol: Extracting and 
-   Composing Robust Features with Denoising Autoencoders, ICML'08, 1096-1103,
-   2008
-   - Y. Bengio, P. Lamblin, D. Popovici, H. Larochelle: Greedy Layer-Wise
-   Training of Deep Networks, Advances in Neural Information Processing 
-   Systems 19, 2007
-
-"""
-
-import numpy, time, cPickle, gzip, sys, os
-
+# Third-party lbirary imports
+import argparse
+import numpy
 import theano
 import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
-
-from dense.logistic_sgd import load_data
+from dense.logistic_sgd import load_data, get_constant
 from utils import tile_raster_images
 
 import PIL.Image
 
 
 class dA(object):
-    """Denoising Auto-Encoder class (dA) 
+    """Denoising Auto-Encoder class (dA)
 
-    A denoising autoencoders tries to reconstruct the input from a corrupted 
-    version of it by projecting it first in a latent space and reprojecting 
+    A denoising autoencoders tries to reconstruct the input from a corrupted
+    version of it by projecting it first in a latent space and reprojecting
     it afterwards back in the input space. Please refer to Vincent et al.,2008
     for more details. If x is the input then equation (1) computes a partially
-    destroyed version of x by means of a stochastic mapping q_D. Equation (2) 
-    computes the projection of the input into the latent space. Equation (3) 
-    computes the reconstruction of the input, while equation (4) computes the 
+    destroyed version of x by means of a stochastic mapping q_D. Equation (2)
+    computes the projection of the input into the latent space. Equation (3)
+    computes the reconstruction of the input, while equation (4) computes the
     reconstruction error.
-  
+
     .. math::
 
         \tilde{x} ~ q_D(\tilde{x}|x)                                     (1)
@@ -72,63 +49,22 @@ class dA(object):
                  seed_noise = None,
                  input = None,
                  n_visible= 784,
-                 n_hidden= 500, 
-                 tied_weigths = True,
+                 n_hidden= 500,
+                 tied_weights = True,
                  act_enc = 'sigmoid',
                  act_dec = 'sigmoid',
                  W = None,
                  W_prime = None,
-                 bhid = None,
-                 bvis = None):
-        """
-        Initialize the dA class by specifying the number of visible units (the 
-        dimension d of the input ), the number of hidden units ( the dimension 
-        d' of the latent or hidden space ) and the corruption level. The 
-        constructor also receives symbolic variables for the input, weights and 
-        bias. Such a symbolic variables are useful when, for example the input is 
-        the result of some computations, or when weights are shared between the 
-        dA and an MLP layer. When dealing with SdAs this always happens,
-        the dA on layer 2 gets as input the output of the dA on layer 1, 
-        and the weights of the dA are used in the second stage of training 
-        to construct an MLP.
+                 b = None,
+                 b_prime = None):
 
-        :type numpy_rng: numpy.random.RandomState
-        :param numpy_rng: number random generator used to generate weights
+        # using cPickle serialization
+        self.__initargs__ = copy.copy(locals())
+        del self.__initargs__['self']
 
-        :type theano_rng: theano.tensor.shared_randomstreams.RandomStreams
-        :param theano_rng: Theano random generator; if None is given one is generated
-                     based on a seed drawn from `rng`
-
-        :type input: theano.tensor.TensorType
-        :param input: a symbolic description of the input or None for standalone
-                      dA
-
-        :type n_visible: int
-        :param n_visible: number of visible units
-
-        :type n_hidden: int
-        :param n_hidden:  number of hidden units
-
-        :type W: theano.tensor.TensorType
-        :param W: Theano variable pointing to a set of weights that should be 
-                  shared belong the dA and another architecture; if dA should 
-                  be standalone set this to None
-
-        :type bhid: theano.tensor.TensorType
-        :param bhid: Theano variable pointing to a set of biases values (for 
-                     hidden units) that should be shared belong dA and another 
-                     architecture; if dA should be standalone set this to None
-
-        :type bvis: theano.tensor.TensorType
-        :param bvis: Theano variable pointing to a set of biases values (for 
-                     visible units) that should be shared belong dA and another
-                     architecture; if dA should be standalone set this to None
-
-
-        """
         self.n_visible = n_visible
         self.n_hidden  = n_hidden
-        self.tied_weights = tied_weigths
+        self.tied_weights = tied_weights
 
         assert act_enc in set(['sigmoid', 'tanh'])
         assert act_dec in set(['sigmoid', 'softplus', 'linear'])
@@ -147,7 +83,7 @@ class dA(object):
 
         # create a Theano random generator that gives symbolic random values
         # this is used for adding noise to the input
-        if not seed_noise: 
+        if not seed_noise:
             theano_rng = RandomStreams(self.numpy_rng.randint(2**30))
             self.seed_noise = 2**30
         else:
@@ -162,29 +98,29 @@ class dA(object):
             # 4*sqrt(6./(n_hidden+n_visible))the output of uniform if
             # converted using asarray to dtype
             # theano.config.floatX so that the code is runable on GPU
-            initial_W = numpy.asarray(self.numpy_rng.uniform( 
-                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)), 
-                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)), 
+            initial_W = numpy.asarray(self.numpy_rng.uniform(
+                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
+                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
                       size = (n_visible, n_hidden)), dtype = theano.config.floatX)
             W = theano.shared(value = initial_W, name ='W')
 
-        if not bvis:
-            bvis = theano.shared(value = numpy.zeros(n_visible, 
+        if not b_prime:
+            b_prime = theano.shared(value = numpy.zeros(n_visible,
                                          dtype = theano.config.floatX))
 
-        if not bhid:
-            bhid = theano.shared(value = numpy.zeros(n_hidden,
+        if not b:
+            b = theano.shared(value = numpy.zeros(n_hidden,
                                 dtype = theano.config.floatX), name ='b')
 
 
         self.W = W
-        # b corresponds to the bias of the hidden 
-        self.b = bhid
+        # b corresponds to the bias of the hidden
+        self.b = b
         # b_prime corresponds to the bias of the visible
-        self.b_prime = bvis
+        self.b_prime = b_prime
 
         if self.tied_weights:
-            self.W_prime = self.W.T 
+            self.W_prime = self.W.T
         else:
             if not W_prime:
                 # not sure about the initialization
@@ -197,10 +133,10 @@ class dA(object):
             self.W_prime = W_prime
 
         # if no input is given, generate a variable representing the input
-        if input == None : 
+        if input == None :
             # we use a matrix because we expect a minibatch of several examples,
             # each example being a row
-            self.x = T.dmatrix(name = 'input') 
+            self.x = T.dmatrix(name = 'input')
         else:
             self.x = input
 
@@ -210,20 +146,20 @@ class dA(object):
             self.params.append(self.W_prime)
 
     def get_corrupted_input(self, input, corruption_level, noise='binomial'):
-        """ This function keeps ``1-corruption_level`` entries of the inputs the same 
-        and zero-out randomly selected subset of size ``coruption_level`` 
-        Note : first argument of theano.rng.binomial is the shape(size) of 
+        """ This function keeps ``1-corruption_level`` entries of the inputs the same
+        and zero-out randomly selected subset of size ``coruption_level``
+        Note : first argument of theano.rng.binomial is the shape(size) of
                random numbers that it should produce
-               second argument is the number of trials 
+               second argument is the number of trials
                third argument is the probability of success of any trial
-        
-                this will produce an array of 0s and 1s where 1 has a probability of 
+
+                this will produce an array of 0s and 1s where 1 has a probability of
                 1 - ``corruption_level`` and 0 with ``corruption_level``
 
-                The binomial function return int64 data type by default. 
+                The binomial function return int64 data type by default.
                 int64 multiplicated by the input type(floatX) always return float64.
                 To keep all data in floatX when floatX is float32, we set the dtype
-                of the binomial to floatX. As in our case the value of the binomial 
+                of the binomial to floatX. As in our case the value of the binomial
                 is always 0 or 1, this don't change the result. This is needed to allow
                 the gpu to work correctly as it only support float32 for now.
         """
@@ -233,7 +169,7 @@ class dA(object):
             return input + self.theano_rng.normal( size = input.shape, avg=0, std = corruption_level, dtype=theano.config.floatX)
         else:
             raise NotImplementedError('This noise %s is not implemented yet'%(noise))
-    
+
     def get_hidden_values(self, input):
         """ Computes the values of the hidden layer """
         if self.act_enc == 'sigmoid':
@@ -266,80 +202,269 @@ class dA(object):
         # note : we sum over the size of a datapoint; if we are using minibatches,
         #        L will  be a vector, with one entry per example in minibatch
         if cost == 'CE':
-            L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 ) 
+            L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
             raise NotImplementedError('This cost function %s is not implemented yet'%(cost))
 
-        # note : L is now a vector, where each element is the cross-entropy cost 
-        #        of the reconstruction of the corresponding example of the 
-        #        minibatch. We need to compute the average of all these to get 
+        # note : L is now a vector, where each element is the cross-entropy cost
+        #        of the reconstruction of the corresponding example of the
+        #        minibatch. We need to compute the average of all these to get
         #        the cost of the minibatch
         cost = T.mean(L)
 
         # compute the gradients of the cost of the `dA` with respect
-        # to its parameters 
+        # to its parameters
         gparams = T.grad(cost, self.params)
         # generate the list of updates
         updates = {}
         for param, gparam in zip(self.params, gparams):
             updates[param] = param -  learning_rate*gparam
-    
+
         return (cost, updates)
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
             noise='gaussian', corruption_level=0.3):
-        """ This fucntion fits the dA to the dataset given
-        some hyper-parameters   """
+        """ This function fits the dA to the dataset given
+        some hyper-parameters and returns the loss evolution
+        and the time spent during training   """
+
+
         # compute number of minibatches for training, validation and testing
-        n_train_batches = dataset.value.shape[0] / batch_size
+        n_train_batches = get_constant(dataset.shape[0]) / batch_size
 
         # allocate symbolic variables for the data
-        index = T.lscalar()    # index to a [mini]batch 
+        index = T.lscalar()    # index to a [mini]batch
 
         cost, updates = self.get_cost_updates(corruption_level = corruption_level,
                                 learning_rate = learning_rate,
                                 noise = noise,
                                 cost = cost)
-
-
         train_da = theano.function([index], cost, updates = updates,
-            givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
-    
+                                   givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
+
         start_time = time.clock()
 
         ############
         # TRAINING #
         ############
         loss = []
+        print '... training model...'
         # go through training epochs
+
+
         for epoch in xrange(epochs):
             tic = time.clock()
             # go through trainng set
             c = []
             for batch_index in xrange(n_train_batches):
                 c.append(train_da(batch_index))
+
             toc = time.clock()
             loss.append(numpy.mean(c))
             print 'Training epoch %d, time spent (min) %f,  cost '%(epoch,(toc-tic)/60.), numpy.mean(c)
             toc = tic
 
         end_time = time.clock()
-        training_time = (end_time - start_time)
-        self.loss_ = loss
+        training_time = (end_time - start_time)/60.
 
-    def plot_filters(self):
-        """ TODO """ 
-        image = PIL.Image.fromarray(tile_raster_images( X = da.W.value.T,
-                     img_shape = (28,28),tile_shape = (10,10), 
-                     tile_spacing=(1,1)))
-        image.save('filters_corruption_30.png') 
-     
-        os.chdir('../')
+        return training_time, loss
+
+    def save(self, save_dir):
+        """ save the parameters of the model """
+        print '... saving model'
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+
+        save_file = open(save_dir + 'model.pkl','wb')
+        cPickle.dump(self.__initargs__, save_file, -1)
+        cPickle.dump(self.W.value, save_file, -1)
+        if not self.tied_weights:
+            cPickle.dump(self.W_prime.value, save_file, -1)
+        cPickle.dump(self.b.value, save_file, -1)
+        cPickle.dump(self.b_prime.value, save_file, -1)
+        save_file.close()
+
+    def load(self, load_dir):
+        """ load the model """
+        print '... loading model'
+        save_file = open(load_dir + 'model.pkl','r')
+        args = cPickle.load(save_file)
+        self.__init__(
+                 seed_params = args['seed_params'],
+                 seed_noise = args['seed_noise'],
+                 input = args['input'],
+                 n_visible= args['n_visible'],
+                 n_hidden= args['n_hidden'],
+                 tied_weights = args['tied_weights'],
+                 act_enc = args['act_enc'],
+                 act_dec = args['act_dec'],
+                 W = args['W'],
+                 W_prime = args['W_prime'],
+                 b = args['b'],
+                 b_prime = args['b_prime'])
+
+        self.W.value = cPickle.load(save_file)
+        if not self.tied_weights:
+            self.W_prime.value = cPickle.load(save_file)
+        self.b.value = cPickle.load(save_file)
+        self.b_prime.value = cPickle.load(save_file)
+        save_file.close()
+
+    def get_denoising_error(self, dataset, cost, noise, corruption_level):
+        """ This function returns the denoising error over the dataset """
+        batch_size = 100
+        # compute number of minibatches for training, validation and testing
+        n_train_batches =  get_constant(dataset.shape[0]) / batch_size
+
+        # allocate symbolic variables for the data
+        index = T.lscalar()    # index to a [mini]batch
+
+        cost, updates = self.get_cost_updates(corruption_level = corruption_level,
+                                learning_rate = 0.,
+                                noise = noise,
+                                cost = cost)
+        get_error = theano.function([index], cost, updates = {},
+                                    givens = {
+                self.x:dataset[index*batch_size:(index+1)*batch_size]})
+
+        denoising_error = []
+        # go through the dataset
+        for batch_index in xrange(n_train_batches):
+            denoising_error.append(get_error(batch_index))
+
+        return numpy.mean(denoising_error)
+
+def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on_the_fly=False):
+    """
+    Create submission files given the path of a model and
+    a dataset.
+
+    params:
+    * dataset
+        is a string corresponding to the name of the dataset
+    * save_dir_model
+        is the path where you saved your model
+    * save_dir_submission
+        is the path where you want to store the submission files
+    """
+    # load the dataset
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
+    valid_set_x = datasets[1]
+    test_set_x = datasets[1]
+
+    # load the model
+    da = dA()
+    da.load(save_dir_model)
+
+    # theano functions to get representations of the dataset learned by the model
+    index = T.lscalar()    # index to a [mini]batch
+    x = theano.tensor.matrix('input')
+
+    get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
+                                    givens = {x:valid_set_x})
+    get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
+                                    givens = {x:test_set_x})
+
+    # valid and test representations
+    valid_rep1 = get_rep_valid(0)
+    test_rep1 = get_rep_test(0)
+
+    valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
+    test_rep2 = numpy.dot(test_rep1,test_rep1.T)
+
+    # write it in a .txt file
+    valid_rep1 = numpy.floor((valid_rep1 / valid_rep1.max())*999)
+    valid_rep2 = numpy.floor((valid_rep2 / valid_rep2.max())*999)
+
+    test_rep1 = numpy.floor((test_rep1 / test_rep1.max())*999)
+    test_rep2 = numpy.floor((test_rep2 / test_rep2.max())*999)
+
+    val1 = open(save_dir_submission + dataset + '_dl_valid.prepro','w')
+    val2 = open(save_dir_submission + dataset + '_sdl_valid.prepro','w')
+    test1 = open(save_dir_submission + dataset + '_dl_final.prepro','w')
+    test2 = open(save_dir_submission + dataset + '_sdl_final.prepro','w')
+
+    vtxt1, ttxt1 = '', ''
+    vtxt2, ttxt2 = '', ''
+
+    for i in range(valid_rep1.shape[0]):
+        for j in range(valid_rep1.shape[0]):
+            vtxt2 += '%s '%int(valid_rep2[i,j])
+        for j in range(valid_rep1.shape[1]):
+            vtxt1 += '%s '%int(valid_rep1[i,j])
+        vtxt1 += '\n'
+        vtxt2 += '\n'
+    del valid_rep1, valid_rep2
+
+    for i in range(test_rep1.shape[0]):
+        for j in range(test_rep1.shape[0]):
+            ttxt2 += '%s '%int(test_rep2[i,j])
+        for j in range(test_rep1.shape[1]):
+            ttxt1 += '%s '%int(test_rep1[i,j])
+        ttxt1 += '\n'
+        ttxt2 += '\n'
+    del test_rep1, test_rep2
+
+    val1.write(vtxt1)
+    test1.write(ttxt1)
+    val2.write(vtxt2)
+    test2.write(ttxt2)
+    val1.close()
+    test1.close()
+    val2.close()
+    test2.close()
+
+    print >> sys.stderr, "... done creating files"
+
+    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_dl.zip',
+        save_dir_submission+dataset+'_dl_valid.prepro',
+        save_dir_submission+dataset+'_dl_final.prepro'))
+    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_sdl.zip',
+        save_dir_submission+dataset+'_sdl_valid.prepro',
+        save_dir_submission+dataset+'_sdl_final.prepro'))
+
+    print >> sys.stderr, "... files compressed"
+
+    os.system('rm %s %s %s %s'%(
+        save_dir_submission+dataset+'_dl_valid.prepro',
+        save_dir_submission+dataset+'_dl_final.prepro',
+        save_dir_submission+dataset+'_sdl_valid.prepro',
+        save_dir_submission+dataset+'_sdl_final.prepro'))
+
+    print >> sys.stderr, "... useless files deleted"
+
+def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
+    act_dec, learning_rate, batch_size, epochs, cost_type,
+    noise_type, corruption_level, normalize_on_the_fly=False):
+    ''' main function used for training '''
+
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
+    train_set_x = datasets[0]
+    valid_set_x = datasets[1]
+
+    d = get_constant(train_set_x.shape[1])
+
+    da = dA(n_visible = d, n_hidden = n_hidden,
+            tied_weights = tied_weights,
+            act_enc = act_enc, act_dec = act_dec)
+
+    time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
+            noise_type, corruption_level)
+
+    if save_dir:
+        da.save(save_dir)
+
+    denoising_error = da.get_denoising_error(valid_set_x, cost_type,
+        noise_type, corruption_level)
+    print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
+    return denoising_error, time_spent, loss
+
 
 
 if __name__ == '__main__':
+
     # you can train a denoising autoencoder using this cmd:
     # python <thisfile> dataset #hidden_units tied_weights act_enc act_dec
     # costtype learning_rate batchsize epochs noise_type corruption_level
@@ -347,30 +472,82 @@ if __name__ == '__main__':
     # here a few examples
     #
     # python dA.py avicenna 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
-    # !! ne pas lancer la commande avec rita il va falloir splitter le dataset qui ne tient pas en memoire
-    # !! python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3
+    # attention ajouter un zero a la fin de la commande pour rita qui indique que
+    # les donnes ne sont pas normalisees et qu'il y a un hack !!
+    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
-    # 
+    #
+    # Pour harry si l'on n'exploite pas la spacite on peut lancer avec normalisation a
+    # la volee (0 a la fin comme rita)
+    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
+    parser = argparse.ArgumentParser(
+        description='Run denoising autoencoder experiments on dense features.'
+    )
+    parser.add_argument('dataset', action='store',
+                        type=str,
+                        choices=['avicenna', 'harry', 'rita', 'sylvester',
+                                 'ule'],
+                        help='Dataset on which to run experiments')
+    parser.add_argument('n_hidden', action='store',
+                        type=int,
+                        help='Number of hidden units')
+    parser.add_argument('tied_weights', action='store',
+                        type=bool,
+                        help='Whether to use tied weights')
+    parser.add_argument('act_enc', action='store',
+                        type=str,
+                        choices=['tanh', 'linear', 'softplus', 'sigmoid'],
+                        help='Activation function for the encoder')
+    parser.add_argument('act_dec', action='store',
+                        type=str,
+                        choices=['tanh', 'linear', 'softplus', 'sigmoid'],
+                        help='Activation function for the decoder')
 
-    dataset = sys.argv[1]
-    n_hidden = int(sys.argv[2])
-    tied_weights = bool(sys.argv[3])
-    act_enc= sys.argv[4]
-    act_dec= sys.argv[5]
-    cost_type= sys.argv[6]
-    learning_rate= float(sys.argv[7])
-    batch_size= int(sys.argv[8])
-    epochs= int(sys.argv[9])
-    noise_type= sys.argv[10]
-    corruption_level = float(sys.argv[11])
+    parser.add_argument('cost_type', action='store',
+                        type=str,
+                        choices=['CE', 'MSE'],
+                        help='Cost function to use to train autoencoder')
+    parser.add_argument('learning_rate', action='store',
+                         type=float,
+                         help='Learning rate to use (float)')
+    parser.add_argument('batch_size', action='store',
+                        type=int,
+                        help='Minibatch size to use (integer)')
+    parser.add_argument('epochs', action='store',
+                         type=int,
+                         help='Number of epochs (full passes through data)')
+    parser.add_argument('noise_type', action='store',
+                         type=str,
+                         choices=['binomial', 'gaussian'],
+                         help='Noise type to use for corruption')
+    parser.add_argument('corruption_level', action='store',
+                        type=float,
+                        help='Corruption (noise) level (float)')
+    # Note that hyphens ('-') in argument names are turned into underscores
+    # ('_') after parsing
+    parser.add_argument('-N', '--dont-normalize', action='store_const',
+                        default=True,
+                        const=False,
+                        required=False,
+                        help='Don\'t do feature normalization')
+    parser.add_argument('-s', '--save-dir', action='store',
+                        type=str,
+                        default='.',
+                        required=False,
+                        help='Directory to which to save output')
+    args = parser.parse_args()
 
-    datasets = load_data(dataset)
-    train_set_x = datasets[0]
-    d = train_set_x.value.shape[1]
-    da = dA(n_visible = d, n_hidden = n_hidden, 
-            tied_weigths = tied_weights,
-            act_enc = act_enc, act_dec = act_dec)
-    da.fit(train_set_x, learning_rate, batch_size, epochs=epochs, cost=cost_type,
-            noise=noise_type, corruption_level=corruption_level)
- 
+    if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
+        raise IOError('%s doesn\'t exist or is not accessible' % os.save_dir)
+    if not args.dont_normalize and args.dataset not in ['rita','harry']:
+        raise NotImplementedError(' '.join([
+            'for now the normalization on the fly is only allowed',
+            'for rita & harry, may change...'
+        ]))
+    main_train(args.dataset, args.save_dir, args.n_hidden,
+               args.tied_weights, args.act_enc, args.act_dec,
+               args.learning_rate, args.batch_size, args.epochs,
+               args.cost_type, args.noise_type, args.corruption_level,
+               args.dont_normalize)
+
