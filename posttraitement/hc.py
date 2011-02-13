@@ -12,23 +12,26 @@
 #          the proximity of an example to each of the clusters centroids
 def hc(dataset, step=5, k=2):
 
-    means = kmeans(dataset, k)
-    p = partition(dataset, means)
-    vars = variances(dataset, p, means)
-    px_given_k = probs(dataset, p, means, vars)
-    
-    # Recursion
-    if step == 1:
-        return (px_given_k, array([[] for i in range(dataset.shape[0])]))
-    else:
-        # Recursion step
-        rec = [ hc(dataset[p == k], step-1, k) for k in range(k) ] 
+    def helper(dataset, step, k):
+        means = kmeans(dataset, k)
+        p = partition(dataset, means)
+        vars = variances(dataset, p, means)
+        px_given_k = probs(dataset, p, means, vars)
+        
+        # Recursion
+        if step == 1:
+            return (px_given_k, array([[] for i in range(dataset.shape[0])]))
+        else:
+            # Recursion step
+            rec = [ helper(dataset[i == k,:], step-1, k) for i in range(k) ] 
 
-        # Put each probability for a given step together
-        lvl0 = [ rec[k][0] for k in range(k) ]
-        lvl1 = [ rec[k][1] for k in range(k) ]
+            # Put each probability for a given step together
+            lvl0 = [ rec[k][0] for k in range(k) ]
+            lvl1 = [ rec[k][1] for k in range(k) ]
 
-        return (px_given_k, hstack((hstack(lvl0), hstack(lvl1)))
+            return (px_given_k, hstack((hstack(lvl0), hstack(lvl1)))
+
+    return hstack(helper(dataset, step, k))
 
 # K-mean                
 #
