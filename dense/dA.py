@@ -276,13 +276,13 @@ class dA(object):
 
         return training_time, loss
 
-    def save(self, save_dir, save_file = 'model.pkl'):
+    def save(self, save_dir, save_filename = 'model.pkl'):
         """ save the parameters of the model """
         print '... saving model'
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
 
-        save_file = open(os.path.join(save_dir, save_file),'wb')
+        save_file = open(os.path.join(save_dir, save_filename),'wb')
         cPickle.dump(self.__initargs__, save_file, -1)
         cPickle.dump(self.W.value, save_file, -1)
         if not self.tied_weights:
@@ -291,10 +291,10 @@ class dA(object):
         cPickle.dump(self.b_prime.value, save_file, -1)
         save_file.close()
 
-    def load(self, load_dir, save_file = 'model.pkl'):
+    def load(self, load_dir, load_filename = 'model.pkl'):
         """ load the model """
         print '... loading model'
-        save_file = open(os.path.join(load_dir, save_file),'r')
+        save_file = open(os.path.join(load_dir, load_filename),'r')
         args = cPickle.load(save_file)
         self.__init__(
                  seed_params = args['seed_params'],
