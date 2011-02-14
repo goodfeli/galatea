@@ -32,8 +32,9 @@ def load_dataset(name, dtype=None, permute_train=False):
     But we don't loose the shape info in the file!
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
-        raise Exception("The directory with the original data for %s is not their"%name)
-    train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',name+'_devel.data'),
+        raise Exception("The directory with data for %s not found" % name)
+    train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
+                                       name+'_devel.data'),
                           dtype=dtype)
     valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
                                        name+'_valid.data'),
@@ -51,7 +52,7 @@ def load_dataset(name, dtype=None, permute_train=False):
 
 def load_dataset2(name, dtype=None, rows_size=None, permute_train=False):
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
-        raise Exception("The directory with the original data for %s is not their"%name)
+        raise Exception("The directory with data for %s not found" % name)
     valid = numpy.fromfile(os.path.join(ROOT_PATH,name+'_text',
                                        name+'_valid.data'),
                           dtype=dtype, sep=' ')
@@ -59,14 +60,15 @@ def load_dataset2(name, dtype=None, rows_size=None, permute_train=False):
                                       name+'_final.data'),
                          dtype=dtype, sep=' ')
 
-    train = numpy.fromfile(os.path.join(ROOT_PATH,name+'_text',name+'_devel.data'),
+    train = numpy.fromfile(os.path.join(ROOT_PATH,name+'_text',
+                                        name+'_devel.data'),
                            dtype=dtype, sep=' ')
     if rows_size is not None:
         train = train.reshape(train.size/rows_size, rows_size)
         valid = valid.reshape(valid.size/rows_size, rows_size)
         test = test.reshape(test.size/rows_size, rows_size)
     if permute_train:
-        assert rows_size is not None, "we need to know the number of row to permute the data!"
+        assert rows_size is not None, "we need # of rows to permute the data!"
         rng = numpy.random.RandomState([1,2,3])
         perm = rng.permutation(train.shape[0])
         train = train[perm]
@@ -186,10 +188,9 @@ def write(name, data, pickle=False):
         cPickle.dump(data, open(name+'.npy','wb'))
     else:
         pylearn.io.filetensor.write(open(name+'.ft','wb'), data)
-    
 
 def write_transfer(name, transfer, pickle=False):
-    print "Wrinting transfer labels", name
+    print "Writing transfer labels", name
     write(name+'_transfer', transfer, pickle)
 
 def write_label(name, trainl, validl, testl):
@@ -199,15 +200,16 @@ def write_label(name, trainl, validl, testl):
     write(name+'_testl', testl)
 
 def load_label(name, dtype=None, permute_train=False):
-    """ 
+    """
     This version use much more memory
     as numpy.loadtxt use much more memory!
-    
+
     But we don't loose the shape info in the file!
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
-        raise Exception("The directory with the original data for %s is not their"%name)
-    train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',name+'_devel.label'),
+        raise Exception("The directory with data for %s not found " % name)
+    train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
+                                       name+'_devel.label'),
                           dtype=dtype)
     if permute_train:
         rng = numpy.random.RandomState([1,2,3])
