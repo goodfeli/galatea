@@ -246,7 +246,8 @@ class dA(object):
         train_da = theano.function([index],
                                     cost,
                                     updates = updates,
-                                    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]}
+                                    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]},
+                                    name='train_da'
                                     )
 
         start_time = time.clock()
@@ -334,7 +335,8 @@ class dA(object):
                                      borrow=True)
         get_error = theano.function([index], cost, updates = {},
                                     givens = {
-                self.x:dataset[index*batch_size:(index+1)*batch_size]})
+                self.x:dataset[index*batch_size:(index+1)*batch_size]},
+                                    name='get_error')
 
         denoising_error = []
         # go through the dataset
@@ -370,9 +372,11 @@ def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on
     x = theano.tensor.matrix('input')
 
     get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:valid_set_x})
+                                    givens = {x:valid_set_x},
+                                    name = 'get_rep_valid')
     get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:test_set_x})
+                                    givens = {x:test_set_x},
+                                    name = 'get_rep_test')
 
     # valid and test representations
     valid_rep1 = get_rep_valid(0)
