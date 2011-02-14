@@ -110,10 +110,10 @@ for k, data_name in enumerate(datasets):
 
         # Save the data (note: the name convention is flexible but files must
         # contain the dataset name and end by _valid.prepro or _final.prepro.
-       	save_data.save_data(dir_prepro, prepro_name, proc_data)
+        save_data.save_data(dir_prepro, prepro_name, proc_data)
 
         # Create a zip file with the query in the Queries directory
-       	make_zip.make_zip(dir_prepro, dir_zip, prepro_name, zip_final_only_if_small)
+        make_zip.make_zip(dir_prepro, dir_zip, prepro_name, zip_final_only_if_small)
 
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         #%%%%%%% The zip files must be submitted to the web site %%%%%%
