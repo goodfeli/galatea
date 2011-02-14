@@ -35,18 +35,13 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         temp = N.zeros((Output.shape[0], 1) , Output.dtype)
         temp[:,0] = Output
         Output = temp
-    #
-
-
     area=[]
     sigma=[]
-
     n= Target.shape[0]
     negidx = N.nonzero(Target<0)[0] # indices of negative class elements
     posidx = N.nonzero(Target>0)[0] # indices of positive class elements
     neg = negidx.shape[0]    # number of negative class elements
     pos = posidx.shape[0]    # number of positive class elements
-
 
     #print 'neg = '+str(neg)+', pos = '+str(pos)
     #assert False
@@ -56,16 +51,12 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         assert False
 
         return area, sigma
-    #
-
     uval = N.unique(Output)
     if (not show_fig) and uval.shape[0] == 2 and uval.min() ==-1 and uval.max() ==1:
         area, sigma = bac(Output, Target);
         print 'returning area = '+str(area)
         assert False
         return area, sigma
-    #
-
     # This is hard to vectorize, we just loop if multiple columns for outputs
     nn,pp = Output.shape
     p = 1
@@ -75,13 +66,11 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
     elif nn==1:
         Output = Output.T
         Target = Target.T
-    #
 
     for kk in xrange(p):
         output = Output[:,kk]
         if not pos_small:
             output = -output
-        #
         temp = list(output)
         temp = zip(temp,range(len(temp)))
         temp = sorted(temp)
@@ -133,16 +122,12 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                     #
                     oldval = newval
                 #
-
                 #print 'R'
                 #print R
                 #die
-
                 S = N.zeros( (len(i), ), R.dtype)
                 for ridx, sidx in enumerate(i):
                     S[sidx] =  R[ridx]
-                #
-
                 #print 'case L==1 or whatever'
                 #print 'first three elements of S'
                 #print S[0:3]
@@ -151,10 +136,6 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 #print 'R indexing'
                 #print (R[i[0]], R[i[1]], R[i[2]])
                 #die
-
-            #
-
-        #
 
         SS = sorted(S[negidx])
         RR = range(neg)
@@ -178,10 +159,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 else:
                     k0=k
                     j = j+1
-                #
                 oldval = newval
-            #
-
             SEN = (N.asarray(SS)-N.asarray(RR)) / pos                          # compute approximate sensitivity
             SPE = 1-(N.asarray(range(1,neg+1))-0.5)/neg  # compute approximate specificity
                                                          # (new 0.5 Dec 5 correction)
@@ -196,14 +174,11 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 for k in xrange(uval.shape[0]):
                     sensitivity[k+1] = sensitivity[k] + N.nonzero(output[posidx]==uval[k])[0].shape[0]
                     specificity[k+1] = specificity(k) - N.nonzero(output[negidx]==uval[k])[0].shape[0]
-                #
                 sensitivity = sensitivity / pos
                 specificity = specificity / neg
             else:
                 sensitivity = SEN
                 specificity = SPE
-            #
-
             two_BAC = sensitivity + specificity    # compute twice the balanced accuracy
             print two_BAC.shape
             assert False
@@ -219,25 +194,14 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 xlabel('Specificity'); ylabel('Sensitivity');
                 hold on; plot(specificity, sensitivity, 'ro'); plot(specificity, sensitivity, 'r-', 'LineWidth', 2);
                 title(['AUC=' num2str(area) '+-' num2str(sigma)]); """
-            #
-
-        # end if dosigma
-
-    # end for kk
-
 
     if type(area) == type([]):
         assert len(area) == 1
         area = area[0]
-    ""
 
-    if type(area) != type(1.0) :
+    if type(area) != type(1.0):
         print area
         assert False
-    ""
-
-    #print 'returning area = '+str(area)
-    #assert False
 
     return area, sigma
 
