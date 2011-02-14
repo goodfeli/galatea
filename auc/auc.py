@@ -12,7 +12,7 @@ def setdiff(A, B):
 
 def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = True):
     """area, sigma = auc(Output, Target, pos_small, precise_ebar, show_fig)
-    # This is the algorithm proposed for 
+    # This is the algorithm proposed for
     # computing the AUC and the error bar.
     # It is assumed that the outputs provide a score
     # with the negative examples having the lowest score
@@ -30,7 +30,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
     #print pos_small
     #print 'precise_ebar'
     #print precise_ebar
-    
+
 
     #assert False
 
@@ -88,15 +88,10 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
     #
 
     for kk in xrange(p):
-
-   
         output = Output[:,kk]
-  
- 
         if not pos_small:
             output = -output
         #
-
         temp = list(output)
         temp = zip(temp,range(len(temp)))
         temp = sorted(temp)
@@ -104,20 +99,18 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         # sort outputs, best come first (u=sorted vals, i=index)
 
         uval_ascending = N.unique(output)
-  
         assert len(uval.shape) == 1
- 
         uval = N.flipud(uval_ascending)
 
 
-        # Test whether there are ties 
+        # Test whether there are ties
         if uval.shape[0] ==n:
             S = N.zeros( (n, ) )
             for s_idx, r_idx in enumerate(i):
                 S[s_idx] = r_idx + 1
                 #S = range(1,n+1)[i]   # compute the ranks of the outputs (no ties)
             #
-        
+
             print 'case made S from sequence'
             print S
             die
@@ -143,7 +136,6 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 newval = u[0]
                 R = N.asarray(range(n),dtype='float64')+1.0
                 k0 = 0.0
-                    
                 for k in xrange(1,n): #yes, 1, the matlab was a 2
                     newval=u[k]
                     #print ('k',k,'newval',newval)
@@ -175,7 +167,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 #print S[0:3]
                 #print 'first three elements of i'
                 #print i[0:3]
-                #print 'R indexing'  
+                #print 'R indexing'
                 #print (R[i[0]], R[i[1]], R[i[2]])
                 #die
 
@@ -185,18 +177,16 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
 
         SS = sorted(S[negidx])
         RR = range(neg)
-
-        SEN = (N.asarray(SS)-N.asarray(RR))/pos                   
+        SEN = (N.asarray(SS)-N.asarray(RR))/pos
         assert kk == len(area)
         area.append(float(SEN.sum())/float(neg) )              # compute the AUC
-
         #%%%%%%%%%%%%%%%%%%%%% ERROR BARS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         if dosigma:
             # Adjust RR for the ties (new Dec 5 correction)
             oldval = SS[0]
             newval = SS[0]
             k0 = 0
-            j = 1 
+            j = 1
             for k in xrange(1, len(SS) ):
                 newval = SS[k]
                 if newval == oldval:
@@ -210,12 +200,12 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 #
                 oldval = newval
             #
-            
+
             SEN = (N.asarray(SS)-N.asarray(RR)) / pos                          # compute approximate sensitivity
             SPE = 1-(N.asarray(range(1,neg+1))-0.5)/neg  # compute approximate specificity
                                                          # (new 0.5 Dec 5 correction)
-            
-            if precise_ebar:                                  
+
+            if precise_ebar:
                 # Calculate the "true" ROC (slow)
                 uval = sorted(uval)
                 sensitivity = N.zeros((uval.shape[0]+1, 1))
@@ -232,24 +222,24 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 sensitivity = SEN
                 specificity = SPE
             #
-                
+
             two_BAC = sensitivity + specificity    # compute twice the balanced accuracy
             print two_BAC.shape
             assert False
             [u,k] = max(two_BAC)                   #find its max value
             sen = sensitivity[k]                    # and the corresponding sensitivity
             spe = specificity[k]                    # and specificity
-            sigma[kk] = 0.5 * sqrt(sen*(1-sen)/ pos + spe*(1-spe)/ neg) # error bar estimate
-            
+            sigma[kk] = 0.5 * N.sqrt(sen*(1-sen)/ pos + spe*(1-spe)/ neg) # error bar estimate
+
             # Plot the results
             if show_fig:
                 print "TODO: implement plot showing"
                 """figure; bar(SPE, SEN); xlim([0,1]); ylim([0,1]); grid on
                 xlabel('Specificity'); ylabel('Sensitivity');
-                hold on; plot(specificity, sensitivity, 'ro'); plot(specificity, sensitivity, 'r-', 'LineWidth', 2); 
+                hold on; plot(specificity, sensitivity, 'ro'); plot(specificity, sensitivity, 'r-', 'LineWidth', 2);
                 title(['AUC=' num2str(area) '+-' num2str(sigma)]); """
             #
-        
+
         # end if dosigma
 
     # end for kk
