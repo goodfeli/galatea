@@ -87,7 +87,7 @@ def load_coo_matrix(name, dtype=None, rows_size=None, permute_train=False):
     if m > 0:
         train[:,0] -= m
 
-    if permute_train:        
+    if permute_train:
         rng = numpy.random.RandomState([1,2,3])
         # the number of rows in the matrix
         # + 1 as the number of rows start at 0
@@ -105,7 +105,7 @@ def load_coo_matrix(name, dtype=None, rows_size=None, permute_train=False):
         train = train_coo.tocsr()[perm].tocoo()
     else:
         train = scipy.sparse.coo_matrix((train[:,2],(train[:,0],train[:,1])))
-        
+
     valid = scipy.sparse.coo_matrix((valid[:,2],(valid[:,0],valid[:,1])))
     test = scipy.sparse.coo_matrix((test[:,2],(test[:,0],test[:,1])))
 
