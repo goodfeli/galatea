@@ -24,7 +24,7 @@ def hc(dataset, step=5, k=2):
         else:
             # Recursion step: 
             # For each cluster found, recursively apply hc on the 
-            # subset of the dataset closet to that cluster
+            # subset of the dataset closest to that cluster
             rec = [ helper(dataset[p == i,:], step-1, k) for i in range(k) ] 
 
             # Reorder results so that all probabilities for clusters of a given
