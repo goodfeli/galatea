@@ -20,17 +20,18 @@ def hc(dataset, step=5, k=2):
         
         # Recursion
         if step == 1:
-            return (px_given_k, array([[] for i in range(dataset.shape[0])]))
+            return [px_given_k]
         else:
-            # Recursion step
-            rec = [ helper(dataset[i == k,:], step-1, k) for i in range(k) ] 
+            # Recursion step: 
+            # For each cluster found, recursively apply hc on the 
+            # subset of the dataset closest to that cluster
+            rec = [ helper(dataset[p == i,:], step-1, k) for i in range(k) ] 
 
-            # Put each probability for a given step together
-            lvl0 = [ rec[k][0] for k in range(k) ]
-            lvl1 = [ rec[k][1] for k in range(k) ]
+            # Reorder results so that all probabilities for clusters of a given
+            # step level are consecutive
+            return [px_given_k] + [ hstack([ r[i] for r in rec]) for i in range(len(rec[0])) ]
 
-            return (px_given_k, hstack((hstack(lvl0), hstack(lvl1)))
-
+    # Concatenate all the results
     return hstack(helper(dataset, step, k))
 
 # K-mean                
