@@ -144,9 +144,7 @@ class LogisticRegression(object):
 
 
 def get_constant(var):
-    print 'get_constant',var
-    x=T.dscalar('x')
-    return theano.function([theano.Param(x, default=var)], x, mode=theano.compile.Mode(linker='py'))()
+    return theano.function([], var, mode=theano.compile.Mode(linker='py'))()
 
 def load_data(dataset, normalize=True, normalize_on_the_fly=False):
     ''' Loads the dataset
@@ -163,8 +161,8 @@ def load_data(dataset, normalize=True, normalize_on_the_fly=False):
     # Load the dataset 
     if dataset in set(['ule', 'avicenna', 'rita', 'sylvester','harry']):
         train_set, valid_set, test_set = load_ndarray_dataset(
-            dataset, normalize=normalize)#,
-            #normalize_on_the_fly=normalize_on_the_fly)
+            dataset, normalize=normalize,
+            normalize_on_the_fly=normalize_on_the_fly)
     #elif dataset == 'harry':
     #    raise NotImplementedError('Use the sparse implementation in ./sparse/..')
     else:

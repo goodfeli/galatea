@@ -249,8 +249,6 @@ class dA(object):
                                 learning_rate = learning_rate,
                                 noise = noise,
                                 cost = cost)
-        dataset=theano.shared(numpy.asarray(dataset, dtype=theano.config.floatX),
-                                     borrow=True)
         train_da = theano.function([index],
                                     cost,
                                     updates = updates,
@@ -339,8 +337,6 @@ class dA(object):
                                 learning_rate = 0.,
                                 noise = noise,
                                 cost = cost)
-        dataset=theano.shared(numpy.asarray(dataset, dtype=theano.config.floatX),
-                                     borrow=True)
         get_error = theano.function([index], cost, updates = {},
                                     givens = {
                 self.x:dataset[index*batch_size:(index+1)*batch_size]},
@@ -462,7 +458,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     train_set_x = datasets[0]
     valid_set_x = datasets[1]
-    
+
     d = get_constant(train_set_x.shape[1])
     da = dA(n_visible = d, n_hidden = n_hidden,
             tied_weights = tied_weights,
