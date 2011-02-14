@@ -1,4 +1,4 @@
-""" 
+"""
 This is a script to transform the data from Unsupervised and Transfer Learning Challenge(UTLC)
 
 see the README file for defail of what have been done.
@@ -24,12 +24,6 @@ import scipy.sparse
 
 ROOT_PATH = '/data/lisa/data/UTLC/'
 
-datasets_avail = ["--avicenna","--harry","--rita","--sylvester","--terry","--ule"]
-todo = sys.argv[1:]
-if len(sys.argv)<=1 or any([d not in datasets_avail for d in todo]):
-    print "Usage: to_npy.py {--avicenna,--harry,--rita,--sylvester,--terry,--ule}"
-
-print "Will process datasets:", todo
 def load_dataset(name, dtype=None, permute_train=False):
     """
     This version use much more memory
