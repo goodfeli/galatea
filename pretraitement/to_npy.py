@@ -116,55 +116,11 @@ def write_dataset(name, train, valid, test, pickle=False):
     if pickle:
         cPickle.dump(train, open(name+'_train.npy','wb'))
         cPickle.dump(valid, open(name+'_valid.npy','wb'))
-        cPickle.dump(test, open(name+'_test.npy','wb'))    
+        cPickle.dump(test, open(name+'_test.npy','wb'))
     else:
         pylearn.io.filetensor.write(open(name+'_train.ft','wb'),train)
         pylearn.io.filetensor.write(open(name+'_valid.ft','wb'),valid)
         pylearn.io.filetensor.write(open(name+'_test.ft','wb'),test)
-
-
-if "--avicenna" in todo:
-    train, valid, test = load_dataset('avicenna', dtype='int16', permute_train=True)
-    write_dataset('avicenna', train, valid, test)
-    print "You must manually compress the created file with gzip!"
-
-
-if "--harry" in todo:
-#harry_train.ft 665M
-#harry_train.ft.gz 17M
-#dump of scipy.sparse.csr_matrix: 154M gzip: 20M
-    train, valid, test = load_dataset2('harry', dtype='int16',
-                                       rows_size=5000, permute_train=True)
-    write_dataset('harry', train, valid, test)
-    train = scipy.sparse.csr_matrix(train)
-    valid = scipy.sparse.csr_matrix(valid)
-    test = scipy.sparse.csr_matrix(test)
-    write_dataset('harry', train, valid, test, pickle=True)
-    print "You must manually compress the created file with gzip!"
-
-if "--rita" in todo:
-    train, valid, test = load_dataset2('rita', dtype='uint8',
-                                       rows_size=7200, permute_train=True)
-    write_dataset('rita', train, valid, test)
-    print "You MUST NOT manually compress the created file with gzip! They are not smaller."
-
-if "--sylvester" in todo:
-#DONE, file not gzipped as it is not worth the size saved!~25% saved
-    train, valid, test = load_dataset2('sylvester', dtype='int16',
-                                       rows_size=100, permute_train=True)
-    write_dataset('sylvester', train, valid, test)
-    print "You must manually compress the created file with gzip!"
-
-if "--terry" in todo:
-#terry_train.npy 605M
-    #must be int32 for the indexes
-    train, valid, test = load_coo_matrix('terry', dtype='int32', 
-                                         rows_size=3, permute_train=True)
-    train = scipy.sparse.csr_matrix(train, dtype="int16")
-    valid = scipy.sparse.csr_matrix(valid, dtype="int16")
-    test = scipy.sparse.csr_matrix(test, dtype="int16")
-    write_dataset('terry', train, valid, test, pickle=True)
-    print "You must manually compress the created file with gzip!"
 
 def load_transfer(name, dtype=None, permute_as_train=False):
     """
@@ -223,22 +179,86 @@ def load_label(name, dtype=None, permute_train=False):
                          dtype=dtype)
     return train, valid, test
 
-if "--ule" in todo:
-    train, valid, test = load_dataset('ule', dtype='uint8', permute_train=True)
-    write_dataset('ule', train, valid, test)
-    train = scipy.sparse.csr_matrix(train)
-    valid = scipy.sparse.csr_matrix(valid)
-    test = scipy.sparse.csr_matrix(test)
-    write_dataset('ule', train, valid, test, pickle=True)
-    print "You must manually compress the created file with gzip!"
-    del train, valid, test
-    transfer = load_transfer('ule', dtype='uint8', permute_as_train=True)
-    write_transfer('ule', transfer)
-    #transfer = scipy.sparse.csr_matrix(transfer)
-    #write_transfer('ule', transfer, pickle=True)
-    del transfer
-    # We create the label data too
-    # But don't forget this will never be available for the other dataset
-    # This is needed to transform their example in python
-    trainl, validl, testl = load_label('ule', dtype=None, permute_train=True)
-    write_label('ule', trainl, validl, testl)
+if __name__ == "__main__":
+    datasets_avail = [
+        "--avicenna",
+        "--harry",
+        "--rita",
+        "--sylvester",
+        "--terry",
+        "--ule"
+    ]
+    todo = sys.argv[1:]
+    if len(sys.argv)<=1 or any([d not in datasets_avail for d in todo]):
+        print "Usage: to_npy.py", "{" + "|".join(datasets_avail) + "}"
+
+    print "Will process datasets:", todo
+
+    if "--avicenna" in todo:
+        train, valid, test = load_dataset('avicenna',
+                                          dtype='int16',
+                                          permute_train=True)
+        write_dataset('avicenna', train, valid, test)
+        # TODO: Why not do it with GzipFile?
+        print "You must manually compress the created file with gzip!"
+
+    if "--harry" in todo:
+        #harry_train.ft 665M
+        #harry_train.ft.gz 17M
+        #dump of scipy.sparse.csr_matrix: 154M gzip: 20M
+        train, valid, test = load_dataset2('harry', dtype='int16',
+                                           rows_size=5000, permute_train=True)
+        write_dataset('harry', train, valid, test)
+        train = scipy.sparse.csr_matrix(train)
+        valid = scipy.sparse.csr_matrix(valid)
+        test = scipy.sparse.csr_matrix(test)
+        write_dataset('harry', train, valid, test, pickle=True)
+        # TODO: Why not do it with GzipFile?
+        print "You must manually compress the created file with gzip!"
+
+    if "--rita" in todo:
+        train, valid, test = load_dataset2('rita', dtype='uint8',
+                                           rows_size=7200, permute_train=True)
+        write_dataset('rita', train, valid, test)
+        print ("You MUST NOT manually compress the created file with gzip! " +
+               "They are not smaller.")
+
+    if "--sylvester" in todo:
+        #DONE, file not gzipped as it is not worth the size saved!~25% saved
+        train, valid, test = load_dataset2('sylvester', dtype='int16',
+                                           rows_size=100, permute_train=True)
+        write_dataset('sylvester', train, valid, test)
+        # TODO: Why not do it with GzipFile?
+        print "You must manually compress the created file with gzip!"
+
+    if "--terry" in todo:
+        #terry_train.npy 605M
+        #must be int32 for the indexes
+        train, valid, test = load_coo_matrix('terry', dtype='int32',
+                                             rows_size=3, permute_train=True)
+        train = scipy.sparse.csr_matrix(train, dtype="int16")
+        valid = scipy.sparse.csr_matrix(valid, dtype="int16")
+        test = scipy.sparse.csr_matrix(test, dtype="int16")
+        write_dataset('terry', train, valid, test, pickle=True)
+        # TODO: Why not do it with GzipFile?
+        print "You must manually compress the created file with gzip!"
+
+    if "--ule" in todo:
+        train, valid, test = load_dataset('ule', dtype='uint8', permute_train=True)
+        write_dataset('ule', train, valid, test)
+        train = scipy.sparse.csr_matrix(train)
+        valid = scipy.sparse.csr_matrix(valid)
+        test = scipy.sparse.csr_matrix(test)
+        write_dataset('ule', train, valid, test, pickle=True)
+        print "You must manually compress the created file with gzip!"
+        del train, valid, test
+        transfer = load_transfer('ule', dtype='uint8', permute_as_train=True)
+        write_transfer('ule', transfer)
+        # transfer = scipy.sparse.csr_matrix(transfer)
+        # write_transfer('ule', transfer, pickle=True)
+        del transfer
+        # We create the label data too
+        # But don't forget this will never be available for the other dataset
+        # This is needed to transform their example in python
+        trainl, validl, testl = load_label('ule', dtype=None, permute_train=True)
+        write_label('ule', trainl, validl, testl)
