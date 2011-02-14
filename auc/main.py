@@ -25,9 +25,9 @@ dir_resu    = dir_root + '/Results'   # Directory of the results (only for toy d
 # ----------------------------
 # The nickname you used on the challenge website
 # (it does not matter if you choose something else here)
-my_workbench_id = 'myname';  
+my_workbench_id = 'myname';
 
-# The date 
+# The date
 the_date        = time.strftime("%y_%d_%m_%H_%M_%S",time.localtime())
 
 # 2) Setup of your experiment
@@ -35,13 +35,13 @@ the_date        = time.strftime("%y_%d_%m_%H_%M_%S",time.localtime())
 # The list of datasets to work on:
 datasets = ['ule' ]
 #possibilties are 'ule', 'avicenna', 'harry', 'rita', 'sylvester', 'terry'
-       
+
 
 # Name of preprocessing algorithm to use (for now, only 'raw' is supported, we probably
 # want to make up a different interface for specifying the algorithm)
 prepro_algos = [ 'raw' ]
 
-# The list of data subsets to work on (during development, omitting the 
+# The list of data subsets to work on (during development, omitting the
 # final evaluation set, saves time and creates smaller submissions).
 set_names=['devel', 'valid', 'final']
 
@@ -50,7 +50,7 @@ zip_final_only_if_small=1;
 
 # -o-|-o-|-o-|-o-|-o-|-o-|-o- END USER-PREFERENCES -o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-
 
-#%% Initializations           
+#%% Initializations
 serialutil.mkdir(dir_resu)
 serialutil.mkdir(dir_prepro)
 serialutil.mkdir(dir_zip)
@@ -62,15 +62,15 @@ max_repeat=500   # max. num. repeats for each point on learning curve
 ebar=0.01        # max. desired error bar
 max_point_num=7  # maximum number of points on the learning curve
 
-# LOOP OVER DATASETS 
+# LOOP OVER DATASETS
 # ===================
 for k, data_name in enumerate(datasets):
-    
-    
+
+
     print '\n-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-'
     print '\n-o-|-o-|-o-|-o-|-o-|-o-      '+data_name+'      -o-|-o-|-o-|-o-|-o-|-o-'
     print '\n-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-|-o-\n'
-    
+
     #Load the data
     try:
         #print "TODO: make X0, Y, p from the current dataset (use pylearn) "
@@ -84,24 +84,24 @@ for k, data_name in enumerate(datasets):
         print ""
         continue
 
-    # LOOP OVER ALGORITHMS 
+    # LOOP OVER ALGORITHMS
     # =====================
     for h, palg in enumerate(prepro_algos):
-      
+
         print '\n-o-|-o-|-o-|-o-|-o-|-o-      '+palg+'      -o-|-o-|-o-|-o-|-o-|-o-'
         prepro_name  = my_workbench_id + '_' +  data_name + '_' + palg + '_' + the_date
-        
+
         if palg ==  'raw':
             proc_data = dataset;
         else:
             print "TODO: support running (and timing) of custom preprop algorithms"
-        #endif    
+        #endif
 
-        # If your number of features n exceeds the number of examples m, 
+        # If your number of features n exceeds the number of examples m,
         # replace your data matrices X (m, n) by the smaller matrix X*X'
         # of dimension (m, m) -- we'll notice automatically:
- 
-        if proc_data.X0['valid'].shape[1] > proc_data.X0['valid'].shape[0]: 
+
+        if proc_data.X0['valid'].shape[1] > proc_data.X0['valid'].shape[0]:
             proc_data = kernelize(proc_data);
         #endif
 
@@ -113,7 +113,7 @@ for k, data_name in enumerate(datasets):
        	save_data.save_data(dir_prepro, prepro_name, proc_data)
 
         # Create a zip file with the query in the Queries directory
-       	make_zip.make_zip(dir_prepro, dir_zip, prepro_name, zip_final_only_if_small)        
+       	make_zip.make_zip(dir_prepro, dir_zip, prepro_name, zip_final_only_if_small)
 
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         #%%%%%%% The zip files must be submitted to the web site %%%%%%
@@ -124,7 +124,7 @@ for k, data_name in enumerate(datasets):
         # For the toy example, you can run the scoring software yourself:
         snames = sorted([set_name for set_name in set_names if set_name != 'devel'])
         for i, sname in enumerate(snames):
-            
+
             t1 = time.time()
             #Get the truth values (labels)
             Y = dataset.Y
@@ -133,7 +133,7 @@ for k, data_name in enumerate(datasets):
                 print "Couldn't get labels for "+sname
                 print "Continuing to next dataset"
                 print ""
-            #endif      
+            #endif
 
             full_resu_name= prepro_name +  '_' + sname
             resu_name= data_name + '_' + palg + '_' + sname
@@ -148,10 +148,10 @@ for k, data_name in enumerate(datasets):
 
             t2 = time.time()
 
-            difftime = t2 - t1 
+            difftime = t2 - t1
 
             print '==> Learning curve completed in '+str(difftime)+' seconds'
-            
+
             # Plot the learning curve
             print "TODO: implement plotting of learning curve / saving of results"
             """hh = plot_learning_curve(resu_name, score, x, y, e)
