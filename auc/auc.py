@@ -1,15 +1,5 @@
 import numpy as N
 
-def setdiff(A, B):
-    rval = []
-    for a in A:
-        if a not in B:
-            rval.append(a)
-        #
-    #
-    return N.asarray(sorted(rval))
-#
-
 def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = True):
     """area, sigma = auc(Output, Target, pos_small, precise_ebar, show_fig)
     # This is the algorithm proposed for
@@ -102,26 +92,18 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         assert len(uval.shape) == 1
         uval = N.flipud(uval_ascending)
 
-
         # Test whether there are ties
         if uval.shape[0] ==n:
             S = N.zeros( (n, ) )
             for s_idx, r_idx in enumerate(i):
                 S[s_idx] = r_idx + 1
                 #S = range(1,n+1)[i]   # compute the ranks of the outputs (no ties)
-            #
-
-            print 'case made S from sequence'
-            print S
-            die
-
+            raise ValueError('case made S from sequence: ' + str(S))
         else:
-
-
             # Another speed-up trick (maybe not critical): test whether we have a whole bunch
             # of negative examples with the same output
             last_neg = N.nonzero(output==output.max())[0]
-            other = setdiff(range(n), last_neg)
+            other = N.setdiff1d(N.arange(n), [last_neg])
 
             L = last_neg.shape[0]
 
@@ -258,6 +240,4 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
     #assert False
 
     return area, sigma
-#
-
 
