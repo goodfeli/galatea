@@ -72,11 +72,14 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         output = Output[:,kk]
         if not pos_small:
             output = -output
-        temp = list(output)
-        temp = zip(temp,range(len(temp)))
-        temp = sorted(temp)
-        u,i = zip(*temp)
+        #temp = list(output)
+        #temp = zip(temp,range(len(temp)))
+        #temp = sorted(temp)
+        #u,i = zip(*temp)
+	
         # sort outputs, best come first (u=sorted vals, i=index)
+	i = N.argsort(output)
+	u = output[i]
 
         uval_ascending = N.unique(output)
         assert len(uval.shape) == 1
@@ -138,7 +141,8 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 #print (R[i[0]], R[i[1]], R[i[2]])
                 #die
 
-        SS = sorted(S[negidx])
+        SS = S[negidx]
+	SS.sort()
         RR = range(neg)
         SEN = (N.asarray(SS)-N.asarray(RR))/pos
         assert kk == len(area)
@@ -167,7 +171,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
 
             if precise_ebar:
                 # Calculate the "true" ROC (slow)
-                uval = sorted(uval)
+                uval.sort()
                 sensitivity = N.zeros((uval.shape[0]+1, 1))
                 specificity = N.zeros((uval.shape[0]+1, 1))
                 sensitivity[1] = 0
