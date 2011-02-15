@@ -486,15 +486,15 @@ if __name__ == '__main__':
     # here a few examples
     #
     # python dA.py avicenna 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
-    # attention ajouter un zero a la fin de la commande pour rita qui indique que
-    # les donnes ne sont pas normalisees et qu'il y a un hack !!
-    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
+    # attention ajouter -N pour rita, qui indique que les données doivent
+    # être normalisées à la volée.
+    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
     #
-    # Pour harry si l'on n'exploite pas la spacite on peut lancer avec normalisation a
-    # la volee (0 a la fin comme rita)
-    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
+    # Pour harry si l'on n'exploite pas la sparsite on peut lancer avec normalisation a
+    # la volée (-N, comme rita)
+    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'
     )
@@ -554,11 +554,7 @@ if __name__ == '__main__':
 
     if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
         raise IOError('%s doesn\'t exist or is not accessible' % os.save_dir)
-    if not args.dont_normalize and args.dataset not in ['rita','harry']:
-        raise NotImplementedError(' '.join([
-            'for now the normalization on the fly is only allowed',
-            'for rita & harry, may change...'
-        ]))
+
     main_train(args.dataset, args.save_dir, args.n_hidden,
                args.tied_weights, args.act_enc, args.act_dec,
                args.learning_rate, args.batch_size, args.epochs,
