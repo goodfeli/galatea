@@ -33,8 +33,8 @@ def load_dataset(name, dtype=None, permute_train=False):
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
         raise Exception("The directory with data for %s not found" % name)
+
     train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
-                                       name+'_devel.data'),
                           dtype=dtype)
     valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
                                        name+'_valid.data'),
