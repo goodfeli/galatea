@@ -108,7 +108,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 # Average the ranks for the ties
                 oldval = u[0]
                 newval = u[0]
-                R = N.asarray(range(n),dtype='float64')+1.0
+                R = N.arange(n).astype('float64')+1.0
                 k0 = 0.0
                 for k in xrange(1,n): #yes, 1, the matlab was a 2
                     newval=u[k]
@@ -144,7 +144,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         SS = S[negidx]
 	SS.sort()
         RR = range(neg)
-        SEN = (N.asarray(SS)-N.asarray(RR))/pos
+        SEN = (SS-RR)/pos
         assert kk == len(area)
         area.append(float(SEN.sum())/float(neg) )              # compute the AUC
         #%%%%%%%%%%%%%%%%%%%%% ERROR BARS %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -165,8 +165,8 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                     k0=k
                     j = j+1
                 oldval = newval
-            SEN = (N.asarray(SS)-N.asarray(RR)) / pos                          # compute approximate sensitivity
-            SPE = 1-(N.asarray(range(1,neg+1))-0.5)/neg  # compute approximate specificity
+            SEN = (SS-RR) / pos                          # compute approximate sensitivity
+            SPE = 1-(N.arange(1,neg+1)-0.5)/neg  # compute approximate specificity
                                                          # (new 0.5 Dec 5 correction)
 
             if precise_ebar:
