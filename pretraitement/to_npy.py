@@ -38,7 +38,7 @@ def load_dataset(name, dtype=None, permute_train=False):
     But we don't loose the shape info in the file!
     """
     if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
-        raise Exception("The directory with the original data for %s is not their"%name)
+        raise Exception("The directory with the original data for %s is not there"%name)
     train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',name+'_devel.data'),
                           dtype=dtype)
     valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
