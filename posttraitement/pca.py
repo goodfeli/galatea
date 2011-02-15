@@ -3,20 +3,34 @@ from scipy import linalg
 
 def pca(X, num_components = numpy.inf, min_variance = .0):
     """
-    Dimensionality reduction via Principal Component Analysis.
+    Principal Component Analysis (PCA) transformation of a rectangular matrix.
+
+    Given a rectangular matrix X = USV such that S is a diagonal matrix with
+    X's singular values along its diagonal, returns Y = US.
+
+    :type X: numpy.ndarray, shape (n, d)
+    :param X: matrix on which to compute PCA
+
+    :type num_components: int
+    :param num_components: this many components will be preserved, in
+        decreasing order of variance
+
+    :type min_variance: float
+    :param min_variance: components with variance below this threshold will be discarded
     """
     assert X.shape[1] <= X.shape[0]
 
     X -= numpy.mean (X, axis = 0)
-    (U, s, Vh) = linalg.svd(X, full_matrices = False)
-    vars = s ** 2
-    var_filter = (vars / sum(vars)) >= min_variance
-    num_components = min(num_components, X.shape[1], sum(var_filter))
-    S = linalg.diagsvd(s[var_filter][:num_components], U.shape[1], num_components)
+    (v, W) = linalg.eig(numpy.cov(X.T))
+    order = numpy.argsort(-v)
+    v, W = v[order], W[:,order]
+    var_cutoff = min(numpy.where(((v / sum(v)) < min_variance)))
+    num_components = min(num_components, var_cutoff, X.shape[1])
 
-    return numpy.dot(U, S)
+    return numpy.dot(X, W[:,:num_components])
 
 if __name__ == "__main__":
+    from sys import stderr
     import argparse
     from dense.dA import dA
     from dense.logistic_sgd import load_data, get_constant
@@ -53,7 +67,7 @@ if __name__ == "__main__":
 
     # Load dataset
     data = load_data(args.dataset)
-    print >> sys.stderr, "Dataset shapes:", map(lambda(x): get_constant(x.shape), data)
+    print >> stderr, "Dataset shapes:", map(lambda(x): get_constant(x.shape), data)
 
     def get_subset_rep (index):
         d = theano.tensor.matrix('input')
