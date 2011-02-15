@@ -1,10 +1,11 @@
 import pd_check
 import numpy as N
 
-def kernelize(object):
+def kernelize(object, verbose=False):
     #   replace X by X*X'
 
-    print '==> Kernelizing...'
+    if verbose:
+	print '==> Kernelizing...'
 
     #die
 

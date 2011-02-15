@@ -42,7 +42,7 @@ def score(dataset, labels,
     return alc.alc(x, y)
 
 
-if __name__ == "__main__"
+if __name__ == "__main__":
     import pylearn.datasets.utlc as pdu
     # Test on validation data
     (dataset_devel, dataset_valid, dataset_test) = \
