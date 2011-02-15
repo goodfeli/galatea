@@ -8,6 +8,9 @@ import test
 import auc
 from scipy import io
 
+current_path = os.path.abspath(__file__)
+rp_path = os.path.dirname(current_path) + "/RP.mat"
+
 def list_idx(mat, row_list, col_list):
     if type(row_list) == type(1):
         row_list = [ row_list ]
@@ -66,7 +69,7 @@ def randperm(n):
     return rval
 #
 
-def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num):
+def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug=False, useRPMat=False):
 
 
     #print "ENTER MLC"
@@ -90,10 +93,6 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num):
     print Y.shape
     print Y.sum()"""
     #die
-
-
-
-    debug = 0
     X = N.cast['float64'](X)
 
     # Verify dimensions and set target values
@@ -127,14 +126,14 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num):
 
     # Load random splits (these are the same for everyone)
     RP = None
-    rp_path = "./RP.mat"
-    if os.path.exists(rp_path) and os.path.isfile(rp_path):
+    if useRPMat and os.path.exists(rp_path) and os.path.isfile(rp_path):
         RP = io.loadmat(rp_path, struct_as_record = False)['RP']
         #print RP
         rp, mr = RP.shape
 
         if rp < p:
-            print 'make_learning_curve::warning: RP too small'
+            if debug:
+                print 'make_learning_curve::warning: RP too small'
             RP = None
         else:
             max_repeat=min(max_repeat, mr)
@@ -259,8 +258,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num):
             assert not N.any(N.isnan(area))
             A[j] = N.asarray(area).mean() 
             if N.isnan(A[j]):
-                print area
-                assert False
+                assert False, "Invalid area: " + str(area)
             #
         #end % for j=1:sep_num
         e[k] = E.mean()

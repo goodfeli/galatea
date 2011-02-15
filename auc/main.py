@@ -140,7 +140,7 @@ for k, data_name in enumerate(datasets):
             print '==> Making '+resu_name+' learning curve'
 
             #Make the learning curve
-            x, y, e  = make_learning_curve.make_learning_curve( proc_data.X0[sname], Y[sname], min_repeat, max_repeat, ebar, max_point_num)
+            x, y, e  = make_learning_curve.make_learning_curve( proc_data.X0[sname], Y[sname], min_repeat, max_repeat, ebar, max_point_num, useRPMat=True)
 
             # Compute the (normalized) area under the learning curve
             score=alc.alc(x, y)

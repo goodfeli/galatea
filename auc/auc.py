@@ -93,7 +93,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
             # Another speed-up trick (maybe not critical): test whether we have a whole bunch
             # of negative examples with the same output
             last_neg = N.nonzero(output==output.max())[0]
-            other = N.setdiff1d(N.arange(n), [last_neg])
+            other = N.setdiff1d(N.arange(n), last_neg)
 
             L = last_neg.shape[0]
 

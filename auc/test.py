@@ -1,4 +1,5 @@
 import numpy as N
+import make_learning_curve
 
 def test(model, data, verbose = False):
 
@@ -36,6 +37,3 @@ def test(model, data, verbose = False):
     #
 
     return rdata
-#
-
-import make_learning_curve
