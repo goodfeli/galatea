@@ -150,7 +150,7 @@ def load_data(dataset, normalize=True, normalize_on_the_fly=False):
     ''' Loads the dataset
 
     :type dataset: string
-    :param dataset: the path to the dataset (here MNIST)
+    :param dataset: the path to the dataset
     '''
 
     #############

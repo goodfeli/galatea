@@ -2,6 +2,9 @@ This directory contain the 6 datasets from the
 
 Unsupervised and Transfer Learning Challenge(UTLC)
 
+The name of the subset on the web page are devel, valid and final. We use the name here train, valid, test.
+IMPORTANT: They don't have the same meaning as the usual train, valid, test!
+
 The web page is at: http://www.causality.inf.ethz.ch/home.php
 
 Dataset 	 Domain                         nbFeat	Sparsity(%)	nb train nb valid nb test Transfer num.
@@ -74,7 +77,7 @@ This is to allow to use a smaller dtype when storing them.
 File format
 -----------
 
-The datasets avicenna, harry, rita ans sylvester have been stored in
+The datasets avicenna, harry, rita and sylvester have been stored in
 the filetensor format. They will result in ndarray in memory.
 Most have been compressed with gzip except when that was not usefull.
 

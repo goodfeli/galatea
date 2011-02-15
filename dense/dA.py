@@ -50,7 +50,7 @@ class dA(object):
                  input = None,
                  n_visible= 784,
                  n_hidden= 500,
-                 tied_weigths = True,
+                 tied_weights = True,
                  act_enc = 'sigmoid',
                  act_dec = 'sigmoid',
                  W = None,
@@ -64,7 +64,7 @@ class dA(object):
 
         self.n_visible = n_visible
         self.n_hidden  = n_hidden
-        self.tied_weights = tied_weigths
+        self.tied_weights = tied_weights
 
         assert act_enc in set(['sigmoid', 'tanh'])
         assert act_dec in set(['sigmoid', 'softplus', 'linear'])
@@ -144,6 +144,14 @@ class dA(object):
 
         if not self.tied_weights:
             self.params.append(self.W_prime)
+
+        # duplication !!! do not want to break anything...
+        if self.act_enc == 'sigmoid':
+            output = T.nnet.sigmoid(T.dot(self.x, self.W) + self.b)
+        elif self.act_enc == 'tanh':
+            output = T.tanh(T.dot(self.x, self.W) + self.b)
+        else:
+            raise NotImplementedError('Encoder function %s is not implemented yet'%(self.act_enc))
 
     def get_corrupted_input(self, input, corruption_level, noise='binomial'):
         """ This function keeps ``1-corruption_level`` entries of the inputs the same
@@ -241,8 +249,12 @@ class dA(object):
                                 learning_rate = learning_rate,
                                 noise = noise,
                                 cost = cost)
-        train_da = theano.function([index], cost, updates = updates,
-                                   givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]})
+        train_da = theano.function([index],
+                                    cost,
+                                    updates = updates,
+                                    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]},
+                                    name='train_da'
+                                    )
 
         start_time = time.clock()
 
@@ -258,7 +270,7 @@ class dA(object):
             tic = time.clock()
             # go through trainng set
             c = []
-            for batch_index in xrange(n_train_batches):
+            for batch_index in xrange(int(n_train_batches)):
                 c.append(train_da(batch_index))
 
             toc = time.clock()
@@ -271,13 +283,13 @@ class dA(object):
 
         return training_time, loss
 
-    def save(self, save_dir):
+    def save(self, save_dir, save_filename = 'model.pkl'):
         """ save the parameters of the model """
         print '... saving model'
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
 
-        save_file = open(save_dir + 'model.pkl','wb')
+        save_file = open(os.path.join(save_dir, save_filename),'wb')
         cPickle.dump(self.__initargs__, save_file, -1)
         cPickle.dump(self.W.value, save_file, -1)
         if not self.tied_weights:
@@ -286,10 +298,10 @@ class dA(object):
         cPickle.dump(self.b_prime.value, save_file, -1)
         save_file.close()
 
-    def load(self, load_dir):
+    def load(self, load_dir, load_filename = 'model.pkl'):
         """ load the model """
         print '... loading model'
-        save_file = open(load_dir + 'model.pkl','r')
+        save_file = open(os.path.join(load_dir, load_filename),'r')
         args = cPickle.load(save_file)
         self.__init__(
                  seed_params = args['seed_params'],
@@ -297,7 +309,7 @@ class dA(object):
                  input = args['input'],
                  n_visible= args['n_visible'],
                  n_hidden= args['n_hidden'],
-                 tied_weigths = args['tied_weigths'],
+                 tied_weights = args['tied_weights'],
                  act_enc = args['act_enc'],
                  act_dec = args['act_dec'],
                  W = args['W'],
@@ -327,7 +339,8 @@ class dA(object):
                                 cost = cost)
         get_error = theano.function([index], cost, updates = {},
                                     givens = {
-                self.x:dataset[index*batch_size:(index+1)*batch_size]})
+                self.x:dataset[index*batch_size:(index+1)*batch_size]},
+                                    name='get_error')
 
         denoising_error = []
         # go through the dataset
@@ -363,9 +376,11 @@ def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on
     x = theano.tensor.matrix('input')
 
     get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:valid_set_x})
+                                    givens = {x:valid_set_x},
+                                    name = 'get_rep_valid')
     get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:test_set_x})
+                                    givens = {x:test_set_x},
+                                    name = 'get_rep_test')
 
     # valid and test representations
     valid_rep1 = get_rep_valid(0)
@@ -445,9 +460,8 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     valid_set_x = datasets[1]
 
     d = get_constant(train_set_x.shape[1])
-
     da = dA(n_visible = d, n_hidden = n_hidden,
-            tied_weigths = tied_weights,
+            tied_weights = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
 
     time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
@@ -472,15 +486,15 @@ if __name__ == '__main__':
     # here a few examples
     #
     # python dA.py avicenna 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
-    # attention ajouter un zero a la fin de la commande pour rita qui indique que
-    # les donnes ne sont pas normalisees et qu'il y a un hack !!
-    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
+    # attention ajouter -N pour rita, qui indique que les données doivent
+    # être normalisées à la volée.
+    # python dA.py rita 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
     # python dA.py sylvester 500 True 'sigmoid' 'linear' 'MSE' 0.01 20 50 'gaussian' 0.3
     # python dA.py ule 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 1 50 'gaussian' 0.3
     #
-    # Pour harry si l'on n'exploite pas la spacite on peut lancer avec normalisation a
-    # la volee (0 a la fin comme rita)
-    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 0
+    # Pour harry si l'on n'exploite pas la sparsite on peut lancer avec normalisation a
+    # la volée (-N, comme rita)
+    # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'
     )
@@ -524,6 +538,8 @@ if __name__ == '__main__':
     parser.add_argument('corruption_level', action='store',
                         type=float,
                         help='Corruption (noise) level (float)')
+    # Note that hyphens ('-') in argument names are turned into underscores
+    # ('_') after parsing
     parser.add_argument('-N', '--dont-normalize', action='store_const',
                         default=True,
                         const=False,
@@ -538,14 +554,10 @@ if __name__ == '__main__':
 
     if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
         raise IOError('%s doesn\'t exist or is not accessible' % os.save_dir)
-    if not args.dont_normalize and args.dataset not in ['rita','harry']:
-        raise NotImplementedError(' '.join([
-            'for now the normalization on the fly is only allowed',
-            'for rita & harry, may change...'
-        ]))
+
     main_train(args.dataset, args.save_dir, args.n_hidden,
                args.tied_weights, args.act_enc, args.act_dec,
                args.learning_rate, args.batch_size, args.epochs,
                args.cost_type, args.noise_type, args.corruption_level,
-               args.normalize)
+               args.dont_normalize)
 

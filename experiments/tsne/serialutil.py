@@ -4,10 +4,10 @@ import os
 
 def load(filepath):
     try:
-        f = open(filepath,'rb')
+    	f = open(filepath,'rb')
         obj = cPickle.load(f)
-        f.close()
-        return obj
+    	f.close()
+    	return obj
     except Exception, e:
         #assert False
         exc_str = str(e)
@@ -40,12 +40,12 @@ def save(filepath,obj):
                 raise Exception(str(obj)+' could not be written to '+filepath+'by cPickle due to '+str(e)+' nor by pickle due to '+str(e2))
             print 'Warning: '+filepath+' was written by pickle instead of cPickle, due to '+str(e)+' (perhaps your object is eally big?)'
 
-
+     
 ""
-
+        
 def clone_via_serialize(obj):
-    str = cPickle.dumps(obj)
-    return cPickle.loads(str)
+	str = cPickle.dumps(obj)
+	return cPickle.loads(str)
 
 def to_string(obj):
     return cPickle.dumps(obj)
@@ -54,7 +54,7 @@ def parent_dir(filepath):
         return '/'.join(filepath.split('/')[:-1])
 
 def mkdir(filepath):
-    try:
-        os.makedirs(filepath)
-    except:
-        print "couldn't make directory '"+filepath+"', maybe it already exists"
+	try:
+		os.makedirs(filepath)
+	except:
+		print "couldn't make directory '"+filepath+"', maybe it already exists"
