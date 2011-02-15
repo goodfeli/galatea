@@ -146,13 +146,7 @@ class dA(object):
         if not self.tied_weights:
             self.params.append(self.W_prime)
 
-        # duplication !!! do not want to break anything...
-        if self.act_enc == 'sigmoid':
-            output = T.nnet.sigmoid(T.dot(self.x, self.W) + self.b)
-        elif self.act_enc == 'tanh':
-            output = T.tanh(T.dot(self.x, self.W) + self.b)
-        else:
-            raise NotImplementedError('Encoder function %s is not implemented yet'%(self.act_enc))
+        self.output = self.get_hidden_values(self.x)
 
     def get_corrupted_input(self, input, corruption_level, noise='binomial'):
         """ This function keeps ``1-corruption_level`` entries of the inputs the same
