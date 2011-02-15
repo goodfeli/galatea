@@ -541,11 +541,11 @@ if __name__ == '__main__':
                         help='Corruption (noise) level (float)')
     # Note that hyphens ('-') in argument names are turned into underscores
     # ('_') after parsing
-    parser.add_argument('-N', '--dont-normalize', action='store_const',
+    parser.add_argument('-N', '--normalize-on-the-fly', action='store_const',
                         default=True,
                         const=False,
                         required=False,
-                        help='Don\'t do feature normalization')
+                        help='Normalize on the fly')
     parser.add_argument('-s', '--save-dir', action='store',
                         type=str,
                         default='.',
@@ -560,5 +560,5 @@ if __name__ == '__main__':
                args.tied_weights, args.act_enc, args.act_dec,
                args.learning_rate, args.batch_size, args.epochs,
                args.cost_type, args.noise_type, args.corruption_level,
-               args.dont_normalize)
+               args.normalize_on_the_fly)
 
