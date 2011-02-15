@@ -1,8 +1,8 @@
 # Clean-up of main.py code to allow embedding the alc calculation in a training algorithm
-
+import numpy as np
 from make_learning_curve import make_learning_curve
 from alc import alc
-
+import time
 # Compute the score as done on the website on a dataset with the corresponding labels
 #
 # Inputs:
@@ -37,7 +37,7 @@ def score(dataset, labels,
                 debug,
                 useRPMat=True # Whether we should use a precalculated permutation matrix
                )
-
+    print x,y,e
     # Compute the (normalized) area under the learning curve
     return alc(x, y)
 
@@ -48,6 +48,15 @@ if __name__ == "__main__":
     (dataset_devel, dataset_valid, dataset_test) = \
         pdu.load_ndarray_dataset("ule", normalize=False, transfer=False) 
     (labels_devel, labels_valid, labels_test)  = pdu.load_ndarray_label("ule")
+    tic = time.clock()
 
-    print "Print computed score: "
-    print score(dataset_valid, labels_valid)
+    dataset = np.vstack((dataset_valid, dataset_test))
+    _labels_valid = np.hstack((labels_valid, np.zeros((labels_valid.shape[0],labels_test.shape[1]))))
+    _labels_test = np.hstack((np.zeros((labels_test.shape[0],labels_valid.shape[1])),labels_test))
+    labels = np.vstack((_labels_valid, _labels_test))
+
+    print '... computing score on dataset of shape', dataset.shape,\
+        'and labels of shape', labels.shape
+    print score(dataset, labels)
+    toc = time.clock()
+    print 'computed in %f (min)'%((toc - tic)/60.)
