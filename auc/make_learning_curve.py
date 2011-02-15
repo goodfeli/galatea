@@ -8,6 +8,9 @@ import test
 import auc
 from scipy import io
 
+current_path = os.path.abspath(__file__)
+rp_path = os.path.dirname(current_path) + "/RP.mat"
+
 def list_idx(mat, row_list, col_list):
     if type(row_list) == type(1):
         row_list = [ row_list ]
@@ -123,7 +126,6 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
     # Load random splits (these are the same for everyone)
     RP = None
-    rp_path = "./RP.mat"
     if useRPMat and os.path.exists(rp_path) and os.path.isfile(rp_path):
         RP = io.loadmat(rp_path, struct_as_record = False)['RP']
         #print RP
