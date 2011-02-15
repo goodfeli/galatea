@@ -49,8 +49,7 @@ class data_struct:
         if lidx is None:
             lidx = range(1, self.Y.shape[1] )
         #
-
-        return data_struct( list_idx(self.X, pidx, fidx), list_idx(self.Y, pidx, lidx) )
+	return data_struct( self.X[N.ix_(pidx, fidx)], self.Y[N.ix_(pidx,lidx)])
     #
 #
 
@@ -138,6 +137,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
         else:
             max_repeat=min(max_repeat, mr)
             RP=N.ceil(N.cast['float64'](RP)/(float(rp)/float(p)))
+            RP=RP.astype(int)
             if debug:
                 print 'make_learning_curve: using RP of dim '+str(rp)+'x'+str(mr)+' min='+str(RP.min())+' max='+str(RP.max())+', max_repeat='+str(max_repeat) 
             #
@@ -224,16 +224,16 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
                 if pd_check.pd_check(D): # kernelized version
                     #print 'case 1'
-                    Dtr = D.subdim(tr_idx, tr_idx, j)
-                    Dte = D.subdim(te_idx, tr_idx, j)
+                    Dtr = D.subdim(tr_idx, tr_idx, [j])
+                    Dte = D.subdim(te_idx, tr_idx, [j])
                 elif x[k] < feat_num: # kernelized too (for speed reason)
                     #print 'case 2'
-                    Dtr = K.subdim(tr_idx, tr_idx, j);
-                    Dte = K.subdim(te_idx, tr_idx, j);               
+                    Dtr = K.subdim(tr_idx, tr_idx, [j]);
+                    Dte = K.subdim(te_idx, tr_idx, [j]);               
                 else: # primal version 
                     #print 'case 3'
-                    Dtr = D.subdim(tr_idx, None, j);
-                    Dte = D.subdim(te_idx, None, j);
+                    Dtr = D.subdim(tr_idx, None, [j]);
+                    Dte = D.subdim(te_idx, None, [j]);
                 #
 
                 #print 'Dte.X'
