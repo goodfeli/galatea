@@ -467,7 +467,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
     noise_type, corruption_level, normalize_on_the_fly = False, do_pca = False,
-    num_components = numpy.inf, min_variance = .0, create_submission = False,
+    num_components = numpy.inf, min_variance = .0, do_create_submission = False,
     submission_dir = None):
     ''' main function used for training '''
 
@@ -501,7 +501,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         pca_trainer.updates()
         pca_trainer.save(args.save_dir)
 
-    if create_submission:
+    if do_create_submission:
         print "... creating submission"
         if submission_dir is None:
             submission_dir = save_dir
