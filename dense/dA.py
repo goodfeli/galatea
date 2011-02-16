@@ -16,6 +16,7 @@ import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from logistic_sgd import load_data, get_constant
+from posttraitement import pca
 from utils import tile_raster_images
 
 import PIL.Image
@@ -391,11 +392,11 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     test_rep1 = get_rep_test(0)
 
     if pca:
-        pca = PCA(valid_rep1)
+        pca = pca.PCA(valid_rep1)
         pca.load(save_dir_model)
         valid_rep1 = pca.outputs()
 
-        pca = PCA(test_rep1)
+        pca = pca.PCA(test_rep1)
         pca.load(save_dir_model)
         test_rep1 = pca.outputs()
 
@@ -492,7 +493,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     if pca:
         print "... computing PCA"
-        pca_trainer = PCATrainer(train_set_x, num_components = args.num_components,
+        pca_trainer = pca.PCATrainer(train_set_x, num_components = args.num_components,
             min_variance = args.min_variance)
         pca_trainer.updates()
         pca_trainer.save(args.save_dir)
