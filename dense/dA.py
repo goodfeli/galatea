@@ -100,18 +100,18 @@ class dA(object):
             # converted using asarray to dtype
             # theano.config.floatX so that the code is runable on GPU
             initial_W = numpy.asarray(self.numpy_rng.uniform(
-                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      size = (n_visible, n_hidden)), dtype = theano.config.floatX)
+                low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
+                high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
+                size = (n_visible, n_hidden)), dtype = theano.config.floatX)
             W = theano.shared(value = initial_W, name ='W')
 
         if not b_prime:
             b_prime = theano.shared(value = numpy.zeros(n_visible,
-                                         dtype = theano.config.floatX))
+                dtype = theano.config.floatX))
 
         if not b:
             b = theano.shared(value = numpy.zeros(n_hidden,
-                                dtype = theano.config.floatX), name ='b')
+                dtype = theano.config.floatX), name ='b')
 
 
         self.W = W
@@ -126,9 +126,9 @@ class dA(object):
             if not W_prime:
                 # not sure about the initialization
                 initial_W_prime = numpy.asarray(self.numpy_rng.uniform(
-                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      size = (n_hidden, n_visible)), dtype = theano.config.floatX)
+                    low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
+                    high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
+                    size = (n_hidden, n_visible)), dtype = theano.config.floatX)
                 W_prime = theano.shared(value = initial_W_prime, name ='W_prime')
 
             self.W_prime = W_prime
@@ -182,7 +182,7 @@ class dA(object):
         elif self.act_enc == 'tanh':
             return T.tanh(T.dot(input, self.W) + self.b)
         else:
-            raise NotImplementedError('Encoder function %s is not implemented yet'
+            raise NotImplementedError('Encoder function %s is not implemented yet' \
                 %(self.act_enc))
 
     def get_reconstructed_input(self, hidden ):
@@ -196,7 +196,7 @@ class dA(object):
                 return T.log(1. + T.exp(x))
             return softplus(T.dot(hidden, self.W_prime) + self.b_prime)
         else:
-            raise NotImplementedError('Decoder function %s is not implemented yet'
+            raise NotImplementedError('Decoder function %s is not implemented yet' \
                 %(self.act_dec))
 
     def get_cost_updates(self, corruption_level, learning_rate, cost = 'CE',
@@ -214,7 +214,7 @@ class dA(object):
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
-            raise NotImplementedError('This cost function %s is not implemented yet'
+            raise NotImplementedError('This cost function %s is not implemented yet' \
                 %(cost))
 
         # note : L is now a vector, where each element is the cross-entropy cost
@@ -234,7 +234,7 @@ class dA(object):
         return (cost, updates)
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
-            noise='gaussian', corruption_level=0.3):
+        noise='gaussian', corruption_level=0.3):
         """ This function fits the dA to the dataset given
         some hyper-parameters and returns the loss evolution
         and the time spent during training   """
@@ -276,7 +276,7 @@ class dA(object):
 
             toc = time.clock()
             loss.append(numpy.mean(c))
-            print 'Training epoch %d, time spent (min) %f,  cost '
+            print 'Training epoch %d, time spent (min) %f,  cost ' \
                 %(epoch,(toc-tic)/60.), numpy.mean(c)
             toc = tic
 
@@ -336,13 +336,12 @@ class dA(object):
         index = T.lscalar()    # index to a [mini]batch
 
         cost, updates = self.get_cost_updates(corruption_level = corruption_level,
-                                learning_rate = 0.,
-                                noise = noise,
-                                cost = cost)
-        get_error = theano.function([index], cost, updates = {},
-                                    givens = {
-                self.x:dataset[index*batch_size:(index+1)*batch_size]},
-                                    name='get_error')
+            learning_rate = 0.,
+            noise = noise,
+            cost = cost)
+        get_error = theano.function([index], cost, updates = {}, givens = {
+            self.x:dataset[index*batch_size:(index+1)*batch_size]},
+            name='get_error')
 
         denoising_error = []
         # go through the dataset
@@ -381,11 +380,11 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     x = theano.tensor.matrix('input')
 
     get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:valid_set_x},
-                                    name = 'get_rep_valid')
+        givens = {x:valid_set_x},
+        name = 'get_rep_valid')
     get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:test_set_x},
-                                    name = 'get_rep_test')
+        givens = {x:test_set_x},
+        name = 'get_rep_test')
 
     # valid and test representations
     valid_rep1 = get_rep_valid(0)
@@ -488,7 +487,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     denoising_error = da.get_denoising_error(valid_set_x, cost_type,
         noise_type, corruption_level)
-    print 'Training complete in %f (min) with final denoising error %f'
+    print 'Training complete in %f (min) with final denoising error %f' \
         %(time_spent,denoising_error)
 
     if pca:
@@ -577,13 +576,13 @@ if __name__ == '__main__':
                         type = int,
                         default = numpy.inf,
                         required = False,
-                        help = "Only the 'n' most important PCA components"
+                        help = "Only the 'n' most important PCA components" \
                             " will be preserved")
     parser.add_argument('-v', '--min-variance', action = 'store',
                         type = float,
                         default = .0,
                         required = False,
-                        help = "PCA components with variance below this"
+                        help = "PCA components with variance below this" \
                             " threshold will be discarded")
     # Note that hyphens ('-') in argument names are turned into underscores
     # ('_') after parsing

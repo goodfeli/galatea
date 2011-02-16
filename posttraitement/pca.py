@@ -192,4 +192,5 @@ if __name__ == "__main__":
     # This is probably not very useful; I load this dump from R for analysis.
     if args.dump:
         print "... dumping new representation"
-        map(lambda((f, d)): numpy.savetxt(f, d), zip(map (lambda(s): s + "_pca.csv", ["valid", "test"]), [valid_pca, test_pca]))
+        map(lambda((f, d)): numpy.savetxt(f, d), zip(map (lambda(s): s + "_pca.csv",
+            ["valid", "test"]), [valid_pca, test_pca]))
