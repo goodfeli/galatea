@@ -493,7 +493,10 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     if do_pca:
         print "... computing PCA"
-        pca_trainer = pca.PCATrainer(train_set_x, num_components = args.num_components,
+        x = theano.tensor.matrix('input')
+        get_rep_train = theano.function([], da.get_hidden_values(x), updates = {},
+            givens = {x:train_set_x}, name = 'get_rep_valid')
+        pca_trainer = pca.PCATrainer(get_rep_train(), num_components = args.num_components,
             min_variance = args.min_variance)
         pca_trainer.updates()
         pca_trainer.save(args.save_dir)
