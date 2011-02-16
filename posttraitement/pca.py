@@ -2,58 +2,60 @@ import os, cPickle
 import numpy
 from scipy import linalg
 
-class PCA:
-    """
-    Layer which transforms its input via Principal Component Analysis.
-    """
+from framework.base import Block, Trainer
 
-    def __init__(self):
-        pass
-
-    # This would eventually be the 'self.fit' mentioned here: http://bit.ly/gxSt6b
-    def compute(self, X, num_components = numpy.inf, min_variance = .0):
+class PCATrainer(Trainer):
+    """
+    Compute a PCA transformation matrix from the given data.
+    """
+    def __init__(self, inputs, **kwargs):
         """
-        Compute PCA transformation, but do nothing with it.
-
-        Should only be called once.
-
-        Given a rectangular matrix X = USV such that S is a diagonal matrix with
-        X's singular values along its diagonal, computes and stores U.
-
-        :type X: numpy.ndarray, shape (n, d)
-        :param X: matrix on which to compute PCA
+        :type inputs: numpy.ndarray, shape (n, d)
+        :param inputs: matrix from which to compute PCA transformation
 
         :type num_components: int
         :param num_components: this many components will be preserved, in
             decreasing order of variance
 
         :type min_variance: float
-        :param min_variance: components with variance below this threshold will be discarded
+        :param min_variance: components with normalized variance [0-1] below 
+            this threshold will be discarded
         """
 
-        assert X.shape[1] <= X.shape[0]
+        # FIXME: 'num_components' and 'min_variance' have no defaults now...
+        super(PCATrainer, self).__init__(inputs, **kwargs)
+
+    def updates(self):
+        """
+        Compute the PCA transformation matrix.
+
+        Should only be called once.
+
+        Given a rectangular matrix X = USV such that S is a diagonal matrix with
+        X's singular values along its diagonal, computes and stores W = V^-1.
+        TODO: review this notation.
+
+        """
+
+        X = self.inputs
+
+        assert "W" not in self.__dict__, "PCATrainer.updates should only be" \
+            " called once"
+        assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
+            " greater than number of features (columns)"
+        # Actually, I don't think is necessary, but in practice all our datasets
+        # fulfill this requirement anyway, so this serves as a sanity check.
 
         X -= numpy.mean (X, axis = 0)
-        (v, self.U) = linalg.eig(numpy.cov(X.T))
+        (v, self.W) = linalg.eig(numpy.cov(X.T))
 
         order = numpy.argsort(-v)
-        v, self.U = v[order], self.U[:,order]
-        var_cutoff = min(numpy.where(((v / sum(v)) < min_variance)))
-        num_components = min(num_components, var_cutoff, X.shape[1])
-        self.U = self.U[:,:num_components]
+        v, self.W = v[order], self.W[:,order]
+        var_cutoff = min(numpy.where(((v / sum(v)) < self.min_variance)))
+        num_components = min(self.num_components, var_cutoff, X.shape[1])
+        self.W = self.W[:,:num_components]
 
-    # This would eventually be the 'self.output' mentioned here: http://bit.ly/gxSt6b
-    def transform(self, X):
-        """
-        Compute and return the previously computed PCA transformation of the
-        given data.
-
-        :type X: numpy.ndarray, shape (n, d)
-        :param X: matrix to transform
-        """
-
-        assert self.U is not None
-        return numpy.dot(X, self.U)
+        self._params = [self.W]
 
     def save(self, save_dir, save_filename = 'model_pca.pkl'):
         """
@@ -65,8 +67,34 @@ class PCA:
             os.makedirs(save_dir)
 
         save_file = open(os.path.join(save_dir, save_filename), 'wb')
-        cPickle.dump(self.U, save_file, -1)
+        for param in self._params:
+            cPickle.dump(param, save_file, -1)
         save_file.close()
+
+class PCA(Block):
+    """
+    Block which transforms its input via Principal Component Analysis.
+    """
+
+    def __init__(self, inputs):
+        """
+        :type inputs: numpy.ndarray, shape (n, d)
+        :param inputs: matrix on which to compute PCA
+        """
+
+        super(PCA, self).__init__(inputs)
+
+    def outputs(self):
+        """
+        Compute and return the PCA transformation of the current data.
+        """
+
+        X = self.inputs
+        assert "W" in self.__dict__ and self.W is not None, "PCA transformation" \
+            " matrix 'W' not defined"
+        assert X.shape[1] == self.W.shape[0], "Incompatible input matrix shape"
+
+        return numpy.dot(X, self.W)
 
     def load(self, load_dir, load_filename = 'model_pca.pkl'):
         """
@@ -74,12 +102,18 @@ class PCA:
         """
 
         print '... loading model'
-        save_file = open(os.path.join(load_dir, load_filename), 'r')
-        self.U = cPickle.load(save_file)
-        save_file.close()
+        load_file = open(os.path.join(load_dir, load_filename), 'r')
+        self.W = cPickle.load(load_file)
+        load_file.close()
 
 
 if __name__ == "__main__":
+    """
+    Run a dataset through a previously learned dA model, compute a PCA
+    transformation matrix from the training subset, pickle it, then apply said
+    transformation to the test and valid subsets and dump these representations.
+    """
+
     from sys import stderr
     import argparse
     from dense.dA import dA
@@ -133,12 +167,19 @@ if __name__ == "__main__":
     # Compute PCA transformation on training subset, then save and reload it
     # for no reason, then transform test and valid subsets
     print "... computing PCA"
-    pca = PCA()
-    pca.compute(train_rep, args.num_components, args.min_variance)
-    pca.save(args.save_dir)
+    trainer = PCATrainer(train_rep, num_components = args.num_components,
+        min_variance = args.min_variance)
+    #trainer = PCATrainer(train_rep)
+    trainer.updates()
+    trainer.save(args.save_dir)
+
+    pca = PCA(valid_rep)
     pca.load(args.save_dir)
-    valid_pca = pca.transform(valid_rep)
-    test_pca = pca.transform(test_rep)
+    valid_pca = pca.outputs()
+
+    pca = PCA(test_rep)
+    pca.load(args.save_dir)
+    test_pca = pca.outputs()
     print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
     
     # This is probably not very useful; I load this dump from R for analysis.
