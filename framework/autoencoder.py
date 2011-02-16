@@ -5,10 +5,9 @@ import theano
 from theano import tensor
 
 #from pylearn.gd.sgd import sgd_updates
-#from pylearn.algorithms.mcRBM import contrastive_cost, contrastive_grad
 theano.config.warn.sum_div_dimshuffle_bug = False
 floatX = theano.config.floatX
-sharedX = lambda X, name : theano.shared(numpy.asarray(X, dtype=floatX), name=name)
+sharedX = lambda X, name: theano.shared(numpy.asarray(X, dtype=floatX), name=name)
 if 0:
     print 'WARNING: using SLOW rng'
     RandomStreams = tensor.shared_randomstreams.RandomStreams
@@ -23,16 +22,17 @@ class DenoisingAutoencoder(Block):
     A denoising autoencoder learns a representation of the input by
     reconstructing a noisy version of it.
     """
-    def __init__(self, inputs, **kwargs):
+    def __init__(self, **kwargs):
         # TODO: Do we need anything else here?
-        super(DenoisingAutoencoder, self).__init__(inputs, **kwargs)
+        super(DenoisingAutoencoder, self).__init__(**kwargs)
 
     @classmethod
-    def alloc(cls, clean_inputs, corrupted_inputs, conf, rng=None):
+    def alloc(cls, corruptor, conf, rng=None):
+        """Allocate a denoising autoencoder object."""
         if not hasattr(rng, 'randn'):
             rng = numpy.random.RandomState(rng)
-        self = cls(clean_inputs)
-        self.corrupted = corrupted_inputs
+        self = cls()
+        self.corruptor = corruptor
         self.visbias = sharedX(
             numpy.zeros(conf['n_vis']),
             name='vb'
@@ -49,6 +49,11 @@ class DenoisingAutoencoder(Block):
         self.s_rng = RandomStreams(seed)
         if conf['tied_weights']:
             self.w_prime = self.weights.T
+        else:
+            self.w_prime = sharedX(
+                .5 * rng.rand(conf['n_hid'], conf['n_vis']),
+                name='Wprime'
+            )
 
         def _resolve_callable(conf_attr):
             if conf_attr is None:
@@ -69,63 +74,75 @@ class DenoisingAutoencoder(Block):
         self.act_dec = _resolve_callable('act_dec')
         self.conf = conf
         self._params = [
-            self.weights,
-            self.w_prime,
             self.visbias,
             self.hidbias
+            self.weights,
         ]
+        if not conf['tied_weights']:
+            self._params.append(self.w_prime)
+
     def _hidden_activation(self, x):
+        """Single input pattern/minibatch activation function."""
         return self.act_enc(self.hidbias + tensor.dot(self.weights, x))
 
-    def hidden_with_corrupted_input(self):
-        """Hidden unit activations when the input is corrupted."""
-        return [self._hidden_activation(v) for v in self.corrupted]
+    def hidden_repr(self, inputs):
+        """Hidden unit activations for each set of inputs."""
+        return [self._hidden_activation(v) for v in inputs]
 
-    def hidden_with_clean_input(self):
-        """Hidden unit activations when the input is corrupted."""
-        return [self._hidden_activation(v) for v in self.inputs]
-
-    def reconstruction(self):
+    def reconstruction(self, inputs):
         """Reconstructed inputs after corruption."""
-        corrupted = self.hidden_with_corrupted_input()
-        return [self.visbias + tensor.dot(self.w_prime, c) for c in corrupted]
+        corrupted = (self.corruptor(inp) for inp in inputs)
+        hiddens = self.hidden_repr(corrupted)
+        return [self.visbias + tensor.dot(self.w_prime, h) for h in hiddens]
 
-    def outputs(self):
-        """Output to pass on to layers above."""
-        return [self.hidden_with_clean_input(v) for v in self.inputs]
+    def __call__(self, inputs):
+        """
+        Forward propagate (symbolic) input through this module, obtaining
+        a representation to pass on to layers above.
+        """
+        return self.hidden_repr(inputs)
 
-    def mse(self):
+    def mse(self, inputs):
         """
         Symbolic expression for mean-squared error between the input and the
         denoised reconstruction.
         """
-        pairs = izip(self.inputs, self.reconstruction())
+        pairs = izip(inputs, self.reconstruction(inputs))
         return [((inp - rec)**2).sum(axis=-1).mean() for inp, rec in pairs]
 
-    def cross_entropy(self):
+    def cross_entropy(self, inputs):
         """
         Symbolic expression for elementwise cross-entropy between input
         and reconstruction. Use for binary-valued features (but not for,
         e.g., one-hot codes).
         """
-        pairs = izip(self.inputs, self.reconstruction())
+        pairs = izip(inputs, self.reconstruction(inputs))
         ce = lambda x, z: x * tensor.log(z) + (1 - x) * tensor.log(1 - z)
         return [ce(inp, rec).sum(axis=1).mean() for inp, rec in pairs]
 
 class StackedDA(Block):
-    def __init__(self, inputs, **kwargs):
+    """
+    A class representing a stacked model. Forward propagation passes
+    (symbolic) input through each layer sequentially.
+    """
+    def __init__(self, **kwargs):
         # TODO: Do we need anything else here?
-        super(StackedDA, self).__init__(inputs, **kwargs)
+        super(StackedDA, self).__init__(**kwargs)
 
-    def alloc(cls, inputs, conf, rng=None):
+    def alloc(cls, corruptors, conf, rng=None):
+        """Allocate a stacked denoising autoencoder object."""
         if not hasattr(rng, 'randn'):
             rng = numpy.random.RandomState(rng)
-        self = cls(inputs)
+        self = cls()
         self._layers = []
         _local = {}
         # Make sure that if we have a sequence of encoder/decoder activations
         # or corruptors, that we have exactly as many as len(conf['n_hid'])
-        for c in ['act_enc', 'act_dec', 'corruptor']:
+        if hasattr(corruptors, '__len__'):
+            assert len(conf['n_hid']) == len(corruptors)
+        else:
+            corruptors = [corruptors] * len(conf['n_hid'])
+        for c in ['act_enc', 'act_dec']:
             if hasattr(conf[c], '__len__'):
                 assert len(conf['n_hid']) == len(conf[c])
                 _local[c] = conf[c]
@@ -135,14 +152,13 @@ class StackedDA(Block):
         # The number of visible units in each layer is the initial input
         # size and the first k-1 hidden unit sizes.
         n_viss = [conf['n_vis']] + conf['n_hid'][:-1]
-        first = False
         seq = izip(
             xrange(len(n_hids)),
             n_hids,
             n_viss,
             _local['act_encs'],
             _local['act_decs'],
-            _local['corruptors']
+            corruptors
         )
         # Create each layer.
         for k, n_hid, n_vis, act_enc, act_dec, corr in seq:
@@ -153,23 +169,30 @@ class StackedDA(Block):
                 'act_enc': act_enc,
                 'act_dec': act_dec,
             }
-            # Prepare corrupted input.
-            # TODO: Maybe DenoisingAutoencoder should just take the
-            # corruptor object in the conf dictionary.
-            corrupted = corr(inputs)
-            if k == 0:
-                da = DenoisingAutoencoder.alloc(inputs, corrupted, lconf, rng)
-            else:
-                lastout = self._layers[-1].outputs
-                da = DenoisingAutoencoder.alloc(lastout, corrupted, lconf, rng)
+            da = DenoisingAutoencoder.alloc(corr, lconf, rng)
             self._layers.append(da)
 
     def layers(self):
+        """
+        The layers of this model: the individual denoising autoencoder
+        objects, which can be individually pre-trained.
+        """
         return list(self._layers)
 
     def params(self):
-        # TODO: Rewrite this to be more readable (don't use reduce).
-        return reduce(lambda x, y: x + y, [l.params() for l in self._layers])
+        """
+        The parameters that are learned in this model, i.e. the concatenation
+        of all the layers' weights and biases.
+        """
+        return sum([l.params() for l in self._layers], [])
 
-    def outputs(self):
-        return self._layers[-1].outputs
+    def __call__(self, inputs):
+        """
+        Forward propagate (symbolic) input through this module, obtaining
+        a representation to pass on to layers above.
+        """
+        transformed = inputs
+        # Pass the input through each layer of the hierarchy.
+        for layer in self._layers:
+            transformed = layer(transformed)
+        return transformed
