@@ -352,7 +352,7 @@ class dA(object):
         return numpy.mean(denoising_error)
 
 def create_submission(dataset, save_dir_model, save_dir_submission,
-    normalize_on_the_fly = False, pca = False):
+    normalize_on_the_fly = False, do_pca = False):
     """
     Create submission files given the path of a model and
     a dataset.
@@ -364,7 +364,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
         is the path where you saved your model
     * save_dir_submission
         is the path where you want to store the submission files
-    * pca
+    * do_pca
         whether or not to apply (previously computed) PCA transform on model
     """
     # load the dataset
@@ -391,14 +391,14 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     valid_rep1 = get_rep_valid(0)
     test_rep1 = get_rep_test(0)
 
-    if pca:
-        pca = pca.PCA(valid_rep1)
-        pca.load(save_dir_model)
-        valid_rep1 = pca.outputs()
+    if do_pca:
+        pca_block = pca.PCA(valid_rep1)
+        pca_block.load(save_dir_model)
+        valid_rep1 = pca_block.outputs()
 
-        pca = pca.PCA(test_rep1)
-        pca.load(save_dir_model)
-        test_rep1 = pca.outputs()
+        pca_block = pca.PCA(test_rep1)
+        pca_block.load(save_dir_model)
+        test_rep1 = pca_block.outputs()
 
     valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
     test_rep2 = numpy.dot(test_rep1,test_rep1.T)
@@ -466,7 +466,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
-    noise_type, corruption_level, normalize_on_the_fly = False, pca = False,
+    noise_type, corruption_level, normalize_on_the_fly = False, do_pca = False,
     num_components = numpy.inf, min_variance = .0, create_submission = False,
     submission_dir = None):
     ''' main function used for training '''
@@ -491,7 +491,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     print 'Training complete in %f (min) with final denoising error %f' \
         %(time_spent,denoising_error)
 
-    if pca:
+    if do_pca:
         print "... computing PCA"
         pca_trainer = pca.PCATrainer(train_set_x, num_components = args.num_components,
             min_variance = args.min_variance)
@@ -502,7 +502,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         print "... creating submission"
         if submission_dir is None:
             submission_dir = save_dir
-        create_submission(dataset, save_dir, submission_dir, normalize_on_the_fly, pca)
+        create_submission(dataset, save_dir, submission_dir, normalize_on_the_fly, do_pca)
 
     return denoising_error, time_spent, loss
 
@@ -568,7 +568,7 @@ if __name__ == '__main__':
     parser.add_argument('corruption_level', action='store',
                         type=float,
                         help='Corruption (noise) level (float)')
-    parser.add_argument('-p', '--pca', action='store_const',
+    parser.add_argument('-p', '--do-pca', action='store_const',
                         default=False,
                         const=True,
                         required=False,
@@ -617,5 +617,5 @@ if __name__ == '__main__':
                args.tied_weights, args.act_enc, args.act_dec,
                args.learning_rate, args.batch_size, args.epochs,
                args.cost_type, args.noise_type, args.corruption_level,
-               args.normalize_on_the_fly, args.pca, args.num_components,
+               args.normalize_on_the_fly, args.do_pca, args.num_components,
                args.min_variance, args.create_submission, args.submission_dir)
