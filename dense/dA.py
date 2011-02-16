@@ -391,6 +391,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     valid_rep1 = get_rep_valid(0)
     test_rep1 = get_rep_test(0)
 
+    # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
         pca_block = pca.PCA()
         pca_block.load(save_dir_model)
@@ -496,10 +497,10 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         x = theano.tensor.matrix('input')
         get_rep_train = theano.function([], da.get_hidden_values(x), updates = {},
             givens = {x:train_set_x}, name = 'get_rep_valid')
-        pca_trainer = pca.PCATrainer(get_rep_train(), num_components = args.num_components,
-            min_variance = args.min_variance)
+        pca_trainer = pca.PCATrainer(get_rep_train(), num_components = num_components,
+            min_variance = min_variance)
         pca_trainer.updates()
-        pca_trainer.save(args.save_dir)
+        pca_trainer.save(save_dir)
 
     if do_create_submission:
         print "... creating submission"
