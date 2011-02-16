@@ -142,12 +142,14 @@ if __name__ == "__main__":
                         type = int,
                         default = numpy.inf,
                         required = False,
-                        help = "Only the 'n' most important components will be preserved")
+                        help = "Only the 'n' most important components will be"
+                            " preserved")
     parser.add_argument('-v', '--min-variance', action = 'store',
                         type = float,
                         default = .0,
                         required = False,
-                        help = "Components with variance below this threshold will be discarded")
+                        help = "Components with variance below this threshold"
+                            " will be discarded")
     args = parser.parse_args()
 
     # Load model
@@ -169,7 +171,6 @@ if __name__ == "__main__":
     print "... computing PCA"
     trainer = PCATrainer(train_rep, num_components = args.num_components,
         min_variance = args.min_variance)
-    #trainer = PCATrainer(train_rep)
     trainer.updates()
     trainer.save(args.save_dir)
 
