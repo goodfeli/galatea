@@ -22,7 +22,9 @@ class PCATrainer(Trainer):
             this threshold will be discarded
         """
 
-        # FIXME: 'num_components' and 'min_variance' have no defaults now...
+        kwargs.setdefault('num_components', numpy.inf)
+        kwargs.setdefault('min_variance', .0)
+
         super(PCATrainer, self).__init__(inputs, **kwargs)
 
     def updates(self):
@@ -33,7 +35,6 @@ class PCATrainer(Trainer):
 
         Given a rectangular matrix X = USV such that S is a diagonal matrix with
         X's singular values along its diagonal, computes and stores W = V^-1.
-        TODO: review this notation.
 
         """
 
@@ -150,6 +151,11 @@ if __name__ == "__main__":
                         required = False,
                         help = "Components with variance below this threshold"
                             " will be discarded")
+    parser.add_argument('-u', '--dump', action='store_const',
+                        default=False,
+                        const=True,
+                        required=False,
+                        help='Dump transformed data in CSV format')
     args = parser.parse_args()
 
     # Load model
@@ -184,5 +190,6 @@ if __name__ == "__main__":
     print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
     
     # This is probably not very useful; I load this dump from R for analysis.
-    print "... dumping new representation"
-    map(lambda((f, d)): numpy.savetxt(f, d), zip(map (lambda(s): s + "_pca.csv", ["valid", "test"]), [valid_pca, test_pca]))
+    if args.dump:
+        print "... dumping new representation"
+        map(lambda((f, d)): numpy.savetxt(f, d), zip(map (lambda(s): s + "_pca.csv", ["valid", "test"]), [valid_pca, test_pca]))
