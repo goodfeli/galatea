@@ -467,7 +467,8 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
     noise_type, corruption_level, normalize_on_the_fly = False, pca = False,
-    num_components = numpy.inf, min_variance = .0):
+    num_components = numpy.inf, min_variance = .0, create_submission = False,
+    submission_dir = None):
     ''' main function used for training '''
 
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
@@ -496,6 +497,12 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
             min_variance = args.min_variance)
         pca_trainer.updates()
         pca_trainer.save(args.save_dir)
+
+    if create_submission:
+        print "... creating submission"
+        if submission_dir is None:
+            submission_dir = save_dir
+        create_submission(dataset, save_dir, submission_dir)
 
     return denoising_error, time_spent, loss
 
@@ -590,6 +597,17 @@ if __name__ == '__main__':
                         default='.',
                         required=False,
                         help='Directory to which to save output')
+    parser.add_argument('-c', '--create-submission', action='store_const',
+                        default=False,
+                        const=True,
+                        required=False,
+                        help='Create a UTLC submission from the learned model')
+    parser.add_argument('-d', '--submission-dir', action='store',
+                        type=str,
+                        default=None,
+                        required=False,
+                        help='Directory to which to save submission [defaults' \
+                            ' to model output directory]')
     args = parser.parse_args()
 
     if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
@@ -600,5 +618,4 @@ if __name__ == '__main__':
                args.learning_rate, args.batch_size, args.epochs,
                args.cost_type, args.noise_type, args.corruption_level,
                args.normalize_on_the_fly, args.pca, args.num_components,
-               args.min_variance)
-
+               args.min_variance, args.create_submission, args.submission_dir)
