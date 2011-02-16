@@ -410,10 +410,10 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     test_rep1 = numpy.floor((test_rep1 / test_rep1.max())*999)
     test_rep2 = numpy.floor((test_rep2 / test_rep2.max())*999)
 
-    val1 = open(save_dir_submission + dataset + '_dl_valid.prepro','w')
-    val2 = open(save_dir_submission + dataset + '_sdl_valid.prepro','w')
-    test1 = open(save_dir_submission + dataset + '_dl_final.prepro','w')
-    test2 = open(save_dir_submission + dataset + '_sdl_final.prepro','w')
+    val1 = open(os.path.join(save_dir_submission, dataset + '_dl_valid.prepro'),'w')
+    val2 = open(os.path.join(save_dir_submission, dataset + '_sdl_valid.prepro'),'w')
+    test1 = open(os.path.join(save_dir_submission, dataset + '_dl_final.prepro'),'w')
+    test2 = open(os.path.join(save_dir_submission, dataset + '_sdl_final.prepro'),'w')
 
     vtxt1, ttxt1 = '', ''
     vtxt2, ttxt2 = '', ''
@@ -447,20 +447,20 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 
     print >> sys.stderr, "... done creating files"
 
-    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_dl.zip',
-        save_dir_submission+dataset+'_dl_valid.prepro',
-        save_dir_submission+dataset+'_dl_final.prepro'))
-    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_sdl.zip',
-        save_dir_submission+dataset+'_sdl_valid.prepro',
-        save_dir_submission+dataset+'_sdl_final.prepro'))
+    os.system('zip %s %s %s'%(os.path.join(save_dir_submission, dataset+'_dl.zip'),
+        os.path.join(save_dir_submission, dataset+'_dl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+'_dl_final.prepro')))
+    os.system('zip %s %s %s'%(os.path.join(save_dir_submission, dataset+'_sdl.zip'),
+        os.path.join(save_dir_submission, dataset+'_sdl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+'_sdl_final.prepro')))
 
     print >> sys.stderr, "... files compressed"
 
     os.system('rm %s %s %s %s'%(
-        save_dir_submission+dataset+'_dl_valid.prepro',
-        save_dir_submission+dataset+'_dl_final.prepro',
-        save_dir_submission+dataset+'_sdl_valid.prepro',
-        save_dir_submission+dataset+'_sdl_final.prepro'))
+        os.path.join(save_dir_submission, dataset+'_dl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+'_dl_final.prepro'),
+        os.path.join(save_dir_submission, dataset+'_sdl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+ '_sdl_final.prepro')))
 
     print >> sys.stderr, "... useless files deleted"
 
