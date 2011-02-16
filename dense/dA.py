@@ -16,6 +16,7 @@ import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from logistic_sgd import load_data, get_constant
+from posttraitement import pca
 from utils import tile_raster_images
 
 import PIL.Image
@@ -100,18 +101,18 @@ class dA(object):
             # converted using asarray to dtype
             # theano.config.floatX so that the code is runable on GPU
             initial_W = numpy.asarray(self.numpy_rng.uniform(
-                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      size = (n_visible, n_hidden)), dtype = theano.config.floatX)
+                low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
+                high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
+                size = (n_visible, n_hidden)), dtype = theano.config.floatX)
             W = theano.shared(value = initial_W, name ='W')
 
         if not b_prime:
             b_prime = theano.shared(value = numpy.zeros(n_visible,
-                                         dtype = theano.config.floatX))
+                dtype = theano.config.floatX))
 
         if not b:
             b = theano.shared(value = numpy.zeros(n_hidden,
-                                dtype = theano.config.floatX), name ='b')
+                dtype = theano.config.floatX), name ='b')
 
 
         self.W = W
@@ -126,9 +127,9 @@ class dA(object):
             if not W_prime:
                 # not sure about the initialization
                 initial_W_prime = numpy.asarray(self.numpy_rng.uniform(
-                      low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
-                      size = (n_hidden, n_visible)), dtype = theano.config.floatX)
+                    low  = -4*numpy.sqrt(6./(n_hidden+n_visible)),
+                    high =  4*numpy.sqrt(6./(n_hidden+n_visible)),
+                    size = (n_hidden, n_visible)), dtype = theano.config.floatX)
                 W_prime = theano.shared(value = initial_W_prime, name ='W_prime')
 
             self.W_prime = W_prime
@@ -167,9 +168,11 @@ class dA(object):
                 the gpu to work correctly as it only support float32 for now.
         """
         if noise == 'binomial':
-            return  self.theano_rng.binomial( size = input.shape, n = 1, p =  1 - corruption_level, dtype=theano.config.floatX) * input
+            return self.theano_rng.binomial(size = input.shape, n = 1,
+                p = 1 - corruption_level, dtype=theano.config.floatX) * input
         elif noise == 'gaussian':
-            return input + self.theano_rng.normal( size = input.shape, avg=0, std = corruption_level, dtype=theano.config.floatX)
+            return input + self.theano_rng.normal(size = input.shape, avg = 0,
+                std = corruption_level, dtype = theano.config.floatX)
         else:
             raise NotImplementedError('This noise %s is not implemented yet'%(noise))
 
@@ -180,7 +183,8 @@ class dA(object):
         elif self.act_enc == 'tanh':
             return T.tanh(T.dot(input, self.W) + self.b)
         else:
-            raise NotImplementedError('Encoder function %s is not implemented yet'%(self.act_enc))
+            raise NotImplementedError('Encoder function %s is not implemented yet' \
+                %(self.act_enc))
 
     def get_reconstructed_input(self, hidden ):
         """ Computes the reconstructed input given the values of the hidden layer """
@@ -193,9 +197,11 @@ class dA(object):
                 return T.log(1. + T.exp(x))
             return softplus(T.dot(hidden, self.W_prime) + self.b_prime)
         else:
-            raise NotImplementedError('Decoder function %s is not implemented yet'%(self.act_dec))
+            raise NotImplementedError('Decoder function %s is not implemented yet' \
+                %(self.act_dec))
 
-    def get_cost_updates(self, corruption_level, learning_rate, cost = 'CE', noise = 'binomial'):
+    def get_cost_updates(self, corruption_level, learning_rate, cost = 'CE',
+        noise = 'binomial'):
         """ This function computes the cost and the updates for one trainng
         step of the dA """
 
@@ -209,7 +215,8 @@ class dA(object):
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
-            raise NotImplementedError('This cost function %s is not implemented yet'%(cost))
+            raise NotImplementedError('This cost function %s is not implemented yet' \
+                %(cost))
 
         # note : L is now a vector, where each element is the cross-entropy cost
         #        of the reconstruction of the corresponding example of the
@@ -228,7 +235,7 @@ class dA(object):
         return (cost, updates)
 
     def fit(self, dataset, learning_rate, batch_size=20, epochs=50, cost='CE',
-            noise='gaussian', corruption_level=0.3):
+        noise='gaussian', corruption_level=0.3):
         """ This function fits the dA to the dataset given
         some hyper-parameters and returns the loss evolution
         and the time spent during training   """
@@ -241,15 +248,15 @@ class dA(object):
         index = T.lscalar()    # index to a [mini]batch
 
         cost, updates = self.get_cost_updates(corruption_level = corruption_level,
-                                learning_rate = learning_rate,
-                                noise = noise,
-                                cost = cost)
+            learning_rate = learning_rate,
+            noise = noise,
+            cost = cost)
         train_da = theano.function([index],
-                                    cost,
-                                    updates = updates,
-                                    givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]},
-                                    name='train_da'
-                                    )
+            cost,
+            updates = updates,
+            givens = {self.x:dataset[index*batch_size:(index+1)*batch_size]},
+            name ='train_da'
+            )
 
         start_time = time.clock()
 
@@ -270,7 +277,8 @@ class dA(object):
 
             toc = time.clock()
             loss.append(numpy.mean(c))
-            print 'Training epoch %d, time spent (min) %f,  cost '%(epoch,(toc-tic)/60.), numpy.mean(c)
+            print 'Training epoch %d, time spent (min) %f,  cost ' \
+                %(epoch,(toc-tic)/60.), numpy.mean(c)
             toc = tic
 
         end_time = time.clock()
@@ -329,13 +337,12 @@ class dA(object):
         index = T.lscalar()    # index to a [mini]batch
 
         cost, updates = self.get_cost_updates(corruption_level = corruption_level,
-                                learning_rate = 0.,
-                                noise = noise,
-                                cost = cost)
-        get_error = theano.function([index], cost, updates = {},
-                                    givens = {
-                self.x:dataset[index*batch_size:(index+1)*batch_size]},
-                                    name='get_error')
+            learning_rate = 0.,
+            noise = noise,
+            cost = cost)
+        get_error = theano.function([index], cost, updates = {}, givens = {
+            self.x:dataset[index*batch_size:(index+1)*batch_size]},
+            name='get_error')
 
         denoising_error = []
         # go through the dataset
@@ -344,7 +351,8 @@ class dA(object):
 
         return numpy.mean(denoising_error)
 
-def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on_the_fly=False):
+def create_submission(dataset, save_dir_model, save_dir_submission,
+    normalize_on_the_fly = False, do_pca = False):
     """
     Create submission files given the path of a model and
     a dataset.
@@ -356,6 +364,8 @@ def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on
         is the path where you saved your model
     * save_dir_submission
         is the path where you want to store the submission files
+    * do_pca
+        whether or not to apply (previously computed) PCA transform on model
     """
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
@@ -371,15 +381,25 @@ def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on
     x = theano.tensor.matrix('input')
 
     get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:valid_set_x},
-                                    name = 'get_rep_valid')
+        givens = {x:valid_set_x},
+        name = 'get_rep_valid')
     get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
-                                    givens = {x:test_set_x},
-                                    name = 'get_rep_test')
+        givens = {x:test_set_x},
+        name = 'get_rep_test')
 
     # valid and test representations
     valid_rep1 = get_rep_valid(0)
     test_rep1 = get_rep_test(0)
+
+    # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
+    if do_pca:
+        pca_block = pca.PCA()
+        pca_block.load(save_dir_model)
+        valid_rep1 = pca_block(valid_rep1)
+
+        pca_block = pca.PCA()
+        pca_block.load(save_dir_model)
+        test_rep1 = pca_block(test_rep1)
 
     valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
     test_rep2 = numpy.dot(test_rep1,test_rep1.T)
@@ -391,10 +411,10 @@ def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on
     test_rep1 = numpy.floor((test_rep1 / test_rep1.max())*999)
     test_rep2 = numpy.floor((test_rep2 / test_rep2.max())*999)
 
-    val1 = open(save_dir_submission + dataset + '_dl_valid.prepro','w')
-    val2 = open(save_dir_submission + dataset + '_sdl_valid.prepro','w')
-    test1 = open(save_dir_submission + dataset + '_dl_final.prepro','w')
-    test2 = open(save_dir_submission + dataset + '_sdl_final.prepro','w')
+    val1 = open(os.path.join(save_dir_submission, dataset + '_dl_valid.prepro'),'w')
+    val2 = open(os.path.join(save_dir_submission, dataset + '_sdl_valid.prepro'),'w')
+    test1 = open(os.path.join(save_dir_submission, dataset + '_dl_final.prepro'),'w')
+    test2 = open(os.path.join(save_dir_submission, dataset + '_sdl_final.prepro'),'w')
 
     vtxt1, ttxt1 = '', ''
     vtxt2, ttxt2 = '', ''
@@ -428,26 +448,28 @@ def create_submission(dataset, save_dir_model, save_dir_submission, normalize_on
 
     print >> sys.stderr, "... done creating files"
 
-    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_dl.zip',
-        save_dir_submission+dataset+'_dl_valid.prepro',
-        save_dir_submission+dataset+'_dl_final.prepro'))
-    os.system('zip %s %s %s'%(save_dir_submission+dataset+'_sdl.zip',
-        save_dir_submission+dataset+'_sdl_valid.prepro',
-        save_dir_submission+dataset+'_sdl_final.prepro'))
+    os.system('zip %s %s %s'%(os.path.join(save_dir_submission, dataset+'_dl.zip'),
+        os.path.join(save_dir_submission, dataset+'_dl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+'_dl_final.prepro')))
+    os.system('zip %s %s %s'%(os.path.join(save_dir_submission, dataset+'_sdl.zip'),
+        os.path.join(save_dir_submission, dataset+'_sdl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+'_sdl_final.prepro')))
 
     print >> sys.stderr, "... files compressed"
 
     os.system('rm %s %s %s %s'%(
-        save_dir_submission+dataset+'_dl_valid.prepro',
-        save_dir_submission+dataset+'_dl_final.prepro',
-        save_dir_submission+dataset+'_sdl_valid.prepro',
-        save_dir_submission+dataset+'_sdl_final.prepro'))
+        os.path.join(save_dir_submission, dataset+'_dl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+'_dl_final.prepro'),
+        os.path.join(save_dir_submission, dataset+'_sdl_valid.prepro'),
+        os.path.join(save_dir_submission, dataset+ '_sdl_final.prepro')))
 
     print >> sys.stderr, "... useless files deleted"
 
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
-    noise_type, corruption_level, normalize_on_the_fly=False):
+    noise_type, corruption_level, normalize_on_the_fly = False, do_pca = False,
+    num_components = numpy.inf, min_variance = .0, do_create_submission = False,
+    submission_dir = None):
     ''' main function used for training '''
 
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
@@ -459,15 +481,33 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
             tied_weights = tied_weights,
             act_enc = act_enc, act_dec = act_dec)
 
-    time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs, cost_type,
-            noise_type, corruption_level)
+    time_spent, loss = da.fit(train_set_x, learning_rate, batch_size, epochs,
+        cost_type, noise_type, corruption_level)
 
     if save_dir:
         da.save(save_dir)
 
     denoising_error = da.get_denoising_error(valid_set_x, cost_type,
         noise_type, corruption_level)
-    print 'Training complete in %f (min) with final denoising error %f'%(time_spent,denoising_error)
+    print 'Training complete in %f (min) with final denoising error %f' \
+        %(time_spent,denoising_error)
+
+    if do_pca:
+        print "... computing PCA"
+        x = theano.tensor.matrix('input')
+        get_rep_train = theano.function([], da.get_hidden_values(x), updates = {},
+            givens = {x:train_set_x}, name = 'get_rep_valid')
+        pca_trainer = pca.PCATrainer(get_rep_train(), num_components = num_components,
+            min_variance = min_variance)
+        pca_trainer.updates()
+        pca_trainer.save(save_dir)
+
+    if do_create_submission:
+        print "... creating submission"
+        if submission_dir is None:
+            submission_dir = save_dir
+        create_submission(dataset, save_dir, submission_dir, normalize_on_the_fly, do_pca)
+
     return denoising_error, time_spent, loss
 
 
@@ -512,7 +552,6 @@ if __name__ == '__main__':
                         type=str,
                         choices=['tanh', 'linear', 'softplus', 'sigmoid'],
                         help='Activation function for the decoder')
-
     parser.add_argument('cost_type', action='store',
                         type=str,
                         choices=['CE', 'MSE'],
@@ -533,6 +572,23 @@ if __name__ == '__main__':
     parser.add_argument('corruption_level', action='store',
                         type=float,
                         help='Corruption (noise) level (float)')
+    parser.add_argument('-p', '--do-pca', action='store_const',
+                        default=False,
+                        const=True,
+                        required=False,
+                        help='Transform learned representation with PCA')
+    parser.add_argument('-k', '--num-components', action = 'store',
+                        type = int,
+                        default = numpy.inf,
+                        required = False,
+                        help = "Only the 'n' most important PCA components" \
+                            " will be preserved")
+    parser.add_argument('-v', '--min-variance', action = 'store',
+                        type = float,
+                        default = .0,
+                        required = False,
+                        help = "PCA components with variance below this" \
+                            " threshold will be discarded")
     # Note that hyphens ('-') in argument names are turned into underscores
     # ('_') after parsing
     parser.add_argument('-N', '--normalize-on-the-fly', action='store_const',
@@ -545,6 +601,17 @@ if __name__ == '__main__':
                         default='.',
                         required=False,
                         help='Directory to which to save output')
+    parser.add_argument('-c', '--create-submission', action='store_const',
+                        default=False,
+                        const=True,
+                        required=False,
+                        help='Create a UTLC submission from the learned model')
+    parser.add_argument('-d', '--submission-dir', action='store',
+                        type=str,
+                        default=None,
+                        required=False,
+                        help='Directory to which to save submission [defaults' \
+                            ' to model output directory]')
     args = parser.parse_args()
 
     if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
@@ -554,5 +621,5 @@ if __name__ == '__main__':
                args.tied_weights, args.act_enc, args.act_dec,
                args.learning_rate, args.batch_size, args.epochs,
                args.cost_type, args.noise_type, args.corruption_level,
-               args.normalize_on_the_fly)
-
+               args.normalize_on_the_fly, args.do_pca, args.num_components,
+               args.min_variance, args.create_submission, args.submission_dir)

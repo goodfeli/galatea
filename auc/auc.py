@@ -86,12 +86,9 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         uval = N.flipud(uval_ascending)
 
         # Test whether there are ties
-        if uval.shape[0] ==n:
+        if uval.shape[0] == n:
             S = N.zeros( (n, ) )
-            for s_idx, r_idx in enumerate(i):
-                S[s_idx] = r_idx + 1
-                #S = range(1,n+1)[i]   # compute the ranks of the outputs (no ties)
-            raise ValueError('case made S from sequence: ' + str(S))
+            S[i] = N.arange(1,n+1)
         else:
             # Another speed-up trick (maybe not critical): test whether we have a whole bunch
             # of negative examples with the same output

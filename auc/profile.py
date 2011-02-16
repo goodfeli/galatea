@@ -11,7 +11,7 @@ def main():
     (labels_devel, labels_valid, labels_test)  = pdu.load_ndarray_label("ule")
 
     print "Print computed score: "
-    print score(dataset_valid, labels_valid)#, min_repeat=1, max_repeat=10)
+    print score(dataset_valid, labels_valid)
 
 cProfile.run('main()', 'scoreprof')
 
