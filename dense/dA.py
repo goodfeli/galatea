@@ -501,7 +501,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         print "... creating submission"
         if submission_dir is None:
             submission_dir = save_dir
-        create_submission(dataset, save_dir, submission_dir)
+        create_submission(dataset, save_dir, submission_dir, normalize_on_the_fly, pca)
 
     return denoising_error, time_spent, loss
 
