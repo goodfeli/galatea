@@ -77,25 +77,22 @@ class PCA(Block):
     Block which transforms its input via Principal Component Analysis.
     """
 
-    def __init__(self, inputs):
+    def __init__(self):
+        super(PCA, self).__init__()
+
+    def __call__(self, inputs):
         """
+        Compute and return the PCA transformation of the current data.
+
         :type inputs: numpy.ndarray, shape (n, d)
         :param inputs: matrix on which to compute PCA
         """
 
-        super(PCA, self).__init__(inputs)
-
-    def outputs(self):
-        """
-        Compute and return the PCA transformation of the current data.
-        """
-
-        X = self.inputs
         assert "W" in self.__dict__ and self.W is not None, "PCA transformation" \
             " matrix 'W' not defined"
-        assert X.shape[1] == self.W.shape[0], "Incompatible input matrix shape"
+        assert inputs.shape[1] == self.W.shape[0], "Incompatible input matrix shape"
 
-        return numpy.dot(X, self.W)
+        return numpy.dot(inputs, self.W)
 
     def load(self, load_dir, load_filename = 'model_pca.pkl'):
         """
@@ -180,13 +177,13 @@ if __name__ == "__main__":
     trainer.updates()
     trainer.save(args.save_dir)
 
-    pca = PCA(valid_rep)
+    pca = PCA()
     pca.load(args.save_dir)
-    valid_pca = pca.outputs()
+    valid_pca = pca(valid_rep)
 
-    pca = PCA(test_rep)
+    pca = PCA()
     pca.load(args.save_dir)
-    test_pca = pca.outputs()
+    test_pca = pca(test_rep)
     print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
     
     # This is probably not very useful; I load this dump from R for analysis.

@@ -392,13 +392,13 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     test_rep1 = get_rep_test(0)
 
     if do_pca:
-        pca_block = pca.PCA(valid_rep1)
+        pca_block = pca.PCA()
         pca_block.load(save_dir_model)
-        valid_rep1 = pca_block.outputs()
+        valid_rep1 = pca_block(valid_rep1)
 
-        pca_block = pca.PCA(test_rep1)
+        pca_block = pca.PCA()
         pca_block.load(save_dir_model)
-        test_rep1 = pca_block.outputs()
+        test_rep1 = pca_block(test_rep1)
 
     valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
     test_rep2 = numpy.dot(test_rep1,test_rep1.T)
