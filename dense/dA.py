@@ -352,7 +352,7 @@ class dA(object):
         return numpy.mean(denoising_error)
 
 def create_submission(dataset, save_dir_model, save_dir_submission,
-    normalize_on_the_fly = False):
+    normalize_on_the_fly = False, pca = False):
     """
     Create submission files given the path of a model and
     a dataset.
@@ -364,6 +364,8 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
         is the path where you saved your model
     * save_dir_submission
         is the path where you want to store the submission files
+    * pca
+        whether or not to apply (previously computed) PCA transform on model
     """
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
@@ -388,6 +390,15 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     # valid and test representations
     valid_rep1 = get_rep_valid(0)
     test_rep1 = get_rep_test(0)
+
+    if pca:
+        pca = PCA(valid_rep1)
+        pca.load(save_dir_model)
+        valid_rep1 = pca.outputs()
+
+        pca = PCA(test_rep1)
+        pca.load(save_dir_model)
+        test_rep1 = pca.outputs()
 
     valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
     test_rep2 = numpy.dot(test_rep1,test_rep1.T)
@@ -485,10 +496,6 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
             min_variance = args.min_variance)
         pca_trainer.updates()
         pca_trainer.save(args.save_dir)
-
-        pca = PCA(valid_rep)
-        pca.load(args.save_dir)
-        valid_pca = pca.outputs()
 
     return denoising_error, time_spent, loss
 
