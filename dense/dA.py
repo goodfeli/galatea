@@ -68,7 +68,7 @@ class dA(object):
         self.n_hidden  = n_hidden
         self.tied_weights = tied_weights
 
-        assert act_enc in set(['sigmoid', 'tanh'])
+        assert act_enc in set(['sigmoid', 'tanh' , 'softplus' , 'rectifier'])
         assert act_dec in set(['sigmoid', 'softplus', 'linear'])
         self.act_enc = act_enc
         self.act_dec = act_dec
@@ -176,12 +176,21 @@ class dA(object):
         else:
             raise NotImplementedError('This noise %s is not implemented yet'%(noise))
 
+   
     def get_hidden_values(self, input):
         """ Computes the values of the hidden layer """
         if self.act_enc == 'sigmoid':
             return T.nnet.sigmoid(T.dot(input, self.W) + self.b)
         elif self.act_enc == 'tanh':
-            return T.tanh(T.dot(input, self.W) + self.b)
+            	return T.tanh(T.dot(input, self.W) + self.b)
+	elif self.act_enc == 'softplus':
+		def softplus(x):
+                	return T.log(1. + T.exp(x))
+		return softplus(T.dot(input, self.W) + self.b)
+	elif self.act_enc == 'rectifier':
+	    	def rectifier(x):
+			return x*(x>0)
+		return  rectifier(T.dot(input, self.W) + self.b)
         else:
             raise NotImplementedError('Encoder function %s is not implemented yet' \
                 %(self.act_enc))
@@ -193,7 +202,7 @@ class dA(object):
         elif self.act_dec == 'linear':
             return T.dot(hidden, self.W_prime) + self.b_prime
         elif self.act_dec == 'softplus':
-            def softplus(x):
+	    def softplus(x):
                 return T.log(1. + T.exp(x))
             return softplus(T.dot(hidden, self.W_prime) + self.b_prime)
         else:
@@ -210,8 +219,12 @@ class dA(object):
         z       = self.get_reconstructed_input(y)
         # note : we sum over the size of a datapoint; if we are using minibatches,
         #        L will  be a vector, with one entry per example in minibatch
+	#	 Moving the range of tanh from [-1;1] to [0;1]
         if cost == 'CE':
-            L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )
+		if self.act_enc == 'tanh':
+            		L = - T.sum( ((self.x+1)/2)*T.log(z) + (1-((self.x+1)/2))*T.log(1-z), axis=1 )
+		else:
+			L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )	
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
@@ -546,7 +559,7 @@ if __name__ == '__main__':
                         help='Whether to use tied weights')
     parser.add_argument('act_enc', action='store',
                         type=str,
-                        choices=['tanh', 'linear', 'softplus', 'sigmoid'],
+                        choices=['tanh', 'linear', 'softplus', 'sigmoid' , 'rectifier'],
                         help='Activation function for the encoder')
     parser.add_argument('act_dec', action='store',
                         type=str,

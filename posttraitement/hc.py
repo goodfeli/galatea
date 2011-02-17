@@ -1,38 +1,59 @@
+from numpy import *
+from scipy.cluster import vq
+
 # Pseudo-code for hierarchical clustering
+
+def kmnb(s,k):
+    assert s >= 1
+    nb = k
+    while s > 1:
+        nb = nb + k**s
+        s -= 1
+    return nb
+
+def dist(m, v):
+    return sum((m-v)**2, axis=1)
 
 # Hierarchical clustering
 # 
 # Inputs
-# dataset: n x d matrix with n examples with d features
-# step   : number of recursion steps to perform
-# k      : number of clusters at each step
+# dataset : n x d matrix with n examples with d features
+# max_step: number of recursion steps to perform
+# k       : number of clusters at each step
 #
 # Output
-#        : n x (k**1 + k**2 + ... + k**step) matrix representing the
-#          the proximity of an example to each of the clusters centroids
-def hc(dataset, step=5, k=2):
+#         : 3-uple 
+#          nb x d matrix of clusters centroids,
+#          list of nb covariance matrices
+#          array of nb sample numbers
+#          with nb = (k**1 + k**2 + ... + k**step)
+def hc(dataset, max_step=5, k=2):
+    # Nb of clusters to find 
+    nb = kmnb(max_step, k)
+    # Cluster centroids
+    means = zeros((nb, dataset.shape[1]))
+    # Variance
+    vars  = [ None for i in range(nb) ]
+    # Nb of examples in a given cluster
+    snb   = zeros((nb,))
 
-    def helper(dataset, step, k):
-        means = kmeans(dataset, k)
-        p = partition(dataset, means)
-        vars = variances(dataset, p, means)
-        px_given_k = probs(dataset, p, means, vars)
-        
-        # Recursion
-        if step == 1:
-            return [px_given_k]
-        else:
-            # Recursion step: 
-            # For each cluster found, recursively apply hc on the 
-            # subset of the dataset closest to that cluster
-            rec = [ helper(dataset[p == i,:], step-1, k) for i in range(k) ] 
+    def helper(dataset, step, base_idx, offset):
+        cs = kmeans(dataset, k)
+        p = partition(dataset, cs)
 
-            # Reorder results so that all probabilities for clusters of a given
-            # step level are consecutive
-            return [px_given_k] + [ hstack([ r[i] for r in rec]) for i in range(len(rec[0])) ]
+        index = base_idx + k*offset
+        means[index:index+k,:] = cs
+        #print "Step %i ,Computing range [%i,%i["%(step,index, index+k)
 
-    # Concatenate all the results
-    return hstack(helper(dataset, step, k))
+        for i in range(k):
+            snb[index+i] = sum(p == i)
+            vars[index+i] = var(dataset[p == i], axis=0)
+
+            if step < max_step:
+                helper(dataset[p == i], step+1, base_idx + k**step, k*offset + i)
+
+    helper(dataset, 1, 0, 0)
+    return (means, vars, snb)
 
 # K-mean                
 #
@@ -43,7 +64,8 @@ def hc(dataset, step=5, k=2):
 # Ouput:
 #        :k x d matrix that contains the centroids of each cluster
 def kmeans(dataset, k):
-    pass
+    # TODO: Do we need whitening?
+    return vq.kmeans(dataset, k)[0]
 
 # Partition the data according to the nearest centroid
 #    
@@ -55,33 +77,50 @@ def kmeans(dataset, k):
 #        : n x 1 matrix that contains the index to the nearest cluster 
 #          to the nth matrix
 def partition(dataset, means):
-    pass
+    n = dataset.shape[0]
+    k = means.shape[0]
+    p = zeros((n,k))
 
-# Compute the variances for each of the cluster
-# 
-# Inputs:
-# dataset: n x d matrix with n examples with d features
-# p      : n x 1 partition matrix 
-# means  : k x d matrix that contains the centroids of each cluster
-# 
-# Output:
-#        : k-tuple of (d x d) covariance matrices for each cluster
-def variances(dataset, p, means):
-    pass
+    for i in range(k):
+        p[:,i] = dist(dataset, means[i,:]) 
+    return argmin(p, axis=1)
 
 # Compute the probability that an example belongs to a given cluster
 #
 # Inputs:
 # dataset: n x d matrix with n examples with d features
-# p      : n x 1 partition matrix 
 # means  : k x d matrix that contains the centroids of each cluster
 # vars   : k-tuple of (d x d) covariance matrices of each cluster 
-# 
+#                  or (d x 1) variance vectors
+# snb    : k x 1 matrix of sample numbers for each clusters 
 # Output:
 #        : n x k matrix that contains the probability that an example
 #          belongs to a given cluster
-def probs(dataset, p, means, vars):
+def probs(dataset, means, vars):
     pass
+
+if __name__ == "__main__":
+    dataset = array([[-4, 2],\
+                     [-3, 2],\
+                     [-4, 1],\
+                     [-3, 1],\
+                     [-4,-1],\
+                     [-3,-1],\
+                     [-4,-2],\
+                     [-3,-2],\
+                     [ 3, 2],\
+                     [ 4, 2],\
+                     [ 3, 1],\
+                     [ 4, 1],\
+                     [ 3,-1],\
+                     [ 4,-2],\
+                     [ 3,-2],\
+                     [ 4,-1]], dtype='float')
+
+    (means, vars, snb) = hc(dataset, 2, 2)
+    print means
+    print vars
+    print snb
 
         
 

@@ -78,8 +78,8 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         #u,i = zip(*temp)
 	
         # sort outputs, best come first (u=sorted vals, i=index)
-	i = N.argsort(output)
-	u = output[i]
+	    i = N.argsort(output)
+	    u = output[i]
 
         uval_ascending = N.unique(output)
         assert len(uval.shape) == 1
@@ -98,8 +98,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
             L = last_neg.shape[0]
 
             if L>1 and N.unique(output[other]).shape[0] == other.shape[0]:
-                raise ValueError('case L>1')
-                S[i] = range(n)
+                S[i] = N.arange(1,n+1)
                 S[last_neg] = n-(L-1)/2
             else:
                 # Average the ranks for the ties
