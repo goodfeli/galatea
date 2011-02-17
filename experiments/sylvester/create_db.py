@@ -3,6 +3,29 @@ from jobman.parse import filemerge
 
 from experiments.sylvester.scripts import train_dA
 
+def frange(start, end=None, inc=None):
+    "A range function, that does accept float increments..."
+    "http://code.activestate.com/recipes/66472-frange-a-range-function-with-float-increments/"
+    if end == None:
+        end = start + 0.0
+        start = 0.0
+    else: start += 0.0 # force it to be a float
+
+    if inc == None:
+        inc = 1.0
+
+    count = int((end - start) / inc)
+    if start + count * inc != end:
+        # need to adjust the count.
+        # AFAIKT, it always comes up one short.
+        count += 1
+
+    L = [None,] * count
+    for i in xrange(count):
+        L[i] = start + i * inc
+
+    return L
+
 def update_view(TABLE_NAME):
     db = sql.db('postgres://ift6266h11@gershwin.iro.umontreal.ca/ift6266h11_sandbox_db/'+TABLE_NAME)
     # user-friendly view
@@ -25,8 +48,8 @@ def first_xp(TABLE_NAME, batchsize):
     state.noise_type = 'gaussian'
     state.normalize = False
 
-    for unsuplr in [5e-2, 1e-2, 5e-3, 1e-3, 5e-4]:
-        for noise in [0.1, 0.3, 0.5]:
+    for unsuplr in frange(0.0005,0.05,0.0001):
+        for noise in frange(0.1,0.5,0.01):
             cnt += 1
             state.lr = unsuplr
             state.corruption_level = noise
