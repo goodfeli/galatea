@@ -1,0 +1,9 @@
+Run scripts in this order:
+spectral_terry
+kmeans
+extract_features
+
+each has options that need to be set (hardcoded) at the top of the script
+spectral_terry learns a spectral embedding on Yann's autoencoder features on terry, and makes a zip file that can be scored for the competition
+kmeans loads the embedding features and learns k-means
+extract_features takes the saved means and pulls out either a one-hot code or a triangle code, and makes a zip file that can be scored for the competition
