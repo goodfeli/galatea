@@ -37,10 +37,8 @@ def score(dataset, labels,
                 debug,
                 useRPMat=True # Whether we should use a precalculated permutation matrix
                )
-    print x,y,e
     # Compute the (normalized) area under the learning curve
     return alc(x, y)
-
 
 if __name__ == "__main__":
     import pylearn.datasets.utlc as pdu
@@ -51,10 +49,13 @@ if __name__ == "__main__":
     tic = time.clock()
 
     dataset = np.vstack((dataset_valid, dataset_test))
-    _labels_valid = np.hstack((labels_valid, np.zeros((labels_valid.shape[0],labels_test.shape[1]))))
-    _labels_test = np.hstack((np.zeros((labels_test.shape[0],labels_valid.shape[1])),labels_test))
+    #_labels_valid = np.hstack((labels_valid, np.zeros((labels_valid.shape[0],labels_test.shape[1]))))
+    _labels_valid = np.hstack((np.ones((labels_valid.shape[0],1)), np.zeros((labels_valid.shape[0],1))))
+    #_labels_test = np.hstack((np.zeros((labels_test.shape[0],labels_valid.shape[1])),labels_test))
+    _labels_test = np.hstack((np.zeros((labels_test.shape[0],1)),np.ones((labels_test.shape[0],1))))
     labels = np.vstack((_labels_valid, _labels_test))
 
+    print labels_valid
     print '... computing score on dataset of shape', dataset.shape,\
         'and labels of shape', labels.shape
     print score(dataset, labels)
