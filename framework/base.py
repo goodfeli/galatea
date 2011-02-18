@@ -23,6 +23,7 @@ class Block(object):
         self._params = []
         self.__dict__.update(kwargs)
 
+    @classmethod
     def alloc(cls, conf, rng=None):
         raise NotImplementedError('alloc')
 
@@ -35,11 +36,11 @@ class Block(object):
         are, in your judgment, typically learned in this
         model.
         """
-        return self._params
-
-    def outputs(self):
-        """Output to pass on to layers above."""
-        raise NotImplementedError('outputs')
+        # NOTE: We return list(self._params) rather than self._params
+        # in order to explicitly make a copy, so that the list isn't
+        # absentmindedly modified. If a user really knows what they're
+        # doing they can modify self._params.
+        return list(self._params)
 
     def __call__(self, inputs):
         raise NotImplementedError('__call__')
@@ -48,12 +49,19 @@ class Trainer(object):
     """
     Basic abstract class for training
     """
-    def __init__(self, inputs, **kwargs):
-        self.inputs = inputs
+    def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
+
+    @classmethod
+    def alloc(cls, conf, rng=None):
+        raise NotImplementedError('alloc')
 
     def updates(self):
         """Do one step of training."""
+        raise NotImplementedError()
+    
+    def function(self, input):
+        """Return a compiled Theano function for training"""
         raise NotImplementedError()
 
     def save(self, save_dir, save_filename):

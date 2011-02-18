@@ -146,23 +146,36 @@ class LogisticRegression(object):
 def get_constant(var):
     return theano.function([], var, mode=theano.compile.Mode(linker='py'))()
 
-def load_data(dataset, normalize=True, normalize_on_the_fly=False):
+def load_data(dataset, normalize=True, normalize_on_the_fly=False, permute=False):
     ''' Loads the dataset
 
     :type dataset: string
     :param dataset: the path to the dataset
+
+    :type normalize: boolean
+    :param normalize: control if the loader normalize the dataset, note that
+                      normalize on the fly must be set to false
+
+    :type normalize_on_the_fly: boolean
+    :param normalize_on_the_fly: control if the dataset will be normalized by
+                                 the user and not the loader
+
+    :type permute: boolean
+    :param permute: control if we apply a permutation on valid and test dataset,
+                    take not that train is always permuted
     '''
 
     #############
     # LOAD DATA #
     #############
     print '... loading data'
-    
-    # Load the dataset 
+
+    # Load the dataset
     if dataset in set(['ule', 'avicenna', 'rita', 'sylvester','harry']):
         train_set, valid_set, test_set = load_ndarray_dataset(
             dataset, normalize=normalize,
-            normalize_on_the_fly=normalize_on_the_fly)
+            normalize_on_the_fly=normalize_on_the_fly,
+            randomize_valid=permute, randomize_test=permute)
     #elif dataset == 'harry':
     #    raise NotImplementedError('Use the sparse implementation in ./sparse/..')
     else:
@@ -170,7 +183,7 @@ def load_data(dataset, normalize=True, normalize_on_the_fly=False):
 
     def shared_dataset(data_x):
         """ Function that loads the dataset into shared variables
-        
+
         The reason we store our dataset in shared variables is to allow 
         Theano to copy it into the GPU memory (when code is run on GPU). 
         Since copying data into the GPU is slow, copying a minibatch everytime
@@ -180,7 +193,7 @@ def load_data(dataset, normalize=True, normalize_on_the_fly=False):
         if normalize:
             shared_x = theano.shared(numpy.asarray(data_x, dtype=theano.config.floatX),
                                      borrow=True)
-        else:            
+        else:
             shared_x = theano.shared(numpy.asarray(data_x), borrow=True)
         # When storing data on the GPU it has to be stored as floats
         # therefore we will store the labels as ``floatX`` as well
@@ -190,6 +203,7 @@ def load_data(dataset, normalize=True, normalize_on_the_fly=False):
         # ``shared_y`` we will have to cast it to int. This little hack
         # lets ous get around this issue
         return shared_x #, T.cast(shared_y, 'int32')
+
     if normalize_on_the_fly:
         rval = [train_set, valid_set, test_set]
     else:
@@ -197,7 +211,7 @@ def load_data(dataset, normalize=True, normalize_on_the_fly=False):
         valid_set_x = shared_dataset(valid_set)
         train_set_x = shared_dataset(train_set)
         rval = [train_set_x, valid_set_x, test_set_x]
-        
+
     return rval
 
 
