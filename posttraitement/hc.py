@@ -25,20 +25,22 @@ def gaussian(X, u, E):
 # dataset : n x d matrix with n examples with d features
 # max_step: number of recursion steps to perform
 # k       : number of clusters at each step
-# cov     : "full" will return the covariance
-#            None will return the variance along each dimension
+# fullcov :  True will use the covariance
+#            None will use the variance along each dimension independently (faster)
 #
 # Output
 #         : 3-uple 
 #          nb x d matrix of clusters centroids,
-#          list of nb covariance matrices
+#          list of nb covariance/variance matrices
 #          array of nb prior probabilities
 #          with nb = (k**1 + k**2 + ... + k**step)
-def hc(dataset, max_step=5, k=2, cov=None):
+def hc(dataset, max_step=5, k=2, fullcov=True):
     # Nb of clusters to find 
     nb = kmnb(max_step, k)
+    # Nb of features
+    d = dataset.shape[1]
     # Cluster centroids
-    means = zeros((nb, dataset.shape[1]))
+    means = zeros((nb, d))
     # Variance
     vars  = [ None for i in range(nb) ]
     # Prior probabilities
@@ -52,14 +54,20 @@ def hc(dataset, max_step=5, k=2, cov=None):
         means[index:index+k,:] = cs
 
         for i in range(k):
-            priors[index+i] = (prior*(sum(p == i)) / p.shape[0])
-            if cov == "full":
-                vars[index+i] = cov(dataset[p == i], rowvar=0)
+            ix = (p == i)
+            s = sum(ix)
+
+            priors[index+i] = (prior*(s) / p.shape[0])
+            if fullcov: 
+                if s > 1:
+                    vars[index+i] = cov(dataset[ix], rowvar=0)
+                else:
+                    vars[index+i] = zeros((d,d))
             else: 
-                vars[index+i] = var(dataset[p == i], axis=0)
+                vars[index+i] = var(dataset[ix], axis=0)
 
             if step < max_step:
-                helper(dataset[p == i], step+1, base_idx + k**step, k*offset + i, priors[index+i])
+                helper(dataset[ix], step+1, base_idx + k**step, k*offset + i, priors[index+i])
 
     helper(dataset, 1, 0, 0, 1.0)
     return (means, vars, priors)
@@ -80,36 +88,38 @@ def kmeans(dataset, k):
 #    
 # Inputs
 # dataset: n x d matrix with n examples with d features
-# means  : k x d matrix that contains the centroids of each cluster
+# means  : c x d matrix that contains the centroids of each cluster
 #
 # Output
 #        : n x 1 matrix that contains the index to the nearest cluster 
 #          to the nth matrix
 def partition(dataset, means):
     n = dataset.shape[0]
-    k = means.shape[0]
-    p = zeros((n,k))
+    c = means.shape[0]
+    p = zeros((n,c))
 
-    for i in range(k):
+    for i in range(c):
         p[:,i] = dist(dataset, means[i,:]) 
     return argmin(p, axis=1)
 
 # Compute P(x|C)*P(C) (posterior). If priors is not given,
-# P(C) == 1.
+# P(C) == 1. Normalization by P(x) is optional.
 # 
 # For speed reasons, the normalization factor of the gaussian
 # is ignored.
 #
 # Inputs:
 # dataset: n x d matrix with n examples with d features
-# means  : k x d matrix that contains the centroids of each cluster
-# vars   : k-tuple of (d x d) covariance matrices of each cluster
+# means  : c x d matrix that contains the centroids of each cluster
+# vars   : c-tuple of (d x d) covariance matrices of each cluster
 #                  or (d x 1) variance vectors
-# priors : k x 1 matrix of prior probabilities for each cluster, optional
+# priors : c x 1 matrix of prior probabilities for each cluster, optional
+# k      : int   if 0, no normalization is done, otherwise normalize as if
+#                hc was computed with k clusters at each step
 #
 # Output:
-#        : n x k matrix that contains the probabilities
-def probs(dataset, means, vars, priors=None):
+#        : n x c matrix that contains the probabilities
+def probs(dataset, means, vars, priors=None, k=0):
     eps = finfo(float).eps
     Z = identity(vars[0].shape[0]) * (1/eps)
    
@@ -127,15 +137,29 @@ def probs(dataset, means, vars, priors=None):
         vars = [ initCov(var) for var in vars ]
 
     n = dataset.shape[0]
-    k = means.shape[0]
-    ps = zeros((n,k))
+    c = means.shape[0]
+    ps = zeros((n,c))
 
     if priors != None:
-        for i in xrange(k):
+        for i in xrange(c):
             ps[:,i] = gaussian(dataset, means[i,:], vars[i]) * priors[i]
     else:
-        for i in xrange(k):
+        for i in xrange(c):
             ps[:,i] = gaussian(dataset, means[i,:], vars[i])
+
+    # Normalize (Divide all computed posteriors 
+    # by the sum of posteriors at the same level)
+    if k != 0:
+        step = 1
+        i = 0
+        j = k
+
+        while j <= c:
+            ps[:,i:j] =  (ps[:,i:j].T / sum(ps[:,i:j], axis=1)).T
+
+            step += 1
+            i = j
+            j += k**step
 
     return ps
 
@@ -146,13 +170,13 @@ if __name__ == "__main__":
    
     print "Computing clusters"
     start = time.time()    
-    (means, vars, priors) = hc(dataset, 4, 2)
+    (means, vars, priors) = hc(dataset, 3, 2)
     end = time.time()
     print "Clusters computed in %i s"%(end-start)
 
     print "Computing probabilities"
     start = time.time()
-    ps = probs(dataset, means, vars, priors)
+    ps = probs(dataset, means, vars, priors, k=2)
     end = time.time()
     print "Probabilities computed in %i s"%(end-start)
     
