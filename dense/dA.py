@@ -219,12 +219,12 @@ class dA(object):
         z       = self.get_reconstructed_input(y)
         # note : we sum over the size of a datapoint; if we are using minibatches,
         #        L will  be a vector, with one entry per example in minibatch
-	#	 Moving the range of tanh from [-1;1] to [0;1]
         if cost == 'CE':
-		if self.act_enc == 'tanh':
-            		L = - T.sum( ((self.x+1)/2)*T.log(z) + (1-((self.x+1)/2))*T.log(1-z), axis=1 )
-		else:
-			L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )	
+            if self.act_enc == 'tanh':
+                # Moving the range of tanh from [-1;1] to [0;1]
+                L = - T.sum( ((self.x+1)/2)*T.log(z) + (1-((self.x+1)/2))*T.log(1-z), axis=1 )
+            else:
+                L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )	
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
