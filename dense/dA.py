@@ -18,6 +18,8 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from logistic_sgd import load_data, get_constant
 from posttraitement import pca
 from utils import tile_raster_images
+from auc.embed import score
+from auc.evaluation import hebbian_learner
 
 import PIL.Image
 
@@ -325,7 +327,7 @@ class dA(object):
                  input = args['input'],
                  n_visible= args['n_visible'],
                  n_hidden= args['n_hidden'],
-                 tied_weights = args['tied_weights'],
+                 #tied_weights = args['tied_weights'],
                  act_enc = args['act_enc'],
                  act_dec = args['act_dec'],
                  W = args['W'],
@@ -364,8 +366,79 @@ class dA(object):
 
         return numpy.mean(denoising_error)
 
+def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
+    normalize_on_the_fly = False, do_pca = False, type = 'both'):
+    """
+    Returns the ALC of the valid set VS test set
+    Note: This proxy won't work in the case of transductive learning
+    (This is an assumption) but it seems to be a good proxy in the
+    normal case (i.e only train on training set)
+    * type can be erick or yann or both
+    so you can check those two ways of computing the ALC get the same results
+    """
+
+    if type not in set(['yann', 'erick', 'both']):
+        raise('type should be in [yann, erick, both]')
+    alc_erick, alc_yann = 10000, 10000
+
+    # load the dataset
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
+    valid_set_x = datasets[1]
+    test_set_x = datasets[1]
+
+    # load the model
+    da = dA()
+    da.load(save_dir_model)
+
+    # theano functions to get representations of the dataset learned by the model
+    index = T.lscalar()    # index to a [mini]batch
+    x = theano.tensor.matrix('input')
+
+    get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
+        givens = {x:valid_set_x},
+        name = 'get_rep_valid')
+    get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
+        givens = {x:test_set_x},
+        name = 'get_rep_test')
+
+    # valid and test representations
+    valid_rep1 = get_rep_valid(0)
+    test_rep1 = get_rep_test(0)
+
+    print numpy.histogram(valid_rep1)
+    # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
+    if do_pca:
+        pca_block = pca.PCA()
+        pca_block.load(save_dir_model)
+        valid_rep1 = pca_block(valid_rep1)
+
+        pca_block = pca.PCA()
+        pca_block.load(save_dir_model)
+        test_rep1 = pca_block(test_rep1)
+
+    if type == 'yann' or 'both':
+        alc_yann = hebbian_learner(valid_rep1, test_rep1)
+        print 'ALC computed by Yann', alc_yann 
+    # build the whole dataset and give a one different one hot for each sample
+    #from the valid [1,0] VS test [0,1]   
+    n_val  = valid_rep1.shape[0]
+    n_test = test_rep1.shape[0]
+
+    _labval = numpy.hstack((numpy.ones((n_val,1)), numpy.zeros((n_val,1))))
+    _labtest = numpy.hstack((numpy.zeros((n_test,1)), numpy.ones((n_test,1))))
+     
+    dataset = numpy.vstack((valid_rep1, test_rep1))
+    label = numpy.vstack((_labval,_labtest))
+    print '... computing the ALC'
+
+    if type == 'erick' or 'both':
+        alc_erick = score(dataset, label)
+        print 'ALC computed by Erick', alc_erick   
+
+    return alc_erick, alc_yann
+
 def create_submission(dataset, save_dir_model, save_dir_submission,
-    normalize_on_the_fly = False, do_pca = False):
+    normalize_on_the_fly = False, do_pca = False, type = 'both'):
     """
     Create submission files given the path of a model and
     a dataset.
@@ -380,6 +453,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     * do_pca
         whether or not to apply (previously computed) PCA transform on model
     """
+
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     valid_set_x = datasets[1]
@@ -543,6 +617,11 @@ if __name__ == '__main__':
     # Pour harry si l'on n'exploite pas la sparsite on peut lancer avec normalisation a
     # la volée (-N, comme rita)
     # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
+
+    for i in range(1,28):
+        print eval_ALC_test_val(dataset='ule', save_dir_model='/data/lisa/exp/mesnilgr/ift6266h11/ULE1_/' + str(i) + '/', save_dir_plot='',
+            normalize_on_the_fly = False, do_pca = False)
+ 
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'
     )

@@ -3,7 +3,7 @@ import numpy as np
 from make_learning_curve import make_learning_curve
 from alc import alc
 import time
-# Compute the score as done on the website on a dataset with the corresponding labels
+""" Compute the score as done on the website on a dataset with the corresponding labels
 #
 # Inputs:
 #   dataset nxd    numpy matrix with n the nb of examples and d the number of features
@@ -18,7 +18,9 @@ import time
 #   
 # Output:
 #                  Area under the learning curve result
-#      
+#
+"""
+   
 def score(dataset, labels, 
             min_repeat=10, 
             max_repeat=500, 
@@ -38,6 +40,8 @@ def score(dataset, labels,
                 useRPMat=True # Whether we should use a precalculated permutation matrix
                )
     # Compute the (normalized) area under the learning curve
+    # returns the ALC and the last AUC value
+    print 'auc evolution',y
     return alc(x, y)
 
 if __name__ == "__main__":
