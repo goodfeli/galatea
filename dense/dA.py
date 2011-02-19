@@ -384,7 +384,7 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     valid_set_x = datasets[1]
-    test_set_x = datasets[1]
+    test_set_x = datasets[2]
 
     # load the model
     da = dA()
@@ -457,7 +457,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     valid_set_x = datasets[1]
-    test_set_x = datasets[1]
+    test_set_x = datasets[2]
 
     # load the model
     da = dA()
@@ -617,6 +617,10 @@ if __name__ == '__main__':
     # Pour harry si l'on n'exploite pas la sparsite on peut lancer avec normalisation a
     # la volée (-N, comme rita)
     # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
+
+
+    print eval_ALC_test_val(dataset='ule', save_dir_model='/data/lisa/exp/mesnilgr/ift6266h11/ULE1_/2/', save_dir_plot='./',
+        normalize_on_the_fly = False, do_pca = False, type = 'both')
 
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'
