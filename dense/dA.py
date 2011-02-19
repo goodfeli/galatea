@@ -384,7 +384,7 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     valid_set_x = datasets[1]
-    test_set_x = datasets[1]
+    test_set_x = datasets[2]
 
     # load the model
     da = dA()
@@ -457,7 +457,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     valid_set_x = datasets[1]
-    test_set_x = datasets[1]
+    test_set_x = datasets[2]
 
     # load the model
     da = dA()
