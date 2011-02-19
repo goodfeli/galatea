@@ -1,26 +1,32 @@
  id  |  actdec  | actenc  | batchsize | corruptionlevel | noisetype |   lr   | costtype | dataset  | epochs | nhidden |   timespent   | denoisingerror 
 -----+----------+---------+-----------+-----------------+-----------+--------+----------+----------+--------+---------+---------------+----------------
+ 734 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 | 80.4993333333 |  1.94771451775
+ 735 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 | 111.658833333 |  1.95167520471
  663 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 | 121.622166667 |  1.96699668771
  662 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 108.555333333 |  1.97073035597
  590 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |        58.059 |  1.98833255062
- 500 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |       61.9035 |  1.99340999703
  496 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 94.5323333333 |  1.99340999703
+ 500 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |       61.9035 |  1.99340999703
  352 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 55.2591666667 |   2.0004720667
  356 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 43.6406666667 |   2.0004720667
  666 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 | 99.4748333333 |  2.01500219198
+ 738 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 |       97.6765 |  2.03852592134
  661 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 |        44.581 |  2.03861615696
+ 733 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 | 55.3441666667 |  2.04057517723
  594 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     500 | 77.1901666667 |  2.04628541805
- 355 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 30.2493333333 |  2.09069246226
  351 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 24.5138333333 |  2.09069246226
- 499 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 61.9018333333 |  2.13385318056
+ 355 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 30.2493333333 |  2.09069246226
  495 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 43.6091666667 |  2.13385318056
+ 499 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 61.9018333333 |  2.13385318056
  665 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |       58.8855 |  2.17564143644
- 354 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 32.3323333333 |  2.23079040354
  350 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 21.3783333333 |  2.23079040354
+ 354 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 32.3323333333 |  2.23079040354
+ 737 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 | 60.9453333333 |  2.23466638375
  494 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 |        31.058 |     2.31634238
  498 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 |       31.6005 |     2.31634238
- 212 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 26.1091666667 |  2.35823275002
  208 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 27.7251666667 |  2.35823275002
+ 212 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 26.1091666667 |  2.35823275002
+ 615 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 | 91.9076666667 |  2.36251827122
  614 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 61.7891666667 |  2.39041368102
  618 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 |       69.4665 |  2.40837025015
  543 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |     500 | 89.5863333333 |  2.42820701773
@@ -29,22 +35,26 @@
  260 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 42.2408333333 |  2.43361140953
  256 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 |       55.4475 |  2.43361140953
  542 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 |       58.2055 |   2.4430689849
- 400 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 99.5066666667 |  2.45961589978
+ 613 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 44.3741666667 |  2.45212175162
  404 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |       58.9555 |  2.45961589978
+ 400 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 99.5066666667 |  2.45961589978
  664 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 40.6421666667 |  2.47213692067
  541 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 40.5433333333 |  2.47802815921
  259 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 39.8418333333 |  2.49480838774
  255 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 29.3076666667 |  2.49480838774
  207 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 |       14.9485 |   2.4972018975
  211 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 | 22.2248333333 |   2.4972018975
+ 617 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 40.8761666667 |  2.51476876247
  545 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 |        44.819 |  2.52027883715
+ 627 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 | 91.8508333333 |   2.5266208308
  403 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 50.6368333333 |  2.53073504767
  399 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 |       70.0255 |  2.53073504767
+ 736 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 | 42.5143333333 |  2.53195969423
  116 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 | 26.1298333333 |  2.55681987231
  112 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 | 31.8288333333 |  2.55681987231
  689 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 | 69.9068333333 |  2.57992340485
- 254 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 31.4391666667 |  2.59907430735
  258 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 28.0561666667 |  2.59907430735
+ 254 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 31.4391666667 |  2.59907430735
  686 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 |       162.822 |  2.62690983768
  398 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 |       37.8015 |  2.62831940332
  402 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 | 49.9693333333 |  2.62831940332
@@ -58,8 +68,8 @@
  349 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 13.0703333333 |  2.68899629392
  353 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 14.8966666667 |  2.68899629392
  688 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |    1000 |        36.361 |  2.73148265095
- 110 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 |       12.8255 |   2.7747113207
  114 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 14.1098333333 |   2.7747113207
+ 110 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 |       12.8255 |   2.7747113207
  555 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     500 |        84.345 |  2.80628401391
  257 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 |        19.908 |  2.82296151304
  253 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 |        9.3335 |  2.82296151304
@@ -67,21 +77,26 @@
  397 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 |       26.1285 |  2.83347582419
  497 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 24.2108333333 |  2.83817524485
  493 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 29.5083333333 |  2.83817524485
- 113 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 5.87316666667 |  2.99166117384
  109 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 8.18833333333 |  2.99166117384
+ 113 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 5.87316666667 |  2.99166117384
+ 626 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |        50.003 |  3.02280189033
  675 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     750 |       96.0445 |  3.17620502953
  205 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 7.83266666667 |  3.20444430492
  209 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 10.1151666667 |  3.20444430492
+ 747 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 | 106.282666667 |  3.25031664515
  554 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 61.1131666667 |  3.27345232048
  424 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |        85.554 |  3.31749663092
  428 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 115.250833333 |  3.31749663092
  697 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 | 53.1266666667 |  3.39645683423
+ 625 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 35.6988333333 |  3.43841506443
  602 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 51.9006666667 |  3.46078859176
+ 630 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 | 63.9221666667 |  3.47680684602
  674 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 93.9043333333 |  3.49443118664
+ 746 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 | 73.6183333333 |  3.57320862668
  280 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 65.7208333333 |  3.61012161079
  284 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 41.3986666667 |  3.61012161079
- 524 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 69.6333333333 |  3.64436707592
  520 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 |        83.138 |  3.64436707592
+ 524 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 69.6333333333 |  3.64436707592
  553 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 32.8173333333 |  3.66937671692
  380 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 60.0013333333 |  3.67680326913
  376 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |        61.199 |  3.67680326913
@@ -90,60 +105,67 @@
  423 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 |        69.823 |  3.72890238446
  427 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 57.2736666667 |  3.72890238446
  558 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     500 | 78.0696666667 |  3.74413527809
+ 745 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 | 53.3508333333 |  3.75310185541
  606 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     500 | 50.7633333333 |  3.75680012521
+ 750 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 | 81.6526666667 |  3.77790325162
  523 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 31.8016666667 |  3.82160071224
  519 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |       63.7075 |  3.82160071224
- 379 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 38.1926666667 |  3.87175279273
  375 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 43.2538333333 |  3.87175279273
+ 379 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 38.1926666667 |  3.87175279273
   98 | linear   | tanh    |        20 |             0.3 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 24.1648333333 |  3.88166321161
  677 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 70.0608333333 |  3.91391477024
  701 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 |      111.5745 |  3.91727522135
- 518 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 38.1533333333 |  3.97858065616
+ 749 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 | 54.7898333333 |  3.93324377521
+ 629 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 46.6143333333 |  3.95550402281
  522 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 40.3828333333 |  3.97858065616
- 279 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 |       32.4745 |  4.02589449282
+ 518 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 38.1533333333 |  3.97858065616
  283 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 41.8821666667 |  4.02589449282
- 378 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 33.9496666667 |  4.07042370149
+ 279 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 |       32.4745 |  4.02589449282
  374 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 |        25.687 |  4.07042370149
+ 378 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 33.9496666667 |  4.07042370149
+ 748 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 |        47.737 |  4.07134787828
  136 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 24.7813333333 |  4.09422345426
  140 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 29.0661666667 |  4.09422345426
  676 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 47.3988333333 |  4.09767420316
- 422 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 | 29.7973333333 |  4.12564495501
  426 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 |        38.351 |  4.12564495501
+ 422 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 | 29.7973333333 |  4.12564495501
  604 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 26.8146666667 |  4.23682762305
  517 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 | 31.0851666667 |  4.25725504128
  521 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 |       29.4915 |  4.25725504128
  700 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 | 86.7583333333 |  4.25865096425
   62 | linear   | tanh    |        20 |             0.3 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 |        17.297 |  4.26659959807
  557 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 34.7038333333 |  4.27320607475
- 278 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |        37.978 |  4.44911515938
+ 628 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 |        24.477 |  4.41468389627
  282 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 20.9976666667 |  4.44911515938
+ 278 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |        37.978 |  4.44911515938
  377 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 10.5211666667 |  4.46663670096
  373 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 |       12.9615 |  4.46663670096
- 236 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 |       28.7385 |  4.47770888591
  232 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 |        21.205 |  4.47770888591
- 135 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 |        13.857 |  4.57776678063
+ 236 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 |       28.7385 |  4.47770888591
  139 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 | 13.7473333333 |  4.57776678063
+ 135 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 |        13.857 |  4.57776678063
  360 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |        67.227 |  4.70082032242
  364 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 49.8396666667 |  4.70082032242
- 508 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |       91.5115 |    4.734867874
  504 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 106.445333333 |    4.734867874
+ 508 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |       91.5115 |    4.734867874
  556 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 23.1133333333 |  4.77816675464
   43 | linear   | sigmoid |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 10.3668333333 |  4.77964219795
   79 | linear   | sigmoid |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 32.8323333333 |  4.78958406664
  363 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 |        30.303 |   4.7932629117
  359 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 24.2511666667 |   4.7932629117
- 421 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 29.1966666667 |  4.82425208289
  425 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 |        29.804 |  4.82425208289
+ 421 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 29.1966666667 |  4.82425208289
  503 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 43.8421666667 |  4.84774713283
  507 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 52.5041666667 |  4.84774713283
- 362 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 29.9356666667 |  4.86405647764
  358 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 35.1408333333 |  4.86405647764
- 506 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 |       51.9365 |  4.94205644007
+ 362 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 29.9356666667 |  4.86405647764
+ 711 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 | 110.749166667 |  4.91678485207
  502 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 | 31.1553333333 |  4.94205644007
+ 506 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 |       51.9365 |  4.94205644007
  231 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 15.1631666667 |  4.95896799846
  235 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 23.6623333333 |  4.95896799846
- 220 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 28.3696666667 |  4.96596742102
  216 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 |       27.5155 |  4.96596742102
+ 220 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 28.3696666667 |  4.96596742102
  219 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 | 24.3836666667 |  5.07666841328
  215 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 | 18.2143333333 |  5.07666841328
  138 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 12.9073333333 |  5.09554984728
@@ -152,14 +174,18 @@
  361 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 20.1573333333 |  5.13250924794
  214 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 |        13.141 |  5.18429777358
  218 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 |       14.0325 |  5.18429777358
- 277 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 |       20.1405 |  5.25476167923
  281 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 12.7523333333 |  5.25476167923
+ 277 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 |       20.1405 |  5.25476167923
  505 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 26.7618333333 |  5.26105916544
  501 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 |        30.059 |  5.26105916544
+ 710 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 | 74.7421666667 |  5.28838063043
+ 639 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     750 |       75.8195 |  5.42092571007
  213 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 |        8.3975 |  5.50688998684
  217 | linear   | tanh    |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 10.2506666667 |  5.50688998684
- 230 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 16.4938333333 |  5.52048978006
  234 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 |         16.53 |  5.52048978006
+ 230 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 16.4938333333 |  5.52048978006
+ 709 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 | 57.7506666667 |  5.58665865205
+ 714 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 |       89.4925 |  5.64515075278
  264 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 41.1056666667 |   5.7037438673
  268 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 41.5706666667 |   5.7037438673
  124 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 | 23.7726666667 |  5.73334502128
@@ -167,86 +193,108 @@
  672 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 |      133.7505 |  5.73559299908
  596 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 58.8818333333 |  5.73670391516
  600 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |     500 |       51.7395 |  5.74466137443
+ 740 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 | 75.0146666667 |  5.74929470734
  668 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 60.2091666667 |  5.77748877128
+ 744 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 | 120.982666667 |  5.80130204717
  669 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 | 154.871666667 |  5.81157793687
- 436 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 61.3203333333 |  5.81209344962
  432 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 89.4546666667 |  5.81209344962
+ 436 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 61.3203333333 |  5.81209344962
+ 741 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 | 109.581333333 |  5.81309474318
  267 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 38.3743333333 |  5.82490750856
  263 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 44.8666666667 |  5.82490750856
  671 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |        84.363 |  5.83010151754
+ 739 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 | 68.7556666667 |  5.83676365036
  667 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 |       45.8415 |  5.85813986414
- 262 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 33.0521666667 |  5.86862002257
  266 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 |        19.763 |  5.86862002257
- 412 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |        99.512 |  5.89663718808
+ 262 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 33.0521666667 |  5.86862002257
  408 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 97.6086666667 |  5.89663718808
+ 412 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |        99.512 |  5.89663718808
+ 743 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 |       59.2535 |  5.91815022288
+ 713 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 | 57.6761666667 |  5.93701244161
  119 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 |       13.7395 |  5.96827255137
  123 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 | 16.2356666667 |  5.96827255137
  670 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 35.5473333333 |  5.97785993359
  598 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 26.4488333333 |  5.98275297678
  265 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 9.37966666667 |  6.02100915001
  261 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 |       11.8795 |  6.02100915001
- 411 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 |        53.376 |  6.02136663365
  407 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 69.5268333333 |  6.02136663365
- 137 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 |        5.9145 |  6.07328127504
+ 411 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 |        53.376 |  6.02136663365
+ 638 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 |       51.3125 |   6.0707215573
  133 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 |         5.901 |  6.07328127504
+ 137 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 |        5.9145 |  6.07328127504
  122 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 14.1476666667 |  6.10066369687
  118 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 15.9386666667 |  6.10066369687
  406 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 |       34.0435 |  6.10541000068
  410 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 |       44.1325 |  6.10541000068
+ 742 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 | 42.6931666667 |  6.13716748245
+ 712 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 | 39.1443333333 |  6.16737122856
+ 633 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 | 76.4376666667 |  6.18872477539
  288 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |        32.137 |  6.22541166481
  292 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |       65.9895 |  6.22541166481
- 409 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 | 17.5083333333 |  6.23946935736
  405 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 | 30.0806666667 |  6.23946935736
+ 409 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 | 17.5083333333 |  6.23946935736
  431 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 60.8181666667 |  6.41406745602
  435 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 57.6396666667 |  6.41406745602
   80 | linear   | sigmoid |        20 |             0.3 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |       22.0955 |  6.45561761142
  388 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 33.1086666667 |   6.4564540936
  384 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 55.2186666667 |   6.4564540936
- 121 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 |          9.35 |  6.47472822488
  117 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 |         5.882 |  6.47472822488
+ 121 | linear   | sigmoid |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 |          9.35 |  6.47472822488
  561 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |     500 |        85.657 |  6.49165290372
- 233 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 8.79383333333 |  6.49515516772
  229 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 9.24066666667 |  6.49515516772
- 448 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 |       75.4345 |  6.49622134462
+ 233 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 8.79383333333 |  6.49515516772
  452 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 86.5781666667 |  6.49622134462
+ 448 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 |       75.4345 |  6.49622134462
+ 632 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 51.7808333333 |  6.53938110796
  681 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     750 |       98.6245 |  6.55506340122
    7 | linear   | sigmoid |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     100 | 6.36866666667 |  6.60829678138
+ 637 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 35.3483333333 |  6.61432831282
  528 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 86.2141666667 |  6.62622555987
  532 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 76.4526666667 |  6.62622555987
- 287 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 39.3971666667 |  6.78629574361
+ 753 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 |        98.526 |  6.66897948283
+ 642 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     750 | 57.7686666667 |  6.70776062819
  291 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 29.5431666667 |  6.78629574361
+ 287 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 39.3971666667 |  6.78629574361
  560 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |        69.417 |  6.84211814865
   25 | linear   | tanh    |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     100 | 6.74583333333 |  6.90508565746
  552 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     500 | 49.6391666667 |  6.90950928059
  703 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 | 59.4393333333 |  6.95523741778
- 244 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 32.9853333333 |  6.96333975858
  240 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 31.5756666667 |  6.96333975858
- 430 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 | 42.4548333333 |  6.99237343371
+ 244 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 32.9853333333 |  6.96333975858
+ 631 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 58.4521666667 |  6.98175553724
  434 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 |        40.299 |  6.99237343371
- 451 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 61.2421666667 |  7.00415084495
+ 430 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 | 42.4548333333 |  6.99237343371
  447 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |       70.4625 |  7.00415084495
+ 451 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 61.2421666667 |  7.00415084495
  620 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |        81.842 |  7.02434175582
+ 621 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 |       78.2945 |  7.02802799033
  566 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 56.2681666667 |  7.03671227725
  549 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     500 |       94.3225 |  7.03767077472
  608 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |       49.0865 |  7.04949911407
  383 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 54.7761666667 |  7.07223644296
  387 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 |       44.7165 |  7.07223644296
  551 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 34.7943333333 |  7.08817850036
+ 708 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 | 82.7546666667 |  7.09532081244
+ 636 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |     750 | 63.1438333333 |  7.10029990531
  680 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 94.4713333333 |  7.13694392726
  548 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 48.6283333333 |  7.14594349416
  624 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 |      118.5945 |  7.14602070929
- 144 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 |       19.7695 |  7.14730452253
  148 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 27.2528333333 |  7.14730452253
+ 144 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 |       19.7695 |  7.14730452253
+ 619 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 36.0691666667 |  7.23199279581
   44 | linear   | sigmoid |        20 |             0.3 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 16.1401666667 |  7.23460730787
+ 623 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |        39.219 |   7.2456557661
  531 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 65.3013333333 |  7.24572592821
+ 641 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 |        38.326 |  7.25526461441
+ 752 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 | 73.2738333333 |  7.27027305684
  559 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 35.6253333333 |  7.28560606954
  550 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 25.1911666667 |  7.29950106181
  547 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 32.1913333333 |  7.32395519948
- 286 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |        20.278 |  7.39450307749
  290 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 | 33.1571666667 |  7.39450307749
+ 286 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |        20.278 |  7.39450307749
  622 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 34.7271666667 |  7.40566190558
- 450 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 |        31.193 |  7.43205058184
  446 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 26.4738333333 |  7.43205058184
+ 450 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 |        31.193 |  7.43205058184
  695 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 | 96.6723333333 |  7.50389759701
  239 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 |       14.7575 |   7.5470547827
  243 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 |       23.7655 |   7.5470547827
@@ -254,6 +302,8 @@
  694 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |    1000 |        38.232 |  7.62695461153
  382 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 26.1638333333 |  7.63962288679
  386 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 33.1291666667 |  7.63962288679
+ 707 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 |       66.0715 |  7.63989012087
+ 640 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 26.4956666667 |  7.66639177416
  612 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     500 | 55.7136666667 |  7.70582541679
  679 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |       53.0085 |  7.71079402514
  308 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |       49.6095 |  7.77638657571
@@ -262,26 +312,29 @@
  530 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 |        44.914 |  7.78264572597
  143 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 | 21.6243333333 |  7.78846426289
  147 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 |        18.063 |  7.78846426289
+ 635 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 38.2993333333 |  7.80167367481
  692 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 |      126.6755 |  7.81940421187
  684 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     750 | 75.7931666667 |  7.83398144779
- 372 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |        70.673 |  7.95454605324
+ 751 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 | 53.8876666667 |  7.86227801265
  368 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 42.3111666667 |  7.95454605324
+ 372 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |        70.673 |  7.95454605324
  565 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 30.3056666667 |  7.95509083886
  691 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |    1000 | 74.9706666667 |  7.96444034712
  512 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 |       71.2465 |  7.97197253958
  516 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 105.885666667 |  7.97197253958
- 449 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 |        24.987 |   7.9785126807
  445 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 |       41.2305 |   7.9785126807
- 367 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 48.4643333333 |  8.04975368491
+ 449 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 |        24.987 |   7.9785126807
+ 756 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 | 81.2401666667 |  8.01104973145
  371 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 42.0668333333 |  8.04975368491
+ 367 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 48.4643333333 |  8.04975368491
  511 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 |       64.1285 |  8.06682167844
  515 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 44.2181666667 |  8.06682167844
  224 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 |        28.378 |   8.0861410641
  228 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 32.7828333333 |   8.0861410641
- 433 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 28.9166666667 |  8.09273436072
  429 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 16.0233333333 |  8.09273436072
- 366 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |       34.2575 |  8.12483836816
+ 433 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 28.9166666667 |  8.09273436072
  370 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |       34.9055 |  8.12483836816
+ 366 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |       34.2575 |  8.12483836816
  242 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 10.6331666667 |  8.14586211755
  238 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 |        16.937 |  8.14586211755
   26 | linear   | tanh    |        20 |             0.3 | gaussian  |  0.001 | MSE      | avicenna |     50 |     100 | 6.69033333333 |  8.16402785927
@@ -292,8 +345,8 @@
  227 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 |       23.8075 |   8.1985776315
  563 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |       53.4865 |  8.25770797003
  706 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |    1000 |       40.9115 |  8.28117664161
- 226 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 14.1916666667 |   8.2978899592
  222 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 16.6843333333 |   8.2978899592
+ 226 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 14.1916666667 |   8.2978899592
  381 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 |       10.2095 |  8.33118245475
  385 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 12.9093333333 |  8.33118245475
  529 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 | 29.8423333333 |  8.34423176016
@@ -302,15 +355,18 @@
  365 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 22.7543333333 |  8.35161441244
  146 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 15.9961666667 |   8.3871057759
  142 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 |       12.2055 |   8.3871057759
+ 611 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 29.5028333333 |  8.43850372929
  513 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 |       25.4055 |  8.46859361339
  509 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 31.0251666667 |  8.46859361339
+ 634 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 27.5918333333 |  8.47977249125
  289 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 15.2406666667 |  8.53065374332
  285 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 19.0473333333 |  8.53065374332
  683 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 76.7571666667 |  8.55717138413
- 221 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 9.07016666667 |  8.58547724491
  225 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 9.78933333333 |  8.58547724491
- 303 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 |        22.688 |  8.66185874132
+ 221 | linear   | tanh    |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 9.07016666667 |  8.58547724491
  307 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 27.9611666667 |  8.66185874132
+ 303 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 |        22.688 |  8.66185874132
+ 755 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 | 52.7301666667 |   8.7536249621
  562 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 20.1283333333 |  8.93791234669
  440 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 72.7133333333 |  8.99840028247
  444 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     750 | 75.9618333333 |  8.99840028247
@@ -319,23 +375,24 @@
  296 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 | 41.1828333333 |  9.17394360701
  300 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |       39.9475 |  9.17394360701
  682 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 48.8813333333 |  9.26646542045
- 237 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 9.50533333333 |  9.28712327243
  241 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 10.2711666667 |  9.28712327243
+ 237 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 9.50533333333 |  9.28712327243
+ 754 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 |        43.425 |  9.40025918996
  306 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 26.8116666667 |  9.42704444025
  302 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 32.1708333333 |  9.42704444025
  141 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 7.85066666667 |  9.45958356929
  145 | linear   | sigmoid |        20 |            0.35 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 9.70716666667 |  9.45958356929
- 392 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |         32.54 |  9.52396888511
  396 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 43.8266666667 |  9.52396888511
- 443 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 46.5011666667 |  9.53815193086
+ 392 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |         32.54 |  9.52396888511
  439 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 42.0523333333 |  9.53815193086
+ 443 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     750 | 46.5011666667 |  9.53815193086
    8 | linear   | sigmoid |        20 |             0.3 | gaussian  |  0.001 | MSE      | avicenna |     50 |     100 |         6.316 |  9.55389780366
  128 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 | 30.4941666667 |  9.60793363264
  132 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 | 42.8188333333 |  9.60793363264
- 536 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 67.0858333333 |  9.67778582017
  540 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 |        60.872 |  9.67778582017
- 127 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 |       21.3565 |  9.73833045628
+ 536 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 67.0858333333 |  9.67778582017
  131 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 | 22.6711666667 |  9.73833045628
+ 127 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 |       21.3565 |  9.73833045628
  295 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 28.7466666667 |  9.74993085086
  299 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 | 37.6708333333 |  9.74993085086
   99 | linear   | tanh    |        20 |             0.3 | gaussian  |  1e-05 | MSE      | avicenna |     50 |     500 |       34.6665 |  9.77152211858
@@ -346,115 +403,126 @@
  568 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 28.3523333333 |  9.87266312409
  130 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 15.3571666667 |  9.87764674922
  126 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 16.0493333333 |  9.87764674922
- 160 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 19.7018333333 |  9.89981992941
  164 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 31.5511666667 |  9.89981992941
- 275 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 |        36.911 |  10.0582717794
+ 160 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 19.7018333333 |  9.89981992941
+ 717 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 | 110.577333333 |  9.93611268991
  271 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 44.9381666667 |  10.0582717794
- 391 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 48.3568333333 |  10.0722927462
+ 275 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 |        36.911 |  10.0582717794
  395 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 30.7093333333 |  10.0722927462
+ 391 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 48.3568333333 |  10.0722927462
+ 645 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     750 | 134.235333333 |  10.1057968235
  442 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 | 47.7506666667 |  10.1155282206
  438 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     750 | 56.4878333333 |  10.1155282206
- 129 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 5.91233333333 |  10.1501431773
  125 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 5.89916666667 |  10.1501431773
+ 129 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 5.91233333333 |  10.1501431773
  535 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |        57.027 |  10.2937137291
  539 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |        68.518 |  10.2937137291
- 274 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 16.2101666667 |  10.3042695414
  270 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 30.9473333333 |  10.3042695414
+ 274 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 16.2101666667 |  10.3042695414
  298 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |        28.815 |  10.3582298504
  294 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     500 |       25.5705 |  10.3582298504
- 247 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 18.5331666667 |  10.3783513473
  251 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 |         19.79 |  10.3783513473
+ 247 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 18.5331666667 |  10.3783513473
  305 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 |         12.33 |  10.4405795063
  301 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 15.8481666667 |  10.4405795063
- 156 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 |        19.726 |  10.5806601112
  152 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 | 27.3943333333 |  10.5806601112
- 420 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 86.7263333333 |  10.6174083725
+ 156 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |    100 |     250 |        19.726 |  10.5806601112
  416 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 84.6716666667 |  10.6174083725
- 456 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 77.8526666667 |  10.6485056465
+ 420 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 86.7263333333 |  10.6174083725
  460 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 98.0851666667 |  10.6485056465
- 269 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 12.6248333333 |  10.6937621157
+ 456 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 77.8526666667 |  10.6485056465
  273 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 12.4908333333 |  10.6937621157
- 394 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 31.3041666667 |  10.7270014937
+ 269 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 12.6248333333 |  10.6937621157
  390 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 21.5893333333 |  10.7270014937
+ 394 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 31.3041666667 |  10.7270014937
  419 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 41.8571666667 |  10.7544609784
  415 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 |       39.3925 |  10.7544609784
- 534 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 30.9218333333 |  10.8874651648
+ 716 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 | 73.2996666667 |  10.8171849346
  538 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 |        40.097 |  10.8874651648
+ 534 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 30.9218333333 |  10.8874651648
  414 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 |        23.035 |  10.9572184979
  418 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 | 47.9253333333 |  10.9572184979
  250 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 |       16.5125 |  11.0427610912
  246 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 13.6711666667 |  11.0427610912
  151 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 | 13.7818333333 |  11.1825728104
  155 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     70 |     250 | 22.1258333333 |  11.1825728104
+ 644 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 51.1133333333 |  11.1832737475
  437 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 |       22.7195 |  11.2800395167
  441 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     750 | 30.0326666667 |  11.2800395167
- 455 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |        41.126 |  11.3612680202
  459 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 112.348666667 |  11.3612680202
+ 455 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |        41.126 |  11.3612680202
+ 715 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 | 50.0801666667 |  11.3911126719
  417 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 |        13.781 |  11.4484266188
  413 | linear   | sigmoid |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 |       28.5695 |  11.4484266188
- 293 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 19.5766666667 |   11.488194047
  297 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 |       19.2255 |   11.488194047
+ 293 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     500 | 19.5766666667 |   11.488194047
+ 720 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |    1000 | 85.2463333333 |  11.5049371104
  316 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 40.8098333333 |  11.6155752092
  312 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 41.3878333333 |  11.6155752092
- 159 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 18.0418333333 |  11.6320932932
  163 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 30.2398333333 |  11.6320932932
- 150 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 12.9778333333 |  11.7826351863
+ 159 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 18.0418333333 |  11.6320932932
  154 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 |       13.8885 |  11.7826351863
+ 150 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     50 |     250 | 12.9778333333 |  11.7826351863
  572 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |        63.017 |  11.8192913635
  389 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 |        18.005 |  11.8456293055
  393 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 20.4983333333 |  11.8456293055
- 458 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 39.6706666667 |  11.9419452711
  454 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 50.8863333333 |  11.9419452711
- 533 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 | 18.4703333333 |  11.9620338699
+ 458 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 39.6706666667 |  11.9419452711
  537 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 | 19.1576666667 |  11.9620338699
+ 533 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 | 18.4703333333 |  11.9620338699
+ 719 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |    1000 |        44.767 |   11.992318376
+ 643 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 36.5636666667 |  12.1312829237
+ 718 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |    1000 | 42.0741666667 |  12.3481255274
  648 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     750 | 100.289166667 |  12.3669231416
  245 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 9.77333333333 |  12.4376317894
  249 | linear   | tanh    |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 7.78633333333 |  12.4376317894
  457 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 | 17.9643333333 |  12.6395253549
  453 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 |        16.825 |  12.6395253549
- 311 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 52.5813333333 |  12.7610715736
  315 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 |       22.9525 |  12.7610715736
- 153 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 |         9.757 |  12.9663448366
+ 311 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 52.5813333333 |  12.7610715736
  149 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 | 8.09416666667 |  12.9663448366
+ 153 | linear   | sigmoid |        20 |             0.5 | gaussian  |  0.001 | MSE      | avicenna |     30 |     250 |         9.757 |  12.9663448366
  571 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 34.2746666667 |  13.0557982473
- 162 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 14.4103333333 |  13.3154695043
+ 647 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 43.4721666667 |  13.2043667269
  158 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 13.5566666667 |  13.3154695043
+ 162 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 14.4103333333 |  13.3154695043
  576 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     500 | 68.7096666667 |  13.3326519908
  101 | linear   | tanh    |        20 |             0.3 | binomial  |  0.001 | MSE      | avicenna |     50 |     500 |       22.3665 |   13.579693935
- 310 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 31.9203333333 |   13.735148493
  314 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 20.0383333333 |   13.735148493
+ 310 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 | 31.9203333333 |   13.735148493
+ 646 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 28.6983333333 |  13.8027160682
   65 | linear   | tanh    |        20 |             0.3 | binomial  |  0.001 | MSE      | avicenna |     50 |     250 |       10.4385 |  13.8791970764
  172 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 19.7246666667 |  13.9685276373
  168 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 32.9841666667 |  13.9685276373
- 464 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 166.933166667 |  14.2229112534
  468 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 99.9711666667 |  14.2229112534
+ 464 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     750 | 166.933166667 |  14.2229112534
   82 | linear   | sigmoid |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     500 |        15.858 |  14.4614047794
  575 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |        31.702 |  14.6746198759
- 324 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 57.9328333333 |  14.8682074948
  320 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |       51.1505 |  14.8682074948
+ 324 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 | 57.9328333333 |  14.8682074948
  309 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 18.3276666667 |  14.9205330149
  313 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 18.6403333333 |  14.9205330149
- 467 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 52.9523333333 |  15.2585912414
  463 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 41.6758333333 |  15.2585912414
+ 467 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 | 52.9523333333 |  15.2585912414
   63 | linear   | tanh    |        20 |             0.3 | gaussian  |  1e-05 | MSE      | avicenna |     50 |     250 | 11.1996666667 |  15.3200664683
   46 | linear   | sigmoid |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     250 | 11.1923333333 |  15.4059343293
  574 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 22.0173333333 |  15.6654680916
   83 | linear   | sigmoid |        20 |             0.3 | binomial  |  0.001 | MSE      | avicenna |     50 |     500 |        19.409 |  15.7614684596
- 167 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 22.4648333333 |  15.8231512991
  171 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 |       19.1655 |  15.8231512991
+ 167 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 22.4648333333 |  15.8231512991
  161 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 |         9.776 |  15.9613721748
  157 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 |         9.634 |  15.9613721748
- 462 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 |       37.2295 |  16.0187154866
  466 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 | 49.0508333333 |  16.0187154866
- 323 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 28.7323333333 |  16.2709372768
+ 462 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     750 |       37.2295 |  16.0187154866
  319 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 |        46.583 |  16.2709372768
+ 323 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 | 28.7323333333 |  16.2709372768
   29 | linear   | tanh    |        20 |             0.3 | binomial  |  0.001 | MSE      | avicenna |     50 |     100 |        4.8185 |  16.3254368486
   47 | linear   | sigmoid |        20 |             0.3 | binomial  |  0.001 | MSE      | avicenna |     50 |     250 | 8.27683333333 |   16.552821028
  465 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 | 28.9431666667 |  16.8757770527
  461 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     750 |       18.5185 |  16.8757770527
   10 | linear   | sigmoid |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     100 | 5.29066666667 |  16.9126409269
- 180 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 19.6548333333 |  17.1215159335
  176 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 25.8831666667 |  17.1215159335
+ 180 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     250 | 19.6548333333 |  17.1215159335
  318 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 |        20.546 |  17.4921488042
  322 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     500 |       27.9135 |  17.4921488042
  170 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 14.0658333333 |  17.6554122655
@@ -464,13 +532,13 @@
   81 | linear   | sigmoid |        20 |             0.3 | gaussian  |  1e-05 | MSE      | avicenna |     50 |     500 | 18.2496666667 |  18.5339153011
  317 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 14.2383333333 |  18.9518638672
  321 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     500 | 14.3728333333 |  18.9518638672
- 179 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 19.6231666667 |  19.3667115241
  175 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 |       21.8625 |  19.3667115241
+ 179 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     250 | 19.6231666667 |  19.3667115241
  102 | linear   | tanh    |        20 |             0.3 | binomial  |  1e-05 | MSE      | avicenna |     50 |     500 | 16.5066666667 |  20.1565235008
- 165 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 9.59766666667 |  20.3229556983
  169 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 |         8.566 |  20.3229556983
- 174 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 15.9943333333 |  21.4347584274
+ 165 | linear   | sigmoid |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 9.59766666667 |  20.3229556983
  178 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 |       12.9935 |  21.4347584274
+ 174 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     50 |     250 | 15.9943333333 |  21.4347584274
   66 | linear   | tanh    |        20 |             0.3 | binomial  |  1e-05 | MSE      | avicenna |     50 |     250 | 12.1468333333 |  22.7948549564
  177 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 | 5.92616666667 |   24.108236754
  173 | linear   | sigmoid |        20 |             0.5 | gaussian  | 0.0001 | MSE      | avicenna |     30 |     250 |        8.7845 |   24.108236754
@@ -548,7 +616,173 @@
   24 | sigmoid  | tanh    |        20 |             0.3 | binomial  |  1e-05 | MSE      | avicenna |     50 |     100 | 5.93116666667 |  125.129897145
    6 | sigmoid  | sigmoid |        20 |             0.3 | binomial  |  1e-05 | MSE      | avicenna |     50 |     100 | 4.90016666667 |   125.23270321
   34 | softplus | tanh    |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     100 | 6.90916666667 |  147.421499481
+ 773 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 57.2303333333 |  7529.09793551
+ 775 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 46.0593333333 |  7529.09793551
+ 767 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 |       47.7045 |  7529.09793551
+ 777 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 60.9071666667 |  7529.09793551
+ 763 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 49.1781666667 |  7529.09793551
+ 779 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 44.5351666667 |  7529.09793551
+ 769 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 59.8103333333 |  7529.09793551
+ 781 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 64.0581666667 |  7529.09793551
+ 761 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 |        54.878 |  7529.09793551
+ 783 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 43.4206666667 |  7529.09793551
+ 765 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 63.5568333333 |  7529.09793551
+ 771 | linear   | tanh    |           |             0.1 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 |        51.395 |  7529.09793551
+ 784 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 |       44.8485 |  7587.68579236
+ 762 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 61.4506666667 |  7587.68579236
+ 764 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 45.4176666667 |  7587.68579236
+ 766 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 |       63.4615 |  7587.68579236
+ 768 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 |       46.4365 |  7587.68579236
+ 770 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 61.1398333333 |  7587.68579236
+ 772 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 51.3943333333 |  7587.68579236
+ 774 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 62.3061666667 |  7587.68579236
+ 776 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 50.1456666667 |  7587.68579236
+ 778 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 58.9223333333 |  7587.68579236
+ 780 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 | 45.9626666667 |  7587.68579236
+ 782 | linear   | tanh    |           |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |    150 |     500 |       56.6345 |  7587.68579236
   31 | softplus | tanh    |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     100 | 8.38383333333 |  329857.203033
-  
-
+ 344 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 63.8221666667 |               
+ 343 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 26.1271666667 |               
+ 342 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 15.3901666667 |               
+ 341 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 19.3013333333 |               
+ 340 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 60.6848333333 |               
+ 339 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 21.4161666667 |               
+ 338 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 19.2896666667 |               
+ 649 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 45.4986666667 |               
+ 650 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 88.6443333333 |               
+ 651 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 |       109.517 |               
+ 652 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 |        31.661 |               
+ 653 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 63.5293333333 |               
+ 654 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 | 99.3788333333 |               
+ 655 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 38.8876666667 |               
+ 656 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 102.917833333 |               
+ 657 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 | 106.688333333 |               
+ 658 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 37.9763333333 |               
+ 659 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |        64.357 |               
+ 660 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     750 | 65.5936666667 |               
+ 337 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 18.6893333333 |               
+ 336 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 46.7873333333 |               
+ 335 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 32.6841666667 |               
+ 334 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 30.8368333333 |               
+ 333 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 11.4638333333 |               
+ 332 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 44.2873333333 |               
+ 331 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 36.1803333333 |               
+ 330 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 |       30.4635 |               
+ 329 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 |       16.4705 |               
+ 328 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 61.5771666667 |               
+ 327 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 |        33.161 |               
+ 326 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 15.3986666667 |               
+ 325 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 19.1738333333 |               
+ 204 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 | 42.9931666667 |               
+ 203 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 | 17.6091666667 |               
+ 202 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 13.9148333333 |               
+ 201 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 8.23683333333 |               
+ 200 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 | 18.9358333333 |               
+ 199 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 | 22.0633333333 |               
+ 198 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 14.5976666667 |               
+ 197 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 |         7.435 |               
+ 196 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 |       29.9795 |               
+ 195 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 | 19.0893333333 |               
+ 194 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 14.7693333333 |               
+ 193 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 9.19916666667 |               
+ 192 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 |        25.406 |               
+ 687 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 |               |               
+ 191 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 |         13.23 |               
+ 190 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 |        11.722 |               
+ 690 | linear   | sigmoid |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 |               |               
+ 189 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 |        9.2575 |               
+ 188 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 |       23.4445 |               
+ 693 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 |               |               
+ 187 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 | 20.4471666667 |               
+ 186 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 12.3908333333 |               
+ 696 | linear   | sigmoid |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 |               |               
+ 185 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 |       12.7595 |               
+ 698 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 |               |               
+ 699 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 |               |               
+ 184 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     250 |        27.464 |               
+ 183 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     250 | 17.0688333333 |               
+ 702 | linear   | sigmoid |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 |               |               
+ 182 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 |        14.836 |               
+ 704 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |    1000 |               |               
+ 705 | linear   | sigmoid |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |    1000 |               |               
+ 181 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     250 | 8.44016666667 |               
+ 106 | softplus | tanh    |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     500 | 15.5978333333 |               
+ 103 | softplus | tanh    |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 22.3506666667 |               
+ 100 | linear   | tanh    |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     500 | 14.5038333333 |               
+  97 | linear   | tanh    |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 25.7973333333 |               
+ 721 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |    1000 | 52.0103333333 |               
+ 722 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 | 61.7433333333 |               
+ 723 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 | 113.237166667 |               
+ 724 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |    1000 | 32.9118333333 |               
+ 725 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 |       56.8525 |               
+ 726 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 | 82.5916666667 |               
+ 727 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |    1000 | 43.2811666667 |               
+ 728 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 | 74.5891666667 |               
+ 729 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 | 113.221666667 |               
+ 730 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |    1000 |        38.923 |               
+ 731 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |    1000 | 55.1391666667 |               
+ 732 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |    1000 | 82.8366666667 |               
+  70 | softplus | tanh    |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     250 | 10.1206666667 |               
+  67 | softplus | tanh    |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 15.1731666667 |               
+  64 | linear   | tanh    |        20 |             0.3 | binomial  |   0.01 | MSE      | avicenna |     50 |     250 |         7.809 |               
+  61 | linear   | tanh    |        20 |             0.3 | gaussian  |   0.01 | MSE      | avicenna |     50 |     250 | 12.0978333333 |               
+ 757 | linear   | tanh    |        20 |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |     50 |     750 |               |               
+ 758 | linear   | tanh    |        20 |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |     75 |     750 |               |               
+ 759 | linear   | tanh    |        20 |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |     50 |    1000 |               |               
+ 588 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     500 |        63.425 |               
+ 760 | linear   | tanh    |        20 |             0.2 | gaussian  |  1e-23 | MSE      | avicenna |     75 |    1000 |               |               
+ 589 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 |               |               
+ 587 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 |               |               
+ 591 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    150 |     500 |               |               
+ 586 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 27.4968333333 |               
+ 593 | linear   | tanh    |        20 |             0.2 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |               |               
+ 585 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    150 |     500 |               |               
+ 595 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |     70 |     500 |               |               
+ 584 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 44.3488333333 |               
+ 597 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    150 |     500 |               |               
+ 583 | linear   | tanh    |        20 |             0.4 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 |        30.324 |               
+ 599 | linear   | tanh    |        20 |             0.4 | gaussian  |  0.001 | MSE      | avicenna |    100 |     500 |               |               
+ 582 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |     500 |       63.2355 |               
+ 601 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 |               |               
+ 581 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 30.4548333333 |               
+ 603 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     500 |               |               
+ 580 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 28.9503333333 |               
+ 605 | linear   | tanh    |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    100 |     500 |               |               
+ 579 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    150 |     500 |               |               
+ 607 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     500 |               |               
+ 578 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 | 57.1721666667 |               
+ 609 | linear   | tanh    |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     500 |               |               
+ 577 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 38.8746666667 |               
+ 573 | linear   | sigmoid |        20 |             0.4 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     500 |               |               
+ 567 | linear   | sigmoid |        20 |             0.2 | gaussian  | 0.0001 | MSE      | avicenna |    150 |     500 |               |               
+ 527 | linear   | tanh    |        20 |            0.35 | gaussian  | 0.0001 | MSE      | avicenna |     70 |     750 |               |               
+ 492 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |      113.3825 |               
+ 491 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 69.0991666667 |               
+ 490 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 |        48.618 |               
+ 489 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 |        25.501 |               
+ 488 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 77.8368333333 |               
+ 487 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 50.8148333333 |               
+ 486 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 | 45.9316666667 |               
+ 485 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 | 16.7836666667 |               
+ 484 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |       78.4005 |               
+ 483 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 91.2051666667 |               
+ 482 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 | 37.6091666667 |               
+ 481 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 | 17.0261666667 |               
+ 480 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |       41.0305 |               
+ 479 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 |               |               
+ 478 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 | 28.6651666667 |               
+ 477 | linear   | tanh    |        20 |            0.35 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 |       28.6605 |               
+ 476 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 | 56.8316666667 |               
+ 475 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 40.0868333333 |               
+ 474 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 | 38.9603333333 |               
+ 473 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 | 25.5311666667 |               
+ 472 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |    100 |     750 |         53.45 |               
+ 471 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     70 |     750 | 59.7248333333 |               
+ 470 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     50 |     750 | 39.5136666667 |               
+ 469 | linear   | tanh    |        20 |             0.2 | gaussian  |   0.01 | MSE      | avicenna |     30 |     750 | 17.5186666667 |               
+ 348 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |    100 |     500 |        52.425 |               
+ 347 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     70 |     500 | 36.7493333333 |               
+ 346 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     50 |     500 | 18.5428333333 |               
+ 345 | linear   | tanh    |        20 |             0.5 | gaussian  |   0.01 | MSE      | avicenna |     30 |     500 | 18.5308333333 |               
+(784 rows)
 
