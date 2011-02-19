@@ -618,6 +618,10 @@ if __name__ == '__main__':
     # la volée (-N, comme rita)
     # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
 
+
+    print eval_ALC_test_val(dataset='ule', save_dir_model='/data/lisa/exp/mesnilgr/ift6266h11/ULE1_/2/', save_dir_plot='./',
+        normalize_on_the_fly = False, do_pca = False, type = 'both')
+
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'
     )
