@@ -236,8 +236,8 @@ if __name__ == "__main__":
     train_fn(train_rep)
 
     # Save transformation matrix to pickle, then reload it.
-    pca.save(args.save_dir)
-    pca.load(args.save_dir)
+    #pca.save(args.save_dir)
+    #pca.load(args.save_dir)
 
     # Apply the transformation to test and valid subsets.
     pca_transform = theano.function([inputs], pca(inputs))
