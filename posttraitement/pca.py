@@ -6,7 +6,9 @@ import theano
 
 from framework.base import Block, Trainer
 
-floatX = theano.config.floatX
+# This is not compatible with dense.dA, which doesn't load this config. value.
+#floatX = theano.config.floatX
+floatX = 'float64'
 sharedX = lambda X, name: theano.shared(numpy.asarray(X, dtype=floatX), name=name)
 
 class PCATrainer(Trainer):
