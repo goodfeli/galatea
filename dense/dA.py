@@ -16,7 +16,7 @@ import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from logistic_sgd import load_data, get_constant
-from posttraitement import pca
+from posttraitement.pca import PCA, PCATrainer
 from utils import tile_raster_images
 from auc.embed import score
 from auc.evaluation import hebbian_learner
@@ -408,13 +408,17 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     print numpy.histogram(valid_rep1)
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
-        pca_block = pca.PCA()
-        pca_block.load(save_dir_model)
-        valid_rep1 = pca_block(valid_rep1)
+        # Allocate PCA block; read precomputed transformation matrix from pickle.
+        pca = PCA.alloc({'n_vis': test_rep1.shape[1]})
+        pca.load(save_dir_model)
 
-        pca_block = pca.PCA()
-        pca_block.load(save_dir_model)
-        test_rep1 = pca_block(test_rep1)
+        # Create a PCA transformation function.
+        inputs = theano.tensor.dmatrix()
+        pca_transform = theano.function([inputs], pca(inputs))
+
+        # Replace data with new representations.
+        valid_rep1 = pca_transform(valid_rep1)
+        test_rep1 = pca_transform(test_rep1)
 
     if type == 'yann' or 'both':
         alc_yann = hebbian_learner(valid_rep1, test_rep1)
@@ -480,13 +484,17 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
-        pca_block = pca.PCA()
-        pca_block.load(save_dir_model)
-        valid_rep1 = pca_block(valid_rep1)
+        # Allocate PCA block; read precomputed transformation matrix from pickle.
+        pca = PCA.alloc({'n_vis': test_rep1.shape[1]})
+        pca.load(save_dir_model)
 
-        pca_block = pca.PCA()
-        pca_block.load(save_dir_model)
-        test_rep1 = pca_block(test_rep1)
+        # Create a PCA transformation function.
+        inputs = theano.tensor.dmatrix()
+        pca_transform = theano.function([inputs], pca(inputs))
+
+        # Replace data with new representations.
+        valid_rep1 = pca_transform(valid_rep1)
+        test_rep1 = pca_transform(test_rep1)
 
     valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
     test_rep2 = numpy.dot(test_rep1,test_rep1.T)
@@ -581,13 +589,30 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     if do_pca:
         print "... computing PCA"
-        x = theano.tensor.matrix('input')
-        get_rep_train = theano.function([], da.get_hidden_values(x), updates = {},
-            givens = {x:train_set_x}, name = 'get_rep_valid')
-        pca_trainer = pca.PCATrainer(get_rep_train(), num_components = num_components,
-            min_variance = min_variance)
-        pca_trainer.updates()
-        pca_trainer.save(save_dir)
+
+        # Get dA-transformed data.
+        inputs = theano.tensor.dmatrix('inputs')
+        get_rep_train = theano.function([], da.get_hidden_values(inputs), updates = {},
+            givens = {inputs:train_set_x}, name = 'get_rep_train')
+        train_rep = get_rep_train()
+
+        # Allocate a PCA block and associated trainer.
+        conf = {
+            'n_vis': train_rep.shape[1],
+            'num_components': num_components,
+            'min_variance': min_variance,
+        }
+        pca = PCA.alloc(conf)
+        trainer = PCATrainer.alloc(pca, train_rep, conf)
+
+        # Finally, build a Theano function out of all this.
+        train_fn = trainer.function(inputs)
+
+        # Compute the PCA transformation matrix from the training data.
+        train_fn(train_rep)
+
+        # Save transformation matrix to pickle.
+        pca.save(save_dir)
 
     if do_create_submission:
         print "... creating submission"
@@ -619,8 +644,8 @@ if __name__ == '__main__':
     # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
 
 
-    print eval_ALC_test_val(dataset='ule', save_dir_model='/data/lisa/exp/mesnilgr/ift6266h11/ULE1_/2/', save_dir_plot='./',
-        normalize_on_the_fly = False, do_pca = False, type = 'both')
+    #print eval_ALC_test_val(dataset='ule', save_dir_model='/data/lisa/exp/mesnilgr/ift6266h11/ULE1_/2/', save_dir_plot='./',
+    #    normalize_on_the_fly = False, do_pca = False, type = 'both')
 
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'

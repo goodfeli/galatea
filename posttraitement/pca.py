@@ -1,14 +1,21 @@
 import os, cPickle
+
 import numpy
 from scipy import linalg
+import theano
 
 from framework.base import Block, Trainer
+
+floatX = theano.config.floatX
+sharedX = lambda X, name: theano.shared(numpy.asarray(X, dtype=floatX), name=name)
 
 class PCATrainer(Trainer):
     """
     Compute a PCA transformation matrix from the given data.
     """
-    def __init__(self, inputs, **kwargs):
+
+    @classmethod
+    def alloc(cls, model, inputs, conf):
         """
         :type inputs: numpy.ndarray, shape (n, d)
         :param inputs: matrix from which to compute PCA transformation
@@ -22,10 +29,10 @@ class PCATrainer(Trainer):
             this threshold will be discarded
         """
 
-        kwargs.setdefault('num_components', numpy.inf)
-        kwargs.setdefault('min_variance', .0)
+        conf.setdefault('num_components', numpy.inf)
+        conf.setdefault('min_variance', .0)
 
-        super(PCATrainer, self).__init__(inputs, **kwargs)
+        return cls(model = model, inputs = inputs, **conf)
 
     def updates(self):
         """
@@ -34,29 +41,82 @@ class PCATrainer(Trainer):
         Should only be called once.
 
         Given a rectangular matrix X = USV such that S is a diagonal matrix with
-        X's singular values along its diagonal, computes and stores W = V^-1.
+        X's singular values along its diagonal, computes and returns W = V^-1.
 
         """
 
-        X = self.inputs
+        X = self.inputs.copy()
 
-        assert "W" not in self.__dict__, "PCATrainer.updates should only be" \
-            " called once"
+        #assert "W" not in self.__dict__, "PCATrainer.updates should only be" \
+        #    " called once"
         assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
             " greater than number of features (columns)"
         # Actually, I don't think is necessary, but in practice all our datasets
         # fulfill this requirement anyway, so this serves as a sanity check.
 
         X -= numpy.mean (X, axis = 0)
-        (v, self.W) = linalg.eig(numpy.cov(X.T))
+        (v, W) = linalg.eig(numpy.cov(X.T))
 
         order = numpy.argsort(-v)
-        v, self.W = v[order], self.W[:,order]
-        var_cutoff = min(numpy.where(((v / sum(v)) < self.min_variance)))
+        v, W = v[order], W[:,order]
+        var_cutoff = min(numpy.where(((v / v.sum()) < self.min_variance)))
         num_components = min(self.num_components, var_cutoff, X.shape[1])
-        self.W = self.W[:,:num_components]
+        W = W[:,:num_components]
 
+        # Dirty hack to fit non-Theano computation into symbolic Theano variable
+        W_theano = sharedX(W, 'W')
+        return {self.model.W : W_theano}
+
+
+    def function(self, input):
+        """Compile the Theano training function associated with the trainer"""
+        return theano.function([input],                 # The symbolic input you'll pass
+                               [],                      # Whatever quantities you want returned
+                               updates = self.updates() # How Theano should update shared vars
+                               )
+
+class PCA(Block):
+    """
+    Block which transforms its input via Principal Component Analysis.
+    """
+
+    def __init__(self):
+        super(PCA, self).__init__()
+
+    @classmethod
+    def alloc(cls, conf):
+        """
+        :type inputs: numpy.ndarray, shape (n, d)
+        :param inputs: matrix from which to compute PCA transformation
+
+        :type n_vis: int
+        :param n_vis: number of features
+        """
+
+        self = cls()
+        # FIXME: Pretty sure this initialization is useless (which adds a
+        # dependency on conf['n_vis'] for no good reason.
+        self.W = sharedX(
+            numpy.ones((conf['n_vis'], conf['n_vis'])),
+            name='W'
+        )
         self._params = [self.W]
+        return self
+
+    def __call__(self, inputs):
+        """
+        Compute and return the PCA transformation of the current data.
+
+        :type inputs: numpy.ndarray, shape (n, d)
+        :param inputs: matrix on which to compute PCA
+        """
+
+        assert "W" in self.__dict__ and self.W is not None, "PCA transformation" \
+            " matrix 'W' not defined"
+        #assert inputs.get_value().shape[1] == self.W.get_value().shape[0], \
+        #    "Incompatible input matrix shape"
+
+        return theano.tensor.dot(inputs, self.W)
 
     def save(self, save_dir, save_filename = 'model_pca.pkl'):
         """
@@ -69,30 +129,8 @@ class PCATrainer(Trainer):
 
         save_file = open(os.path.join(save_dir, save_filename), 'wb')
         for param in self._params:
-            cPickle.dump(param, save_file, -1)
+            cPickle.dump(param.get_value(), save_file, -1)
         save_file.close()
-
-class PCA(Block):
-    """
-    Block which transforms its input via Principal Component Analysis.
-    """
-
-    def __init__(self):
-        super(PCA, self).__init__()
-
-    def __call__(self, inputs):
-        """
-        Compute and return the PCA transformation of the current data.
-
-        :type inputs: numpy.ndarray, shape (n, d)
-        :param inputs: matrix on which to compute PCA
-        """
-
-        assert "W" in self.__dict__ and self.W is not None, "PCA transformation" \
-            " matrix 'W' not defined"
-        assert inputs.shape[1] == self.W.shape[0], "Incompatible input matrix shape"
-
-        return numpy.dot(inputs, self.W)
 
     def load(self, load_dir, load_filename = 'model_pca.pkl'):
         """
@@ -101,7 +139,7 @@ class PCA(Block):
 
         print '... loading model'
         load_file = open(os.path.join(load_dir, load_filename), 'r')
-        self.W = cPickle.load(load_file)
+        self.W.set_value(cPickle.load(load_file))
         load_file.close()
 
 
@@ -155,35 +193,55 @@ if __name__ == "__main__":
                         help='Dump transformed data in CSV format')
     args = parser.parse_args()
 
-    # Load model
+    # Load (non-framework) dA model.
     da = dA()
     da.load(args.load_dir)
 
-    # Load dataset
+    # Load dataset.
     data = load_data(args.dataset)
     print >> stderr, "Dataset shapes:", map(lambda(x): get_constant(x.shape), data)
 
-    # Compute dataset representation from model
+    # Compute dataset representation from model.
     def get_subset_rep (index):
         d = theano.tensor.matrix('input')
         return theano.function([], da.get_hidden_values(d), givens = {d:data[index]})()
     [train_rep, valid_rep, test_rep] = map(get_subset_rep, range(3))
 
     # Compute PCA transformation on training subset, then save and reload it
-    # for no reason, then transform test and valid subsets
+    # for no reason, then transform test and valid subsets.
     print "... computing PCA"
-    trainer = PCATrainer(train_rep, num_components = args.num_components,
-        min_variance = args.min_variance)
-    trainer.updates()
-    trainer.save(args.save_dir)
 
-    pca = PCA()
-    pca.load(args.save_dir)
-    valid_pca = pca(valid_rep)
+    # First, build a config. dict.
+    conf = {
+        'n_vis': train_rep.shape[1],
+        'num_components': args.num_components,
+        'min_variance': args.min_variance,
+    }
 
-    pca = PCA()
+    # A symbolic input representing the data.
+    inputs = theano.tensor.dmatrix()
+
+    # Allocate a PCA block and associated trainer.
+    pca = PCA.alloc(conf)
+    # Passing 'train_rep' here rather than symbolic 'inputs' is part of the
+    # dirty hack to fit non-Theano computations into the framework.
+    trainer = PCATrainer.alloc(pca, train_rep, conf)
+
+    # Finally, build a Theano function out of all this.
+    train_fn = trainer.function(inputs)
+
+    # Compute the PCA transformation matrix from the training data.
+    train_fn(train_rep)
+
+    # Save transformation matrix to pickle, then reload it.
+    pca.save(args.save_dir)
     pca.load(args.save_dir)
-    test_pca = pca(test_rep)
+
+    # Apply the transformation to test and valid subsets.
+    pca_transform = theano.function([inputs], pca(inputs))
+    valid_pca = pca_transform(valid_rep)
+    test_pca = pca_transform(test_rep)
+
     print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
     
     # This is probably not very useful; I load this dump from R for analysis.
