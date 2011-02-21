@@ -237,7 +237,7 @@ Getting back to sufficient statistics, one can show that the
 gradient of the log likelihood is as follows:
 
 .. math::
-  \frac{-\log P(x)}{\partial \theta_i} = f_i(x) - \sum_x P(x) f_i(x)
+  \frac{- \partial \log P(x)}{\partial \theta_i} = f_i(x) - \sum_x P(x) f_i(x)
 
 and the average gradient over training examples :math:`x_t` is thus
 

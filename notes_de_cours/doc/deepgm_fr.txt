@@ -247,7 +247,7 @@ On peut montrer que le gradient de la log-vraisemblance
 se développe ainsi:
 
 .. math::
-  \frac{-\log P(x)}{\partial \theta_i} = f_i(x) - \sum_x P(x) f_i(x)
+  \frac{- \partial \log P(x)}{\partial \theta_i} = f_i(x) - \sum_x P(x) f_i(x)
 
 et le gradient moyen sur les exemples d'apprentissage :math:`x_t`
 est donc
