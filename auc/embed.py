@@ -40,7 +40,6 @@ def score(dataset, labels,
                )
     # Compute the (normalized) area under the learning curve
     # returns the ALC and the last AUC value
-    print 'auc evolution',y
     return alc(x, y)
 
 if __name__ == "__main__":
@@ -51,12 +50,15 @@ if __name__ == "__main__":
     (labels_devel, labels_valid, labels_test)  = pdu.load_ndarray_label("ule")
     tic = time.clock()
 
-    dataset = np.vstack((dataset_valid, dataset_test))
+    #dataset = np.vstack((dataset_valid, dataset_test))
+    dataset = dataset_valid 
+    labels = labels_valid
     #_labels_valid = np.hstack((labels_valid, np.zeros((labels_valid.shape[0],labels_test.shape[1]))))
-    _labels_valid = np.hstack((np.ones((labels_valid.shape[0],1)), np.zeros((labels_valid.shape[0],1))))
+    #_labels_valid = np.hstack((np.ones((labels_valid.shape[0],1)), np.zeros((labels_valid.shape[0],1))))
     #_labels_test = np.hstack((np.zeros((labels_test.shape[0],labels_valid.shape[1])),labels_test))
-    _labels_test = np.hstack((np.zeros((labels_test.shape[0],1)),np.ones((labels_test.shape[0],1))))
-    labels = np.vstack((_labels_valid, _labels_test))
+    #_labels_test = np.hstack((np.zeros((labels_test.shape[0],1)),np.ones((labels_test.shape[0],1))))
+    #labels = np.vstack((_labels_valid, _labels_test))
+    #labels = _labels_valid 
 
     print labels_valid
     print '... computing score on dataset of shape', dataset.shape,\

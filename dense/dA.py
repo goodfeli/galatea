@@ -367,7 +367,7 @@ class dA(object):
         return numpy.mean(denoising_error)
 
 def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
-    normalize_on_the_fly = False, do_pca = False, type = 'both'):
+    normalize_on_the_fly = False, do_pca = False):
     """
     Returns the ALC of the valid set VS test set
     Note: This proxy won't work in the case of transductive learning
@@ -377,9 +377,6 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     so you can check those two ways of computing the ALC get the same results
     """
 
-    if type not in set(['yann', 'erick', 'both']):
-        raise('type should be in [yann, erick, both]')
-    alc_erick, alc_yann = 10000, 10000
 
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
@@ -405,7 +402,6 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     valid_rep1 = get_rep_valid(0)
     test_rep1 = get_rep_test(0)
 
-    print numpy.histogram(valid_rep1)
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
         # Allocate PCA block; read precomputed transformation matrix from pickle.
@@ -420,9 +416,6 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
         valid_rep1 = pca_transform(valid_rep1)
         test_rep1 = pca_transform(test_rep1)
 
-    if type == 'yann' or 'both':
-        alc_yann = hebbian_learner(valid_rep1, test_rep1)
-        print 'ALC computed by Yann', alc_yann 
     # build the whole dataset and give a one different one hot for each sample
     #from the valid [1,0] VS test [0,1]   
     n_val  = valid_rep1.shape[0]
@@ -435,14 +428,12 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     label = numpy.vstack((_labval,_labtest))
     print '... computing the ALC'
 
-    if type == 'erick' or 'both':
-        alc_erick = score(dataset, label)
-        print 'ALC computed by Erick', alc_erick   
+    alc = score(dataset, label)
 
-    return alc_erick, alc_yann
+    return alc
 
 def create_submission(dataset, save_dir_model, save_dir_submission,
-    normalize_on_the_fly = False, do_pca = False, type = 'both'):
+    normalize_on_the_fly = False, do_pca = False):
     """
     Create submission files given the path of a model and
     a dataset.
@@ -642,10 +633,6 @@ if __name__ == '__main__':
     # Pour harry si l'on n'exploite pas la sparsite on peut lancer avec normalisation a
     # la volée (-N, comme rita)
     # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
-
-
-    #print eval_ALC_test_val(dataset='ule', save_dir_model='/data/lisa/exp/mesnilgr/ift6266h11/ULE1_/2/', save_dir_plot='./',
-    #    normalize_on_the_fly = False, do_pca = False, type = 'both')
 
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'
