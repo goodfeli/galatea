@@ -8,8 +8,7 @@ import time
 # Inputs:
 #   dataset nxd    numpy matrix with n the nb of examples and d the number of features
 #   labels  nxc    'one-hot' encoded numpy matrix with n the nb of examples and c
-#                  the number of classes.  As a special case, for c == 2, labels
-#                  can be a vector of '0' and '1' or '-1' and '1'.
+#                  the number of classes.
 #   min_repeat     minimum number of repetitions for a specific number of examples
 #   max_repeat     maximum number of repetitions for a specific number of examples
 #   ebar           error bar for early termination of repetitions in case the error is sufficiently low
