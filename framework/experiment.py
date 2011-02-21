@@ -12,7 +12,8 @@ from framework import utils
 from framework import cost
 from framework import corruption
 from framework.utils import BatchIterator
-from framework.autoencoder import DenoisingAutoencoder, DATrainer
+from framework.autoencoder import DenoisingAutoencoder
+from framework.optimizer import SGDOptimizer
 
 def basic_trainer(conf):
     """
@@ -27,13 +28,13 @@ def basic_trainer(conf):
     minibatch = tensor.dmatrix()
 
     # Allocate a denoising autoencoder with a given noise corruption.
-    corruptor = corruption.get(conf['corruption_class']).alloc(conf)
-    da = DenoisingAutoencoder.alloc(corruptor, conf)
+    corruptor = corruption.get(conf['corruption_class'])(conf)
+    da = DenoisingAutoencoder(corruptor, conf)
 
-    # Allocate a trainer, which tells us how to update our model.
-    cost_fn = cost.get(conf['cost_class']).alloc(conf, da)
-    trainer = DATrainer.alloc(da, cost_fn, minibatch, conf)
-    train_fn = trainer.function(minibatch)
+    # Allocate an optimizer, which tells us how to update our model.
+    cost_fn = cost.get(conf['cost_class'])(conf, da)([minibatch])
+    trainer = SGDOptimizer(da, cost_fn, conf)
+    train_fn = trainer.function([minibatch], name='train_fn')
 
     # Here's a manual training loop.
     start_time = time.clock()
@@ -41,8 +42,8 @@ def basic_trainer(conf):
     batchiter = BatchIterator(conf, data)
     for epoch in xrange(conf['epochs']):
         c = []
-        for minibatch in batchiter:
-            c.append(train_fn(minibatch))
+        for minibatch_ in batchiter:
+            c.append(train_fn(minibatch_))
         train_time = time.clock() - batch_time
         batch_time = time.clock()
         print 'Training epoch %d, time spent (min) %f, cost ' \
@@ -53,7 +54,7 @@ def basic_trainer(conf):
     conf['training_time'] = (end_time - start_time) / 60.
 
     # Compute denoising error for valid and train datasets.
-    error_fn = theano.function([minibatch], cost_fn([minibatch]))
+    error_fn = theano.function([minibatch], cost_fn, name='error_fn')
 
     conf['error_valid'] = error_fn(data[1].value)
     conf['error_test'] = error_fn(data[2].value)
@@ -68,14 +69,15 @@ def submit(conf):
     model trained according to conf parameters
     """
     # Load the model parameters
-    corruptor = corruption.get(conf['corruption_class']).alloc(conf)
-    da = DenoisingAutoencoder.alloc(corruptor, conf)
+    corruptor = corruption.get(conf['corruption_class'])(conf)
+    da = DenoisingAutoencoder(corruptor, conf)
     # TODO: Not implemented yet
     # da.load(exp['model_dir'], 'model.pkl')
 
     # Create submission file
     minibatch = tensor.dmatrix()
-    transform = theano.function([minibatch], da([minibatch])[0])
+    transform = theano.function([minibatch], da([minibatch])[0],
+                                name='transform')
     utils.create_submission(conf, transform)
 
 
@@ -105,7 +107,7 @@ if __name__ == "__main__":
             'randomize_valid' : True,
             'randomize_test' : True,
             'batchsize' : 20,
-            'epochs' : 50,
+            'epochs' : 1,
             'model_dir' : './outputs/',
             'submission_dir' : './outputs/'
             }

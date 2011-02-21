@@ -40,6 +40,17 @@ def sharedX(value, name=None, borrow=False):
     return theano.shared(theano._asarray(value, dtype=floatX),
             name=name, borrow=False)
 
+def safe_update(dict_to, dict_from):
+    """
+    Like dict_to.update(dict_from), except don't overwrite any keys.
+    """
+    for key, val in dict(dict_from).iteritems():
+        if key in dict_to:
+            raise KeyError(key)
+        dict_to[key] = val
+    return dict_to
+
+
 ##################################################
 # Datasets and contest facilities
 ##################################################
@@ -160,6 +171,7 @@ class BatchIterator(object):
         self.limit = [size // self.batchsize for size in set_sizes]
         self.counter = [0, 0, 0]
         self.index = 0
+        self.max_index = self.upper_bound // self.batchsize
 
         # Sampled random number generator
         pairs = izip(set_sizes, set_proba)
@@ -182,7 +194,7 @@ class BatchIterator(object):
         """
         Return the next minibatch for training according to sampling probabilities
         """
-        if (self.index > self.upper_bound):
+        if (self.index > self.max_index):
             raise StopIteration
         else:
             # Retrieve minibatch from chosen set

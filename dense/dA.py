@@ -178,7 +178,7 @@ class dA(object):
         else:
             raise NotImplementedError('This noise %s is not implemented yet'%(noise))
 
-   
+
     def get_hidden_values(self, input):
         """ Computes the values of the hidden layer """
         if self.act_enc == 'sigmoid':
@@ -226,7 +226,7 @@ class dA(object):
                 # Moving the range of tanh from [-1;1] to [0;1]
                 L = - T.sum( ((self.x+1)/2)*T.log(z) + (1-((self.x+1)/2))*T.log(1-z), axis=1 )
             else:
-                L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )	
+                L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
@@ -417,20 +417,18 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
         test_rep1 = pca_transform(test_rep1)
 
     # build the whole dataset and give a one different one hot for each sample
-    #from the valid [1,0] VS test [0,1]   
+    #from the valid [1,0] VS test [0,1]
     n_val  = valid_rep1.shape[0]
     n_test = test_rep1.shape[0]
 
     _labval = numpy.hstack((numpy.ones((n_val,1)), numpy.zeros((n_val,1))))
     _labtest = numpy.hstack((numpy.zeros((n_test,1)), numpy.ones((n_test,1))))
-     
+
     dataset = numpy.vstack((valid_rep1, test_rep1))
     label = numpy.vstack((_labval,_labtest))
     print '... computing the ALC'
 
-    alc = score(dataset, label)
-
-    return alc
+    return score(dataset, label)
 
 def create_submission(dataset, save_dir_model, save_dir_submission,
     normalize_on_the_fly = False, do_pca = False):
