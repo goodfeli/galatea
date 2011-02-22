@@ -22,7 +22,7 @@ class PCA(Block):
             decreasing order of variance
 
         :type min_variance: float
-        :param min_variance: components with normalized variance [0-1] below 
+        :param min_variance: components with normalized variance [0-1] below
             this threshold will be discarded
         """
 
@@ -35,9 +35,15 @@ class PCA(Block):
             name='W',
             borrow=True
         )
-        # self.W is set only so that self._params can be built up-to-date.
-        # If we figure out another solution, why not.
-        self._params = [self.W]
+        self.mean = sharedX(
+            numpy.zeros((0, 0)),
+            name='W',
+            borrow=True
+        )
+        # This module really has no adjustable parameters -- once train()
+        # is called once, they are frozen, and are not modified via gradient
+        # descent.
+        self._params = []
 
     def train(self, inputs):
         """
@@ -48,27 +54,28 @@ class PCA(Block):
         Given a rectangular matrix X = USV such that S is a diagonal matrix with
         X's singular values along its diagonal, computes and returns W = V^-1.
         """
-
-        X = inputs.copy()
-
         # Actually, I don't think is necessary, but in practice all our datasets
         # fulfill this requirement anyway, so this serves as a sanity check.
+        # TODO: Implement the snapshot method for the p >> n case.
         assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
             " greater than number of features (columns)"
-
-        X -= numpy.mean(X, axis = 0)
+        # Implicit copy done below.
+        mean = numpy.mean(inputs, axis=0)
+        X = X - mean
         # The following computation is always carried in double precision
-        (v, W) = linalg.eig(numpy.cov(X.T))
-
+        v, W = linalg.eig(numpy.cov(X.T))
         order = numpy.argsort(-v)
-        v, W = v[order], W[:,order]
+        v, W = v[order], W[:, order]
         var_cutoff = min(numpy.where(((v / v.sum()) < self.min_variance)))
         num_components = min(self.num_components, var_cutoff, X.shape[1])
-        W = W[:,:num_components]
+        W = W[:, :num_components]
 
         # Update Theano shared variable
         W = theano._asarray(W, dtype=theano.config.floatX)
         self.W.set_value(W, borrow=True)
+        # We need the mean for centering new inputs.
+        mean = theano._asarray(mean, dtype=theano.config.floatX)
+        self.mean.set_value(mean, borrow=True)
 
 
     def __call__(self, inputs):
@@ -78,38 +85,7 @@ class PCA(Block):
         :type inputs: numpy.ndarray, shape (n, d)
         :param inputs: matrix on which to compute PCA
         """
-
-        #assert "W" in self.__dict__ and self.W.get_value(borrow=True).shape[0] > 0,\
-        #        "PCA transformation matrix 'W' not defined"
-        #assert inputs.get_value().shape[1] == self.W.get_value().shape[0], \
-        #    "Incompatible input matrix shape"
-
-        return theano.tensor.dot(inputs, self.W)
-
-    def save(self, save_dir, save_filename = 'model_pca.pkl'):
-        """
-        Save the computed PCA transformation matrix.
-        """
-
-        print '... saving model'
-        if not os.path.isdir(save_dir):
-            os.makedirs(save_dir)
-
-        save_file = open(os.path.join(save_dir, save_filename), 'wb')
-        for param in self._params:
-            cPickle.dump(param.get_value(), save_file, -1)
-        save_file.close()
-
-    def load(self, load_dir, load_filename = 'model_pca.pkl'):
-        """
-        Load a PCA transformation matrix.
-        """
-
-        print '... loading model'
-        load_file = open(os.path.join(load_dir, load_filename), 'r')
-        self.W.set_value(cPickle.load(load_file))
-        load_file.close()
-
+        return theano.tensor.dot(inputs - self.mean, self.W)
 
 if __name__ == "__main__":
     """
@@ -211,7 +187,7 @@ if __name__ == "__main__":
     test_pca = pca_transform(test_rep)
 
     print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
-    
+
     # This is probably not very useful; I load this dump from R for analysis.
     if args.dump:
         print "... dumping new representation"
