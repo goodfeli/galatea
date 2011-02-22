@@ -140,7 +140,7 @@ class dA(object):
         if input == None :
             # we use a matrix because we expect a minibatch of several examples,
             # each example being a row
-            self.x = T.dmatrix(name = 'input')
+            self.x = T.matrix(name = 'input')
         else:
             self.x = input
 
@@ -580,7 +580,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         print "... computing PCA"
 
         # Get dA-transformed data.
-        inputs = theano.tensor.dmatrix('inputs')
+        inputs = theano.tensor.matrix('inputs')
         get_rep_train = theano.function([], da.get_hidden_values(inputs), updates = {},
             givens = {inputs:train_set_x}, name = 'get_rep_train')
         train_rep = get_rep_train()

@@ -94,7 +94,7 @@ train = train.astype(float)
 valid = valid.astype(float)
 test  = test.astype(float)
 
-x = theano.tensor.dmatrix('x')
+x = theano.tensor.matrix('x')
 f = theano.function([x], miniml.theano.op.uniformize()(x))
 
 for (set,name) in [(train,"train"), (valid,"valid"), (test,"test")]:

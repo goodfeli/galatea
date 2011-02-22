@@ -155,7 +155,7 @@ class dA(object):
         if input == None : 
             # we use a matrix because we expect a minibatch of several examples,
             # each example being a row
-            self.x = T.dmatrix(name = 'input') 
+            self.x = T.matrix(name = 'input') 
         else:
             self.x = input
 

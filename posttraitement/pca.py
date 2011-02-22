@@ -8,11 +8,6 @@ from theano import tensor as T
 from framework.base import Block, Optimizer
 from framework.utils import sharedX
 
-# This is not compatible with dense.dA, which doesn't load this config. value.
-#floatX = theano.config.floatX
-#floatX = 'float64'
-#sharedX = lambda X, name: theano.shared(numpy.asarray(X, dtype=floatX), name=name)
-
 
 class PCA(Block):
     """
@@ -28,7 +23,7 @@ class PCA(Block):
             decreasing order of variance
 
         :type min_variance: float
-        :param min_variance: components with normalized variance [0-1] below 
+        :param min_variance: components with normalized variance [0-1] below
             this threshold will be discarded
 
         :type whiten: bool
@@ -47,13 +42,23 @@ class PCA(Block):
             name='W',
             borrow=True
         )
+
         self.v = sharedX(
             numpy.zeros((0)),
             name='v',
             borrow=True
         )
 
-        self._params = [self.W, self.v]
+        self.mean = sharedX(
+            numpy.zeros((0, 0)),
+            name='W',
+            borrow=True
+        )
+
+        # This module really has no adjustable parameters -- once train()
+        # is called once, they are frozen, and are not modified via gradient
+        # descent.
+        self._params = []
 
     def train(self, inputs):
         """
@@ -64,27 +69,30 @@ class PCA(Block):
         Given a rectangular matrix X = USV such that S is a diagonal matrix with
         X's singular values along its diagonal, computes and returns W = V^-1.
         """
-
-        X = inputs.copy()
-
         # Actually, I don't think is necessary, but in practice all our datasets
         # fulfill this requirement anyway, so this serves as a sanity check.
+        # TODO: Implement the snapshot method for the p >> n case.
         assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
             " greater than number of features (columns)"
-
-        X -= numpy.mean(X, axis = 0)
-        (v, W) = linalg.eig(numpy.cov(X.T))
-
+        # Implicit copy done below.
+        mean = numpy.mean(inputs, axis=0)
+        X = X - mean
+        # The following computation is always carried in double precision
+        v, W = linalg.eig(numpy.cov(X.T))
         order = numpy.argsort(-v)
-        v, W = v[order], W[:,order]
+        v, W = v[order], W[:, order]
         var_cutoff = min(numpy.where(((v / v.sum()) < self.min_variance)))
         num_components = min(self.num_components, var_cutoff, X.shape[1])
         v, W = v[:num_components], W[:,:num_components]
 
         # Update Theano shared variable
+        W = theano._asarray(W, dtype = theano.config.floatX)
+        v = theano._asarray(v, dtype = theano.config.floatX)
+        mean = theano._asarray(mean, dtype = theano.config.floatX)
+        self.W.set_value(W, borrow = True)
         if self.whiten:
-            self.v.set_value(numpy.asarray(v, dtype = 'float32'))
-        self.W.set_value(W)
+            self.v.set_value(v, borrow = True)
+        self.mean.set_value(mean, borrow = True)
 
     def __call__(self, inputs):
         """
@@ -99,7 +107,7 @@ class PCA(Block):
         #assert inputs.get_value().shape[1] == self.W.get_value().shape[0], \
         #    "Incompatible input matrix shape"
 
-        Y = T.dot(inputs - T.mean(inputs, axis = 0), self.W)
+        Y = T.dot(inputs - self.mean, self.W)
         # If eigenvalues are defined, self.whiten was True.
         if numpy.any(self.v.get_value() > 0):
             Y /= T.sqrt(self.v)
@@ -129,7 +137,6 @@ class PCA(Block):
         for param in self._params:
             param.set_value(cPickle.load(load_file))
         load_file.close()
-
 
 if __name__ == "__main__":
     """
