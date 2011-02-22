@@ -405,11 +405,11 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
         # Allocate PCA block; read precomputed transformation matrix from pickle.
-        pca = PCA.alloc({'n_vis': test_rep1.shape[1]})
+        pca = PCA({})
         pca.load(save_dir_model)
 
-        # Create a PCA transformation function.
-        inputs = theano.tensor.dmatrix()
+        # Create a Theano function to apply transformation.
+        inputs = T.dmatrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.
@@ -474,11 +474,11 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
         # Allocate PCA block; read precomputed transformation matrix from pickle.
-        pca = PCA.alloc({'n_vis': test_rep1.shape[1]})
+        pca = PCA({})
         pca.load(save_dir_model)
 
-        # Create a PCA transformation function.
-        inputs = theano.tensor.dmatrix()
+        # Create a Theano function to apply transformation.
+        inputs = T.dmatrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.
