@@ -140,7 +140,7 @@ class dA(object):
         if input == None :
             # we use a matrix because we expect a minibatch of several examples,
             # each example being a row
-            self.x = T.dmatrix(name = 'input')
+            self.x = T.matrix(name = 'input')
         else:
             self.x = input
 
@@ -184,15 +184,15 @@ class dA(object):
         if self.act_enc == 'sigmoid':
             return T.nnet.sigmoid(T.dot(input, self.W) + self.b)
         elif self.act_enc == 'tanh':
-            	return T.tanh(T.dot(input, self.W) + self.b)
-	elif self.act_enc == 'softplus':
-		def softplus(x):
-                	return T.log(1. + T.exp(x))
-		return softplus(T.dot(input, self.W) + self.b)
-	elif self.act_enc == 'rectifier':
-	    	def rectifier(x):
-			return x*(x>0)
-		return  rectifier(T.dot(input, self.W) + self.b)
+            return T.tanh(T.dot(input, self.W) + self.b)
+        elif self.act_enc == 'softplus':
+            def softplus(x):
+                return T.log(1. + T.exp(x))
+            return softplus(T.dot(input, self.W) + self.b)
+        elif self.act_enc == 'rectifier':
+            def rectifier(x):
+                return x*(x>0)
+            return  rectifier(T.dot(input, self.W) + self.b)
         else:
             raise NotImplementedError('Encoder function %s is not implemented yet' \
                 %(self.act_enc))
@@ -204,7 +204,7 @@ class dA(object):
         elif self.act_dec == 'linear':
             return T.dot(hidden, self.W_prime) + self.b_prime
         elif self.act_dec == 'softplus':
-	    def softplus(x):
+            def softplus(x):
                 return T.log(1. + T.exp(x))
             return softplus(T.dot(hidden, self.W_prime) + self.b_prime)
         else:
@@ -409,7 +409,7 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
         pca.load(save_dir_model)
 
         # Create a PCA transformation function.
-        inputs = theano.tensor.dmatrix()
+        inputs = theano.tensor.matrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.
@@ -478,7 +478,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
         pca.load(save_dir_model)
 
         # Create a PCA transformation function.
-        inputs = theano.tensor.dmatrix()
+        inputs = theano.tensor.matrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.
@@ -580,7 +580,7 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
         print "... computing PCA"
 
         # Get dA-transformed data.
-        inputs = theano.tensor.dmatrix('inputs')
+        inputs = theano.tensor.matrix('inputs')
         get_rep_train = theano.function([], da.get_hidden_values(inputs), updates = {},
             givens = {inputs:train_set_x}, name = 'get_rep_train')
         train_rep = get_rep_train()
@@ -715,9 +715,22 @@ if __name__ == '__main__':
     if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
         raise IOError('%s doesn\'t exist or is not accessible' % os.save_dir)
 
-    main_train(args.dataset, args.save_dir, args.n_hidden,
-               args.tied_weights, args.act_enc, args.act_dec,
-               args.learning_rate, args.batch_size, args.epochs,
-               args.cost_type, args.noise_type, args.corruption_level,
-               args.normalize_on_the_fly, args.do_pca, args.num_components,
-               args.min_variance, args.create_submission, args.submission_dir)
+    main_train(
+            dataset=args.dataset,
+            save_dir=args.save_dir,
+            n_hidden=args.n_hidden,
+            tied_weights=args.tied_weights,
+            act_enc=args.act_enc,
+            act_dec=args.act_dec,
+            learning_rate=args.learning_rate,
+            batch_size=args.batch_size,
+            epochs=args.epochs,
+            cost_type=args.cost_type,
+            noise_type=args.noise_type,
+            corruption_level=args.corruption_level,
+            normalize_on_the_fly=args.normalize_on_the_fly,
+            do_pca=args.do_pca,
+            num_components=args.num_components,
+            min_variance=args.min_variance,
+            do_create_submission=args.create_submission,
+            submission_dir=args.submission_dir)

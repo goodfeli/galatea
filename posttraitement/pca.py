@@ -190,7 +190,7 @@ if __name__ == "__main__":
     }
 
     # A symbolic input representing the data.
-    inputs = theano.tensor.dmatrix()
+    inputs = theano.tensor.matrix()
 
     # Allocate a PCA block and associated trainer.
     pca = PCA.alloc(conf)
