@@ -473,8 +473,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
         # Allocate PCA block; read precomputed transformation matrix from pickle.
-        pca = PCA({})
-        pca.load(save_dir_model)
+        pca = PCA.load(save_dir_model, 'model_pca.pkl')
 
         # Create a Theano function to apply transformation.
         inputs = T.dmatrix()

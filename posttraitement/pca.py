@@ -88,7 +88,7 @@ class PCA(Block):
         num_components = min(self.num_components, var_cutoff, X.shape[1])
         v, W = v[:num_components], W[:,:num_components]
 
-        # Update Theano shared variable
+        # Update Theano shared variables
         W = theano._asarray(W, dtype=floatX)
         v = theano._asarray(v, dtype=floatX)
         mean = theano._asarray(mean, dtype=floatX)
@@ -116,35 +116,6 @@ class PCA(Block):
             Y /= tensor.sqrt(self.v)
         return Y
     
-    ##### There is no reason, as far as I can see, to implement this here
-    ##### when there are methods in base.py for this.
-    #def save(self, save_dir, save_filename = 'model_pca.pkl'):
-    #    """
-    #    Save the computed PCA transformation matrix.
-    #    """
-
-    #    print '... saving model'
-    #    if not os.path.isdir(save_dir):
-    #        os.makedirs(save_dir)
-
-    #    save_file = open(os.path.join(save_dir, save_filename), 'wb')
-    #    cPickle.dump(self.W.get_value(), save_file, -1)
-    #    cPickle.dump(self.v.get_value(), save_file, -1)
-    #    cPickle.dump(self.mean.get_value(), save_file, -1)
-    #    save_file.close()
-
-    #def load(self, load_dir, load_filename = 'model_pca.pkl'):
-    #    """
-    #    Load a PCA transformation matrix.
-    #    """
-
-    #    print '... loading model'
-    #    load_file = open(os.path.join(load_dir, load_filename), 'r')
-    #    self.W.set_value(cPickle.load(load_file))
-    #    self.v.set_value(cPickle.load(load_file))
-    #    self.mean.set_value(cPickle.load(load_file))
-    #    load_file.close()
-
 if __name__ == "__main__":
     """
     Run a dataset through a previously learned dA model, compute a PCA
@@ -234,8 +205,8 @@ if __name__ == "__main__":
     pca.train(train_rep)
 
     # Save transformation matrix to pickle, then reload it.
-    #pca.save(args.save_dir)
-    #pca.load(args.save_dir)
+    #pca.save(args.save_dir, 'model_pca.pkl')
+    #pca = PCA.load(args.save_dir, 'model_pca.pkl')
 
     # Apply the transformation to test and valid subsets.
     pca_transform = theano.function([inputs], pca(inputs))
