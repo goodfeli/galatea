@@ -35,9 +35,10 @@ class PCA(Block):
             name='W',
             borrow=True
         )
-        # self.W is set only so that self._params can be built up-to-date.
-        # If we figure out another solution, why not.
-        self._params = [self.W]
+
+        # No parameter should be updated by an external function
+        self._params = []
+        self.W = None
 
     def train(self, inputs):
         """
@@ -48,6 +49,8 @@ class PCA(Block):
         Given a rectangular matrix X = USV such that S is a diagonal matrix with
         X's singular values along its diagonal, computes and returns W = V^-1.
         """
+        if self.W:
+            print >>sys.stderr, "Warning: PCA was already trained"
 
         X = inputs.copy()
 
@@ -66,9 +69,8 @@ class PCA(Block):
         num_components = min(self.num_components, var_cutoff, X.shape[1])
         W = W[:,:num_components]
 
-        # Update Theano shared variable
-        W = theano._asarray(W, dtype=theano.config.floatX)
-        self.W.set_value(W, borrow=True)
+        # Keep W in a Theano shared variable
+        self.W = sharedX(W, borrow=True)
 
 
     def __call__(self, inputs):
