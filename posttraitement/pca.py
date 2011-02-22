@@ -1,13 +1,14 @@
-import os, cPickle
-
+# Third-party imports
 import numpy
-from scipy import linalg
 import theano
-from theano import tensor as T
+from theano import tensor
+from scipy import linalg
 
+# Local imports
 from framework.base import Block, Optimizer
 from framework.utils import sharedX
 
+floatX = theano.config.floatX
 
 class PCA(Block):
     """
@@ -88,9 +89,9 @@ class PCA(Block):
         v, W = v[:num_components], W[:,:num_components]
 
         # Update Theano shared variable
-        W = theano._asarray(W, dtype=theano.config.floatX)
-        v = theano._asarray(v, dtype=theano.config.floatX)
-        mean = theano._asarray(mean, dtype=theano.config.floatX)
+        W = theano._asarray(W, dtype=floatX)
+        v = theano._asarray(v, dtype=floatX)
+        mean = theano._asarray(mean, dtype=floatX)
         self.W.set_value(W, borrow = True)
         if self.whiten:
             self.v.set_value(v, borrow = True)
@@ -109,11 +110,12 @@ class PCA(Block):
         #assert inputs.get_value().shape[1] == self.W.get_value().shape[0], \
         #    "Incompatible input matrix shape"
 
-        Y = T.dot(inputs - self.mean, self.W)
+        Y = tensor.dot(inputs - self.mean, self.W)
         # If eigenvalues are defined, self.whiten was True.
         if numpy.any(self.v.get_value() > 0):
-            Y /= T.sqrt(self.v)
+            Y /= tensor.sqrt(self.v)
         return Y
+    
     ##### There is no reason, as far as I can see, to implement this here
     ##### when there are methods in base.py for this.
     #def save(self, save_dir, save_filename = 'model_pca.pkl'):
@@ -154,7 +156,6 @@ if __name__ == "__main__":
     import argparse
     from dense.dA import dA
     from dense.logistic_sgd import load_data, get_constant
-    import theano
 
     parser = argparse.ArgumentParser(
         description="Transform the output of a model by Principal Component Analysis"
@@ -208,7 +209,7 @@ if __name__ == "__main__":
 
     # Compute dataset representation from model.
     def get_subset_rep (index):
-        d = T.matrix('input')
+        d = tensor.matrix('input')
         return theano.function([], da.get_hidden_values(d), givens = {d:data[index]})()
     [train_rep, valid_rep, test_rep] = map(get_subset_rep, range(3))
 
@@ -224,7 +225,7 @@ if __name__ == "__main__":
     }
 
     # A symbolic input representing the data.
-    inputs = T.dmatrix()
+    inputs = tensor.dmatrix()
 
     # Allocate a PCA block.
     pca = PCA(conf)
