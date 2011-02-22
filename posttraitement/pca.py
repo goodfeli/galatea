@@ -124,8 +124,9 @@ class PCA(Block):
             os.makedirs(save_dir)
 
         save_file = open(os.path.join(save_dir, save_filename), 'wb')
-        for param in self._params:
-            cPickle.dump(param.get_value(), save_file, -1)
+        cPickle.dump(self.W.get_value(), save_file, -1)
+        cPickle.dump(self.v.get_value(), save_file, -1)
+        cPickle.dump(self.mean.get_value(), save_file, -1)
         save_file.close()
 
     def load(self, load_dir, load_filename = 'model_pca.pkl'):
@@ -135,8 +136,9 @@ class PCA(Block):
 
         print '... loading model'
         load_file = open(os.path.join(load_dir, load_filename), 'r')
-        for param in self._params:
-            param.set_value(cPickle.load(load_file))
+        self.W.set_value(cPickle.load(load_file))
+        self.v.set_value(cPickle.load(load_file))
+        self.mean.set_value(cPickle.load(load_file))
         load_file.close()
 
 if __name__ == "__main__":
