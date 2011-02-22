@@ -5,7 +5,7 @@ from theano import tensor
 from scipy import linalg
 
 # Local imports
-from framework.base import Block, Optimizer
+from framework.base import Block
 from framework.utils import sharedX
 
 floatX = theano.config.floatX
@@ -75,8 +75,9 @@ class PCA(Block):
         # Actually, I don't think is necessary, but in practice all our datasets
         # fulfill this requirement anyway, so this serves as a sanity check.
         # TODO: Implement the snapshot method for the p >> n case.
-        assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
-            " greater than number of features (columns)"
+        assert X.shape[1] <= X.shape[0], "\
+            Number of samples (rows) must be greater \
+            than number of features (columns)"
         # Implicit copy done below.
         mean = numpy.mean(X, axis=0)
         X = X - mean
@@ -115,6 +116,11 @@ class PCA(Block):
         if numpy.any(self.v.get_value() > 0):
             Y /= tensor.sqrt(self.v)
         return Y
+    
+    def function(self):
+        """ Returns a compiled theano function to compute a representation """
+        inputs = tensor.matrix()
+        return theano.function([inputs], self(inputs), name='pca_transform_fn')
     
 if __name__ == "__main__":
     """
