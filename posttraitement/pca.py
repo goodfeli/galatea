@@ -27,7 +27,8 @@ class PCA(Block):
             this threshold will be discarded
 
         :type whiten: bool
-        :param whiten: whether or not to divide projected features by their variance
+        :param whiten: whether or not to divide projected features by their
+            standard deviation
         """
 
         self.num_components = conf.get('num_components', numpy.inf)
