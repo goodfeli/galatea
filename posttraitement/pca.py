@@ -7,11 +7,6 @@ import theano
 from framework.base import Block, Optimizer
 from framework.utils import sharedX
 
-# This is not compatible with dense.dA, which doesn't load this config. value.
-#floatX = theano.config.floatX
-#floatX = 'float64'
-#sharedX = lambda X, name: theano.shared(numpy.asarray(X, dtype=floatX), name=name)
-
 
 class PCA(Block):
     """
@@ -62,6 +57,7 @@ class PCA(Block):
             " greater than number of features (columns)"
 
         X -= numpy.mean(X, axis = 0)
+        # The following computation is always carried in double precision
         (v, W) = linalg.eig(numpy.cov(X.T))
 
         order = numpy.argsort(-v)
@@ -71,7 +67,8 @@ class PCA(Block):
         W = W[:,:num_components]
 
         # Update Theano shared variable
-        self.W.set_value(W)
+        W = theano._asarray(W, dtype=theano.config.floatX)
+        self.W.set_value(W, borrow=True)
 
 
     def __call__(self, inputs):
