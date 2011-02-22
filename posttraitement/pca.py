@@ -3,6 +3,7 @@ import os, cPickle
 import numpy
 from scipy import linalg
 import theano
+from theano import tensor as T
 
 from framework.base import Block, Optimizer
 from framework.utils import sharedX
@@ -35,13 +36,13 @@ class PCA(Block):
         self.min_variance = conf.get('min_variance', 0.0)
 
         # Initialize self.W with an empty matrix
+        # self.W is set only so that self._params can be built up-to-date.
+        # If we figure out another solution, why not.
         self.W = sharedX(
             numpy.zeros((0, 0)),
             name='W',
             borrow=True
         )
-        # self.W is set only so that self._params can be built up-to-date.
-        # If we figure out another solution, why not.
         self._params = [self.W]
 
     def train(self, inputs):
@@ -73,7 +74,6 @@ class PCA(Block):
         # Update Theano shared variable
         self.W.set_value(W)
 
-
     def __call__(self, inputs):
         """
         Compute and return the PCA transformation of the current data.
@@ -87,7 +87,7 @@ class PCA(Block):
         #assert inputs.get_value().shape[1] == self.W.get_value().shape[0], \
         #    "Incompatible input matrix shape"
 
-        return theano.tensor.dot(inputs, self.W)
+        return T.dot(inputs, self.W)
 
     def save(self, save_dir, save_filename = 'model_pca.pkl'):
         """
@@ -110,7 +110,8 @@ class PCA(Block):
 
         print '... loading model'
         load_file = open(os.path.join(load_dir, load_filename), 'r')
-        self.W.set_value(cPickle.load(load_file))
+        for param in self._params:
+            param.set_value(cPickle.load(load_file))
         load_file.close()
 
 
@@ -174,7 +175,7 @@ if __name__ == "__main__":
 
     # Compute dataset representation from model.
     def get_subset_rep (index):
-        d = theano.tensor.matrix('input')
+        d = T.matrix('input')
         return theano.function([], da.get_hidden_values(d), givens = {d:data[index]})()
     [train_rep, valid_rep, test_rep] = map(get_subset_rep, range(3))
 
@@ -184,25 +185,18 @@ if __name__ == "__main__":
 
     # First, build a config. dict.
     conf = {
-        #'n_vis': train_rep.shape[1],
         'num_components': args.num_components,
-        'min_variance': args.min_variance,
+        'min_variance': args.min_variance
     }
 
     # A symbolic input representing the data.
-    inputs = theano.tensor.dmatrix()
+    inputs = T.dmatrix()
 
-    # Allocate a PCA block and associated trainer.
-    pca = PCA.alloc(conf)
-    # Passing 'train_rep' here rather than symbolic 'inputs' is part of the
-    # dirty hack to fit non-Theano computations into the framework.
-    trainer = PCATrainer.alloc(pca, train_rep, conf)
-
-    # Finally, build a Theano function out of all this.
-    train_fn = trainer.function(inputs)
+    # Allocate a PCA block.
+    pca = PCA(conf)
 
     # Compute the PCA transformation matrix from the training data.
-    train_fn(train_rep)
+    pca.train(train_rep)
 
     # Save transformation matrix to pickle, then reload it.
     #pca.save(args.save_dir)
