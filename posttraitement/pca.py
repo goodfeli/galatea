@@ -161,35 +161,35 @@ if __name__ == "__main__":
         'num_components': args.num_components,
         'min_variance': args.min_variance,
     }
+    #################### BELOW USES DEPRECATED API ####################
+    ## A symbolic input representing the data.
+    #inputs = theano.tensor.matrix()
 
-    # A symbolic input representing the data.
-    inputs = theano.tensor.matrix()
+    ## Allocate a PCA block and associated trainer.
+    #pca = PCA.alloc(conf)
+    ## Passing 'train_rep' here rather than symbolic 'inputs' is part of the
+    ## dirty hack to fit non-Theano computations into the framework.
+    #trainer = PCATrainer.alloc(pca, train_rep, conf)
 
-    # Allocate a PCA block and associated trainer.
-    pca = PCA.alloc(conf)
-    # Passing 'train_rep' here rather than symbolic 'inputs' is part of the
-    # dirty hack to fit non-Theano computations into the framework.
-    trainer = PCATrainer.alloc(pca, train_rep, conf)
+    ## Finally, build a Theano function out of all this.
+    #train_fn = trainer.function(inputs)
 
-    # Finally, build a Theano function out of all this.
-    train_fn = trainer.function(inputs)
+    ## Compute the PCA transformation matrix from the training data.
+    #train_fn(train_rep)
 
-    # Compute the PCA transformation matrix from the training data.
-    train_fn(train_rep)
+    ## Save transformation matrix to pickle, then reload it.
+    ##pca.save(args.save_dir)
+    ##pca.load(args.save_dir)
 
-    # Save transformation matrix to pickle, then reload it.
-    #pca.save(args.save_dir)
-    #pca.load(args.save_dir)
+    ## Apply the transformation to test and valid subsets.
+    #pca_transform = theano.function([inputs], pca(inputs))
+    #valid_pca = pca_transform(valid_rep)
+    #test_pca = pca_transform(test_rep)
 
-    # Apply the transformation to test and valid subsets.
-    pca_transform = theano.function([inputs], pca(inputs))
-    valid_pca = pca_transform(valid_rep)
-    test_pca = pca_transform(test_rep)
+    #print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
 
-    print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
-
-    # This is probably not very useful; I load this dump from R for analysis.
-    if args.dump:
-        print "... dumping new representation"
-        map(lambda((f, d)): numpy.savetxt(f, d), zip(map (lambda(s): s + "_pca.csv",
-            ["valid", "test"]), [valid_pca, test_pca]))
+    ## This is probably not very useful; I load this dump from R for analysis.
+    #if args.dump:
+    #    print "... dumping new representation"
+    #    map(lambda((f, d)): numpy.savetxt(f, d), zip(map (lambda(s): s + "_pca.csv",
+    #        ["valid", "test"]), [valid_pca, test_pca]))
