@@ -4,23 +4,23 @@ import numpy
 from scipy import linalg
 import theano
 
-from framework.base import Block, Trainer
+from framework.base import Block, Optimizer
+from framework.utils import sharedX
 
 # This is not compatible with dense.dA, which doesn't load this config. value.
 #floatX = theano.config.floatX
-floatX = 'float64'
-sharedX = lambda X, name: theano.shared(numpy.asarray(X, dtype=floatX), name=name)
+#floatX = 'float64'
+#sharedX = lambda X, name: theano.shared(numpy.asarray(X, dtype=floatX), name=name)
 
-class PCATrainer(Trainer):
+
+class PCA(Block):
     """
-    Compute a PCA transformation matrix from the given data.
+    Block which transforms its input via Principal Component Analysis.
     """
 
-    @classmethod
-    def alloc(cls, model, inputs, conf):
+    def __init__(self, conf):
         """
-        :type inputs: numpy.ndarray, shape (n, d)
-        :param inputs: matrix from which to compute PCA transformation
+        Parameters in conf:
 
         :type num_components: int
         :param num_components: this many components will be preserved, in
@@ -31,12 +31,20 @@ class PCATrainer(Trainer):
             this threshold will be discarded
         """
 
-        conf.setdefault('num_components', numpy.inf)
-        conf.setdefault('min_variance', .0)
+        self.num_components = conf.get('num_components', numpy.inf)
+        self.min_variance = conf.get('min_variance', 0.0)
 
-        return cls(model = model, inputs = inputs, **conf)
+        # Initialize self.W with an empty matrix
+        self.W = sharedX(
+            numpy.zeros((0, 0)),
+            name='W',
+            borrow=True
+        )
+        # self.W is set only so that self._params can be built up-to-date.
+        # If we figure out another solution, why not.
+        self._params = [self.W]
 
-    def updates(self):
+    def train(self, inputs):
         """
         Compute the PCA transformation matrix.
 
@@ -44,19 +52,16 @@ class PCATrainer(Trainer):
 
         Given a rectangular matrix X = USV such that S is a diagonal matrix with
         X's singular values along its diagonal, computes and returns W = V^-1.
-
         """
 
-        X = self.inputs.copy()
+        X = inputs.copy()
 
-        #assert "W" not in self.__dict__, "PCATrainer.updates should only be" \
-        #    " called once"
-        assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
-            " greater than number of features (columns)"
         # Actually, I don't think is necessary, but in practice all our datasets
         # fulfill this requirement anyway, so this serves as a sanity check.
+        assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
+            " greater than number of features (columns)"
 
-        X -= numpy.mean (X, axis = 0)
+        X -= numpy.mean(X, axis = 0)
         (v, W) = linalg.eig(numpy.cov(X.T))
 
         order = numpy.argsort(-v)
@@ -65,45 +70,9 @@ class PCATrainer(Trainer):
         num_components = min(self.num_components, var_cutoff, X.shape[1])
         W = W[:,:num_components]
 
-        # Dirty hack to fit non-Theano computation into symbolic Theano variable
-        W_theano = sharedX(W, 'W')
-        return {self.model.W : W_theano}
+        # Update Theano shared variable
+        self.W.set_value(W)
 
-
-    def function(self, input):
-        """Compile the Theano training function associated with the trainer"""
-        return theano.function([input],                 # The symbolic input you'll pass
-                               [],                      # Whatever quantities you want returned
-                               updates = self.updates() # How Theano should update shared vars
-                               )
-
-class PCA(Block):
-    """
-    Block which transforms its input via Principal Component Analysis.
-    """
-
-    def __init__(self):
-        super(PCA, self).__init__()
-
-    @classmethod
-    def alloc(cls, conf):
-        """
-        :type inputs: numpy.ndarray, shape (n, d)
-        :param inputs: matrix from which to compute PCA transformation
-
-        :type n_vis: int
-        :param n_vis: number of features
-        """
-
-        self = cls()
-        # FIXME: Pretty sure this initialization is useless (which adds a
-        # dependency on conf['n_vis'] for no good reason.
-        self.W = sharedX(
-            numpy.ones((conf['n_vis'], conf['n_vis'])),
-            name='W'
-        )
-        self._params = [self.W]
-        return self
 
     def __call__(self, inputs):
         """
@@ -113,8 +82,8 @@ class PCA(Block):
         :param inputs: matrix on which to compute PCA
         """
 
-        assert "W" in self.__dict__ and self.W is not None, "PCA transformation" \
-            " matrix 'W' not defined"
+        #assert "W" in self.__dict__ and self.W.get_value(borrow=True).shape[0] > 0,\
+        #        "PCA transformation matrix 'W' not defined"
         #assert inputs.get_value().shape[1] == self.W.get_value().shape[0], \
         #    "Incompatible input matrix shape"
 
@@ -215,7 +184,7 @@ if __name__ == "__main__":
 
     # First, build a config. dict.
     conf = {
-        'n_vis': train_rep.shape[1],
+        #'n_vis': train_rep.shape[1],
         'num_components': args.num_components,
         'min_variance': args.min_variance,
     }

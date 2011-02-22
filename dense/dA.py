@@ -16,10 +16,10 @@ import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from logistic_sgd import load_data, get_constant
-from posttraitement.pca import PCA, PCATrainer
+from posttraitement.pca import PCA
 from utils import tile_raster_images
 from auc.embed import score
-from auc.evaluation import hebbian_learner
+#from auc.evaluation import hebbian_learner
 
 import PIL.Image
 
@@ -585,20 +585,16 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
             givens = {inputs:train_set_x}, name = 'get_rep_train')
         train_rep = get_rep_train()
 
-        # Allocate a PCA block and associated trainer.
+        # Allocate a PCA block
         conf = {
-            'n_vis': train_rep.shape[1],
+            #'n_vis': train_rep.shape[1],
             'num_components': num_components,
             'min_variance': min_variance,
         }
-        pca = PCA.alloc(conf)
-        trainer = PCATrainer.alloc(pca, train_rep, conf)
-
-        # Finally, build a Theano function out of all this.
-        train_fn = trainer.function(inputs)
+        pca = PCA(conf)
 
         # Compute the PCA transformation matrix from the training data.
-        train_fn(train_rep)
+        pca.train(train_rep)
 
         # Save transformation matrix to pickle.
         pca.save(save_dir)
