@@ -88,9 +88,9 @@ class PCA(Block):
         v, W = v[:num_components], W[:,:num_components]
 
         # Update Theano shared variable
-        W = theano._asarray(W, dtype = theano.config.floatX)
-        v = theano._asarray(v, dtype = theano.config.floatX)
-        mean = theano._asarray(mean, dtype = theano.config.floatX)
+        W = theano._asarray(W, dtype=theano.config.floatX)
+        v = theano._asarray(v, dtype=theano.config.floatX)
+        mean = theano._asarray(mean, dtype=theano.config.floatX)
         self.W.set_value(W, borrow = True)
         if self.whiten:
             self.v.set_value(v, borrow = True)
@@ -114,33 +114,34 @@ class PCA(Block):
         if numpy.any(self.v.get_value() > 0):
             Y /= T.sqrt(self.v)
         return Y
+    ##### There is no reason, as far as I can see, to implement this here
+    ##### when there are methods in base.py for this.
+    #def save(self, save_dir, save_filename = 'model_pca.pkl'):
+    #    """
+    #    Save the computed PCA transformation matrix.
+    #    """
 
-    def save(self, save_dir, save_filename = 'model_pca.pkl'):
-        """
-        Save the computed PCA transformation matrix.
-        """
+    #    print '... saving model'
+    #    if not os.path.isdir(save_dir):
+    #        os.makedirs(save_dir)
 
-        print '... saving model'
-        if not os.path.isdir(save_dir):
-            os.makedirs(save_dir)
+    #    save_file = open(os.path.join(save_dir, save_filename), 'wb')
+    #    cPickle.dump(self.W.get_value(), save_file, -1)
+    #    cPickle.dump(self.v.get_value(), save_file, -1)
+    #    cPickle.dump(self.mean.get_value(), save_file, -1)
+    #    save_file.close()
 
-        save_file = open(os.path.join(save_dir, save_filename), 'wb')
-        cPickle.dump(self.W.get_value(), save_file, -1)
-        cPickle.dump(self.v.get_value(), save_file, -1)
-        cPickle.dump(self.mean.get_value(), save_file, -1)
-        save_file.close()
+    #def load(self, load_dir, load_filename = 'model_pca.pkl'):
+    #    """
+    #    Load a PCA transformation matrix.
+    #    """
 
-    def load(self, load_dir, load_filename = 'model_pca.pkl'):
-        """
-        Load a PCA transformation matrix.
-        """
-
-        print '... loading model'
-        load_file = open(os.path.join(load_dir, load_filename), 'r')
-        self.W.set_value(cPickle.load(load_file))
-        self.v.set_value(cPickle.load(load_file))
-        self.mean.set_value(cPickle.load(load_file))
-        load_file.close()
+    #    print '... loading model'
+    #    load_file = open(os.path.join(load_dir, load_filename), 'r')
+    #    self.W.set_value(cPickle.load(load_file))
+    #    self.v.set_value(cPickle.load(load_file))
+    #    self.mean.set_value(cPickle.load(load_file))
+    #    load_file.close()
 
 if __name__ == "__main__":
     """
@@ -158,28 +159,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Transform the output of a model by Principal Component Analysis"
     )
-    parser.add_argument('dataset', action = 'store',
+    parser.add_argument('dataset', action='store',
                         type=str,
-                        choices = ['avicenna', 'harry', 'rita', 'sylvester',
+                        choices=['avicenna', 'harry', 'rita', 'sylvester',
                                  'ule'],
-                        help = 'Dataset on which to run the PCA')
-    parser.add_argument('-d', '--load-dir', action = 'store',
+                        help='Dataset on which to run the PCA')
+    parser.add_argument('-d', '--load-dir', action='store',
                         type=str,
                         default=".",
                         required=False,
-                        help = "Directory from which to load original model.pkl")
-    parser.add_argument('-s', '--save-dir', action = 'store',
+                        help="Directory from which to load original model.pkl")
+    parser.add_argument('-s', '--save-dir', action='store',
                         type=str,
                         default=".",
                         required=False,
-                        help = "Directory where model pickle is to be saved")
-    parser.add_argument('-n', '--num-components', action = 'store',
+                        help="Directory where model pickle is to be saved")
+    parser.add_argument('-n', '--num-components', action='store',
                         type=int,
                         default=numpy.inf,
                         required=False,
                         help="Only the 'n' most important components will be"
                             " preserved")
-    parser.add_argument('-v', '--min-variance', action = 'store',
+    parser.add_argument('-v', '--min-variance', action='store',
                         type=float,
                         default=.0,
                         required=False,
@@ -241,7 +242,7 @@ if __name__ == "__main__":
     test_pca = pca_transform(test_rep)
 
     print >> stderr, "New shapes:", map(numpy.shape, [valid_pca, test_pca])
-    
+
     # This is probably not very useful; I load this dump from R for analysis.
     if args.dump:
         print "... dumping new representation"
