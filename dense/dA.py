@@ -405,11 +405,11 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
         # Allocate PCA block; read precomputed transformation matrix from pickle.
-        pca = PCA.alloc({'n_vis': test_rep1.shape[1]})
+        pca = PCA({})
         pca.load(save_dir_model)
 
-        # Create a PCA transformation function.
-        inputs = theano.tensor.matrix()
+        # Create a Theano function to apply transformation.
+        inputs = T.dmatrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.
@@ -474,11 +474,11 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
         # Allocate PCA block; read precomputed transformation matrix from pickle.
-        pca = PCA.alloc({'n_vis': test_rep1.shape[1]})
+        pca = PCA({})
         pca.load(save_dir_model)
 
-        # Create a PCA transformation function.
-        inputs = theano.tensor.matrix()
+        # Create a Theano function to apply transformation.
+        inputs = T.dmatrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.
@@ -552,8 +552,8 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
     noise_type, corruption_level, normalize_on_the_fly = False, do_pca = False,
-    num_components = numpy.inf, min_variance = .0, do_create_submission = False,
-    submission_dir = None):
+    num_components = numpy.inf, min_variance = .0, pca_whiten = False,
+    do_create_submission = False, submission_dir = None):
     ''' main function used for training '''
 
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
@@ -587,9 +587,9 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
         # Allocate a PCA block
         conf = {
-            #'n_vis': train_rep.shape[1],
             'num_components': num_components,
             'min_variance': min_variance,
+            'pca_whiten': pca_whiten
         }
         pca = PCA(conf)
 
@@ -676,17 +676,23 @@ if __name__ == '__main__':
                         required=False,
                         help='Transform learned representation with PCA')
     parser.add_argument('-k', '--num-components', action = 'store',
-                        type = int,
-                        default = numpy.inf,
-                        required = False,
-                        help = "Only the 'n' most important PCA components" \
-                            " will be preserved")
+                        type=int,
+                        default=numpy.inf,
+                        required=False,
+                        help='Only the n most important PCA components' \
+                            ' will be preserved')
     parser.add_argument('-v', '--min-variance', action = 'store',
-                        type = float,
-                        default = .0,
-                        required = False,
-                        help = "PCA components with variance below this" \
-                            " threshold will be discarded")
+                        type=float,
+                        default=.0,
+                        required=False,
+                        help='PCA components with variance below this' \
+                            ' threshold will be discarded')
+    parser.add_argument('-w', '--pca-whiten', action='store_const',
+                        default=False,
+                        const=True,
+                        required=False,
+                        help='In PCA transformation, divide projected features' \
+                            ' by their standard deviation')
     # Note that hyphens ('-') in argument names are turned into underscores
     # ('_') after parsing
     parser.add_argument('-N', '--normalize-on-the-fly', action='store_const',
@@ -732,5 +738,6 @@ if __name__ == '__main__':
             do_pca=args.do_pca,
             num_components=args.num_components,
             min_variance=args.min_variance,
+            pca_whiten=args.pca_whiten,
             do_create_submission=args.create_submission,
             submission_dir=args.submission_dir)
