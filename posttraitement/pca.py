@@ -159,31 +159,31 @@ if __name__ == "__main__":
         description="Transform the output of a model by Principal Component Analysis"
     )
     parser.add_argument('dataset', action = 'store',
-                        type = str,
+                        type=str,
                         choices = ['avicenna', 'harry', 'rita', 'sylvester',
                                  'ule'],
                         help = 'Dataset on which to run the PCA')
     parser.add_argument('-d', '--load-dir', action = 'store',
-                        type = str,
-                        default = ".",
-                        required = False,
+                        type=str,
+                        default=".",
+                        required=False,
                         help = "Directory from which to load original model.pkl")
     parser.add_argument('-s', '--save-dir', action = 'store',
-                        type = str,
-                        default = ".",
-                        required = False,
+                        type=str,
+                        default=".",
+                        required=False,
                         help = "Directory where model pickle is to be saved")
     parser.add_argument('-n', '--num-components', action = 'store',
-                        type = int,
-                        default = numpy.inf,
-                        required = False,
-                        help = "Only the 'n' most important components will be"
+                        type=int,
+                        default=numpy.inf,
+                        required=False,
+                        help="Only the 'n' most important components will be"
                             " preserved")
     parser.add_argument('-v', '--min-variance', action = 'store',
-                        type = float,
-                        default = .0,
-                        required = False,
-                        help = "Components with variance below this threshold"
+                        type=float,
+                        default=.0,
+                        required=False,
+                        help="Components with variance below this threshold"
                             " will be discarded")
     parser.add_argument('-w', '--whiten', action='store_const',
                         default=False,
