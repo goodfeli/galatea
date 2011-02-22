@@ -50,8 +50,8 @@ class PCA(Block):
         )
 
         self.mean = sharedX(
-            numpy.zeros((0, 0)),
-            name='W',
+            numpy.zeros((0)),
+            name='mean',
             borrow=True
         )
 
@@ -60,7 +60,7 @@ class PCA(Block):
         # descent.
         self._params = []
 
-    def train(self, inputs):
+    def train(self, X):
         """
         Compute the PCA transformation matrix.
 
@@ -69,13 +69,14 @@ class PCA(Block):
         Given a rectangular matrix X = USV such that S is a diagonal matrix with
         X's singular values along its diagonal, computes and returns W = V^-1.
         """
+
         # Actually, I don't think is necessary, but in practice all our datasets
         # fulfill this requirement anyway, so this serves as a sanity check.
         # TODO: Implement the snapshot method for the p >> n case.
         assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
             " greater than number of features (columns)"
         # Implicit copy done below.
-        mean = numpy.mean(inputs, axis=0)
+        mean = numpy.mean(X, axis=0)
         X = X - mean
         # The following computation is always carried in double precision
         v, W = linalg.eig(numpy.cov(X.T))
