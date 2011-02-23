@@ -36,26 +36,10 @@ class PCA(Block):
         self.min_variance = conf.get('min_variance', 0.0)
         self.whiten = conf.get('whiten', False)
 
-        # Initialize self.W with an empty matrix
-        # self.W is set only so that self._params can be built up-to-date.
-        # If we figure out another solution, why not.
-        self.W = sharedX(
-            numpy.zeros((0, 0)),
-            name='W',
-            borrow=True
-        )
-
-        self.v = sharedX(
-            numpy.zeros((0)),
-            name='v',
-            borrow=True
-        )
-
-        self.mean = sharedX(
-            numpy.zeros((0)),
-            name='mean',
-            borrow=True
-        )
+        # There is no need to initialize shared variables yet
+        self.W = None
+        self.v = None
+        self.mean = None
 
         # This module really has no adjustable parameters -- once train()
         # is called once, they are frozen, and are not modified via gradient
@@ -89,14 +73,14 @@ class PCA(Block):
         num_components = min(self.num_components, var_cutoff, X.shape[1])
         v, W = v[:num_components], W[:,:num_components]
 
-        # Update Theano shared variables
-        W = theano._asarray(W, dtype=floatX)
-        v = theano._asarray(v, dtype=floatX)
-        mean = theano._asarray(mean, dtype=floatX)
-        self.W.set_value(W, borrow = True)
+        # Build Theano shared variables
+        # For the moment, I do not use borrow=True because W and v are
+        # subtensors, and I want the original memory to be freed
+
+        self.W = sharedX(W)
         if self.whiten:
-            self.v.set_value(v, borrow = True)
-        self.mean.set_value(mean, borrow = True)
+            self.v = sharedX.set_value(v)
+        self.mean = sharedX(mean)
 
     def __call__(self, inputs):
         """
