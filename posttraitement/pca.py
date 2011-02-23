@@ -79,7 +79,7 @@ class PCA(Block):
 
         self.W = sharedX(W)
         if self.whiten:
-            self.v = sharedX.set_value(v)
+            self.v = sharedX(v)
         self.mean = sharedX(mean)
 
     def __call__(self, inputs):
@@ -101,11 +101,11 @@ class PCA(Block):
             Y /= tensor.sqrt(self.v)
         return Y
 
-    def function(self):
+    def function(self, name=None):
         """ Returns a compiled theano function to compute a representation """
         inputs = tensor.matrix()
-        return theano.function([inputs], self(inputs), name='pca_transform_fn')
-
+        return theano.function([inputs], self(inputs), name=name)
+    
 if __name__ == "__main__":
     """
     Run a dataset through a previously learned dA model, compute a PCA
