@@ -100,12 +100,12 @@ class PCA(Block):
         if numpy.any(self.v.get_value() > 0):
             Y /= tensor.sqrt(self.v)
         return Y
-    
+
     def function(self):
         """ Returns a compiled theano function to compute a representation """
         inputs = tensor.matrix()
         return theano.function([inputs], self(inputs), name='pca_transform_fn')
-    
+
 if __name__ == "__main__":
     """
     Run a dataset through a previously learned dA model, compute a PCA
