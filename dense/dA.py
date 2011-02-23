@@ -408,7 +408,7 @@ def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
         pca = PCA.load(save_dir_model, 'model_pca.pkl')
 
         # Create a Theano function to apply transformation.
-        inputs = T.dmatrix()
+        inputs = T.matrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.
@@ -476,7 +476,7 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
         pca = PCA.load(save_dir_model, 'model_pca.pkl')
 
         # Create a Theano function to apply transformation.
-        inputs = T.dmatrix()
+        inputs = T.matrix()
         pca_transform = theano.function([inputs], pca(inputs))
 
         # Replace data with new representations.

@@ -186,7 +186,7 @@ if __name__ == "__main__":
     }
 
     # A symbolic input representing the data.
-    inputs = tensor.dmatrix()
+    inputs = tensor.matrix()
 
     # Allocate a PCA block.
     pca = PCA(conf)
