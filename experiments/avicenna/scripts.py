@@ -8,7 +8,7 @@ def train_dA(state, channel):
     act_enc = state.act_enc
     act_dec = state.act_dec
     learning_rate = state.lr
-    batch_size = state.batchsize
+    batch_size = state.batch_size
     epochs = state.epochs
     cost_type  = state.cost_type
     noise_type =  state.noise_type
@@ -23,3 +23,4 @@ def train_dA(state, channel):
     state.time_spent = out[1]
 
     return channel.COMPLETE
+

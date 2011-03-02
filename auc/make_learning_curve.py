@@ -49,7 +49,7 @@ class data_struct:
         if lidx is None:
             lidx = range(1, self.Y.shape[1] )
         #
-	return data_struct( self.X[N.ix_(pidx, fidx)], self.Y[N.ix_(pidx,lidx)])
+        return data_struct( self.X[N.ix_(pidx, fidx)], self.Y[N.ix_(pidx,lidx)])
     #
 #
 
@@ -104,7 +104,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
     #
 
     if cn==2 and N.all(Y.sum(axis=1)): # If only 2 classes, the 2nd col is the same as the first but opposite
-        Y=Y[:,0]
+        Y=(N.ones((1,1))*Y[:,0]).T
         sep_num=1
     #
     Y[Y==0] = -1;

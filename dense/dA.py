@@ -16,8 +16,10 @@ import theano.tensor as T
 #from theano.tensor.shared_randomstreams import RandomStreams
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 from logistic_sgd import load_data, get_constant
-from posttraitement import pca
+from posttraitement.pca import PCA
 from utils import tile_raster_images
+from auc.embed import score
+#from auc.evaluation import hebbian_learner
 
 import PIL.Image
 
@@ -138,7 +140,7 @@ class dA(object):
         if input == None :
             # we use a matrix because we expect a minibatch of several examples,
             # each example being a row
-            self.x = T.dmatrix(name = 'input')
+            self.x = T.matrix(name = 'input')
         else:
             self.x = input
 
@@ -176,21 +178,21 @@ class dA(object):
         else:
             raise NotImplementedError('This noise %s is not implemented yet'%(noise))
 
-   
+
     def get_hidden_values(self, input):
         """ Computes the values of the hidden layer """
         if self.act_enc == 'sigmoid':
             return T.nnet.sigmoid(T.dot(input, self.W) + self.b)
         elif self.act_enc == 'tanh':
-            	return T.tanh(T.dot(input, self.W) + self.b)
-	elif self.act_enc == 'softplus':
-		def softplus(x):
-                	return T.log(1. + T.exp(x))
-		return softplus(T.dot(input, self.W) + self.b)
-	elif self.act_enc == 'rectifier':
-	    	def rectifier(x):
-			return x*(x>0)
-		return  rectifier(T.dot(input, self.W) + self.b)
+            return T.tanh(T.dot(input, self.W) + self.b)
+        elif self.act_enc == 'softplus':
+            def softplus(x):
+                return T.log(1. + T.exp(x))
+            return softplus(T.dot(input, self.W) + self.b)
+        elif self.act_enc == 'rectifier':
+            def rectifier(x):
+                return x*(x>0)
+            return  rectifier(T.dot(input, self.W) + self.b)
         else:
             raise NotImplementedError('Encoder function %s is not implemented yet' \
                 %(self.act_enc))
@@ -202,7 +204,7 @@ class dA(object):
         elif self.act_dec == 'linear':
             return T.dot(hidden, self.W_prime) + self.b_prime
         elif self.act_dec == 'softplus':
-	    def softplus(x):
+            def softplus(x):
                 return T.log(1. + T.exp(x))
             return softplus(T.dot(hidden, self.W_prime) + self.b_prime)
         else:
@@ -219,12 +221,12 @@ class dA(object):
         z       = self.get_reconstructed_input(y)
         # note : we sum over the size of a datapoint; if we are using minibatches,
         #        L will  be a vector, with one entry per example in minibatch
-	#	 Moving the range of tanh from [-1;1] to [0;1]
         if cost == 'CE':
-		if self.act_enc == 'tanh':
-            		L = - T.sum( ((self.x+1)/2)*T.log(z) + (1-((self.x+1)/2))*T.log(1-z), axis=1 )
-		else:
-			L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )	
+            if self.act_enc == 'tanh':
+                # Moving the range of tanh from [-1;1] to [0;1]
+                L = - T.sum( ((self.x+1)/2)*T.log(z) + (1-((self.x+1)/2))*T.log(1-z), axis=1 )
+            else:
+                L = - T.sum( self.x*T.log(z) + (1-self.x)*T.log(1-z), axis=1 )
         elif cost == 'MSE':
             L = T.sum( (self.x-z)**2, axis=1 )
         else:
@@ -325,7 +327,7 @@ class dA(object):
                  input = args['input'],
                  n_visible= args['n_visible'],
                  n_hidden= args['n_hidden'],
-                 tied_weights = args['tied_weights'],
+                 #tied_weights = args['tied_weights'],
                  act_enc = args['act_enc'],
                  act_dec = args['act_dec'],
                  W = args['W'],
@@ -364,26 +366,22 @@ class dA(object):
 
         return numpy.mean(denoising_error)
 
-def create_submission(dataset, save_dir_model, save_dir_submission,
+def eval_ALC_test_val(dataset, save_dir_model, save_dir_plot,
     normalize_on_the_fly = False, do_pca = False):
     """
-    Create submission files given the path of a model and
-    a dataset.
-
-    params:
-    * dataset
-        is a string corresponding to the name of the dataset
-    * save_dir_model
-        is the path where you saved your model
-    * save_dir_submission
-        is the path where you want to store the submission files
-    * do_pca
-        whether or not to apply (previously computed) PCA transform on model
+    Returns the ALC of the valid set VS test set
+    Note: This proxy won't work in the case of transductive learning
+    (This is an assumption) but it seems to be a good proxy in the
+    normal case (i.e only train on training set)
+    * type can be erick or yann or both
+    so you can check those two ways of computing the ALC get the same results
     """
+
+
     # load the dataset
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
     valid_set_x = datasets[1]
-    test_set_x = datasets[1]
+    test_set_x = datasets[2]
 
     # load the model
     da = dA()
@@ -406,13 +404,84 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 
     # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
     if do_pca:
-        pca_block = pca.PCA()
-        pca_block.load(save_dir_model)
-        valid_rep1 = pca_block(valid_rep1)
+        # Allocate PCA block; read precomputed transformation matrix from pickle.
+        pca = PCA.load(save_dir_model, 'model_pca.pkl')
 
-        pca_block = pca.PCA()
-        pca_block.load(save_dir_model)
-        test_rep1 = pca_block(test_rep1)
+        # Create a Theano function to apply transformation.
+        inputs = T.matrix()
+        pca_transform = theano.function([inputs], pca(inputs))
+
+        # Replace data with new representations.
+        valid_rep1 = pca_transform(valid_rep1)
+        test_rep1 = pca_transform(test_rep1)
+
+    # build the whole dataset and give a one different one hot for each sample
+    #from the valid [1,0] VS test [0,1]
+    n_val  = valid_rep1.shape[0]
+    n_test = test_rep1.shape[0]
+
+    _labval = numpy.hstack((numpy.ones((n_val,1)), numpy.zeros((n_val,1))))
+    _labtest = numpy.hstack((numpy.zeros((n_test,1)), numpy.ones((n_test,1))))
+
+    dataset = numpy.vstack((valid_rep1, test_rep1))
+    label = numpy.vstack((_labval,_labtest))
+    print '... computing the ALC'
+
+    return score(dataset, label)
+
+def create_submission(dataset, save_dir_model, save_dir_submission,
+    normalize_on_the_fly = False, do_pca = False):
+    """
+    Create submission files given the path of a model and
+    a dataset.
+
+    params:
+    * dataset
+        is a string corresponding to the name of the dataset
+    * save_dir_model
+        is the path where you saved your model
+    * save_dir_submission
+        is the path where you want to store the submission files
+    * do_pca
+        whether or not to apply (previously computed) PCA transform on model
+    """
+
+    # load the dataset
+    datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
+    valid_set_x = datasets[1]
+    test_set_x = datasets[2]
+
+    # load the model
+    da = dA()
+    da.load(save_dir_model)
+
+    # theano functions to get representations of the dataset learned by the model
+    index = T.lscalar()    # index to a [mini]batch
+    x = theano.tensor.matrix('input')
+
+    get_rep_valid = theano.function([index], da.get_hidden_values(x), updates = {},
+        givens = {x:valid_set_x},
+        name = 'get_rep_valid')
+    get_rep_test = theano.function([index], da.get_hidden_values(x), updates = {},
+        givens = {x:test_set_x},
+        name = 'get_rep_test')
+
+    # valid and test representations
+    valid_rep1 = get_rep_valid(0)
+    test_rep1 = get_rep_test(0)
+
+    # TODO: Create submission for *both* PCA'd and non-PCA'd representations?
+    if do_pca:
+        # Allocate PCA block; read precomputed transformation matrix from pickle.
+        pca = PCA.load(save_dir_model, 'model_pca.pkl')
+
+        # Create a Theano function to apply transformation.
+        inputs = T.matrix()
+        pca_transform = theano.function([inputs], pca(inputs))
+
+        # Replace data with new representations.
+        valid_rep1 = pca_transform(valid_rep1)
+        test_rep1 = pca_transform(test_rep1)
 
     valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
     test_rep2 = numpy.dot(test_rep1,test_rep1.T)
@@ -481,8 +550,8 @@ def create_submission(dataset, save_dir_model, save_dir_submission,
 def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
     act_dec, learning_rate, batch_size, epochs, cost_type,
     noise_type, corruption_level, normalize_on_the_fly = False, do_pca = False,
-    num_components = numpy.inf, min_variance = .0, do_create_submission = False,
-    submission_dir = None):
+    num_components = numpy.inf, min_variance = .0, pca_whiten = False,
+    do_create_submission = False, submission_dir = None):
     ''' main function used for training '''
 
     datasets = load_data(dataset, not normalize_on_the_fly, normalize_on_the_fly)
@@ -507,13 +576,26 @@ def main_train(dataset, save_dir, n_hidden, tied_weights, act_enc,
 
     if do_pca:
         print "... computing PCA"
-        x = theano.tensor.matrix('input')
-        get_rep_train = theano.function([], da.get_hidden_values(x), updates = {},
-            givens = {x:train_set_x}, name = 'get_rep_valid')
-        pca_trainer = pca.PCATrainer(get_rep_train(), num_components = num_components,
-            min_variance = min_variance)
-        pca_trainer.updates()
-        pca_trainer.save(save_dir)
+
+        # Get dA-transformed data.
+        inputs = theano.tensor.matrix('inputs')
+        get_rep_train = theano.function([], da.get_hidden_values(inputs), updates = {},
+            givens = {inputs:train_set_x}, name = 'get_rep_train')
+        train_rep = get_rep_train()
+
+        # Allocate a PCA block
+        conf = {
+            'num_components': num_components,
+            'min_variance': min_variance,
+            'pca_whiten': pca_whiten
+        }
+        pca = PCA(conf)
+
+        # Compute the PCA transformation matrix from the training data.
+        pca.train(train_rep)
+
+        # Save transformation matrix to pickle.
+        pca.save(save_dir, 'model_pca.pkl')
 
     if do_create_submission:
         print "... creating submission"
@@ -543,6 +625,7 @@ if __name__ == '__main__':
     # Pour harry si l'on n'exploite pas la sparsite on peut lancer avec normalisation a
     # la volée (-N, comme rita)
     # python dA.py harry 500 True 'sigmoid' 'sigmoid' 'CE' 0.01 20 50 'gaussian' 0.3 -N
+
     parser = argparse.ArgumentParser(
         description='Run denoising autoencoder experiments on dense features.'
     )
@@ -591,17 +674,23 @@ if __name__ == '__main__':
                         required=False,
                         help='Transform learned representation with PCA')
     parser.add_argument('-k', '--num-components', action = 'store',
-                        type = int,
-                        default = numpy.inf,
-                        required = False,
-                        help = "Only the 'n' most important PCA components" \
-                            " will be preserved")
+                        type=int,
+                        default=numpy.inf,
+                        required=False,
+                        help='Only the n most important PCA components' \
+                            ' will be preserved')
     parser.add_argument('-v', '--min-variance', action = 'store',
-                        type = float,
-                        default = .0,
-                        required = False,
-                        help = "PCA components with variance below this" \
-                            " threshold will be discarded")
+                        type=float,
+                        default=.0,
+                        required=False,
+                        help='PCA components with variance below this' \
+                            ' threshold will be discarded')
+    parser.add_argument('-w', '--pca-whiten', action='store_const',
+                        default=False,
+                        const=True,
+                        required=False,
+                        help='In PCA transformation, divide projected features' \
+                            ' by their standard deviation')
     # Note that hyphens ('-') in argument names are turned into underscores
     # ('_') after parsing
     parser.add_argument('-N', '--normalize-on-the-fly', action='store_const',
@@ -630,9 +719,23 @@ if __name__ == '__main__':
     if not os.path.exists(args.save_dir) or not os.path.isdir(args.save_dir):
         raise IOError('%s doesn\'t exist or is not accessible' % os.save_dir)
 
-    main_train(args.dataset, args.save_dir, args.n_hidden,
-               args.tied_weights, args.act_enc, args.act_dec,
-               args.learning_rate, args.batch_size, args.epochs,
-               args.cost_type, args.noise_type, args.corruption_level,
-               args.normalize_on_the_fly, args.do_pca, args.num_components,
-               args.min_variance, args.create_submission, args.submission_dir)
+    main_train(
+            dataset=args.dataset,
+            save_dir=args.save_dir,
+            n_hidden=args.n_hidden,
+            tied_weights=args.tied_weights,
+            act_enc=args.act_enc,
+            act_dec=args.act_dec,
+            learning_rate=args.learning_rate,
+            batch_size=args.batch_size,
+            epochs=args.epochs,
+            cost_type=args.cost_type,
+            noise_type=args.noise_type,
+            corruption_level=args.corruption_level,
+            normalize_on_the_fly=args.normalize_on_the_fly,
+            do_pca=args.do_pca,
+            num_components=args.num_components,
+            min_variance=args.min_variance,
+            pca_whiten=args.pca_whiten,
+            do_create_submission=args.create_submission,
+            submission_dir=args.submission_dir)

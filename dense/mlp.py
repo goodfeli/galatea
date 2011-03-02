@@ -44,7 +44,7 @@ class HiddenLayer(object):
         :type rng: numpy.random.RandomState
         :param rng: a random number generator used to initialize weights
 
-        :type input: theano.tensor.dmatrix
+        :type input: theano.tensor.matrix
         :param input: a symbolic tensor of shape (n_examples, n_in)
 
         :type n_in: int

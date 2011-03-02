@@ -1,5 +1,6 @@
 import cPickle, numpy, scipy, sys
 import pylearn.io.filetensor
+import theano, miniml
 from pylearn.datasets.utlc import load_sparse_dataset, load_ndarray_dataset
 
 dataset = ["avicenna", "harry", "rita", "sylvester", "terry", "ule"]
@@ -31,7 +32,7 @@ def compute_rank(data, max=999, skip_zeros=False, count_once=False):
             count -= rank[0,j]
             rank[0,j] = 0
         rank[0][j] /= count
-        for i in range(rank.shape[0]-1):
+        for i in range(rank.shape[1]-1):
             rank[i+1,j] = (rank[i,j] + rank[i+1,j]/count)
 
     return rank
@@ -48,7 +49,7 @@ def compute_rank_sparse(data, max=999, count_once=False):
     print "Computing count"
     for dataset in data:
         I,J,V = scipy.sparse.find(dataset)
-        for i in range(len(I)):
+        for i in xrange(len(I)):
             rank[V[i],J[i]] += 1
 
     # compute the rank
@@ -59,22 +60,21 @@ def compute_rank_sparse(data, max=999, count_once=False):
         if count == 0:
             count = 1
         rank[0][j] /= count
-        for i in range(rank.shape[0]-1):
+        for i in xrange(rank.shape[0]-1):
             rank[i+1,j] = (rank[i,j] + rank[i+1,j]/count)
-            
-    
+
     return rank
 
 
 data = sys.argv[1]
-loader = sys.argv[2]
-if len(sys.argv) != 3 or (data not in dataset) or (loader not in ["dense","sparse"]):
+type = sys.argv[2]
+if len(sys.argv) != 3 or (data not in dataset) or (type not in ["dense","sparse"]):
     print "Usage: %s dataset type"
     print " where dataset is either [avicenna, harry, rita, sylvester, terry, ule] "
     print " and type is either [dense, sparse]"
 
 
-if loader == "dense":
+if type == "dense":
     loader = load_ndarray_dataset
     ranker = compute_rank
 else:
@@ -85,20 +85,25 @@ print "Processing %s"%(data)
 train, valid, test = loader(data, normalize=False)
 
 # uniformize on the 3 sets
-rank = ranker([train,valid,test])
+rank = numpy.zeros((1,1))
+if type == "sparse":
+    rank = ranker([train,valid,test])
 
 # convert
 train = train.astype(float)
 valid = valid.astype(float)
 test  = test.astype(float)
 
+x = theano.tensor.matrix('x')
+f = theano.function([x], miniml.theano.op.uniformize()(x))
 
 for (set,name) in [(train,"train"), (valid,"valid"), (test,"test")]:
-    if loader == "dense":
-        for i in range(set.shape[0]):
-            for j in range(set.shape[1]):
-                set[i,j] = rank[set[i,j],j]
-        pylearn.io.filetensor.write(open(data+'_'+name+'.ft','wb'),set)
+    if type == "dense":
+        result = f(numpy.transpose([set[:,0]]))
+        for j in xrange(1,set.shape[1]):
+            result = numpy.hstack((result,f(numpy.transpose([set[:,j]]))))
+            print j
+        pylearn.io.filetensor.write(open(data+'_'+name+'.ft','wb'),result)
     else:
         I,J,V = scipy.sparse.find(set)
         for i in range(len(I)):
