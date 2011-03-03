@@ -13,7 +13,7 @@ def main(data="terry", exp_list=None):
     br.open("http://www.causality.inf.ethz.ch/unsupervised-learning.php?page=login")
     br.select_form(nr=0)
     br.form["repo_login"] = "lisa@iro.umontreal.ca"
-    br.form["repo_password"] = "deep99"
+    br.form["repo_password"] = "<set it yourself>"
     br.submit()
 
     print "Opening web page"
