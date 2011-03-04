@@ -127,7 +127,18 @@ There is the ift6266h11.dense.logistic_sgd.get_constant(train.shape[0]) that wil
 Transfer label
 --------------
 
-Currently only the ule transfer label are available.
+The transfer labels for all data sets have been released on March 4th.
+They have been processed and saved in .ft files, but not tested yet with pylearn.
+
+For one given data set, the labels are contained in a matrix, each
+row corresponds to an element in the train set (the filetensors have
+been shuffled in the same way as the training sets), and each column
+corresponds to the presence of a given label. A given example can have
+0, 1, or (in some datasets) more labels active.
+
+Complete labels
+---------------
+Only the ule has full labels (on train, valid, test) available.
 
 ule train/valid/test label:
 As ule is a toy dataset, we have the label of the part. They can be loaded
