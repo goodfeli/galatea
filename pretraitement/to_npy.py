@@ -11,6 +11,9 @@ wget http://www.causality.inf.ethz.ch/ul_data/sylvester_text.zip
 wget http://www.causality.inf.ethz.ch/ul_data/terry_text.zip
 wget http://www.causality.inf.ethz.ch/ul_data/ule_text.zip
 
+transfer labels:
+wget http://www.causality.inf.ethz.ch/ul_data/TRANSFER_LABELS.zip
+
 TODO: pylearn.io.sparse? That will use numpy.tofile?
 """
 
@@ -35,6 +38,7 @@ def load_dataset(name, dtype=None, permute_train=False):
         raise Exception("The directory with data for %s not found" % name)
 
     train = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
+                                       name+'_devel.data'),
                           dtype=dtype)
     valid = numpy.loadtxt(os.path.join(ROOT_PATH,name+'_text',
                                        name+'_valid.data'),
@@ -122,16 +126,24 @@ def write_dataset(name, train, valid, test, pickle=False):
         pylearn.io.filetensor.write(open(name+'_valid.ft','wb'),valid)
         pylearn.io.filetensor.write(open(name+'_test.ft','wb'),test)
 
-def load_transfer(name, dtype=None, permute_as_train=False):
+def load_transfer(name, dtype=None, permute_as_train=False, phase=1):
     """
     This version use much more memory
     as numpy.loadtxt use much more memory!
 
     But we don't loose the shape info in the file!
     """
-    if not os.path.exists(os.path.join(ROOT_PATH,name+'_text')):
-        raise Exception("The directory with the original data for %s is not their"%name)
-    transfer = numpy.loadtxt(os.path.join(ROOT_PATH,name+"_text",name+'_transfer.label'),
+    if phase == 1:
+        orig_dir = os.path.join(ROOT_PATH,name+'_text')
+    elif phase == 2:
+        orig_dir = os.path.join(ROOT_PATH,'TRANSFER_LABELS')
+    else:
+        raise Exception("Unknown phase (%i), should be 1 or 2" % phase)
+
+    if not os.path.exists(orig_dir):
+        raise Exception("The directory with the original data for %s (%s) is not there" %
+                (name, orig_dir))
+    transfer = numpy.loadtxt(os.path.join(orig_dir,name+'_transfer.label'),
                           dtype=dtype)
     if permute_as_train:
         rng = numpy.random.RandomState([1,2,3])
@@ -179,7 +191,8 @@ def load_label(name, dtype=None, permute_train=False):
                          dtype=dtype)
     return train, valid, test
 
-if __name__ == "__main__":
+def main_transfer(names, phase=2):
+    '''Process transfer labels'''
     datasets_avail = [
         "--avicenna",
         "--harry",
@@ -188,7 +201,75 @@ if __name__ == "__main__":
         "--terry",
         "--ule"
     ]
+
+    if not len(names):
+        print "Not processing any data sets"
+        return
+    elif not all([(d in datasets_avail or d=='--all') for d in names]):
+        print "Some unknown datasets in %s, they should all be in %s, or --all" % (
+                names, datasets_avail)
+        return
+
+    if '--all' in names:
+        names = datasets_avail[:]
+
+    print "Will process transfer labels for data sets:", names
+
+    if '--avicenna' in names:
+        transfer = load_transfer('avicenna', dtype='uint8', permute_as_train=True,
+                phase=phase)
+        write_transfer('avicenna', transfer)
+        del transfer
+
+    if '--harry' in names:
+        transfer = load_transfer('harry', dtype='uint8', permute_as_train=True,
+                phase=phase)
+        write_transfer('harry', transfer)
+        del transfer
+
+    if '--rita' in names:
+        transfer = load_transfer('rita', dtype='uint8', permute_as_train=True,
+                phase=phase)
+        write_transfer('rita', transfer)
+        del transfer
+
+    if '--sylvester' in names:
+        transfer = load_transfer('sylvester', dtype='uint8', permute_as_train=True,
+                phase=phase)
+        write_transfer('sylvester', transfer)
+        del transfer
+
+    if '--terry' in names:
+        transfer = load_transfer('terry', dtype='uint8', permute_as_train=True,
+                phase=phase)
+        write_transfer('terry', transfer)
+        del transfer
+
+    if '--ule' in names:
+        transfer = load_transfer('ule', dtype='uint8', permute_as_train=True,
+                phase=phase)
+        write_transfer('ule', transfer)
+        del transfer
+
+
+if __name__ == "__main__":
     todo = sys.argv[1:]
+
+    # Should we generate only the transfer label files?
+    if '--transfer' in todo:
+        main_transfer([d for d in todo if d!='--transfer'])
+        sys.exit()
+
+    # Else, process the data itself
+    datasets_avail = [
+        "--avicenna",
+        "--harry",
+        "--rita",
+        "--sylvester",
+        "--terry",
+        "--ule"
+    ]
+
     if len(sys.argv)<=1 or any([d not in datasets_avail for d in todo]):
         print "Usage: to_npy.py", "{" + "|".join(datasets_avail) + "}"
 
