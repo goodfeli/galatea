@@ -7,55 +7,55 @@ IMPORTANT: They don't have the same meaning as the usual train, valid, test!
 
 The web page is at: http://www.causality.inf.ethz.ch/home.php
 
-Dataset 	 Domain                         nbFeat	Sparsity(%)	nb train nb valid nb test Transfer num.
-AVICENNA 	 Arabic manuscripts		120	0.00		150205	 4096	  4096	  50000
-HARRY 		 Human action recognition 	5000 	98.12 		69652 	 4096 	  4096 	  20000
-RITA 		 Object recognition 		7200 	1.19 		111808 	 4096 	  4096 	  24000
-SYLVESTER 	 Ecology 			100 	0.00 		572820 	 4096 	  4096 	  100000
-TERRY 		 Text recognition 		47236 	99.84 		217034 	 4096 	  4096 	  40000
-ULE (toy data) 	 Handwritten digits 		784 	80.85 		26808 	 4096 	  4096 	  10000
+Dataset          Domain                         nbFeat  Sparsity(%)     nb train nb valid nb test Transfer num.
+AVICENNA         Arabic manuscripts             120     0.00            150205   4096     4096    50000
+HARRY            Human action recognition       5000    98.12           69652    4096     4096    20000
+RITA             Object recognition             7200    1.19            111808   4096     4096    24000
+SYLVESTER        Ecology                        100     0.00            572820   4096     4096    100000
+TERRY            Text recognition               47236   99.84           217034   4096     4096    40000
+ULE (toy data)   Handwritten digits             784     80.85           26808    4096     4096    10000
 
-    	 	 	     	memory size(2)
-    	 	 Nb element(1)  int16   float32 float64 original value range 	    original type
-AVICENNA 	 19M		~38MB	~76MB	~150MB	0-999	       	     	    int
-HARRY		 389M		~780MB	~1560MB	~3GB	tr(0-451)va(0-19)te(0-24)   int
-RITA		 864M		~1728MB	~3456MB	~7GB	tr/va/te 0-230	     	    int
-SYLVESTER	 58M		~116MB	~232MB	~460MB	0-999	 	     	    int
-TERRY		 10368M		~21GB	~43GB	~86GB	tr(2-999)va(3-728)te(2-684) int
-ULE		 27M		~55MB	~110MB	~220MB	0-255			    int
+                                memory size(2)
+                 Nb element(1)  int16   float32 float64 original value range        original type
+AVICENNA         19M            ~38MB   ~76MB   ~150MB  0-999                       int
+HARRY            389M           ~780MB  ~1560MB ~3GB    tr(0-451)va(0-19)te(0-24)   int
+RITA             864M           ~1728MB ~3456MB ~7GB    tr/va/te 0-230              int
+SYLVESTER        58M            ~116MB  ~232MB  ~460MB  0-999                       int
+TERRY            10368M         ~21GB   ~43GB   ~86GB   tr(2-999)va(3-728)te(2-684) int
+ULE              27M            ~55MB   ~110MB  ~220MB  0-255                       int
 (1)(nb rows train+valid+test)*nbFeat/1000./1000
 (2) if stored in an ndarray.
 
-    	      	 memory size of sparse format.
-    	 	 uint8 int16   float32 float64
-HARRY		       42MB    56MB    84MB
-TERRY		       98MB    131MB   196MB
-ULE		 25MB		41MB   60MB
+                 memory size of sparse format.
+                 uint8 int16   float32 float64
+HARRY                  42MB    56MB    84MB
+TERRY                  98MB    131MB   196MB
+ULE              25MB           41MB   60MB
 
-       	      stored dtype    dtype after normalization
-AVICENNA      int16  	      floatX
-HARRY	      int16	      floatX(float32=1.5G, float64=3G) or sparse floatX
-RITA	      uint8	      floatX(float32=3.5G, float64=7G)
-SYLVESTER     int16	      floatX
-TERRY	      int16	      sparse floatX
-ULE	      uint8	      floatX or sparse floatX
+              stored dtype    dtype after normalization
+AVICENNA      int16           floatX
+HARRY         int16           floatX(float32=1.5G, float64=3G) or sparse floatX
+RITA          uint8           floatX(float32=3.5G, float64=7G)
+SYLVESTER     int16           floatX
+TERRY         int16           sparse floatX
+ULE           uint8           floatX or sparse floatX
 
-	      train set stats before normalization
-	  max  min  mean   std   non-zeros
+              train set stats before normalization
+          max  min  mean   std   non-zeros
 AVICENNA  999  0    514.62 6.829 
-HARRY	  451  0    0.0481 0.707 7109733
-RITA	  230  0    106.24 56.78 
+HARRY     451  0    0.0481 0.707 7109733
+RITA      230  0    106.24 56.78 
 SYLVESTER 999  0    403.81 96.43 
-TERRY     999  0    0.1100 	 16298648
+TERRY     999  0    0.1100       16298648
 ULE       255  0    33.290 78.48 4027467
 
-	      train set stats after normalization
-	  max 	 min     mean    std
+              train set stats after normalization
+          max    min     mean    std
 AVICENNA  70.928 -75.36  ~0      ~1
-HARRY	  650.45 0	 0.0687  0.9992
-RITA	  1.0	 0.0	 0.0208	 0.1444
+HARRY     650.45 0       0.0687  0.9992
+RITA      1.0    0.0     0.0208  0.1444
 SYLVESTER 6.1716 -4.187  ~0      ~1
-TERRY     3.33   0	 0.00037
+TERRY     3.33   0       0.00037
 ULE       1      0       0.1305  0.3078
 
 
@@ -100,7 +100,7 @@ rita: diviser par le max
           (NOTE: résultat dans (0,1), reconstruire avec des sigmoides et coût cross-entropy)
 sylvester:  soustraire la moyenne puis diviser par l'écart-type 
           (NOTE: résultat réel, reconstruire avec erreur quadratique, unités linéaires, 
-	  ou bien bien scaler par rapport au max et utiliser des sigmoides)
+          ou bien bien scaler par rapport au max et utiliser des sigmoides)
 terry: diviser par 300.
 
 On the fly normalization
