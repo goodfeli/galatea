@@ -61,6 +61,18 @@ ULE       1      0       0.1305  0.3078
 
 To load them, use the code in the file pylearn.datasets.utlc.py
 
+Statistics on the transfer labels
+
+                                    unlabeled samples   1 cl. label     2 cl. labels    3 cl. labels    4 cl. labels    labeled samples (total)
+            nb_classes  nb_train    nb      (%)         nb      (%)     nb      (%)     nb      (%)     nb      (%)     nb total    (%)
+AVICENNA    5           150205      100205  66.7        37650   25.1    11580   7.7     733     0.49    37      0.025   50000       33.3
+HARRY       4            69652      49652   71.3        19562   28.1    438     0.63    0       0       0       0       20000       28.7
+RITA        4           111808      87808   78.6        24000   21.4    0       0       0       0       0       0       24000       21.4
+SYLVESTER   2           572820      472820  82.5        100000  17.5    0       0       0       0       0       0       100000      17.5
+TERRY       4           217034      177034  81.6        37482   17.3    2441    1.12    77      0.035   0       0       40000       18.4
+ULE         4            26808      16808   62.7        10000   37.3    0       0       0       0       0       0       10000       37.3
+
+
 Shuffle
 -------
 
@@ -115,7 +127,7 @@ and can use computer with less memory.
 
 To enable that, you must call that function:
 
-pylearn.datasets.utlc.load_ndarray_dataset(DATASET_NAME, normaliza=False, normaliza_on_the_fly=True)
+pylearn.datasets.utlc.load_ndarray_dataset(DATASET_NAME, normalize=False, normalize_on_the_fly=True)
 
 That will return Theano variable(and not ndarray). You MUST first take a subtensor of it(minibatch) before doing your computation on it.
 What happen is that a new Theano optimization will move the elemwise computation after the subtensor. So you won't compute the normalization
@@ -135,6 +147,10 @@ row corresponds to an element in the train set (the filetensors have
 been shuffled in the same way as the training sets), and each column
 corresponds to the presence of a given label. A given example can have
 0, 1, or (in some datasets) more labels active.
+
+To load the transfer labels, use keyword arg "transfer=True" when
+calling load_ndarray_dataset, the transfer labels are contained in the
+last element of the returned tuple.
 
 Complete labels
 ---------------
