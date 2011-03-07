@@ -7,59 +7,71 @@ IMPORTANT: They don't have the same meaning as the usual train, valid, test!
 
 The web page is at: http://www.causality.inf.ethz.ch/home.php
 
-Dataset 	 Domain                         nbFeat	Sparsity(%)	nb train nb valid nb test Transfer num.
-AVICENNA 	 Arabic manuscripts		120	0.00		150205	 4096	  4096	  50000
-HARRY 		 Human action recognition 	5000 	98.12 		69652 	 4096 	  4096 	  20000
-RITA 		 Object recognition 		7200 	1.19 		111808 	 4096 	  4096 	  24000
-SYLVESTER 	 Ecology 			100 	0.00 		572820 	 4096 	  4096 	  100000
-TERRY 		 Text recognition 		47236 	99.84 		217034 	 4096 	  4096 	  40000
-ULE (toy data) 	 Handwritten digits 		784 	80.85 		26808 	 4096 	  4096 	  10000
+Dataset          Domain                         nbFeat  Sparsity(%)     nb train nb valid nb test Transfer num.
+AVICENNA         Arabic manuscripts             120     0.00            150205   4096     4096    50000
+HARRY            Human action recognition       5000    98.12           69652    4096     4096    20000
+RITA             Object recognition             7200    1.19            111808   4096     4096    24000
+SYLVESTER        Ecology                        100     0.00            572820   4096     4096    100000
+TERRY            Text recognition               47236   99.84           217034   4096     4096    40000
+ULE (toy data)   Handwritten digits             784     80.85           26808    4096     4096    10000
 
-    	 	 	     	memory size(2)
-    	 	 Nb element(1)  int16   float32 float64 original value range 	    original type
-AVICENNA 	 19M		~38MB	~76MB	~150MB	0-999	       	     	    int
-HARRY		 389M		~780MB	~1560MB	~3GB	tr(0-451)va(0-19)te(0-24)   int
-RITA		 864M		~1728MB	~3456MB	~7GB	tr/va/te 0-230	     	    int
-SYLVESTER	 58M		~116MB	~232MB	~460MB	0-999	 	     	    int
-TERRY		 10368M		~21GB	~43GB	~86GB	tr(2-999)va(3-728)te(2-684) int
-ULE		 27M		~55MB	~110MB	~220MB	0-255			    int
+                                memory size(2)
+                 Nb element(1)  int16   float32 float64 original value range        original type
+AVICENNA         19M            ~38MB   ~76MB   ~150MB  0-999                       int
+HARRY            389M           ~780MB  ~1560MB ~3GB    tr(0-451)va(0-19)te(0-24)   int
+RITA             864M           ~1728MB ~3456MB ~7GB    tr/va/te 0-230              int
+SYLVESTER        58M            ~116MB  ~232MB  ~460MB  0-999                       int
+TERRY            10368M         ~21GB   ~43GB   ~86GB   tr(2-999)va(3-728)te(2-684) int
+ULE              27M            ~55MB   ~110MB  ~220MB  0-255                       int
 (1)(nb rows train+valid+test)*nbFeat/1000./1000
 (2) if stored in an ndarray.
 
-    	      	 memory size of sparse format.
-    	 	 uint8 int16   float32 float64
-HARRY		       42MB    56MB    84MB
-TERRY		       98MB    131MB   196MB
-ULE		 25MB		41MB   60MB
+                 memory size of sparse format.
+                 uint8 int16   float32 float64
+HARRY                  42MB    56MB    84MB
+TERRY                  98MB    131MB   196MB
+ULE              25MB           41MB   60MB
 
-       	      stored dtype    dtype after normalization
-AVICENNA      int16  	      floatX
-HARRY	      int16	      floatX(float32=1.5G, float64=3G) or sparse floatX
-RITA	      uint8	      floatX(float32=3.5G, float64=7G)
-SYLVESTER     int16	      floatX
-TERRY	      int16	      sparse floatX
-ULE	      uint8	      floatX or sparse floatX
+              stored dtype    dtype after normalization
+AVICENNA      int16           floatX
+HARRY         int16           floatX(float32=1.5G, float64=3G) or sparse floatX
+RITA          uint8           floatX(float32=3.5G, float64=7G)
+SYLVESTER     int16           floatX
+TERRY         int16           sparse floatX
+ULE           uint8           floatX or sparse floatX
 
-	      train set stats before normalization
-	  max  min  mean   std   non-zeros
+              train set stats before normalization
+          max  min  mean   std   non-zeros
 AVICENNA  999  0    514.62 6.829 
-HARRY	  451  0    0.0481 0.707 7109733
-RITA	  230  0    106.24 56.78 
+HARRY     451  0    0.0481 0.707 7109733
+RITA      230  0    106.24 56.78 
 SYLVESTER 999  0    403.81 96.43 
-TERRY     999  0    0.1100 	 16298648
+TERRY     999  0    0.1100       16298648
 ULE       255  0    33.290 78.48 4027467
 
-	      train set stats after normalization
-	  max 	 min     mean    std
+              train set stats after normalization
+          max    min     mean    std
 AVICENNA  70.928 -75.36  ~0      ~1
-HARRY	  650.45 0	 0.0687  0.9992
-RITA	  1.0	 0.0	 0.0208	 0.1444
+HARRY     650.45 0       0.0687  0.9992
+RITA      1.0    0.0     0.0208  0.1444
 SYLVESTER 6.1716 -4.187  ~0      ~1
-TERRY     3.33   0	 0.00037
+TERRY     3.33   0       0.00037
 ULE       1      0       0.1305  0.3078
 
 
 To load them, use the code in the file pylearn.datasets.utlc.py
+
+Statistics on the transfer labels
+
+                                    unlabeled samples   1 cl. label     2 cl. labels    3 cl. labels    4 cl. labels    labeled samples (total)
+            nb_classes  nb_train    nb      (%)         nb      (%)     nb      (%)     nb      (%)     nb      (%)     nb total    (%)
+AVICENNA    5           150205      100205  66.7        37650   25.1    11580   7.7     733     0.49    37      0.025   50000       33.3
+HARRY       4            69652      49652   71.3        19562   28.1    438     0.63    0       0       0       0       20000       28.7
+RITA        4           111808      87808   78.6        24000   21.4    0       0       0       0       0       0       24000       21.4
+SYLVESTER   2           572820      472820  82.5        100000  17.5    0       0       0       0       0       0       100000      17.5
+TERRY       4           217034      177034  81.6        37482   17.3    2441    1.12    77      0.035   0       0       40000       18.4
+ULE         4            26808      16808   62.7        10000   37.3    0       0       0       0       0       0       10000       37.3
+
 
 Shuffle
 -------
@@ -100,7 +112,7 @@ rita: diviser par le max
           (NOTE: résultat dans (0,1), reconstruire avec des sigmoides et coût cross-entropy)
 sylvester:  soustraire la moyenne puis diviser par l'écart-type 
           (NOTE: résultat réel, reconstruire avec erreur quadratique, unités linéaires, 
-	  ou bien bien scaler par rapport au max et utiliser des sigmoides)
+          ou bien bien scaler par rapport au max et utiliser des sigmoides)
 terry: diviser par 300.
 
 On the fly normalization
@@ -115,7 +127,7 @@ and can use computer with less memory.
 
 To enable that, you must call that function:
 
-pylearn.datasets.utlc.load_ndarray_dataset(DATASET_NAME, normaliza=False, normaliza_on_the_fly=True)
+pylearn.datasets.utlc.load_ndarray_dataset(DATASET_NAME, normalize=False, normalize_on_the_fly=True)
 
 That will return Theano variable(and not ndarray). You MUST first take a subtensor of it(minibatch) before doing your computation on it.
 What happen is that a new Theano optimization will move the elemwise computation after the subtensor. So you won't compute the normalization
@@ -127,7 +139,22 @@ There is the ift6266h11.dense.logistic_sgd.get_constant(train.shape[0]) that wil
 Transfer label
 --------------
 
-Currently only the ule transfer label are available.
+The transfer labels for all data sets have been released on March 4th.
+They have been processed and saved in .ft files, but not tested yet with pylearn.
+
+For one given data set, the labels are contained in a matrix, each
+row corresponds to an element in the train set (the filetensors have
+been shuffled in the same way as the training sets), and each column
+corresponds to the presence of a given label. A given example can have
+0, 1, or (in some datasets) more labels active.
+
+To load the transfer labels, use keyword arg "transfer=True" when
+calling load_ndarray_dataset, the transfer labels are contained in the
+last element of the returned tuple.
+
+Complete labels
+---------------
+Only the ule has full labels (on train, valid, test) available.
 
 ule train/valid/test label:
 As ule is a toy dataset, we have the label of the part. They can be loaded

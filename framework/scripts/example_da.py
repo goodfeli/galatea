@@ -1,16 +1,26 @@
 """An example of how to use the library so far."""
 # Standard library imports
-from itertools import izip
+import sys
 
 # Third-party imports
 import numpy
 import theano
 from theano import tensor
 
+try:
+    import framework
+except ImportError:
+    print >>sys.stderr, \
+            "Framework couldn't be imported. Make sure you have the " \
+            "repository root on your PYTHONPATH (or as your current " \
+            "working directory)"
+    sys.exit(1)
+
 # Local imports
-from cost import MeanSquaredError
-from corruption import GaussianCorruptor
-from autoencoder import DenoisingAutoencoder, DATrainer, StackedDA
+from framework.cost import MeanSquaredError
+from framework.corruption import GaussianCorruptor
+from framework.autoencoder import DenoisingAutoencoder, StackedDA
+from framework.optimizer import SGDOptimizer
 
 if __name__ == "__main__":
     # Simulate some fake data.
@@ -31,18 +41,19 @@ if __name__ == "__main__":
     }
 
     # A symbolic input representing your minibatch.
-    minibatch = tensor.dmatrix()
+    minibatch = tensor.matrix()
 
     # Allocate a denoising autoencoder with binomial noise corruption.
-    corruptor = GaussianCorruptor.alloc(conf)
-    da = DenoisingAutoencoder.alloc(corruptor, conf)
+    corruptor = GaussianCorruptor(conf)
+    da = DenoisingAutoencoder(conf, corruptor)
 
-    # Allocate a trainer, which tells us how to update our model.
-    cost_fn = MeanSquaredError.alloc(conf, da)
-    trainer = DATrainer.alloc(da, cost_fn, minibatch, conf)
+    # Allocate an optimizer, which tells us how to update our model.
+    # TODO: build the cost another way
+    cost = MeanSquaredError(conf, da)(minibatch, da.reconstruction(minibatch))
+    trainer = SGDOptimizer(conf, da.params(), cost)
 
     # Finally, build a Theano function out of all this.
-    train_fn = trainer.function(minibatch)
+    train_fn = trainer.function([minibatch])
 
     # Suppose we want minibatches of size 10
     batchsize = 10
@@ -60,23 +71,24 @@ if __name__ == "__main__":
 
     print "Transformed data:"
     print numpy.histogram(transform(data))
-    
+
     # We'll now create a stacked denoising autoencoder. First, we change
     # the number of hidden units to be a list. This tells the StackedDA
     # class how many layers to make.
     sda_conf = conf.copy()
     sda_conf['n_hid'] = [20, 20, 10]
-    sda = StackedDA.alloc(corruptor, sda_conf)
+    sda = StackedDA(sda_conf, corruptor)
 
-    # To pretrain it, we'll use a DATrainer for each layer.
-    trainers = []
+    # To pretrain it, we'll use a different SGDOptimizer for each layer.
+    optimizers = []
     thislayer_input = [minibatch]
     for layer in sda.layers():
-        cost_fn = MeanSquaredError.alloc(sda_conf, layer)
-        trainer = DATrainer.alloc(layer, cost_fn, thislayer_input[0], sda_conf)
-        trainers.append(trainer)
+        cost = MeanSquaredError(sda_conf, layer)(thislayer_input[0],
+                                                 layer.reconstruction(thislayer_input[0]))
+        opt = SGDOptimizer(sda_conf, layer.params(), cost)
+        optimizers.append(opt)
         # Retrieve a Theano function for training this layer.
-        thislayer_train_fn = trainer.function(minibatch)
+        thislayer_train_fn = opt.function([minibatch])
 
         # Train as before.
         for epoch in xrange(10):

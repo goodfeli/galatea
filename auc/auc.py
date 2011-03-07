@@ -35,6 +35,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         temp = N.zeros((Output.shape[0], 1) , Output.dtype)
         temp[:,0] = Output
         Output = temp
+
     area=[]
     sigma=[]
     n= Target.shape[0]
@@ -72,14 +73,15 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         output = Output[:,kk]
         if not pos_small:
             output = -output
+
         #temp = list(output)
         #temp = zip(temp,range(len(temp)))
         #temp = sorted(temp)
         #u,i = zip(*temp)
-	
+
         # sort outputs, best come first (u=sorted vals, i=index)
-	    i = N.argsort(output)
-	    u = output[i]
+        i = N.argsort(output)
+        u = output[i]
 
         uval_ascending = N.unique(output)
         assert len(uval.shape) == 1
@@ -98,6 +100,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
             L = last_neg.shape[0]
 
             if L>1 and N.unique(output[other]).shape[0] == other.shape[0]:
+                S = N.zeros( (n, ) )
                 S[i] = N.arange(1,n+1)
                 S[last_neg] = n-(L-1)/2
             else:
@@ -138,7 +141,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
                 #die
 
         SS = S[negidx]
-	SS.sort()
+        SS.sort()
         RR = range(neg)
         SEN = (SS-RR)/pos
         assert kk == len(area)

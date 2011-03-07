@@ -2,14 +2,16 @@
 Several utilities for experimenting upon utlc datasets
 """
 # Standard library imports
-import os, sys
-from itertools import izip
+import os
+from itertools import repeat
 
 # Third-party imports
 import numpy
 import theano
-from theano import tensor
 from pylearn.datasets.utlc import load_ndarray_dataset
+
+# Local imports
+from auc import embed
 
 ##################################################
 # Shortcuts and auxiliary functions
@@ -28,17 +30,21 @@ def get_constant(variable):
     """ Little hack to return the python value of a theano shared variable """
     return theano.function([], variable, mode=theano.compile.Mode(linker='py'))()
 
-def get_value(variable):
-    # TODO: I'm not sure this is the best way to do it
-    if isinstance(variable, tensor.sharedvar.TensorSharedVariable):
-        return variable.value
-    else:
-        return variable
-
 def sharedX(value, name=None, borrow=False):
     """Transform value into a shared variable of type floatX"""
     return theano.shared(theano._asarray(value, dtype=floatX),
-            name=name, borrow=False)
+                         name=name,
+                         borrow=False)
+
+def safe_update(dict_to, dict_from):
+    """
+    Like dict_to.update(dict_from), except don't overwrite any keys.
+    """
+    for key, val in dict(dict_from).iteritems():
+        if key in dict_to:
+            raise KeyError(key)
+        dict_to[key] = val
+    return dict_to
 
 ##################################################
 # Datasets and contest facilities
@@ -48,12 +54,11 @@ def load_data(conf):
     """
     Loads a specified dataset according to the parameters in the dictionary
     """
-    print '... loading data'
-
     expected = ['normalize',
                 'normalize_on_the_fly',
                 'randomize_valid',
                 'randomize_test']
+    print '... loading data'
     train_set, valid_set, test_set = load_ndarray_dataset(conf['dataset'], **subdict(conf, expected))
 
     # Allocate shared variables
@@ -76,6 +81,8 @@ def load_data(conf):
 def create_submission(conf, get_representation):
     """
     Create submission files given a configuration dictionary and a computation function
+    
+    Note that it always reload the datasets to ensure valid & test are not permuted
     """
     # Load the dataset, without permuting valid and test
     kwargs = subdict(conf, ['dataset', 'normalize', 'normalize_on_the_fly'])
@@ -83,8 +90,8 @@ def create_submission(conf, get_representation):
     train_set, valid_set, test_set = load_data(kwargs)
     
     # Valid and test representations
-    valid_repr = get_representation(get_value(valid_set))
-    test_repr = get_representation(get_value(test_set))
+    valid_repr = get_representation(get_constant(valid_set))
+    test_repr = get_representation(test_set.get_value())
 
     # If there are too much features, outputs kernel matrices
     if (valid_repr.shape[1] > valid_repr.shape[0]):
@@ -112,8 +119,13 @@ def create_submission(conf, get_representation):
     del test_repr
 
     # Write it in a .txt file
-    basename = os.path.join(conf['submission_dir'],
-                            conf['dataset'] + '_' + conf['expname'])
+    submit_dir = conf['submit_dir']
+    if not os.path.exists(submit_dir):
+        os.mkdir(submit_dir)
+    elif not os.path.isdir(submit_dir):
+        raise IOError('submit_dir %s is not a directory' % submit_dir)
+
+    basename = os.path.join(submit_dir, conf['dataset'] + '_' + conf['expname'])
     valid_file = open(basename + '_valid.prepro', 'w')
     test_file = open(basename + '_final.prepro', 'w')
 
@@ -123,19 +135,49 @@ def create_submission(conf, get_representation):
     valid_file.close()
     test_file.close()
 
-    print >> sys.stderr, "... done creating files"
+    print "... done creating files"
 
-    os.system('zip %s %s %s' % (basename + '.zip',
-                                basename + '_valid.prepro',
-                                basename + '_final.prepro'))
+    os.system('zip -j %s %s %s' % (basename + '.zip',
+                                   basename + '_valid.prepro',
+                                   basename + '_final.prepro'))
 
-    print >> sys.stderr, "... files compressed"
+    print "... files compressed"
 
     os.system('rm %s %s' % (basename + '_valid.prepro',
                             basename + '_final.prepro'))
 
-    print >> sys.stderr, "... useless files deleted"
+    print "... useless files deleted"
 
+##################################################
+# Proxies for representation evaluations
+##################################################
+
+def compute_alc(valid_repr, test_repr):
+    """
+    Returns the ALC of the valid set VS test set
+    Note: This proxy won't work in the case of transductive learning
+    (This is an assumption) but it seems to be a good proxy in the
+    normal case (i.e only train on training set)
+    """
+
+    # Concatenate the two sets, and give different one hot labels for valid and test
+    n_valid  = valid_repr.shape[0]
+    n_test = test_repr.shape[0]
+
+    _labvalid = numpy.hstack((numpy.ones((n_valid,1)), numpy.zeros((n_valid,1))))
+    _labtest = numpy.hstack((numpy.zeros((n_test,1)), numpy.ones((n_test,1))))
+
+    dataset = numpy.vstack((valid_repr, test_repr))
+    label = numpy.vstack((_labvalid,_labtest))
+    
+    print '... computing the ALC'
+    return embed.score(dataset, label)
+
+def lookup_alc(data, transform):
+    valid_repr = transform(data[1].get_value())
+    test_repr = transform(data[2].get_value())
+    
+    return compute_alc(valid_repr, test_repr)
 
 ##################################################
 # Iterator objet for blending datasets
@@ -147,50 +189,78 @@ class BatchIterator(object):
     of a dataset, with respect to the given proportions in conf
     """
     def __init__(self, conf, dataset):
-        # Compute maximum number of examples for training.
+        # Record external parameters
+        self.batch_size = conf['batch_size']
+        # TODO: If you have a better way to return dataset slices, I'll take it
+        self.dataset = [set.get_value() for set in dataset]
+        
+        # Compute maximum number of samples for one loop
         set_proba = [conf['train_prop'], conf['valid_prop'], conf['test_prop']]
         set_sizes = [get_constant(data.shape[0]) for data in dataset]
-        self.upper_bound = numpy.dot(set_proba, set_sizes)
+        set_batch = [float(self.batch_size) for i in xrange(3)]
+        set_range = numpy.divide(numpy.multiply(set_proba, set_sizes), set_batch)
+        set_range = map(int, numpy.ceil(set_range))
 
-        # Record other parameters.
-        self.batchsize = conf['batchsize']
-        self.dataset = [get_value(data) for data in dataset]
+        # Upper bounds for each minibatch indexes
+        set_limit = numpy.ceil(numpy.divide(set_sizes, set_batch))
+        self.limit = map(int, set_limit)
+        
+        # Number of rows in the resulting union
+        flo = numpy.floor
+        sub = numpy.subtract
+        mul = numpy.multiply
+        div = numpy.divide
+        mod = numpy.mod
+        l_trun = mul(flo(div(set_range, set_limit)), mod(set_sizes, set_batch))
+        l_full = mul(sub(set_range, flo(div(set_range, set_limit))), set_batch)
+        
+        self.length = sum(l_full) + sum(l_trun)
 
-        # Upper bounds for minibatch indexes
-        self.limit = [size // self.batchsize for size in set_sizes]
-        self.counter = [0, 0, 0]
-        self.index = 0
-
-        # Sampled random number generator
-        pairs = izip(set_sizes, set_proba)
-        sampling_proba = [s * p / float(self.upper_bound) for s, p in pairs]
-        cumulative_proba = numpy.cumsum(sampling_proba)
-        def generator():
-            x = numpy.random.random()
-            return numpy.searchsorted(cumulative_proba, x)
-
-        self.generator = generator
+        # Random number generation using a permutation
+        index_tab = []
+        for i in xrange(3):
+            index_tab.extend(repeat(i, set_range[i]))
+        self.permut = numpy.random.permutation(index_tab)
         # TODO: Record seed parameter for reproductability purposes ?
 
     def __iter__(self):
-        """ Return a fresh self objet to iterate over all minibatches """
-        self.counter = [0, 0, 0]
-        self.index = 0
-        return self
-
-    def next(self):
-        """
-        Return the next minibatch for training according to sampling probabilities
-        """
-        if (self.index > self.upper_bound):
-            raise StopIteration
-        else:
+        """ Generator function to iterate through all minibatches """
+        counter = [0, 0, 0]
+        for chosen in self.permut:
             # Retrieve minibatch from chosen set
-            chosen = self.generator()
-            offset = self.counter[chosen]
-            minibatch = self.dataset[chosen][offset * self.batchsize:(offset + 1) * self.batchsize]
-            # Increment counters
-            self.index += 1
-            self.counter[chosen] = (self.counter[chosen] + 1) % self.limit[chosen]
+            index = counter[chosen]
+            minibatch = self.dataset[chosen][index * self.batch_size:(index + 1) * self.batch_size]
+            # Increment the related counter
+            counter[chosen] = (counter[chosen] + 1) % self.limit[chosen]
             # Return the computed minibatch
-            return minibatch
+            yield minibatch
+
+    def __len__(self):
+        """ Return length of the weighted union """
+        return self.length
+
+    def by_index(self):
+        """ Same generator as __iter__, but yield only the chosen indexes """
+        counter = [0, 0, 0]
+        for chosen in self.permut:
+            index = counter[chosen]
+            counter[chosen] = (counter[chosen] + 1) % self.limit[chosen]
+            yield chosen, index
+
+##################################################
+# Miscellaneous
+##################################################
+
+def blend(conf, data):
+    """ Randomized blending of datasets in data according to parameters in conf """
+    iterator = BatchIterator(conf, data)
+    nrow = len(iterator)
+    ncol = data[0].get_value().shape[1]
+    array = numpy.empty((nrow, ncol), data[0].dtype)
+    index = 0
+    for minibatch in iterator:
+        for row in minibatch:
+            array[index] = row
+            index += 1
+            
+    return sharedX(array, borrow=True)
