@@ -367,15 +367,15 @@ sur les variables cachées: **l'énergie libre**
 et dans le cas des RBMs, on a
 
 .. math::
-   FE(v) = -b'v - \sum_i \log \sum_{h_i} e^{h_i (c_i + v' W_{.i})}
+   FE(v) = -c'v - \sum_i \log \sum_{h_i} e^{h_i (b_i + v' W_{.i})}
 
 où la somme sur :math:`h_i` est une somme sur les valeurs que les variables
 cachées peuvent prendre, ce qui, dans le cas d'unités binaires donne
 
 .. math::
-   FE(v) = -b'v - \sum_i \log (1 + e^{c_i + v' W_{.i}}) 
+   FE(v) = -c'v - \sum_i \log (1 + e^{b_i + v' W_{.i}}) 
 
-   FE(v) = -b'v - \sum_i {\rm softplus}(c_i + v' W_{.i}) 
+   FE(v) = -c'v - \sum_i {\rm softplus}(b_i + v' W_{.i}) 
 
 
 Gibbs dans les RBMs
