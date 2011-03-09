@@ -9,6 +9,9 @@ def do_3d_scatter(x, y, z, figno=None, title=None):
     fig = plt.figure(figno)
     ax = Axes3D(fig)
     ax.scatter(x, y, z)
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.set_zlabel("Z")
     plt.suptitle(title)
 
 if __name__ == "__main__":
