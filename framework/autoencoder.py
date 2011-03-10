@@ -26,7 +26,7 @@ class DenoisingAutoencoder(Block):
     A denoising autoencoder learns a representation of the input by
     reconstructing a noisy version of it.
     """
-    def __init__(self, conf, corruptor, rng=None):
+    def __init__(self, conf, corruptor, rng=9001):
         """Allocate a denoising autoencoder object."""
         if not hasattr(rng, 'randn'):
             rng = numpy.random.RandomState(rng)
@@ -122,17 +122,13 @@ class DenoisingAutoencoder(Block):
         """
         return self.hidden_repr(inputs)
 
-    def function(self, name=None):
-        """ Returns a compiled theano function to compute a representation """
-        inputs = tensor.matrix()
-        return theano.function([inputs], self(inputs), name=name)
 
 class StackedDA(Block):
     """
     A class representing a stacked model. Forward propagation passes
     (symbolic) input through each layer sequentially.
     """
-    def __init__(self, conf, corruptors, rng=None):
+    def __init__(self, conf, corruptors, rng=806):
         """Allocate a stacked denoising autoencoder object."""
         if not hasattr(rng, 'randn'):
             rng = numpy.random.RandomState(rng)

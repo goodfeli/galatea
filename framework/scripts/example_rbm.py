@@ -8,7 +8,8 @@ from framework.rbm_tools import compute_log_z, compute_nll
 
 if __name__ == "__main__":
 
-    data = numpy.random.normal(size=(500, 20))
+    data_rng = numpy.random.RandomState(seed=999)
+    data = data_rng.normal(size=(500, 20))
 
     conf = {
         'n_vis': 20,
@@ -21,7 +22,8 @@ if __name__ == "__main__":
     }
 
     rbm = GaussianBinaryRBM(conf)
-    sampler = PersistentCDSampler(conf, rbm, data[0:100], numpy.random)
+    rng = numpy.random.RandomState(seed=conf.get('rbm_seed',42))
+    sampler = PersistentCDSampler(conf, rbm, data[0:100], rng)
     minibatch = tensor.matrix()
     optimizer = RBMOptimizer(conf, rbm, sampler, minibatch)
     train_fn = optimizer.function(minibatch)
