@@ -1,6 +1,9 @@
+import time
+import os
+import sys
+
 from numpy import *
 from scipy.cluster import vq
-import time
 
 # Pseudo-code for hierarchical clustering
 
@@ -180,72 +183,68 @@ def probs(dataset, means, vars, priors=None, k=0, verbose=False):
 
     return ps
 
-def test_terry():
-    dataset = "terry"
-    save_dir_submission = "./"
+def train(data, options=None):
+    if options == None:
+        return nan_to_num(data)
 
-    data = load("/data/lisa/exp/dauphiya/stackedterry/best_layer0/terry_valid.npy")
+    if options["whiten"]:
+        data = vq.whiten(data)
 
-    print "Computing clusters"
-    start = time.time()    
-    (means, vars, priors) = hc(data, 5, 2, verbose=True)
-    end = time.time()
-    print "Clusters computed in %i s"%(end-start)
+    if options != None:
+        print "Computing clusters"
+        start = time.time()    
+        (means, vars, priors) = hc(data, options["steps"], options["k"], verbose=True)
+        end = time.time()
+        print "Clusters computed in %i s"%(end-start)
 
     print "Computing probabilities"
     start = time.time()
-    valid_rep1 = probs(data, means, vars, priors, k=2, verbose=True)
-    end = time.time()
-    print "Probabilities computed in %i s"%(end-start)
 
-    valid_rep2 = numpy.dot(valid_rep1,valid_rep1.T)
+    if options["probs"] == "posterior":
+        rep = probs(data, means, vars, priors, k=2, verbose=True)
+    elif options["probs"] == "likelihood":
+        rep = probs(data, means, vars, verbose=True)
+        end = time.time()
+        print "Probabilities computed in %i s"%(end-start)
 
+    return  nan_to_num(rep)
+
+def save_submission(rep, filename, save_dir_submission, isValid=True):
     # write it in a .txt file
-    valid_rep1 = numpy.floor((valid_rep1 / valid_rep1.max())*999)
-    valid_rep2 = numpy.floor((valid_rep2 / valid_rep2.max())*999)
+    if isValid == True:
+        suffix = "_dl_valid.prepro"
+    else:
+        suffix = "_dl_final.prepro"
+    
+    rep = floor((rep / rep.max())*999)
+    val1 = open(os.path.join(save_dir_submission, filename + suffix),'w')
+    vtxt1 = ''
 
-    val1 = open(os.path.join(save_dir_submission, dataset + '_dl_valid.prepro'),'w')
-    val2 = open(os.path.join(save_dir_submission, dataset + '_sdl_valid.prepro'),'w')
-
-    vtxt1, vtxt2 = '', ''
-
-    for i in range(valid_rep1.shape[0]):
-        for j in range(valid_rep1.shape[0]):
-            vtxt2 += '%s '%int(valid_rep2[i,j])
-        for j in range(valid_rep1.shape[1]):
-            vtxt1 += '%s '%int(valid_rep1[i,j])
+    for i in range(rep.shape[0]):
+        for j in range(rep.shape[1]):
+            vtxt1 += '%s '%int(rep[i,j])
         vtxt1 += '\n'
-        vtxt2 += '\n'
-    del valid_rep1, valid_rep2
+    del rep
 
     val1.write(vtxt1)
-    val2.write(vtxt2)
     val1.close()
-    val2.close()
 
-    print >> sys.stderr, "... done creating files"
-
-    os.system('zip %s %s %s'%(os.path.join(save_dir_submission, dataset+'_dl.zip'),
-        os.path.join(save_dir_submission, dataset+'_dl_valid.prepro'),
-        os.path.join(save_dir_submission, dataset+'_dl_final.prepro')))
-    os.system('zip %s %s %s'%(os.path.join(save_dir_submission, dataset+'_sdl.zip'),
-        os.path.join(save_dir_submission, dataset+'_sdl_valid.prepro'),
-        os.path.join(save_dir_submission, dataset+'_sdl_final.prepro')))
-
-    print >> sys.stderr, "... files compressed"
-
-    os.system('rm %s %s %s %s'%(
-        os.path.join(save_dir_submission, dataset+'_dl_valid.prepro'),
-        os.path.join(save_dir_submission, dataset+'_dl_final.prepro'),
-        os.path.join(save_dir_submission, dataset+'_sdl_valid.prepro'),
-        os.path.join(save_dir_submission, dataset+ '_sdl_final.prepro')))
-
-    print >> sys.stderr, "... useless files deleted"
+    #print >> sys.stderr, "... done creating files"
+    # 
+    #os.system('zip %s %s %s'%(os.path.join(save_dir_submission, dataset+'_dl.zip'),
+    #    os.path.join(save_dir_submission, dataset+'_dl_valid.prepro'),""))
+    #
+    #print >> sys.stderr, "... files compressed"
+    #
+    #os.system('rm %s'%(
+    #    os.path.join(save_dir_submission, dataset+'_dl_valid.prepro')))
+    #
+    #print >> sys.stderr, "... useless files deleted"
 
 
 if __name__ == "__main__":
-    #dataset = array([[-4, 2],[-3, 2],[-4, 1],[-3, 1],[-4,-1],[-3,-1],[-4,-2],[-3,-2],\
-    #                 [ 3, 2],[ 4, 2],[ 3, 1],[ 4, 1],[ 3,-1],[ 4,-2],[ 3,-2],[ 4,-1]], dtype='float')
+    #data = array([[-4, 2],[-3, 2],[-4, 1],[-3, 1],[-4,-1],[-3,-1],[-4,-2],[-3,-2],\
+    #              [ 3, 2],[ 4, 2],[ 3, 1],[ 4, 1],[ 3,-1],[ 4,-2],[ 3,-2],[ 4,-1]], dtype='float')
     #dataset = random.rand(4096,1000)
    
     #print "Computing clusters"
@@ -259,7 +258,18 @@ if __name__ == "__main__":
     #ps = probs(dataset, means, vars, priors, k=2, verbose=True)
     #end = time.time()
     #print "Probabilities computed in %i s"%(end-start)
-    test_terry()
+    #test_terry("/u/lavoeric/ift6266h11/terry/2011-02-19/base/", False)
+    #test_terry("/u/lavoeric/ift6266h11/terry/2011-02-19/1/", True)
+
+    #options = { whiten:False, k=2, steps=1, probs="posterior" }
+    #data = load("/u/lavoeric/ift6266h11/terry/2011-02-19/base/terry_valid.npy")
+    #data = vq.whiten(data)
+    #options = { "whiten":True, "k":2, "steps":5, "probs":"posterior" }
+    #test_terry("/u/lavoeric/ift6266h11/terry/2011-02-19/1/", options)
+    #kmnb(5, 2) 
+    pass
+
+
     
 
         

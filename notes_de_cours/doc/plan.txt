@@ -8,6 +8,10 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  =========================================================================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  =========================================================================================================================================
+`10 mars`           Défi de la profondeur   :ref:`deepchallenge_fr`.
+`7 mars`            DBMs                    :ref:`dbm_fr`.
+                    DAE vs AE               :ref:`dae_fr`.
+`21+24 février`_    DBNs                    :ref:`dbn_fr`.
 `14+17 février`_    RBMs                    :ref:`rbm_fr`.
 `7+10 février`_     Modèles probabilistes   :ref:`deepgm_fr`.
 `3 février`_        Modèles probabilistes,  Intro aux :ref:`deepgm_fr`.
@@ -37,6 +41,24 @@ Date                Sujets                  À lire en priorité
                                             Sec. 1 et 2 de `Scaling Learning Algorithms towards AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
 
 ==================  ======================  =========================================================================================================================================
+
+
+10 mars
+-------
+
+* :ref:`deepchallenge_fr`.
+
+7 mars
+------
+
+* :ref:`dbm_fr`.
+* :ref:`dae_fr`.
+
+
+21+24 Février
+-------------
+
+*  :ref:`dbn_fr`.
 
 14+17 Février
 -------------

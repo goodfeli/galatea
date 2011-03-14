@@ -1,13 +1,14 @@
-import os, cPickle
-
+# Third-party imports
 import numpy
-from scipy import linalg
 import theano
-from theano import tensor as T
+from theano import tensor
+from scipy import linalg
 
-from framework.base import Block, Optimizer
+# Local imports
+from framework.base import Block
 from framework.utils import sharedX
 
+floatX = theano.config.floatX
 
 class PCA(Block):
     """
@@ -35,26 +36,10 @@ class PCA(Block):
         self.min_variance = conf.get('min_variance', 0.0)
         self.whiten = conf.get('whiten', False)
 
-        # Initialize self.W with an empty matrix
-        # self.W is set only so that self._params can be built up-to-date.
-        # If we figure out another solution, why not.
-        self.W = sharedX(
-            numpy.zeros((0, 0)),
-            name='W',
-            borrow=True
-        )
-
-        self.v = sharedX(
-            numpy.zeros((0)),
-            name='v',
-            borrow=True
-        )
-
-        self.mean = sharedX(
-            numpy.zeros((0)),
-            name='mean',
-            borrow=True
-        )
+        # There is no need to initialize shared variables yet
+        self.W = None
+        self.v = None
+        self.mean = None
 
         # This module really has no adjustable parameters -- once train()
         # is called once, they are frozen, and are not modified via gradient
@@ -74,8 +59,9 @@ class PCA(Block):
         # Actually, I don't think is necessary, but in practice all our datasets
         # fulfill this requirement anyway, so this serves as a sanity check.
         # TODO: Implement the snapshot method for the p >> n case.
-        assert X.shape[1] <= X.shape[0], "Number of samples (rows) must be" \
-            " greater than number of features (columns)"
+        assert X.shape[1] <= X.shape[0], "\
+            Number of samples (rows) must be greater \
+            than number of features (columns)"
         # Implicit copy done below.
         mean = numpy.mean(X, axis=0)
         X = X - mean
@@ -87,14 +73,14 @@ class PCA(Block):
         num_components = min(self.num_components, var_cutoff, X.shape[1])
         v, W = v[:num_components], W[:,:num_components]
 
-        # Update Theano shared variable
-        W = theano._asarray(W, dtype=theano.config.floatX)
-        v = theano._asarray(v, dtype=theano.config.floatX)
-        mean = theano._asarray(mean, dtype=theano.config.floatX)
-        self.W.set_value(W, borrow = True)
+        # Build Theano shared variables
+        # For the moment, I do not use borrow=True because W and v are
+        # subtensors, and I want the original memory to be freed
+
+        self.W = sharedX(W)
         if self.whiten:
-            self.v.set_value(v, borrow = True)
-        self.mean.set_value(mean, borrow = True)
+            self.v = sharedX(v)
+        self.mean = sharedX(mean)
 
     def __call__(self, inputs):
         """
@@ -109,39 +95,11 @@ class PCA(Block):
         #assert inputs.get_value().shape[1] == self.W.get_value().shape[0], \
         #    "Incompatible input matrix shape"
 
-        Y = T.dot(inputs - self.mean, self.W)
+        Y = tensor.dot(inputs - self.mean, self.W)
         # If eigenvalues are defined, self.whiten was True.
         if numpy.any(self.v.get_value() > 0):
-            Y /= T.sqrt(self.v)
+            Y /= tensor.sqrt(self.v)
         return Y
-    ##### There is no reason, as far as I can see, to implement this here
-    ##### when there are methods in base.py for this.
-    #def save(self, save_dir, save_filename = 'model_pca.pkl'):
-    #    """
-    #    Save the computed PCA transformation matrix.
-    #    """
-
-    #    print '... saving model'
-    #    if not os.path.isdir(save_dir):
-    #        os.makedirs(save_dir)
-
-    #    save_file = open(os.path.join(save_dir, save_filename), 'wb')
-    #    cPickle.dump(self.W.get_value(), save_file, -1)
-    #    cPickle.dump(self.v.get_value(), save_file, -1)
-    #    cPickle.dump(self.mean.get_value(), save_file, -1)
-    #    save_file.close()
-
-    #def load(self, load_dir, load_filename = 'model_pca.pkl'):
-    #    """
-    #    Load a PCA transformation matrix.
-    #    """
-
-    #    print '... loading model'
-    #    load_file = open(os.path.join(load_dir, load_filename), 'r')
-    #    self.W.set_value(cPickle.load(load_file))
-    #    self.v.set_value(cPickle.load(load_file))
-    #    self.mean.set_value(cPickle.load(load_file))
-    #    load_file.close()
 
 if __name__ == "__main__":
     """
@@ -154,7 +112,6 @@ if __name__ == "__main__":
     import argparse
     from dense.dA import dA
     from dense.logistic_sgd import load_data, get_constant
-    import theano
 
     parser = argparse.ArgumentParser(
         description="Transform the output of a model by Principal Component Analysis"
@@ -208,7 +165,7 @@ if __name__ == "__main__":
 
     # Compute dataset representation from model.
     def get_subset_rep (index):
-        d = T.matrix('input')
+        d = tensor.matrix('input')
         return theano.function([], da.get_hidden_values(d), givens = {d:data[index]})()
     [train_rep, valid_rep, test_rep] = map(get_subset_rep, range(3))
 
@@ -224,7 +181,7 @@ if __name__ == "__main__":
     }
 
     # A symbolic input representing the data.
-    inputs = T.dmatrix()
+    inputs = tensor.matrix()
 
     # Allocate a PCA block.
     pca = PCA(conf)
@@ -233,8 +190,8 @@ if __name__ == "__main__":
     pca.train(train_rep)
 
     # Save transformation matrix to pickle, then reload it.
-    #pca.save(args.save_dir)
-    #pca.load(args.save_dir)
+    #pca.save(args.save_dir, 'model_pca.pkl')
+    #pca = PCA.load(args.save_dir, 'model_pca.pkl')
 
     # Apply the transformation to test and valid subsets.
     pca_transform = theano.function([inputs], pca(inputs))
