@@ -15,10 +15,9 @@ class PCA(Block):
     Block which transforms its input via Principal Component Analysis.
     """
 
-    def __init__(self, conf):
+    def __init__(self, num_components=numpy.inf, min_variance=0.0,
+                 whiten=False):
         """
-        Parameters in conf:
-
         :type num_components: int
         :param num_components: this many components will be preserved, in
             decreasing order of variance
@@ -32,9 +31,9 @@ class PCA(Block):
             standard deviation
         """
 
-        self.num_components = conf.get('num_components', numpy.inf)
-        self.min_variance = conf.get('min_variance', 0.0)
-        self.whiten = conf.get('whiten', False)
+        self.num_components = num_components
+        self.min_variance = min_variance
+        self.whiten = whiten
 
         # There is no need to initialize shared variables yet
         self.W = None
@@ -173,18 +172,11 @@ if __name__ == "__main__":
     # for no reason, then transform test and valid subsets.
     print "... computing PCA"
 
-    # First, build a config. dict.
-    conf = {
-        'num_components': args.num_components,
-        'min_variance': args.min_variance,
-        'whiten': args.whiten
-    }
-
     # A symbolic input representing the data.
     inputs = tensor.matrix()
 
     # Allocate a PCA block.
-    pca = PCA(conf)
+    pca = PCA(args.num_components, args.min_variance, args.whiten)
 
     # Compute the PCA transformation matrix from the training data.
     pca.train(train_rep)
