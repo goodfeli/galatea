@@ -151,10 +151,10 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
     # Sample sizes scaled in log2
     m = N.floor(math.log(p,2))
-    x = 2. ** N.asarray(range(0,int(m)+1))
+    x = 2. ** N.arange(0,int(m)+1)
 
     if x[-1] != p:
-        x.append(p)
+        x = N.hstack((x,[p]))
     #
 
     x = x[0:-1] # need to remove the last point

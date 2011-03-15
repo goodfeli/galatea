@@ -9,14 +9,14 @@ class KMeans(Block):
     computed during training.
     """
 
-    def __init__(self, conf):
+    def __init__(self, k):
         """
         Parameters in conf:
 
         :type k: int
         :param k: number of clusters.
         """
-        self.k = conf.get('kmeans_k', 10)
+        self.k = k
 
     def train(self,X):
         """
@@ -132,7 +132,8 @@ if __name__=='__main__':
     from framework.optimizer import SGDOptimizer
     # toy labeled data: [x,y,label]*n samples
     n=50
-    noise=numpy.random.random((n,2))
+    rng = numpy.random.RandomState(seed=7777777)
+    noise = rng.random_sample((n,2))
     class1=numpy.concatenate((  noise*10+numpy.array([-10,-10]),
                                 numpy.array([[1]*n]).T),
                                 axis=1)
@@ -140,7 +141,7 @@ if __name__=='__main__':
                                 numpy.array([[2]*n]).T),
                                 axis=1)
     data=numpy.append(class1,class2,axis=0)
-    numpy.random.shuffle(data)
+    rng.shuffle(data)
     #labels are just going to be used as visual reference in terminal output
     train_data,train_labels=data[:-10,:-1],data[:-10,-1]
     test_data,test_labels=data[-10:,:-1],data[-10:,-1]
@@ -150,9 +151,9 @@ if __name__=='__main__':
     #train an SDG on it, as in the first part of example_da.py
     conf = {
         'corruption_level': 0.1,
-        'n_hid': 3,
-        'n_vis': train_data.shape[1],
-        'lr_anneal_start': 100,
+        'nhid': 3,
+        'nvis': train_data.shape[1],
+        'anneal_start': 100,
         'base_lr': 0.01,
         'tied_weights': True,
         'act_enc': 'tanh',
@@ -168,16 +169,20 @@ if __name__=='__main__':
     minibatch = tensor.matrix()
 
     # Allocate a denoising autoencoder with binomial noise corruption.
-    corruptor = GaussianCorruptor(conf)
-    da = DenoisingAutoencoder(conf, corruptor)
+    corruptor = GaussianCorruptor(corruption_level=conf['corruption_level'])
+    da = DenoisingAutoencoder(conf['nvis'], conf['nhid'], corruptor,
+                              conf['act_enc'], conf['act_dec'],
+                              tied_weights=conf['tied_weights'],
+                              irange=conf['irange'])
 
     # Allocate an optimizer, which tells us how to update our model.
     # TODO: build the cost another way
-    cost = MeanSquaredError(conf, da)(minibatch, da.reconstruction(minibatch))
-    trainer = SGDOptimizer(conf, da.params(), cost)
+    cost = MeanSquaredError(da)(minibatch, da.reconstruction(minibatch))
+    trainer = SGDOptimizer(da.params(), conf['base_lr'], conf['anneal_start'])
 
     # Finally, build a Theano function out of all this.
-    train_fn = trainer.function([minibatch])
+    train_fn = theano.function([minibatch], cost,
+                               updates=trainer.cost_updates(cost))
 
     # Suppose we want minibatches of size 10
     batchsize = 10
@@ -194,7 +199,7 @@ if __name__=='__main__':
     transform = theano.function([minibatch], da([minibatch])[0])
 
     #then train & apply kmeans as a postprocessing
-    kmeans=KMeans(conf)
+    kmeans=KMeans(conf['kmeans_k'])
     kmeans.train(transform(train_data))
 
     print '== testing =='
