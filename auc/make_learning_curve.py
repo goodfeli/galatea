@@ -6,6 +6,7 @@ import math
 import train
 import test
 import auc
+import time
 from scipy import io
 
 current_path = os.path.abspath(__file__)
@@ -44,7 +45,7 @@ class data_struct:
             pidx = range(1, self.X.shape[0] )
         #
         if fidx is None:
-            pidx = range(1, self.X.shape[1] )
+            fidx = range(1, self.X.shape[1] )
         #
         if lidx is None:
             lidx = range(1, self.Y.shape[1] )
@@ -72,7 +73,8 @@ def randperm(n):
 def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug=False, useRPMat=False):
 
 
-    #print "ENTER MLC"
+    if debug:
+        print "ENTER MLC"
 
     """x, y, e = make_learning_curve(a, X, Y, min_repeat, max_repeat, ebar, max_point_num)
 % Make the learning curve 
@@ -93,6 +95,9 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
     print Y.shape
     print Y.sum()"""
     #die
+    if debug:
+        print "Casting X to 64 bit"
+
     X = N.cast['float64'](X)
 
     # Verify dimensions and set target values
@@ -110,6 +115,10 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
     #
     Y[Y==0] = -1;
 
+    if debug:
+        time.sleep(2)
+        print "Creating the data matrices"
+
     # Create the data matrices (Y at this stage is still multi-column)
     D = data_struct(X, Y);
     feat_num= D.X.shape[1]
@@ -118,6 +127,10 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
     if not pd_check.pd_check(D.X):
         #die
+
+        if debug:
+            time.sleep(2)
+            print "kernelizing"
         K = kernelize.kernelize(D);
     #
 
@@ -149,6 +162,10 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
 
     #print 'MLC M'
+
+    if debug:
+        time.sleep(2)
+        print "Computing sample sizes"
 
     # Sample sizes scaled in log2
     m = N.floor(math.log(p,2))
@@ -222,17 +239,24 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
                 #print 'j'
                 #print j
 
+                if debug:
+                    print "Obtaining sub arrays"
+                    time.sleep(2)
+
 
                 if pd_check.pd_check(D): # kernelized version
-                    #print 'case 1'
+                    if debug:
+                        print 'pd_check ok, using kernelized version'
                     Dtr = D.subdim(tr_idx, tr_idx, [j])
                     Dte = D.subdim(te_idx, tr_idx, [j])
                 elif x[k] < feat_num: # kernelized too (for speed reason)
-                    #print 'case 2'
+                    if debug:
+                        print 'x[k] < feat_num, using kernelized version'
                     Dtr = K.subdim(tr_idx, tr_idx, [j]);
                     Dte = K.subdim(te_idx, tr_idx, [j]);               
                 else: # primal version 
-                    #print 'case 3'
+                    if debug:
+                        print 'using non-kernelized version'
                     Dtr = D.subdim(tr_idx, None, [j]);
                     Dte = D.subdim(te_idx, None, [j]);
                 #
@@ -241,7 +265,14 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
                 #print Dte.X.shape
 
 
+                if debug:
+                    time.sleep(2)
+                    print "Training classifier"
                 d, m = train.train( Dtr);
+
+                if debug:
+                    time.sleep(2)
+                    print "Computing test values"
                 #print 'Dte.Y'
                 #print Dte.Y
                 #assert False
@@ -252,7 +283,16 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
                 #print d1.Y.shape
                 #print d1.Y.sum()
                 #assert False
+                if debug:
+                    time.sleep(2)
+                    print "Computing auc"
                 area.append( auc.auc(d1.X, d1.Y, dosigma=False)[0] )
+
+
+                if debug:
+                    time.sleep(2)
+                    print "done"
+
                 repnum += 1
                 E[j] = N.asarray(area).std()/N.sqrt(repnum)         
             # repnum loop
