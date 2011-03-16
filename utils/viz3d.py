@@ -24,7 +24,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     for i, fn in enumerate(args.file):
         data = np.loadtxt(fn)
-        x, y, z = data.T
+        x, y, z = data[:, [0, 1, 2]].T
         do_3d_scatter(x, y, z, figno=(i + 1),
                       title='features from "%s"' % fn.name)
     plt.show()
