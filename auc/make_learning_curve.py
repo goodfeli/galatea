@@ -55,17 +55,18 @@ class data_struct:
 
 
 def randperm(n):
-    print 'warning, randperm replaced'
-    return range(n)
+    #print 'warning, randperm replaced'
+    return N.random.permutation(n)
+    #return range(n)
 
-    rval = range(n)
-    for i in xrange(n):
-        j = N.random.randint(0,n)
-        temp = rval[i]
-        rval[i] = rval[j]
-        rval[j] = temp
+    #rval = range(n)
+    #for i in xrange(n):
+    #    j = N.random.randint(0,n)
+    #    temp = rval[i]
+    #    rval[i] = rval[j]
+    #    rval[j] = temp
     #
-    return rval
+    #return rval
 #
 
 def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug=False, useRPMat=False):
