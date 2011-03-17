@@ -42,23 +42,28 @@ class data_struct:
 
     def subdim(self, pidx = None, fidx = None, lidx = None):
         if pidx is None:
-            pidx = range(1, self.X.shape[0] )
+            pidx = range(0, self.X.shape[0] )
         #
         if fidx is None:
-            fidx = range(1, self.X.shape[1] )
+            fidx = range(0, self.X.shape[1] )
         #
         if lidx is None:
-            lidx = range(1, self.Y.shape[1] )
+            lidx = range(0, self.Y.shape[1] )
         #
         return data_struct( self.X[N.ix_(pidx, fidx)], self.Y[N.ix_(pidx,lidx)])
     #
+    def copy(self):
+        d = data_struct(None, None)
+        d.X = self.X.copy()
+        d.Y = self.Y.copy()
+
+        return d
 #
 
 
 def randperm(n):
     #print 'warning, randperm replaced'
     return N.random.permutation(n)
-    #return range(n)
 
     #rval = range(n)
     #for i in xrange(n):
@@ -125,14 +130,16 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
     K = None
 
-    if not pd_check.pd_check(D.X):
+    #if not pd_check.pd_check(D.X):
         #die
 
-        if debug:
-            time.sleep(2)
-            print "kernelizing"
-        K = kernelize.kernelize(D);
+    #    if debug:
+    #        time.sleep(2)
+    #        print "kernelizing"
+    #    K = kernelize.kernelize(D);
     #
+    if not pd_check.pd_check(D.X) and D.X.shape[0] < 2000:
+        D = kernelize.kernelize(D)
 
 
     #print 'MLC G'
@@ -249,17 +256,17 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
                         print 'pd_check ok, using kernelized version'
                     Dtr = D.subdim(tr_idx, tr_idx, [j])
                     Dte = D.subdim(te_idx, tr_idx, [j])
-                elif x[k] < feat_num: # kernelized too (for speed reason)
-                    if debug:
-                        print 'x[k] < feat_num, using kernelized version'
-                    Dtr = K.subdim(tr_idx, tr_idx, [j]);
-                    Dte = K.subdim(te_idx, tr_idx, [j]);               
+                #elif x[k] < feat_num: # kernelized too (for speed reason)
+                #    if debug:
+                #        print 'x[k] < feat_num, using kernelized version'
+                #    Dtr = K.subdim(tr_idx, tr_idx, [j]);
+                #    Dte = K.subdim(te_idx, tr_idx, [j]);               
                 else: # primal version 
                     if debug:
                         print 'using non-kernelized version'
-                    Dtr = D.subdim(tr_idx, None, [j]);
-                    Dte = D.subdim(te_idx, None, [j]);
-                #
+                    Dtr = data_struct(D.X[tr_idx,:], D.Y[tr_idx,j])
+                    Dte = data_struct(D.X[te_idx,:], D.Y[te_idx,j])
+
 
                 #print 'Dte.X'
                 #print Dte.X.shape
