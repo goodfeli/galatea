@@ -221,5 +221,5 @@ if __name__ == "__main__":
     
     # Stack both layers and create submission file
     input = tensor.matrix()
-    transform = theano.function([input], ae2(pca(input)))
+    transform = theano.function([input], ae2(ae1(pca(input))))
     utils.create_submission(conf, transform)
