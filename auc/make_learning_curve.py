@@ -55,7 +55,7 @@ class data_struct:
 
 
 def randperm(n):
-    print 'warning, randperm replaced'
+    #print 'warning, randperm replaced'
     return range(n)
 
     rval = range(n)
