@@ -214,7 +214,8 @@ if __name__ == "__main__":
     # Second layer : train or load a DAE or CAE
     ae1 = create_da(conf, layer2, data1, model=layer2['name'])
     
-    data2 = [utils.sharedXae1.function()(set.get_value()), borrow=True)
+    data2 = [utils.sharedX(ae1.function()(set.get_value()), borrow=True)
+                      for set in data]
     
     ae2 = create_da(conf, layer2, data2, model=layer2['name'])
     
