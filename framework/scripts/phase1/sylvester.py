@@ -208,19 +208,18 @@ if __name__ == "__main__":
     # First layer : train or load a PCA
     pca = create_pca(conf, layer1, data)
     
-    data = [utils.sharedX(pca.function()(set.get_value()), borrow=True)
+    data1 = [utils.sharedX(pca.function()(set.get_value()), borrow=True)
                       for set in data]
     
     # Second layer : train or load a DAE or CAE
-    ae = create_da(conf, layer2, data, model=layer2['name'])
+    ae1 = create_da(conf, layer2, data1, model=layer2['name'])
     
-    # Compute the ALC for example with labels
-    # TODO : Not functionnal yet
-    #block = StackedBlocks([pca, ae])
-    #alc = embed.score(block.function()(alc_train), alc_label)
-    #print '... resulting ALC on train is', alc
+    data2 = [utils.sharedX(ae1.function()(set.get_value()), borrow=True)
+                      for set in data]
+    
+    ae2 = create_da(conf, layer2, data2, model=layer2['name'])
     
     # Stack both layers and create submission file
     input = tensor.matrix()
-    transform = theano.function([input], ae(pca(input)))
+    transform = theano.function([input], ae2(ae1(pca(input))))
     utils.create_submission(conf, transform)
