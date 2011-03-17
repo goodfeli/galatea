@@ -3,7 +3,7 @@ Several utilities for experimenting upon utlc datasets
 """
 # Standard library imports
 import os
-from itertools import repeat
+from itertools import repeat, izip
 
 # Third-party imports
 import numpy
@@ -19,22 +19,25 @@ from auc import embed
 
 floatX = theano.config.floatX
 
+def get_constant(variable):
+    """ Little hack to return the python value of a theano shared variable """
+    return theano.function([],
+                           variable,
+                           mode=theano.compile.Mode(linker='py')
+                           )()
+
+def sharedX(value, name=None, borrow=False):
+    """Transform value into a shared variable of type floatX"""
+    return theano.shared(theano._asarray(value, dtype=floatX),
+                         name=name,
+                         borrow=borrow)
+
 def subdict(d, keys):
     """ Create a subdictionary of d with the keys in keys """
     result = {}
     for key in keys:
         if key in d: result[key] = d[key]
     return result
-
-def get_constant(variable):
-    """ Little hack to return the python value of a theano shared variable """
-    return theano.function([], variable, mode=theano.compile.Mode(linker='py'))()
-
-def sharedX(value, name=None, borrow=False):
-    """Transform value into a shared variable of type floatX"""
-    return theano.shared(theano._asarray(value, dtype=floatX),
-                         name=name,
-                         borrow=False)
 
 def safe_update(dict_to, dict_from):
     """
@@ -57,9 +60,10 @@ def load_data(conf):
     expected = ['normalize',
                 'normalize_on_the_fly',
                 'randomize_valid',
-                'randomize_test']
-    print '... loading data'
-    train_set, valid_set, test_set = load_ndarray_dataset(conf['dataset'], **subdict(conf, expected))
+                'randomize_test',
+                'transfer']
+    print '... loading Dataset'
+    data = load_ndarray_dataset(conf['dataset'], **subdict(conf, expected))
 
     # Allocate shared variables
     def shared_dataset(data_x):
@@ -70,25 +74,23 @@ def load_data(conf):
             return theano.shared(theano._asarray(data_x), borrow=True)
 
     if conf.get('normalize_on_the_fly', False):
-        return [train_set, valid_set, test_set]
+        return data
     else:
-        test_set_x = shared_dataset(test_set)
-        valid_set_x = shared_dataset(valid_set)
-        train_set_x = shared_dataset(train_set)
-        return [train_set_x, valid_set_x, test_set_x]
-
+        return map(shared_dataset, data)
 
 def create_submission(conf, get_representation):
     """
-    Create submission files given a configuration dictionary and a computation function
-    
-    Note that it always reload the datasets to ensure valid & test are not permuted
+    Create submission files given a configuration dictionary and a
+    computation function.
+
+    Note that it always reload the datasets to ensure valid & test
+    are not permuted.
     """
     # Load the dataset, without permuting valid and test
     kwargs = subdict(conf, ['dataset', 'normalize', 'normalize_on_the_fly'])
     kwargs.update(randomize_valid=False, randomize_test=False)
     train_set, valid_set, test_set = load_data(kwargs)
-    
+
     # Valid and test representations
     valid_repr = get_representation(get_constant(valid_set))
     test_repr = get_representation(test_set.get_value())
@@ -119,13 +121,15 @@ def create_submission(conf, get_representation):
     del test_repr
 
     # Write it in a .txt file
-    submit_dir = conf['submit_dir']
+    submit_dir = conf['savedir']
     if not os.path.exists(submit_dir):
         os.mkdir(submit_dir)
     elif not os.path.isdir(submit_dir):
-        raise IOError('submit_dir %s is not a directory' % submit_dir)
+        raise IOError('savedir %s is not a directory' % submit_dir)
 
-    basename = os.path.join(submit_dir, conf['dataset'] + '_' + conf['expname'])
+    basename = os.path.join(submit_dir,
+                            conf['dataset'] + '_' + conf['expname']
+                            )
     valid_file = open(basename + '_valid.prepro', 'w')
     test_file = open(basename + '_final.prepro', 'w')
 
@@ -160,27 +164,43 @@ def compute_alc(valid_repr, test_repr):
     normal case (i.e only train on training set)
     """
 
-    # Concatenate the two sets, and give different one hot labels for valid and test
-    n_valid  = valid_repr.shape[0]
+    # Concatenate the sets, and give different one hot labels for valid and test
+    n_valid = valid_repr.shape[0]
     n_test = test_repr.shape[0]
 
-    _labvalid = numpy.hstack((numpy.ones((n_valid,1)), numpy.zeros((n_valid,1))))
-    _labtest = numpy.hstack((numpy.zeros((n_test,1)), numpy.ones((n_test,1))))
+    _labvalid = numpy.hstack((numpy.ones((n_valid, 1)),
+                              numpy.zeros((n_valid, 1))))
+    _labtest = numpy.hstack((numpy.zeros((n_test, 1)),
+                             numpy.ones((n_test, 1))))
 
     dataset = numpy.vstack((valid_repr, test_repr))
-    label = numpy.vstack((_labvalid,_labtest))
-    
+    label = numpy.vstack((_labvalid, _labtest))
+
     print '... computing the ALC'
     return embed.score(dataset, label)
+
 
 def lookup_alc(data, transform):
     valid_repr = transform(data[1].get_value())
     test_repr = transform(data[2].get_value())
-    
+
     return compute_alc(valid_repr, test_repr)
 
+
+def filter_labels(train, label):
+    """ Filter examples of train for which we have labels """
+    # Examples for which any label is set
+    condition = label.get_value().any(axis=1)
+    
+    # Compress train and label arrays according to condition
+    def aux(var):
+        return var.get_value().compress(condition, axis=0)
+    
+    return (aux(train), aux(label))
+
+
 ##################################################
-# Iterator objet for blending datasets
+# Iterator object for blending datasets
 ##################################################
 
 class BatchIterator(object):
@@ -188,40 +208,47 @@ class BatchIterator(object):
     Builds an iterator object that can be used to go through the minibatches
     of a dataset, with respect to the given proportions in conf
     """
-    def __init__(self, conf, dataset):
-        # Record external parameters
-        self.batch_size = conf['batch_size']
-        # TODO: If you have a better way to return dataset slices, I'll take it
-        self.dataset = [set.get_value() for set in dataset]
-        
-        # Compute maximum number of samples for one loop
-        set_proba = [conf['train_prop'], conf['valid_prop'], conf['test_prop']]
-        set_sizes = [get_constant(data.shape[0]) for data in dataset]
-        set_batch = [float(self.batch_size) for i in xrange(3)]
-        set_range = numpy.divide(numpy.multiply(set_proba, set_sizes), set_batch)
-        set_range = map(int, numpy.ceil(set_range))
-
-        # Upper bounds for each minibatch indexes
-        set_limit = numpy.ceil(numpy.divide(set_sizes, set_batch))
-        self.limit = map(int, set_limit)
-        
-        # Number of rows in the resulting union
+    def __init__(self, dataset, set_proba, batch_size, seed = 300):
+        # Local shortcuts for array operations
         flo = numpy.floor
         sub = numpy.subtract
         mul = numpy.multiply
         div = numpy.divide
         mod = numpy.mod
-        l_trun = mul(flo(div(set_range, set_limit)), mod(set_sizes, set_batch))
-        l_full = mul(sub(set_range, flo(div(set_range, set_limit))), set_batch)
         
+        # Record external parameters
+        self.batch_size = batch_size
+        # TODO: If you have a better way to return dataset slices, I'll take it
+        self.dataset = [set.get_value() for set in dataset]
+
+        # Compute maximum number of samples for one loop
+        set_sizes = [get_constant(data.shape[0]) for data in dataset]
+        set_batch = [float(self.batch_size) for i in xrange(3)]
+        set_range = div(mul(set_proba, set_sizes), set_batch)
+        set_range = map(int, numpy.ceil(set_range))
+
+        # Upper bounds for each minibatch indexes
+        set_limit = numpy.ceil(numpy.divide(set_sizes, set_batch))
+        self.limit = map(int, set_limit)
+
+        # Number of rows in the resulting union
+        set_tsign = sub(set_limit, flo(div(set_sizes, set_batch)))
+        set_tsize = mul(set_tsign, flo(div(set_range, set_limit)))
+        
+        l_trun = mul(flo(div(set_range, set_limit)), mod(set_sizes, set_batch))
+        l_full = mul(sub(set_range, set_tsize), set_batch)
+
         self.length = sum(l_full) + sum(l_trun)
 
         # Random number generation using a permutation
         index_tab = []
         for i in xrange(3):
             index_tab.extend(repeat(i, set_range[i]))
-        self.permut = numpy.random.permutation(index_tab)
-        # TODO: Record seed parameter for reproductability purposes ?
+
+        # Use a deterministic seed
+        self.seed = seed
+        rng = numpy.random.RandomState(seed=self.seed)
+        self.permut = rng.permutation(index_tab)
 
     def __iter__(self):
         """ Generator function to iterate through all minibatches """
@@ -229,7 +256,9 @@ class BatchIterator(object):
         for chosen in self.permut:
             # Retrieve minibatch from chosen set
             index = counter[chosen]
-            minibatch = self.dataset[chosen][index * self.batch_size:(index + 1) * self.batch_size]
+            minibatch = self.dataset[chosen][
+                index * self.batch_size:(index + 1) * self.batch_size
+            ]
             # Increment the related counter
             counter[chosen] = (counter[chosen] + 1) % self.limit[chosen]
             # Return the computed minibatch
@@ -251,16 +280,18 @@ class BatchIterator(object):
 # Miscellaneous
 ##################################################
 
-def blend(conf, data):
-    """ Randomized blending of datasets in data according to parameters in conf """
-    iterator = BatchIterator(conf, data)
+def blend(dataset, set_proba, **kwargs):
+    """
+    Randomized blending of datasets in data according to parameters in conf
+    """
+    iterator = BatchIterator(dataset, set_proba, 1, **kwargs)
     nrow = len(iterator)
-    ncol = data[0].get_value().shape[1]
-    array = numpy.empty((nrow, ncol), data[0].dtype)
+    ncol = dataset[0].get_value().shape[1]
+    array = numpy.empty((nrow, ncol), dataset[0].dtype)
     index = 0
     for minibatch in iterator:
         for row in minibatch:
             array[index] = row
             index += 1
-            
+
     return sharedX(array, borrow=True)

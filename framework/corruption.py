@@ -19,20 +19,46 @@ else:
     RandomStreams = theano.sandbox.rng_mrg.MRG_RandomStreams
 
 class Corruptor(object):
-    """
-    A corruptor object is allocated in the same fashion as other
-    objects in this file, with a 'conf' dictionary (or object
-    supporting __getitem__) containing relevant hyperparameters.
-    """
-    def __init__(self, conf, rng=None):
+    def __init__(self, corruption_level, rng=2001):
+        """
+        Allocate a corruptor object.
+
+        Parameters
+        ----------
+        corruption_level : float
+            Some measure of the amount of corruption to do. What this
+            means will be implementation specific.
+        rng : RandomState object or seed
+            NumPy random number generator object (or seed for creating one)
+            used to initialize a RandomStreams.
+        """
+        # The default rng should be build in a deterministic way
         if not hasattr(rng, 'randn'):
             rng = numpy.random.RandomState(rng)
         seed = int(rng.randint(2**30))
         self.s_rng = RandomStreams(seed)
-        self.conf = conf
+        self.corruption_level = corruption_level
 
     def __call__(self, inputs):
-        """Symbolic expression denoting the corrupted inputs."""
+        """
+        (Symbolically) corrupt the inputs with a noise process.
+
+        Parameters
+        ----------
+        inputs : tensor_like, or list of tensor_likes
+            Theano symbolic(s) representing a (list of) (mini)batch of inputs
+            to be corrupted, with the first dimension indexing training
+            examples and the second indexing data dimensions.
+
+        Returns
+        -------
+        corrupted : tensor_like, or list of tensor_likes
+            Theano symbolic(s) representing the corresponding corrupted inputs.
+
+        Notes
+        -----
+        In the base class, this is just a stub.
+        """
         raise NotImplementedError()
 
 class BinomialCorruptor(Corruptor):
@@ -44,11 +70,28 @@ class BinomialCorruptor(Corruptor):
         return self.s_rng.binomial(
             size=x.shape,
             n=1,
-            p=1 - self.conf['corruption_level'],
+            p=1 - self.corruption_level,
             dtype=floatX
         ) * x
 
     def __call__(self, inputs):
+        """
+        (Symbolically) corrupt the inputs with a binomial (masking) noise.
+
+        Parameters
+        ----------
+        inputs : tensor_like, or list of tensor_likes
+            Theano symbolic(s) representing a (list of) (mini)batch of inputs
+            to be corrupted, with the first dimension indexing training
+            examples and the second indexing data dimensions.
+
+        Returns
+        -------
+        corrupted : tensor_like
+            Theano symbolic representing the corresponding corrupted inputs,
+            where individual inputs have been masked with independent
+            probability equal to `self.corruption_level`.
+        """
         if isinstance(inputs, tensor.Variable):
             return self._corrupt(inputs)
         else:
@@ -64,11 +107,28 @@ class GaussianCorruptor(Corruptor):
         return self.s_rng.normal(
             size=x.shape,
             avg=0,
-            std=self.conf['corruption_level'],
+            std=self.corruption_level,
             dtype=floatX
         ) + x
 
     def __call__(self, inputs):
+        """
+        (Symbolically) corrupt the inputs with Gaussian noise.
+
+        Parameters
+        ----------
+        inputs : tensor_like, or list of tensor_likes
+            Theano symbolic(s) representing a (list of) (mini)batch of inputs
+            to be corrupted, with the first dimension indexing training
+            examples and the second indexing data dimensions.
+
+        Returns
+        -------
+        corrupted : tensor_like, or list of tensor_likes
+            Theano symbolic(s) representing the corresponding corrupted inputs,
+            where individual inputs have been corrupted by zero mean Gaussian
+            noise with standard deviation equal to `self.corruption_level`.
+        """
         if isinstance(inputs, tensor.Variable):
             return self._corrupt(inputs)
         return [self._corrupt(inp) for inp in inputs]

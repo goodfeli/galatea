@@ -253,7 +253,7 @@ et le gradient moyen sur les exemples d'apprentissage :math:`x_t`
 est donc
 
 .. math::
-  \frac{1}{T} \sum_t \frac{-\drtial log P(x_t)}{\partial \theta_i} = 
+  \frac{1}{T} \sum_t \frac{-\partial log P(x_t)}{\partial \theta_i} = 
             \frac{1}{T}\sum_t f_i(x_t) - \sum_x P(x) f_i(x)
 
 On voit donc que le gradient est annullé quand *la moyenne des
@@ -367,15 +367,15 @@ sur les variables cachées: **l'énergie libre**
 et dans le cas des RBMs, on a
 
 .. math::
-   FE(v) = -b'v - \sum_i \log \sum_{h_i} e^{h_i (c_i + v' W_{.i})}
+   FE(v) = -c'v - \sum_i \log \sum_{h_i} e^{h_i (b_i + v' W_{.i})}
 
 où la somme sur :math:`h_i` est une somme sur les valeurs que les variables
 cachées peuvent prendre, ce qui, dans le cas d'unités binaires donne
 
 .. math::
-   FE(v) = -b'v - \sum_i \log (1 + e^{c_i + v' W_{.i}}) 
+   FE(v) = -c'v - \sum_i \log (1 + e^{b_i + v' W_{.i}}) 
 
-   FE(v) = -b'v - \sum_i {\rm softplus}(c_i + v' W_{.i}) 
+   FE(v) = -c'v - \sum_i {\rm softplus}(b_i + v' W_{.i}) 
 
 
 Gibbs dans les RBMs
@@ -620,11 +620,14 @@ du dessus qui ne sont plus la transposée des poids du
 dessous, et donc P(h|x) diffère de Q(h|x).
 
 
+.. _dbm_fr:
+
 Deep Boltzmann Machine
 ----------------------
 
 Finalement, on peut aussi utiliser un empilement de RBMs pour initializer
-une machine de Boltzmann profonde (Salakhutdinov et Hinton, AISTATS 2009).
+une machine de Boltzmann profonde 
+(Salakhutdinov et Hinton, AISTATS 2009: http://www.mit.edu/~rsalakhu/papers/dbm.pdf).
 Il s'agit d'une machine de Boltzmann organisée en couches, où chaque
 couche est seulement connectée à celle du dessous et celle du dessus.
 
@@ -646,6 +649,20 @@ chaque couche selon un entraînement local à la couche semble aider
 beaucoup. Salakutdinov obtient des résultats meilleurs avec sa machine
 de Boltzmann profonde qu'avec un DBN équivalent, mais l'entraînement
 est plus long. 
+
+Voir cet article: 
+
+An Efficient Learning Procedure for Deep Boltzmann Machines. 
+Ruslan Salakhutdinov and Geoffrey Hinton. 
+MIT Technical Report MIT-CSAIL-TR-2010-037, 2010 
+http://www.mit.edu/~rsalakhu/papers/MIT-CSAIL-TR-2010-037.pdf
+
+Pour accélérer l'inférence dans les DBMs:
+
+Efficient Learning of Deep Boltzmann Machines. 
+Ruslan Salakhutdinov and Hugo Larochelle. 
+AI and Statistics, 2010
+http://www.mit.edu/~rsalakhu/papers/dbmrec.pdf
 
 
 
