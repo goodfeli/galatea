@@ -8,7 +8,7 @@ from jobman import sql, DD, flatten
 
 # Local imports
 from framework import utils
-from framework.scripts.experiment import create_da, create_pca
+from framework.scripts.experiment import create_ae, create_pca
 from posttraitement.pca import PCA
 
 def update_view(table_name):
@@ -29,7 +29,7 @@ def run_da(conf, channel):
     del data
     
     # Train a DA over the computed representation
-    train_da(conf, data_after_pca)
+    create_ae(conf, data_after_pca)
     del data_after_pca
     
     return channel.COMPLETE
@@ -41,7 +41,7 @@ def run_pca(conf):
     
     # Train the PCA
     data_blended = utils.blend(conf, data)
-    train_pca(conf, data_blended)
+    create_pca(conf, data_blended)
     del data_blended
     
 
