@@ -153,6 +153,7 @@ def create_da(conf, layer, data, model=None):
 
 def first_xp(state,channel):
     lr=state.lr
+    nhid=state.nhid
     # First layer = PCA-75 whiten
     layer1 = {'name' : '1st-PCA',
               'num_components': 75,
@@ -165,7 +166,7 @@ def first_xp(state,channel):
     
     # Second layer = CAE-200
     layer2 = {'name' : '2nd-CAE',
-              'nhid': 200,
+              'nhid': nhid,
               'tied_weights': True,
               'act_enc': 'sigmoid',
               'act_dec': None,
@@ -178,7 +179,7 @@ def first_xp(state,channel):
               'base_lr': lr,
               'anneal_start': 100,
               'batch_size' : 20,
-              'epochs' : 5,
+              'epochs' : 50,
               'proba' : [1,0,0],
               }
     
