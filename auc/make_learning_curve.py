@@ -71,7 +71,6 @@ def randperm(n):
     #    temp = rval[i]
     #    rval[i] = rval[j]
     #    rval[j] = temp
-    #
     #return rval
 #
 
@@ -82,7 +81,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
         print "ENTER MLC"
 
     """x, y, e = make_learning_curve(a, X, Y, min_repeat, max_repeat, ebar, max_point_num)
-% Make the learning curve 
+% Make the learning curve
 % Inputs:
 % X -- data matrix
 % Y -- labels
@@ -160,7 +159,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
             RP=N.ceil(N.cast['float64'](RP)/(float(rp)/float(p)))
             RP=RP.astype(int)
             if debug:
-                print 'make_learning_curve: using RP of dim '+str(rp)+'x'+str(mr)+' min='+str(RP.min())+' max='+str(RP.max())+', max_repeat='+str(max_repeat) 
+                print 'make_learning_curve: using RP of dim '+str(rp)+'x'+str(mr)+' min='+str(RP.min())+' max='+str(RP.max())+', max_repeat='+str(max_repeat)
             #
         #
     else:
@@ -206,7 +205,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
         A = N.zeros((sep_num,1))
         E = N.zeros((sep_num,1))
-        e[k] = N.Inf 
+        e[k] = N.Inf
         # Loop over number of "1 vs all" separations
         for j in xrange(0,sep_num):
 
@@ -284,6 +283,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
                 #print Dte.Y
                 #assert False
                 d1 = test.test(m, Dte)
+                assert d1.X.shape[0] != 0
                 assert repnum == len(area)
                 #print 'target'
                 #print d1.Y
@@ -301,28 +301,28 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
                     print "done"
 
                 repnum += 1
-                E[j] = N.asarray(area).std()/N.sqrt(repnum)         
+                E[j] = N.asarray(area).std()/N.sqrt(repnum)
             # repnum loop
             assert not N.any(N.isnan(area))
-            A[j] = N.asarray(area).mean() 
+            A[j] = N.asarray(area).mean()
             if N.isnan(A[j]):
                 assert False, "Invalid area: " + str(area)
             #
         #end % for j=1:sep_num
         e[k] = E.mean()
-        y[k] = A.mean()   
+        y[k] = A.mean()
 
         assert not N.isnan(y[k])
 
-        if debug: 
-            print '==> '+str(repnum)+' repeats, auc='+str(y[k])+'+-'+str(e[k])+' -----------------'   
+        if debug:
+            print '==> '+str(repnum)+' repeats, auc='+str(y[k])+'+-'+str(e[k])+' -----------------'
 
         #
     # % Loop over k
 
     # Add point with 0 examples
     x = N.concatenate( (N.asarray([0]), x ))
-    P = 0.5 
+    P = 0.5
     y = N.concatenate( (N.asarray([P]), y) )
     e = N.concatenate( ( N.asarray([N.sqrt(P*(1-P)/p)]), e ) )
 
