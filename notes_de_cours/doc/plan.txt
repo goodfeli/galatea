@@ -8,9 +8,15 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  =========================================================================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  =========================================================================================================================================
-`10 mars`           Défi de la profondeur   :ref:`deepchallenge_fr`.
-`7 mars`            DBMs                    :ref:`dbm_fr`.
+`24 mars`_          Réseaux à convolution   Article sur le `Neocognitron <http://www.scholarpedia.org/article/Neocognitron>`_. 
+                                            Article sur `LeNet <http://yann.lecun.com/exdb/publis/pdf/lecun-89e.pdf>`_.
+                                            `Tutoriel sur les réseaux à convolution <http://deeplearning.net/tutorial/lenet.html>`_.
+`21 mars`_          Gradient profond.       fin de `Présentation de Yoshua Bengio <http://www.iro.umontreal.ca/~bengioy/ift6266/UofA_27_05_2010.pdf>`_.
                     DAE vs AE               :ref:`dae_fr`.
+`17 mars`_          Défi de la profondeur   :ref:`deepchallenge_fr`.
+`14 mars`_          Pré-entraînement        `Présentation de Yoshua Bengio <http://www.iro.umontreal.ca/~bengioy/ift6266/UofA_27_05_2010.pdf>`_.
+`10 mars`_          Pré-entraînement        `Présentation de Dumitru Erhan <http://www.iro.umontreal.ca/~bengioy/ift6266/dumitru_erhan.pdf>`_.
+`7 mars`_           DBMs,                   :ref:`dbm_fr`.
 `21+24 février`_    DBNs                    :ref:`dbn_fr`.
 `14+17 février`_    RBMs                    :ref:`rbm_fr`.
 `7+10 février`_     Modèles probabilistes   :ref:`deepgm_fr`.
@@ -42,18 +48,40 @@ Date                Sujets                  À lire en priorité
 
 ==================  ======================  =========================================================================================================================================
 
-
-10 mars
+24 Mars
 -------
 
+* Réseaux à convolution
+   * `Neocognitron <http://www.scholarpedia.org/article/Neocognitron>`_ 
+   * `LeNet <http://yann.lecun.com/exdb/publis/pdf/lecun-89e.pdf>`_
+   * `Tutoriel sur les réseaux à convolution <http://deeplearning.net/tutorial/lenet.html>`_
+
+21 Mars
+-------
+
+* Propagation du gradient supervisé dans les réseaux profonds: `Présentation de Yoshua Bengio Mai 2010 <http://www.iro.umontreal.ca/~bengioy/ift6266/UofA_27_05_2010.pdf>`_.
+* :ref:`dae_fr`.
+
+17 Mars
+-------
+
+* Comprendre l'effet du pré-entraînement non-supervisé: `Présentation de Yoshua Bengio Mai 2010 <http://www.iro.umontreal.ca/~bengioy/ift6266/UofA_27_05_2010.pdf>`_.
 * :ref:`deepchallenge_fr`.
 
-7 mars
+14 Mars
+-------
+
+* Comprendre l'effet du pré-entraînement non-supervisé: `Présentation de Yoshua Bengio Mai 2010 <http://www.iro.umontreal.ca/~bengioy/ift6266/UofA_27_05_2010.pdf>`_.
+
+10 Mars
+-------
+
+* Comprendre l'effet du pré-entraînement non-supervisé: `Présentation de Dumitru Erhan Mars 2010 <http://www.iro.umontreal.ca/~bengioy/ift6266/dumitru_erhan.pdf>`_.
+
+7 Mars
 ------
 
 * :ref:`dbm_fr`.
-* :ref:`dae_fr`.
-
 
 21+24 Février
 -------------
