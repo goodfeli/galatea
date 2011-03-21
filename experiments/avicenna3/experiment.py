@@ -9,6 +9,8 @@ import numpy
 import theano
 from theano import tensor
 
+from auc import embed
+
 # Local imports
 try:
     import framework
@@ -20,14 +22,15 @@ except ImportError:
     sys.exit(1)
 
 from auc import embed
-import framework.cost
-import framework.corruption
-
 from framework import utils
+from framework import cost
+from framework import corruption
+from framework import autoencoder
+from framework import rbm
+
 from framework.pca import PCA, CovEigPCA
 from framework.utils import BatchIterator
 from framework.base import StackedBlocks
-from framework.autoencoder import Autoencoder
 from framework.autoencoder import DenoisingAutoencoder, ContractingAutoencoder
 from framework.rbm import GaussianBinaryRBM, PersistentCDSampler
 from framework.optimizer import SGDOptimizer
@@ -47,27 +50,28 @@ def create_pca(conf, layer, data, model=None):
             filename = os.path.join(savedir, model)
             return PCA.load(filename)
         except Exception, e:
-            print 'Warning: error while loading PCA.', e.args[0]
-
+            print 'error during loading:',e.args[0]
     # Train the model
     print '... computing PCA layer'
-    MyPCA = framework.pca.get(layer.get('pca_class', 'CovEigPCA'))
-    pca = MyPCA.fromdict(layer)
+    pca = CovEigPCA.fromdict(layer)
 
     proba = utils.getboth(layer, conf, 'proba')
     blended = utils.blend(data, proba)
-    pca.train(blended.value)
+    pca.train(blended.get_value())
 
     filename = os.path.join(savedir, layer['name'] + '.pkl')
     pca.save(filename)
     return pca
 
 
-def create_ae(conf, layer, data, model=None):
+def create_da(conf, layer, data, model=None):
     """
     This function basically train an autoencoder according
     to the parameters in conf, and save the learned model
     """
+    # Either DenoisingAutoencoder or ConstrastingAutoencoder
+    MyAutoencoder = autoencoder.get(layer['autoenc_class'])
+    
     savedir = utils.getboth(layer, conf, 'savedir')
     if model is not None:
         # Load the model instead of training
@@ -75,7 +79,7 @@ def create_ae(conf, layer, data, model=None):
         if not model.endswith('.pkl'):
             model += '.pkl'
         filename = os.path.join(savedir, model)
-        return Autoencoder.load(filename)
+        return MyAutoencoder.load(filename)
     
     # Set visible units size
     layer['nvis'] = utils.get_constant(data[0].shape[1]).item()
@@ -83,21 +87,16 @@ def create_ae(conf, layer, data, model=None):
     # A symbolic input representing your minibatch.
     minibatch = tensor.matrix()
 
-    # Retrieve the corruptor object (if needed)
-    name = layer.get('corruption_class', 'DummyCorruptor')
-    MyCorruptor = framework.corruption.get(name)
-    corruptor = MyCorruptor(layer.get('corruption_level', 0))
-    
     # Allocate an denoising or contracting autoencoder
-    MyAutoencoder = framework.autoencoder.get(layer['autoenc_class'])
+    MyCorruptor = corruption.get(layer.get('corruption_class','DummyCorruptor'))
+    corruptor = MyCorruptor(layer.get('corruption_level', 0))
     ae = MyAutoencoder.fromdict(layer, corruptor=corruptor)
 
     # Allocate an optimizer, which tells us how to update our model.
-    MyCost = framework.cost.get(layer['cost_class'])
+    MyCost = cost.get(layer['cost_class'])
     varcost = MyCost(ae)(minibatch, ae.reconstruct(minibatch))
     if isinstance(ae, ContractingAutoencoder):
-        alpha = layer.get('contracting_penalty', 1)
-        varcost += alpha * ae.contraction_penalty(minibatch)
+        varcost += ae.contraction_penalty(minibatch)
     trainer = SGDOptimizer(ae, layer['base_lr'], layer['anneal_start'])
     updates = trainer.cost_updates(varcost)
 
@@ -138,8 +137,8 @@ def create_ae(conf, layer, data, model=None):
     # Compute denoising error for valid and train datasets.
     error_fn = theano.function([minibatch], varcost, name='error_fn')
 
-    layer['error_valid'] = error_fn(data[1].value).item()
-    layer['error_test'] = error_fn(data[2].value).item()
+    layer['error_valid'] = error_fn(data[1].get_value()).item()
+    layer['error_test'] = error_fn(data[2].get_value()).item()
     print '... final denoising error with valid is', layer['error_valid']
     print '... final denoising error with test  is', layer['error_test']
     
@@ -152,23 +151,24 @@ def create_ae(conf, layer, data, model=None):
     return ae
 
 
-if __name__ == "__main__":
+def first_xp(state,channel):
+    lr=state.lr
+    nhid=state.nhid
     # First layer = PCA-75 whiten
     layer1 = {'name' : '1st-PCA',
               'num_components': 75,
               'min_variance': 0,
               'whiten': True,
-              'pca_class' : 'CovEigPCA',
               # Training properties
-              'proba' : [1, 0, 0],
+              'proba' : [1,0,0],
               'savedir' : './outputs',
               }
-
+    
     # Second layer = CAE-200
     layer2 = {'name' : '2nd-CAE',
-              'nhid': 200,
+              'nhid': nhid,
               'tied_weights': True,
-              'act_enc': 'rectifier',
+              'act_enc': 'sigmoid',
               'act_dec': None,
               'irange': 0.001,
               'cost_class' : 'MeanSquaredError',
@@ -176,20 +176,20 @@ if __name__ == "__main__":
               'corruption_class' : 'BinomialCorruptor',
               # 'corruption_level' : 0.3, # For DenoisingAutoencoder
               # Training properties
-              'base_lr': 0.001,
+              'base_lr': lr,
               'anneal_start': 100,
               'batch_size' : 20,
-              'epochs' : 5,
-              'proba' : [1, 0, 0],
+              'epochs' : 50,
+              'proba' : [1,0,0],
               }
     
     # Third layer = PCA-3 no whiten
-    layer3 = {'name' : '3st-PCA',
+    layer3 = {'name' : '3rd-PCA',
               'num_components': 3,
               'min_variance': 0,
               'whiten': False,
               # Training properties
-              'proba' : [0, 1, 0]
+              'proba' : [0,1,0]
               }
     
     # Experiment specific arguments
@@ -213,21 +213,21 @@ if __name__ == "__main__":
         data = data[:3]
 
     # First layer : train or load a PCA
-    pca1 = create_pca(conf, layer1, data, model=layer1['name'])
+    pca1 = create_pca(conf, layer1, data)#, model=layer1['name'])
     
-    data = [utils.sharedX(pca1.function()(set.value), borrow=True)
+    data = [utils.sharedX(pca1.function()(set.get_value()), borrow=True)
             for set in data]
     
     # Second layer : train or load a DAE or CAE
-    ae = create_ae(conf, layer2, data, model=layer2['name'])
+    ae = create_da(conf, layer2, data)#, model=layer2['name'])
     
-    data = [utils.sharedX(ae.function()(set.value), borrow=True)
+    data = [utils.sharedX(ae.function()(set.get_value()), borrow=True)
             for set in data]
     
     # Third layer : train or load a PCA
     pca2 = create_pca(conf, layer3, data)#, model=layer3['name'])
 
-    data = [utils.sharedX(pca2.function()(set.value), borrow=True)
+    data = [utils.sharedX(pca2.function()(set.get_value()), borrow=True)
             for set in data]
     
     # Compute the ALC for example with labels
@@ -240,3 +240,4 @@ if __name__ == "__main__":
     # Stack both layers and create submission file
     block = StackedBlocks([pca1, ae, pca2])
     utils.create_submission(conf, block.function())
+    return channel.COMPLETE

@@ -7,7 +7,8 @@ from itertools import repeat
 
 # Third-party imports
 import numpy
-import theano, theano.tensor as tensor
+import theano
+from theano import tensor
 from pylearn.datasets.utlc import load_ndarray_dataset
 
 # Local imports
@@ -91,7 +92,7 @@ def load_data(conf):
     else:
         return map(shared_dataset, data)
 
-def create_submission(conf, get_representation):
+def create_submission(conf, transform_valid, transform_test = None):
     """
     Create submission files given a configuration dictionary and a
     computation function.
@@ -99,14 +100,17 @@ def create_submission(conf, get_representation):
     Note that it always reload the datasets to ensure valid & test
     are not permuted.
     """
+    if transform_test is None:
+        transform_test = transform_valid
+    
     # Load the dataset, without permuting valid and test
     kwargs = subdict(conf, ['dataset', 'normalize', 'normalize_on_the_fly'])
     kwargs.update(randomize_valid=False, randomize_test=False)
-    train_set, valid_set, test_set = load_data(kwargs)
+    valid_set, test_set = load_data(kwargs)[1:3]
 
     # Valid and test representations
-    valid_repr = get_representation(get_constant(valid_set))
-    test_repr = get_representation(test_set.get_value())
+    valid_repr = transform_valid(valid_set.value)
+    test_repr = transform_test(test_set.value)
 
     # If there are too much features, outputs kernel matrices
     if (valid_repr.shape[1] > valid_repr.shape[0]):
@@ -194,8 +198,8 @@ def compute_alc(valid_repr, test_repr):
 
 
 def lookup_alc(data, transform):
-    valid_repr = transform(data[1].get_value())
-    test_repr = transform(data[2].get_value())
+    valid_repr = transform(data[1].value)
+    test_repr = transform(data[2].value)
 
     return compute_alc(valid_repr, test_repr)
 
@@ -203,11 +207,11 @@ def lookup_alc(data, transform):
 def filter_labels(train, label):
     """ Filter examples of train for which we have labels """
     # Examples for which any label is set
-    condition = label.get_value().any(axis=1)
+    condition = label.value.any(axis=1)
 
     # Compress train and label arrays according to condition
     def aux(var):
-        return var.get_value().compress(condition, axis=0)
+        return var.value.compress(condition, axis=0)
 
     return (aux(train), aux(label))
 
@@ -231,8 +235,7 @@ class BatchIterator(object):
 
         # Record external parameters
         self.batch_size = batch_size
-        # TODO: If you have a better way to return dataset slices, I'll take it
-        self.dataset = [set.get_value() for set in dataset]
+        self.dataset = dataset
 
         # Compute maximum number of samples for one loop
         set_sizes = [get_constant(data.shape[0]) for data in dataset]
@@ -262,21 +265,21 @@ class BatchIterator(object):
         self.seed = seed
         rng = numpy.random.RandomState(seed=self.seed)
         self.permut = rng.permutation(index_tab)
-
+                                      
     def __iter__(self):
         """ Generator function to iterate through all minibatches """
         counter = [0, 0, 0]
         for chosen in self.permut:
             # Retrieve minibatch from chosen set
             index = counter[chosen]
-            minibatch = self.dataset[chosen][
+            minibatch = self.dataset[chosen].value[
                 index * self.batch_size:(index + 1) * self.batch_size
             ]
             # Increment the related counter
             counter[chosen] = (counter[chosen] + 1) % self.limit[chosen]
             # Return the computed minibatch
             yield minibatch
-
+    
     def __len__(self):
         """ Return length of the weighted union """
         return self.length
@@ -288,6 +291,21 @@ class BatchIterator(object):
             index = counter[chosen]
             counter[chosen] = (counter[chosen] + 1) % self.limit[chosen]
             yield chosen, index
+    
+    def by_subtensor(self):
+        """ Generator function to iterate through all minibatches subtensors """
+        counter = [0, 0, 0]
+        for chosen in self.permut:
+            # Retrieve minibatch from chosen set
+            index = counter[chosen]
+            minibatch = self.dataset[chosen][
+                index * self.batch_size:(index + 1) * self.batch_size
+            ]
+            # Increment the related counter
+            counter[chosen] = (counter[chosen] + 1) % self.limit[chosen]
+            # Return the computed minibatch
+            yield minibatch
+        
 
 ##################################################
 # Miscellaneous
@@ -299,13 +317,12 @@ def blend(dataset, set_proba, **kwargs):
     """
     iterator = BatchIterator(dataset, set_proba, 1, **kwargs)
     nrow = len(iterator)
-    ncol = dataset[0].get_value().shape[1]
+    ncol = get_constant(dataset[0].shape[1])
     array = numpy.empty((nrow, ncol), dataset[0].dtype)
-    index = 0
-    for minibatch in iterator:
-        for row in minibatch:
-            array[index] = row
-            index += 1
+    row = 0
+    for chosen, index in iterator.by_index():
+        array[row] = dataset[chosen].value[index]
+        row += 1
 
     return sharedX(array, borrow=True)
 
