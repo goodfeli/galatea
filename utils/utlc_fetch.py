@@ -13,7 +13,7 @@ def main(data="terry", exp_list=None):
     br.open("http://www.causality.inf.ethz.ch/unsupervised-learning.php?page=login")
     br.select_form(nr=0)
     br.form["repo_login"] = "lisa@iro.umontreal.ca"
-    br.form["repo_password"] = "<set it yourself>"
+    br.form["repo_password"] = "deep99"
     br.submit()
 
     print "Opening web page"
@@ -68,23 +68,23 @@ def main(data="terry", exp_list=None):
 
             if numpy.all(valid_arr == test_arr):
                 continue
-           
-            print "Found a valid test dataset"
-            real_alc.append(alc)
-            dataset = numpy.vstack((valid_arr, test_arr))
-            labels_valid = numpy.hstack((numpy.ones((valid_arr.shape[0], 1)),\
-                                        numpy.zeros((valid_arr.shape[0], 1))))
-            labels_test = numpy.hstack((numpy.zeros((test_arr.shape[0], 1)),\
-                                        numpy.ones((test_arr.shape[0], 1))))
-            labels  = numpy.vstack((labels_valid, labels_test))
-            print "Computing score"
-            validtest_alc.append(score(dataset, labels))
-
-            print real_alc[-1], validtest_alc[-1], entry_nb
-            print >> output_file, real_alc[-1], validtest_alc[-1], entry_nb
         except Exception, e:
             print traceback.print_exc()
             continue
+           
+        print "Found a valid test dataset"
+        real_alc.append(alc)
+        dataset = numpy.vstack((valid_arr, test_arr))
+        labels_valid = numpy.hstack((numpy.ones((valid_arr.shape[0], 1)),\
+                                    numpy.zeros((valid_arr.shape[0], 1))))
+        labels_test = numpy.hstack((numpy.zeros((test_arr.shape[0], 1)),\
+                                    numpy.ones((test_arr.shape[0], 1))))
+        labels  = numpy.vstack((labels_valid, labels_test))
+        print "Computing score"
+        validtest_alc.append(score(dataset, labels))
+
+        print real_alc[-1], validtest_alc[-1], entry_nb
+        print >> output_file, real_alc[-1], validtest_alc[-1], entry_nb
     
     #pylab.plot(validtest_alc, real_alc, "rx")
     #pylab.show()

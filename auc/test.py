@@ -17,10 +17,9 @@ def test(model, data, verbose = False):
 
     p, n = data.X.shape
 
-    if n != model.W.shape[0]:
-        Yest = N.asarray([])
-    else:
-        Yest = N.dot(data.X,model.W.T) + model.b0
+    assert n == model.W.shape[0]
+
+    Yest = N.dot(data.X,model.W.T) + model.b0
     #
 
     # Remove ties (the negative class is usually most abundant)
