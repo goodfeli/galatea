@@ -103,6 +103,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
         print "Casting X to 64 bit"
 
     X = N.cast['float64'](X)
+    Y = N.cast['float64'](Y.copy())
 
     # Verify dimensions and set target values
     p, n = X.shape
@@ -283,8 +284,8 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
                 #print Dte.Y
                 #assert False
                 d1 = test.test(m, Dte)
-                assert d1.X.shape[0] != 0
-                assert repnum == len(area)
+                assert d1.X.shape[0] != 0, "d1.X.shape[0] == 0"
+                assert repnum == len(area), "repnum == len(area)"
                 #print 'target'
                 #print d1.Y
                 #print d1.Y.shape
