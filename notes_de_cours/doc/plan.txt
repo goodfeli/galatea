@@ -8,10 +8,15 @@ Tableau résumé des cours et lectures (cliquer sur la date pour les détails de
 ==================  ======================  =========================================================================================================================================
 Date                Sujets                  À lire en priorité
 ==================  ======================  =========================================================================================================================================
+`31 mars`_          Examen
+`28 mars`_          Révision
 `24 mars`_          Réseaux à convolution   Article sur le `Neocognitron <http://www.scholarpedia.org/article/Neocognitron>`_. 
+
                                             Article sur `LeNet <http://yann.lecun.com/exdb/publis/pdf/lecun-89e.pdf>`_.
+
                                             `Tutoriel sur les réseaux à convolution <http://deeplearning.net/tutorial/lenet.html>`_.
 `21 mars`_          Gradient profond.       fin de `Présentation de Yoshua Bengio <http://www.iro.umontreal.ca/~bengioy/ift6266/UofA_27_05_2010.pdf>`_.
+
                     DAE vs AE               :ref:`dae_fr`.
 `17 mars`_          Défi de la profondeur   :ref:`deepchallenge_fr`.
 `14 mars`_          Pré-entraînement        `Présentation de Yoshua Bengio <http://www.iro.umontreal.ca/~bengioy/ift6266/UofA_27_05_2010.pdf>`_.
@@ -47,6 +52,16 @@ Date                Sujets                  À lire en priorité
                                             Sec. 1 et 2 de `Scaling Learning Algorithms towards AI <http://www.iro.umontreal.ca/%7Elisa/publications2/index.php/publications/show/4>`_.
 
 ==================  ======================  =========================================================================================================================================
+
+31 Mars
+-------
+
+* Examen théorique à livre ouvert
+
+28 Mars
+-------
+
+* Révision en vue de l'examen
 
 24 Mars
 -------

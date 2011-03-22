@@ -1,5 +1,5 @@
 
-.. _deepchallenge:
+.. _deepchallenge_fr:
 
 Le défi d'entraîner des réseaux de neurones profonds
 ====================================================
