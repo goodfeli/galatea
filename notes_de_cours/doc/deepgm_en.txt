@@ -226,7 +226,7 @@ the energy function is *linear in the parameters* :math:`\theta` of the model:
   P(x) \propto e^{-\sum_i \theta_i f_i(x)}
 
 where :math:`f_i(.)` are known as *sufficient statistics*
-of the model, because the expectations :math:`\mathbb{E}[f_i(x)]` are
+of the model, because the expectations :math:`E[f_i(x)]` are
 sufficient for characterizing the distribution and estimating parameters.
 
 Note that :math:`e^{\theta_i f_i(x)} = \psi_i(x)` is associated with
