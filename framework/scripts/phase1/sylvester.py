@@ -89,24 +89,22 @@ if __name__ == "__main__":
     data = utils.load_data(conf)
     
     # First layer : PCA
-    pca1 = create_pca(conf, layer1, data)
-    data = [utils.sharedX(pca1.function()(set.get_value()), borrow=True)
-            for set in data]
+    pca1 = create_pca(conf, layer1, data, model=layer1['name'])
+    data = [utils.sharedX(pca1.function()(set.get_value(borrow=True)),
+                          borrow=True) for set in data]
     
     # Second layer : CAE
-    ae1 = create_ae(conf, layer2, data)
-    data = [utils.sharedX(ae1.function()(set.get_value()), borrow=True)
-            for set in data]
+    ae1 = create_ae(conf, layer2, data, model=layer2['name'])
+    data = [utils.sharedX(ae1.function()(set.get_value(borrow=True)),
+                          borrow=True) for set in data]
     
     # Third layer : CAE
-    ae2 = create_ae(conf, layer3, data)
-    data = [utils.sharedX(ae2.function()(set.get_value()), borrow=True)
-            for set in data]
+    ae2 = create_ae(conf, layer3, data, model=layer3['name'])
+    data = [utils.sharedX(ae2.function()(set.get_value(borrow=True)),
+                          borrow=True) for set in data]
     
     # Fourth layer : PCA
     pca2 = create_pca(conf, layer4, data)
-    data = [utils.sharedX(pca2.function()(set.get_value()), borrow=True)
-            for set in data]
     
     # Stack layers and create submission file
     block = StackedBlocks([pca1, ae1, ae2, pca2])
