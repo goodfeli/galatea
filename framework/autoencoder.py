@@ -7,12 +7,12 @@ from itertools import izip
 import numpy
 import theano
 from theano import tensor
+from theano import scalar
+from theano.tensor import elemwise
 
 # Local imports
-from .base import Block, StackedBlocks
-from .scalar import rectifier
-from .utils import sharedX
-from .utils.theano_graph import is_pure_elemwise
+from framework.base import Block, StackedBlocks
+from framework.utils import sharedX, is_pure_elemwise
 
 theano.config.warn.sum_div_dimshuffle_bug = False
 floatX = theano.config.floatX
@@ -24,6 +24,25 @@ else:
     import theano.sandbox.rng_mrg
     RandomStreams = theano.sandbox.rng_mrg.MRG_RandomStreams
 
+##################################################
+# Miscellaneous activation functions
+##################################################
+
+class ScalarRectifier(scalar.UnaryScalarOp):
+    @staticmethod
+    def st_impl(x):
+        return x * (x > 0.0)
+    def impl(self, x):
+        return ScalarRectifier.st_impl(x)
+    def grad(self, (x,), (gz,)):
+        return [x > 0.0]
+
+scalar_rectifier = ScalarRectifier(scalar.upgrade_to_float, name='scalar_rectifier')
+rectifier = elemwise.Elemwise(scalar_rectifier, name='rectifier')
+
+##################################################
+# Main Autoencoder class
+##################################################
 
 class Autoencoder(Block):
     """
@@ -33,7 +52,7 @@ class Autoencoder(Block):
     much of the necessary functionality and override what they need.
     """
     def __init__(self, nvis, nhid, act_enc, act_dec,
-                 tied_weights=False, irange=1e-3, rng=9001):
+                 tied_weights=False,solution='',sparse_penalty=0,sparsityTarget=0,sparsityTargetPenalty=0, irange=1e-3, rng=9001):
         """
         Allocate an autoencoder object.
 
@@ -58,6 +77,17 @@ class Autoencoder(Block):
             (and learned) for the encoder and the decoder function. If `True`,
             the decoder weight matrix will be constrained to be equal to the
             transpose of the encoder weight matrix.
+        solution : string
+            If is empty (default), the regularization term for the cost function will be 0.
+            If 'l1_penalty', add to loss a L1 penalty.
+            If 'sqr_penalty', add to loss a quadratic penalty
+        sparse_penalty : float, optional 
+            hyperparameter to control the value of the regularization term for the L1 penalty
+        sparsityTarget : float, optional 
+            hyperparameter to control the value of the regularization term for the quadratic penalty
+        sparsityTargetPenalty : float, optional 
+            hyperparameter to control difference between the values of hiddens output of
+            the regularization term for the quadratic penalty
         irange : float, optional
             Width of the initial range around 0 from which to sample initial
             values for the weights.
@@ -79,12 +109,9 @@ class Autoencoder(Block):
             name='hb',
             borrow=True
         )
-
-        irange = float(irange)
-
         # TODO: use weight scaling factor if provided, Xavier's default else
         self.weights = sharedX(
-            .5 - rng.uniform(-irange,irange, (nvis, nhid)),
+            .5 - rng.rand(nvis, nhid) * irange,
             name='W',
             borrow=True
         )
@@ -125,6 +152,12 @@ class Autoencoder(Block):
         ]
         if not tied_weights:
             self._params.append(self.w_prime)
+       
+        self.solution = solution
+        self.sparse_penalty = sparse_penalty
+        self.sparsityTarget = sparsityTarget
+        self.sparsityTargetPenalty = sparsityTargetPenalty 
+        self.regularization = 0
 
     def _hidden_activation(self, x):
         """
@@ -205,15 +238,37 @@ class Autoencoder(Block):
             reconstructed minibatch(es) after encoding/decoding.
         """
         hiddens = self.encode(inputs)
+        self.hiddens=hiddens
+        self.regularization = self.compute_regularization(hiddens)
+        
         if self.act_dec is None:
             act_dec = lambda x: x
-        else:
+        else: 
             act_dec = self.act_dec
         if isinstance(inputs, tensor.Variable):
             return act_dec(self.visbias + tensor.dot(hiddens, self.w_prime))
         else:
             return [self.reconstruct(inp) for inp in inputs]
-
+    
+    def compute_penalty_value(self):
+        '''
+        Return the penalty value compute by the function compute_regularization
+        '''
+        return self.regularization
+                
+    def compute_regularization(self,hiddens) :
+        """
+        Compute the penalty value depending on the choice solution (L1 or quadratic).
+        """ 
+        regularization = 0
+        # Compute regularization term
+        if self.solution == 'l1_penalty':# Penalite de type L1
+           regularization = self.sparse_penalty * tensor.sum(hiddens)
+        elif self.solution == 'sqr_penalty':# Penalite de type quadratique   
+           regularization = self.sparsityTargetPenalty * tensor.sum(tensor.sqr(hiddens - self.sparsityTarget))
+        
+        return regularization
+    
     def __call__(self, inputs):
         """
         Forward propagate (symbolic) input through this module, obtaining
@@ -229,8 +284,7 @@ class DenoisingAutoencoder(Autoencoder):
     A denoising autoencoder learns a representation of the input by
     reconstructing a noisy version of it.
     """
-    def __init__(self, corruptor, nvis, nhid, act_enc, act_dec,
-                 tied_weights=False, irange=1e-3, rng=9001):
+    def __init__(self, corruptor, *args, **kwargs):
         """
         Allocate a denoising autoencoder object.
 
@@ -246,15 +300,7 @@ class DenoisingAutoencoder(Autoencoder):
         for the Autoencoder class; see the `Autoencoder.__init__` docstring
         for details.
         """
-        super(DenoisingAutoencoder, self).__init__(
-            nvis,
-            nhid,
-            act_enc,
-            act_dec,
-            tied_weights,
-            irange,
-            rng
-        )
+        super(DenoisingAutoencoder, self).__init__(*args, **kwargs)
         self.corruptor = corruptor
 
     def reconstruct(self, inputs):
@@ -278,6 +324,9 @@ class DenoisingAutoencoder(Autoencoder):
         """
         corrupted = self.corruptor(inputs)
         return super(DenoisingAutoencoder, self).reconstruct(corrupted)
+    
+    #def compute_penalty_value(self):
+        #return super(DenoisingAutoencoder, self).compute_penalty_value()    
 
 class ContractingAutoencoder(Autoencoder):
     """
@@ -344,7 +393,7 @@ class ContractingAutoencoder(Autoencoder):
             # following form.
             jacobian = self.weights * act_grad.dimshuffle(0, 'x', 1)
             # Penalize the mean of the L2 norm, basically.
-            L = tensor.sum(tensor.mean(jacobian**2,axis=0))
+            L = tensor.sum(jacobian**2)
             return L
         if isinstance(inputs, tensor.Variable):
             return penalty(inputs)
@@ -353,8 +402,9 @@ class ContractingAutoencoder(Autoencoder):
 
 def build_stacked_ae(nvis, nhids, act_enc, act_dec,
                      tied_weights=False, irange=1e-3, rng=None,
-                     corruptor=None, contracting=False):
+                     corruptor=None, contracting=False,solution=None,sparse_penalty=None,sparsityTarget=None,sparsityTargetPenalty=None):
     """Allocate a stack of autoencoders."""
+  
     if not hasattr(rng, 'randn'):
         rng = numpy.random.RandomState(rng)
     layers = []
@@ -362,14 +412,18 @@ def build_stacked_ae(nvis, nhids, act_enc, act_dec,
     # "Broadcast" arguments if they are singular, or accept sequences if
     # they are the same length as nhids
     for c in ['corruptor', 'contracting', 'act_enc', 'act_dec',
-              'tied_weights', 'irange']:
+              'tied_weights', 'irange','solution','sparse_penalty','sparsityTarget','sparsityTargetPenalty']:
         if type(locals()[c]) is not str and hasattr(locals()[c], '__len__'):
             assert len(nhids) == len(locals()[c])
             final[c] = locals()[c]
         else:
             final[c] = [locals()[c]] * len(nhids)
+            
+    
     # The number of visible units in each layer is the initial input
     # size and the first k-1 hidden unit sizes.
+    # solution , sparse_penalty ,sparsityTarget, and sparsityTargetPenalty have the same size as nhids. 
+    # They can add an L1 penalty, a quadratic to each layer of the stacked ae. 
     nviss = [nvis] + nhids[:-1]
     seq = izip(nhids, nviss,
         final['act_enc'],
@@ -377,11 +431,15 @@ def build_stacked_ae(nvis, nhids, act_enc, act_dec,
         final['corruptor'],
         final['contracting'],
         final['tied_weights'],
-        final['irange']
+        final['irange'],
+        final['solution'],
+        final['sparse_penalty'],
+        final['sparsityTarget'],
+        final['sparsityTargetPenalty']
     )
     # Create each layer.
-    for nhid, nvis, act_enc, act_dec, corr, cae, tied, ir in seq:
-        args = nvis, nhid, act_enc, act_dec, tied, ir, rng
+    for nhid, nvis, act_enc, act_dec, corr, cae, tied, ir,sol,spar_pen,sparTar,sparTarPen in seq:
+        args = nvis, nhid, act_enc, act_dec, tied, sol, spar_pen, sparTar, sparTarPen, ir, rng
         if cae and corr is not None:
             raise ValueError("Can't specify denoising and contracting "
                              "objectives simultaneously")
