@@ -42,8 +42,8 @@ def train( data , verbose = False, do_test = False):
         model.W[Negidx] = -1. / (float(Negidx.shape[0])+1e-12);
     else:
         n = data.X.shape[1]
-        Mu1 = N.zeros((1, n))
-        Mu2 = N.zeros((1, n))
+        Mu1 = N.zeros((n,))
+        Mu2 = N.zeros((n,))
         if Posidx.shape[0] > 0:
             Mu1 = data.X[Posidx,:].mean(axis=0)
         #

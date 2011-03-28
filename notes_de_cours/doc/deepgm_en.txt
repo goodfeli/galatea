@@ -226,7 +226,7 @@ the energy function is *linear in the parameters* :math:`\theta` of the model:
   P(x) \propto e^{-\sum_i \theta_i f_i(x)}
 
 where :math:`f_i(.)` are known as *sufficient statistics*
-of the model, because the expectations :math:`\mathbb{E}[f_i(x)]` are
+of the model, because the expectations :math:`E[f_i(x)]` are
 sufficient for characterizing the distribution and estimating parameters.
 
 Note that :math:`e^{\theta_i f_i(x)} = \psi_i(x)` is associated with
@@ -242,7 +242,7 @@ gradient of the log likelihood is as follows:
 and the average gradient over training examples :math:`x_t` is thus
 
 .. math::
-  \frac{1}{T} \sum_t \frac{-\drtial log P(x_t)}{\partial \theta_i} =
+  \frac{1}{T} \sum_t \frac{-\partial log P(x_t)}{\partial \theta_i} =
             \frac{1}{T}\sum_t f_i(x_t) - \sum_x P(x) f_i(x)
 
 Thus, it is clear that the gradient vanishes when *the average
@@ -280,6 +280,8 @@ of the negative log likelihood of the observed data is thus
 In the general case, it will be necessary to resort to MCMC
 not only for the negative phase gradient but also for the positive
 phase gradient, i.e. to sample :math:`P(v|h_t)`.
+
+.. _dbm_en:
 
 The Boltzmann Machine
 =====================
