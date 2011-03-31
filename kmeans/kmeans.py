@@ -71,10 +71,10 @@ if whiten:
 
     print '\tprocessing data'
     X = N.dot(X,W)
-   
+
     serial.save(name+'_whitening_params.pkl',(whitening_mean,W,filter))
-    
-   
+
+
     mean = X.mean(axis=0)
     print 'mean range: '+str((mean.min(),mean.max()))
     cov = N.dot(X.T,X) /float(m-1)
@@ -126,7 +126,7 @@ while True:
 
     print '\tfinding minimum distances'
     min_dist_inds = dists.argmin(axis=1)
- 
+
     print '\tcomputing means'
     i = 0
     blacklist = []
@@ -145,7 +145,7 @@ while True:
             print '\tkilled cluster '+str(i)+', '+str(k)+' clusters remain'
             """
 
-            killed_on_prev_iter = True            
+            killed_on_prev_iter = True
 
             #new code initializes empty cluster to be the mean of the d data points farthest from their corresponding means
             if i in old_kills:
