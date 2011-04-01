@@ -12,17 +12,17 @@ except ImportError:
             "working directory)"
     sys.exit(1)
 
-import framework.config
+import framework.config.yaml_parse
 
 class Train:
-    def __init__(self, tag, dataset, model, algorithm):
-        if tag != 'train':
-            raise ValueError('train.py expects "train" tag, received"'+tag+'" tag')
-
-        self.dataset, self.model, self.algorithm  = [ framework.config.resolve(x) for x in [dataset, model, algorithm] ]
+    def __init__(self, dataset, model, algorithm = None):
+        self.dataset, self.model, self.algorithm  = dataset, model, algorithm
 
     def main_loop(self):
-        self.algorithm.train(self.model, self.dataset)
+        if self.algorithm is None:
+            self.model.train(self.dataset)
+        else:
+            self.algorithm.train(self.model, self.dataset)
 
 
 if __name__ == "__main__":
@@ -32,9 +32,7 @@ if __name__ == "__main__":
 
     config_file_path = sys.argv[1]
 
-    config_dict = framework.config.load(config_file_path)
-
-    train_obj = framework.config.checked_call(Train,config_dict)
+    train_obj = framework.config.yaml_parse.load_path(config_file_path)
 
     train_obj.main_loop()
 

@@ -71,20 +71,21 @@ if __name__ == "__main__":
     data = utils.load_data(conf)
 
     # First layer : PCA
-    pca1 = create_pca(conf, layer1, data)
-    data = [utils.sharedX(pca1.function()(set.get_value()), borrow=True)
-            for set in data]
+    pca1 = create_pca(conf, layer1, data, model=layer1['name'])
+    data = [utils.sharedX(pca1.function()(set.get_value(borrow=True)),
+                          borrow=True) for set in data]
 
     # Second layer : CAE
-    ae = create_ae(conf, layer2, data)
-    data = [utils.sharedX(ae.function()(set.get_value()), borrow=True)
-            for set in data]
+    ae = create_ae(conf, layer2, data, model=layer2['name'])
+    data = [utils.sharedX(ae.function()(set.get_value(borrow=True)),
+                          borrow=True) for set in data]
 
     # Third layer : Transductive PCA
     pca2 = []
     for p in ([0, 1, 0], [0, 0, 1]):
         layer3.update(proba=p)
-        pca2.append(create_pca(conf, layer3, data))
+        model = '-'.join(layer3['name'] + map(str, p))
+        pca2.append(create_pca(conf, layer3, data, model=model))
 
     # Stack layers and create submission file
     block = [StackedBlocks([pca1, ae, pca]) for pca in pca2]

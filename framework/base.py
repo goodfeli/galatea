@@ -7,7 +7,6 @@ import cPickle
 import os.path
 
 # Third-party imports
-import numpy
 import theano
 from theano import tensor
 
@@ -30,14 +29,21 @@ class Block(object):
     """
     def params(self):
         """
-        Returns a list of *shared* learnable parameters that
-        are, in your judgment, typically learned in this
-        model.
+        Get the list of learnable parameters in a Block.
+
+        Returns
+        -------
+        param_list : list of shared variables
+            A list of *shared* learnable parameters that are, in the
+            implementor's judgment, typically learned in this model.
         """
         # NOTE: We return list(self._params) rather than self._params
         # in order to explicitly make a copy, so that the list isn't
         # absentmindedly modified. If a user really knows what they're
         # doing they can modify self._params.
+        if None in self._params:
+            raise ValueError('some parameters of %s not initialized' %
+                             str(self))
         return list(self._params)
 
     def __call__(self, inputs):
@@ -91,6 +97,8 @@ class Block(object):
         inputs = tensor.matrix()
         return theano.function([inputs], self(inputs), name=name)
 
+    def invalid(self):
+        return None in self._params
 
 class StackedBlocks(Block):
     """
@@ -99,7 +107,7 @@ class StackedBlocks(Block):
     def __init__(self, layers):
         """
         Build a stack of layers.
-        
+
         Parameters
         ----------
         layers: list of Blocks
@@ -119,7 +127,7 @@ class StackedBlocks(Block):
     def __call__(self, inputs):
         """
         Return the output representation of all layers, including the inputs.
-        
+
         Parameters
         ----------
         inputs : tensor_like or list of tensor_likes
@@ -127,7 +135,7 @@ class StackedBlocks(Block):
             minibatch(es) to be encoded. Assumed to be 2-tensors, with the
             first dimension indexing training examples and the second indexing
             data dimensions.
-        
+
         Returns
         -------
         reconstructed : tensor_like or list of tensor_like
@@ -161,11 +169,11 @@ class StackedBlocks(Block):
                 [inputs],
                 outputs=self(inputs)[repr_index],
                 name=name)
-        
+
     def concat(self, name=None, start_index=-1, end_index=None):
         """
         Compile a function concatenating representations on given layers.
-        
+
         Parameters
         ----------
         name: string
