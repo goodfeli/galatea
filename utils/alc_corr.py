@@ -129,39 +129,41 @@ if __name__ == "__main__":
         label = dataset[3].get_value(borrow=True)
 
         numpy.random.seed(0xcafebeef)
-        for i in range(5):
-            idx = numpy.random.permutation(4)[0:2]
-            idx.sort()
+
+        # try with 2 indexes from transfer
+        idx_2 = [[0,1], [0,2], [0,3], [1,2], [1,3], [2,3]]
+        for idx in idx_2:
             label_idx = (label[:,idx] > 0).any(axis=1)
 
             tmp_data  = data[label_idx]
             tmp_label = label[:,idx]
             tmp_label = tmp_label[label_idx]
 
-            experiment(exp_conf, exp_layer1, tmp_data[0:4096], tmp_label[0:4096])
+            for i in range(4):
+                rand_idx = sorted(numpy.random.permutation(tmp_data.shape[0])[:4096])
+                experiment(exp_conf, exp_layer1, tmp_data[rand_idx], tmp_label[rand_idx])
+                s = str(idx) + ' ' + str(exp_conf['alc'])
+                print s
+                f = open(expname+ '.txt', 'a')
+                f.write(s + '\n')
+                f.close()
 
-            s = str(idx) + ' ' + str(exp_conf['alc'])
-            print s
-            f = open(expname+ '.txt', 'a')
-            f.write(s + '\n')
-            f.close()
-
-        numpy.random.seed(0xcafebeef)
+        # try with 3 indexes from transfer
+        idx_3 = [[0,1,2], [0,1,3], [0,2,3], [1,2,3]]
         # try it for 3 idx on train
-        for i in range(3):
-            idx = numpy.random.permutation(4)[0:3]
-            idx.sort()
+        for idx in idx_3:
             label_idx = (label[:,idx] > 0).any(axis=1)
 
             tmp_data  = data[label_idx]
             tmp_label = label[:,idx]
             tmp_label = tmp_label[label_idx]
 
-            experiment(exp_conf, exp_layer1, tmp_data[0:4096], tmp_label[0:4096])
-
-            s = str(idx) + ' ' + str(exp_conf['alc'])
-            print s
-            f = open(expname+ '.txt', 'a')
-            f.write(s + '\n')
-            f.close()
+            for i in range(8):
+                rand_idx = sorted(numpy.random.permutation(tmp_data.shape[0])[:4096])
+                experiment(exp_conf, exp_layer1, tmp_data[rand_idx], tmp_label[rand_idx])
+                s = str(idx) + ' ' + str(exp_conf['alc'])
+                print s
+                f = open(expname+ '.txt', 'a')
+                f.write(s + '\n')
+                f.close()
 
