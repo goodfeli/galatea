@@ -52,6 +52,7 @@ def auc(Output, Target, pos_small =  0, precise_ebar = 0, show_fig=0, dosigma = 
         assert False
 
         return area, sigma
+
     uval = N.unique(Output)
     if (not show_fig) and uval.shape[0] == 2 and uval.min() ==-1 and uval.max() ==1:
         # TODO: What's bac?

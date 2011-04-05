@@ -100,7 +100,7 @@ def comb(n,k):
         yield i
 
 def class_combs(n):
-    for k in range(2,n+1):
+    for k in range(1,n+1):
         for i in comb(n, k):
             yield i
 
@@ -219,12 +219,12 @@ def default_confs():
                 'train_alc' : 0,      # Result of the train alc
                 'valid_alc' : 0,      # Result of the valid alc
                 'train_alc_nb' : 4096, # Number of examples to use for train alc
-                'alc_perm_nb' : 4,        # Number of permutations of example to compute
+                'alc_perm_nb' : 1,        # Number of permutations of example to compute
                 },
 
         # Parameters to try for the different layers
         'layers_options': [
-            {'num_components':[2,3,4,5,10,15,20,25,30,50,70,90,100]},
+            {'num_components':[2,3,4,5,10,15,20,25]},
         ],
     }
 
@@ -322,7 +322,7 @@ if __name__ == "__main__":
             tmp_label = tmp_label[label_idx]
 
             # repeat for different examples
-            for perm_idx in range(4):
+            for perm_idx in range(conf['alc_perm_nb']):
                 rand_idx = sorted(numpy.random.permutation(tmp_data.shape[0])[:4096])
 
                 # compute the alc
