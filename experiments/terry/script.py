@@ -58,11 +58,11 @@ def create_sparse_pca(conf, layer, data, model=None):
     return pca
 
 if __name__ == "__main__":
-    # First layer = PCA-200 no whiten
+    # First layer = PCA-50 no whiten
     layer1 = {
         'name': '1st-PCA',
-        'pca_class': 'SparsePCA',
-        'num_components': 50, # try 500
+        'pca_class': 'SparseMatPCA',
+        'num_components': 50,
         'min_variance': 0,
         'whiten': False,
     }
@@ -86,7 +86,7 @@ if __name__ == "__main__":
         'proba': [1, 0, 0],
     }
 
-    # Third layer = PCA-3 no whiten
+    # Third layer = PCA-4 no whiten
     layer3 = {
         'name': '3rd-PCA',
         'pca_class': 'CovEigPCA',
@@ -124,14 +124,9 @@ if __name__ == "__main__":
     data = [set[:, nz_feats] for set in data]
     print 'Dropped %i of %i features; %i remaining' % (d0 - d, d0, d)
 
-    def matrixify_sparse_row(row, ncol):
-        return csr_matrix(mean.repeat(ncol).reshape((row.shape[0], ncol))).T
-
     # First layer: train or load a PCA
     pca1 = create_sparse_pca(conf, layer1, data[0], model=layer1['name'])
-    mean = pca1.mean.get_value()
-    data = [utils.sharedX(pca1.function()(
-        set - matrixify_sparse_row(mean, set.shape[0]))) for set in data]
+    data = [utils.sharedX(pca1.function()(set)) for set in data]
 
     # Second layer: train or load a DAE
     ae = create_ae(conf, layer2, data, model=layer2['name'])
