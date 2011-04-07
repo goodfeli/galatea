@@ -12,7 +12,7 @@ def plot_exp_alc(data, labels):
         plot(data[:,i],  label=labels[i])
 
     legend()
-    show()
+    savefig('exp_alc')
 
 def plot_test_corr(test_alc, data, labels):
     f = figure()
@@ -23,8 +23,8 @@ def plot_test_corr(test_alc, data, labels):
     for i in range(data.shape[1]):
         plot(test_alc, data[:,i],  label=labels[i])
 
-    legend()
-    show()
+    legend(loc='upper left')
+    savefig('corr_test')
 
 def plot_corr(known, known_labels, unknown, unkown_labels):
     f = figure()
@@ -41,8 +41,8 @@ def plot_corr(known, known_labels, unknown, unkown_labels):
         plot(exp_offsets, unknown[:,i], '--', label=unknown_labels[i])
 
     axis([0, exp_offsets[-1], -1.5, 1.5])
-    legend()
-    show()
+    legend(loc='lower right')
+    savefig('mobile_corr')
 
 if __name__ == '__main__':
     if len(sys.argv) >= 2:
