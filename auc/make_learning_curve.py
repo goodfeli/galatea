@@ -107,6 +107,10 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
 
     # Verify dimensions and set target values
     p, n = X.shape
+
+    if len(Y.shape) == 1:
+        Y = (N.ones((1, 1)) * Y).T
+
     pp, cn = Y.shape
     sep_num=cn
 
