@@ -12,6 +12,7 @@ def plot_exp_alc(data, labels):
         plot(data[:,i],  label=labels[i])
 
     legend()
+    show()
 
 def plot_test_corr(test_alc, data, labels):
     f = figure()
@@ -23,6 +24,7 @@ def plot_test_corr(test_alc, data, labels):
         plot(test_alc, data[:,i],  label=labels[i])
 
     legend()
+    show()
 
 def plot_corr(known, known_labels, unknown, unkown_labels):
     f = figure()
@@ -30,13 +32,17 @@ def plot_corr(known, known_labels, unknown, unkown_labels):
     xlabel("Experiment Offset")
     ylabel("Pearson correlation")
 
+    exp_offsets = range(known.shape[0])
+
     for i in range(known.shape[1]):
-        plot(known[:,i], known_labels[i], '-')
+        plot(exp_offsets, known[:,i], '-', label=known_labels[i])
 
     for i in range(unknown.shape[1]):
-        plot(unknown[:,i], unknown_labels[i], '--')
+        plot(exp_offsets, unknown[:,i], '--', label=unknown_labels[i])
 
+    axis([0, exp_offsets[-1], -1.5, 1.5])
     legend()
+    show()
 
 if __name__ == '__main__':
     if len(sys.argv) >= 2:
@@ -53,17 +59,17 @@ if __name__ == '__main__':
 
     plot_test_corr(alcs[:,1], vstack((alcs[:,0].T, res[:,:3].T)).T, ["valid", "train-mean", "train-median", "train"])
 
-    known = zeros((data.shape[0] - 3, 4))
+    known = zeros((res.shape[0] - 2, 4))
     known_labels = ['train [0 1] vs train [2 3]', 'train [0 2] vs train [1 3]',\
                     'train [0 3] vs train [1 2]', 'train vs valid']
 
     known[:,0] = mobile_corr(res[:,-6], res[:,-1])
     known[:,1] = mobile_corr(res[:,-5], res[:,-2])
     known[:,2] = mobile_corr(res[:,-4], res[:,-3])
-    known[:,2] = mobile_corr(res[:,-7], alcs[:,0])
+    known[:,3] = mobile_corr(res[:,-7], alcs[:,0])
 
 
-    unknown = zeros((data.shape[0] - 3, 2))
+    unknown = zeros((res.shape[0] - 2, 2))
     unknown_labels = ['valid vs test', 'train vs test']
     unknown[:,0] = mobile_corr(alcs[:,0], alcs[:,1])
     unknown[:,1] = mobile_corr(res[:,-7], alcs[:,1])
