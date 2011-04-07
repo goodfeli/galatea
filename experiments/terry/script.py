@@ -17,7 +17,7 @@ except ImportError:
 
 from auc import embed
 from framework import utils
-from framework.pca import PCA, CovEigPCA
+from framework.pca import PCA
 from framework.base import StackedBlocks
 from framework.scripts.experiment import create_pca, create_ae
 
