@@ -39,11 +39,11 @@ def create_sparse_pca(conf, layer, data, model=None):
 
     # Try to load the model
     if model is not None:
-        print '... loading layer:', clsname
+        print '... loading layer:', layer['name']
         try:
             pca = PCA.load(filename)
         except Exception, e:
-            print 'Warning: error while loading %s:' % clsname, e.args[0]
+            print 'Warning: error while loading %s:' % layer['name'], e.args[0]
             print 'Switching back to training mode.'
 
         if 'num_components' in layer:
@@ -66,16 +66,13 @@ def create_sparse_pca(conf, layer, data, model=None):
     return pca
 
 if __name__ == "__main__":
-    # First layer = PCA-50 no whiten
     layer1 = {
-        'name': '1st-PCA',
-        'pca_class': 'SparseMatPCA',
-        'num_components': 50,
-        'min_variance': 0,
+        'name': 'terry-pca',
+        'num_components': 500,
+        'min_variance': 0.0,
         'whiten': False,
     }
 
-    # Second layer: DAE-200
     layer2 = {
         'name': '2nd-DAE',
         'nhid': 200,
@@ -94,7 +91,6 @@ if __name__ == "__main__":
         'proba': [1, 0, 0],
     }
 
-    # Third layer = PCA-4 no whiten
     layer3 = {
         'name': '3rd-PCA',
         'pca_class': 'CovEigPCA',
@@ -104,25 +100,25 @@ if __name__ == "__main__":
         'proba': [1, 0, 0]
     }
 
-    # Experiment specific arguments
-    conf = {'dataset': 'terry',
-            'sparse': True,
-            'expname': 'dummy', # Used to create the submission file
-            'transfer': False,
-            'normalize': True, # (Default = True)
-            'normalize_on_the_fly': False, # (Default = False)
-            'randomize_valid': True, # (Default = True)
-            'randomize_test': True, # (Default = True)
-            'saving_rate': 2, # (Default = 0)
-            'savedir': './outputs',
-            }
+    conf = {
+        'dataset': 'terry',
+        'sparse': True,
+        'expname': 'dummy', # Used to create the submission file
+        'transfer': True,
+        'normalize': True, # (Default = True)
+        'normalize_on_the_fly': False, # (Default = False)
+        'randomize_valid': True, # (Default = True)
+        'randomize_test': True, # (Default = True)
+        'saving_rate': 2, # (Default = 0)
+        'savedir': './outputs'
+    }
 
     # Load the dataset.
     data = utils.load_data(conf)
-    
+
     if conf['transfer']:
         # Data for the ALC proxy
-        label = data[3]
+        labels = data[3]
         data = data[:3]
 
     # Discard noninformative features.
@@ -146,10 +142,10 @@ if __name__ == "__main__":
     data = [utils.sharedX(pca2.function()(set.get_value(borrow=True)),
         borrow=True) for set in data]
 
-    # Compute the ALC for example with labels
+    # Compute the ALC for examples with labels.
     if conf['transfer']:
-        data, label = utils.filter_labels(data[0], label)
-        alc = embed.score(data, label)
+        labeled_data, labeled_labels = utils.filter_labels(data[0], labels)
+        alc = embed.score(labeled_data, labeled_labels)
         print '... resulting ALC on train is', alc
         conf['train_alc'] = alc
 
