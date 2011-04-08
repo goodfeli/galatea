@@ -41,10 +41,18 @@ def create_sparse_pca(conf, layer, data, model=None):
     if model is not None:
         print '... loading layer:', clsname
         try:
-            return PCA.load(filename)
+            pca = PCA.load(filename)
         except Exception, e:
             print 'Warning: error while loading %s:' % clsname, e.args[0]
             print 'Switching back to training mode.'
+
+        if 'num_components' in layer:
+            pca.num_components = layer['num_components']
+        if 'min_variance' in layer:
+            pca.min_variance = layer['min_variance']
+        if 'whiten' in layer:
+            pca.whiten = layer['whiten']
+        return pca
 
     MyPCA = framework.pca.get(clsname)
     pca = MyPCA.fromdict(layer)
