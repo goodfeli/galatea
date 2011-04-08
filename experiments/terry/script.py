@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
     # First layer: train or load a PCA
     pca1 = create_sparse_pca(conf, layer1, data[0], model=layer1['name'])
-    data = [utils.sharedX(pca1.function()(set)) for set in data]
+    data = [utils.sharedX(pca1.function()(set), borrow=True) for set in data]
 
     # Second layer: train or load a DAE
     ae = create_ae(conf, layer2, data, model=layer2['name'])
