@@ -87,7 +87,7 @@ if __name__ == "__main__":
 
     # Discard noninformative features.
     d0 = data[0].shape[1]
-    nz_feats = utils.nonzero_features(data, all_subsets=True)
+    nz_feats = utils.nonzero_features(data)
     d = nz_feats.shape[0]
     data = [set[:, nz_feats] for set in data]
     print 'Dropped %i of %i features; %i remaining' % (d0 - d, d0, d)
