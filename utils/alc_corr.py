@@ -100,7 +100,7 @@ def comb(n,k):
         yield i
 
 def class_combs(n):
-    for k in range(1,n+1):
+    for k in range(2,n+1):
         for i in comb(n, k):
             yield i
 
