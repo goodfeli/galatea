@@ -103,7 +103,7 @@ def make_learning_curve(X, Y, min_repeat, max_repeat, ebar, max_point_num, debug
         print "Casting X to 64 bit"
 
     assert Y.any(axis=0).all(),\
-           "Some classes have no examples, at least one should be present for each class"
+           "Some classes have no example, at least one should be present for each class"
 
     X = N.cast['float64'](X)
     Y = N.cast['float64'](Y.copy())
