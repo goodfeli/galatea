@@ -1,15 +1,15 @@
 import sys
 from pylab import *
-from alc_stats import stats, extract_alcs, mobile_corr, mean, median, train4, train2
+from alc_stats import *
 
-def plot_exp_alc(data, labels, interactive=False):
+def plot_exp_alc(data, labels, stds, interactive=False):
     f = figure()
     title("ALC for different experiments")
     xlabel("Experiment number")
     ylabel("ALC")
 
     for i in range(data.shape[1]):
-        plot(data[:,i],  label=labels[i])
+        errorbar(arange(data.shape[0]), data[:,i], yerr=stds[:,i], label=labels[i])
 
     legend()
     savefig('exp_alc')
@@ -68,12 +68,13 @@ if __name__ == '__main__':
     else:
         interactive = False
 
-    criterias = [mean, median, train4] + [train2(i) for i in range(6)]
+    criterias = [mean, u_minus_s, median, train4] + [train2(i) for i in range(6)]
 
     res = stats(data, criterias)
+    stds = stats(data, [std, zero, zero, train4_std] + [train2_std(i) for i in range(6)])
     alcs = extract_alcs(data)
 
-    plot_exp_alc(hstack((alcs, res[:,:3])), ["valid", "test", "train-mean", "train-median", "train"], interactive)
+    plot_exp_alc(hstack((alcs, res[:,:4])), ["valid", "test", "train-mean", "train-mean - std", "train-median", "train"], hstack((zeros(alcs.shape),stds)), interactive)
 
     plot_test_corr(alcs[:,1], vstack((alcs[:,0].T, res[:,:3].T)).T, ["valid", "train-mean", "train-median", "train"], interactive)
 
