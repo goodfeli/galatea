@@ -21,12 +21,23 @@ def quantile(n):
     return f
 
 def train4(a):
-    return a[-1]
+    return mean(a[-4])
+
+def train4_std(a):
+    return std(a[-4:]) 
 
 def train2(i):
     def f(a):
         return mean(a[4*i:4*(i+1)])
     return f
+
+def train2_std(i):
+    def f(a):
+        return std(a[4*i:4*(i+1)])
+    return f
+
+def zero(a):
+    return 0
 
 def stats(data, criterias):
     exps = unique(data[:,0])

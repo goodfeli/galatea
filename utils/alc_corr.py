@@ -4,6 +4,7 @@ import time
 import sys
 import os
 import pprint
+import itertools
 
 # Third-party imports
 import numpy
@@ -23,7 +24,7 @@ except ImportError:
     sys.exit(1)
 
 from auc import embed
-from framework import utils
+from framework.utils import utlc as utils
 from framework import cost
 from framework import corruption
 from framework import autoencoder
@@ -40,29 +41,16 @@ from framework.scripts.experiment import create_pca, create_ae
 
 import pylearn.datasets.utlc as pdu
 
-def create_pca(conf, layer, data, model=None):
+def create_transductive_pca(conf, layer, data, model=None):
     """
-    Simple wrapper to either load a PCA or train it and save its parameters
+    data should be a numpy array
     """
-    #savedir = utils.getboth(layer, conf, 'savedir')
-    #if model is not None:
-    #    # Load the model
-    #    if not model.endswith('.pkl'):
-    #        model += '.pkl'
-    #    try:
-    #        print '... loading PCA layer'
-    #        filename = os.path.join(savedir, model)
-    #        return PCA.load(filename)
-    #    except Exception, e:
-    #        print 'Warning: error while loading PCA.', e.args[0]
-    #        print 'Switching back to training mode.'
-
     # Train the model
     MyPCA = framework.pca.get(layer.get('pca_class', 'CovEigPCA'))
     pca = MyPCA.fromdict(layer)
     pca.train(data)
 
-    return pca
+    return (pca.function()(data), pca)
 
 def create_model(conf, layer_conf, data):
     if layer_conf['type'] == 'PCA':
@@ -70,20 +58,18 @@ def create_model(conf, layer_conf, data):
     elif layer_conf['type'] == 'AE':
         return create_ae(conf, layer_conf, data)
 
-def experiment(conf, layer_confs, train_data, alc_data, alc_label):
+def train(conf, layer_confs, train_data):
     blocks = []
     data = train_data
 
     # load and train the model
     for layer_conf in layer_confs:
         model = create_model(conf, layer_conf, data)
-        data  = model.function()(data)
+        data = [utils.sharedX(model.function()(set.get_value(borrow=True)),
+                              borrow=True) for set in data]
         blocks.append(model)
 
-    
-    sblocks = StackedBlocks(blocks)
-    alc = embed.score(sblocks.function()(alc_data), alc_label)
-    conf['alc'] = alc
+    return data, blocks
 
 # Generator to iterate on all combinations
 def comb(n,k):
@@ -100,7 +86,7 @@ def comb(n,k):
         yield i
 
 def class_combs(n):
-    for k in range(1,n+1):
+    for k in range(2,n+1):
         for i in comb(n, k):
             yield i
 
@@ -164,7 +150,7 @@ def append_log_header(filename, confs_file, confs, min_exp_idx, max_exp_idx, tra
     s +=     "exp_idx options\n"
     s +=     "------- -------\n"
     # All exp_idx options
-    for exp_idx, options in enumerate(layer_iter(confs['layers_options'])):
+    for exp_idx, options in enumerate(itertools.chain(['raw'], layer_iter(confs['layers_options']))):
         s += "%04d    %s\n"%(exp_idx, pprint.pformat(options))
 
     s += "\n"
@@ -191,43 +177,93 @@ def randomize_labels(dataset):
     perm    = rng.permutation(dataset.shape[0])
     return dataset[perm]
 
-def default_confs():
-    return {
-        'layers': [
-            # First layer = PCA-75 whiten
-            {'name' : 'PCA',
-             'type' : 'PCA',
-             'num_components': 75,
-             'min_variance': 0,
-             'whiten': True,
-             # Training properties              
-             'proba' : [1,0,0],
-             'savedir' : './outputs',
-             },
-        ],
+def run_experiments(confs, results, log, min_exp_idx, max_exp_idx, verbose):
+    conf = confs['conf']
 
-        # Experiment specific arguments
-        'conf':{'dataset' : 'ule',
-                'expname' : 'dummy', # Used to create the submission file
-                'transfer' : True,
-                'normalize' : True, # (Default = True)
-                'normalize_on_the_fly' : False, # (Default = False)
-                'randomize_valid' : False, # (Default = True)
-                'randomize_test' : False, # (Default = True)
-                'saving_rate': 2, # (Default = 0)
-                'savedir' : './outputs',
-                'train_alc' : 0,      # Result of the train alc
-                'valid_alc' : 0,      # Result of the valid alc
-                'train_alc_nb' : 4096, # Number of examples to use for train alc
-                'alc_perm_nb' : 1,        # Number of permutations of example to compute
-                },
+    dataset = utils.load_data(conf)
+    transfer_labels = dataset[3].get_value(borrow=True)
+    dataset = dataset[:3]
 
-        # Parameters to try for the different layers
-        'layers_options': [
-            {'num_components':[2,3,4,5,10,15,20,25]},
-        ],
-    }
+    append_log_header(log, confs_file, confs, min_exp_idx, max_exp_idx, transfer_labels.shape[1], verbose)
 
+    label_idx = transfer_labels.any(axis=1)
+
+    for exp_idx,(conf, layers) in enumerate(itertools.chain(((confs['conf'], []),), confs_iter(confs))):
+
+        # Skip computing experiments that were not requested
+        if exp_idx < min_exp_idx:
+            append_log(log, "skipping " + str(exp_idx), verbose)
+            continue
+
+        if max_exp_idx != None and exp_idx >= max_exp_idx:
+            append_log(log, "stopping before " + str(exp_idx), verbose)
+            break
+
+        non_transductive = [ layer for layer in layers if not layer.get('transductive', False) ]
+        transductive = [ layer for layer in layers if layer.get('transductive', False) ]
+
+        assert len(transductive) <= 1, "More than 1 transductive layer given"
+
+        if len(transductive) == 1:
+            assert transductive[0].get("type", False) == "PCA", "Transductive layer is not a PCA"
+
+        new_reps, blocks = train(conf, non_transductive, dataset)
+
+        # Compute valid and test alc only on ule
+        if conf['dataset'] == 'ule':
+            _ , labels_valid, labels_test = pdu.load_ndarray_label("ule")
+
+            if conf['randomize_valid']:
+                labels_valid = randomize_labels(labels_valid)
+            if conf['randomize_test']:
+                labels_test  = randomize_labels(labels_test)
+
+            if len(transductive) == 1:
+                newrep_valid, _ = create_transductive_pca(conf, transductive[0], new_reps[1].get_value(borrow=True))
+            else:
+                newrep_valid = new_reps[1].get_value(borrow=True)
+
+            valid_alc = embed.score(newrep_valid, labels_valid)
+
+            if len(transductive) == 1:
+                newrep_test, _ = create_transductive_pca(conf, transductive[0], new_reps[2].get_value(borrow=True))
+            else:
+                newrep_test = new_reps[2].get_value(borrow=True)
+
+            test_alc = embed.score(newrep_test, labels_test)
+
+            append_log(\
+                log,\
+                "valid alc: " + str(valid_alc) + " test alc: " + str(test_alc),\
+                verbose)
+        else:
+            valid_alc = 0
+            test_alc = 0
+
+
+        numpy.random.seed(0xcafebeef)
+
+        # for each class combination (i.e. (0,1), (1,2), ..., (0, 1, 2), etc)
+        for train_cls_idx, idx in enumerate(class_combs(transfer_labels.shape[1])):
+            label_idx = (transfer_labels[:,idx] > 0).any(axis=1)
+
+            tmp_data  = new_reps[0].get_value(borrow=True)[label_idx]
+            tmp_label = transfer_labels[:,idx]
+            tmp_label = tmp_label[label_idx]
+
+            # repeat for different examples
+            for perm_idx in range(conf['alc_perm_nb']):
+                rand_idx = sorted(numpy.random.permutation(tmp_data.shape[0])[:conf['train_alc_nb']])
+
+                if len(transductive) == 1:
+                    newrep_train, _ = create_transductive_pca(conf, transductive[0], tmp_data[rand_idx])
+                else:
+                    newrep_train = StackedBlocks(blocks).function()(tmp_data[rand_idx])
+                    
+                train_alc = embed.score(newrep_train, tmp_label[rand_idx])
+
+                # compute the alc
+                append_result(results, [exp_idx, train_cls_idx, perm_idx, train_alc, valid_alc, test_alc], verbose)
 
 if __name__ == "__main__":
 
@@ -257,7 +293,7 @@ if __name__ == "__main__":
 
     conf = confs['conf']
 
-    confs_name = confs_file[:-5]
+    confs_name = os.path.splitext(os.path.basename(confs_file))[0]
     filename = 'results_' + confs_name + '_' + str(min_exp_idx) + '_' + str(max_exp_idx)
     results = filename + '.txt'
     log = filename + '.log'
@@ -268,63 +304,4 @@ if __name__ == "__main__":
     if os.path.exists(log):
         os.remove(log)
 
-    dataset = utils.load_data(conf)
-    dataset_train = dataset[0].get_value(borrow=True)
-    transfer_labels = dataset[3].get_value(borrow=True)
-
-    append_log_header(log, confs_file, confs, min_exp_idx, max_exp_idx, transfer_labels.shape[1], verbose)
-
-    for exp_idx,(conf, layers) in enumerate(confs_iter(confs)):
-
-        # Skip computing experiments that were not requested
-        if exp_idx < min_exp_idx:
-            append_log(log, "skipping " + str(exp_idx), verbose)
-            continue
-
-        if max_exp_idx != None and exp_idx >= max_exp_idx:
-            append_log(log, "stopping before " + str(exp_idx), verbose)
-            break
-
-        # Compute valid and test alc only on ule
-        if conf['dataset'] == 'ule':
-            dataset_valid = dataset[1].get_value(borrow=True)
-            dataset_test  = dataset[2].get_value(borrow=True)
-            _ , labels_valid, labels_test = pdu.load_ndarray_label("ule")
-
-            if conf['randomize_valid']:
-                labels_valid = randomize_labels(labels_valid)
-            if conf['randomize_test']:
-                labels_test  = randomize_labels(labels_test)
-
-            experiment(conf, layers, dataset_valid, dataset_valid, labels_valid)
-            valid_alc = conf['alc']
-
-            experiment(conf, layers, dataset_test, dataset_test, labels_test)
-            test_alc = conf['alc']
-
-            append_log(\
-                log,\
-                "valid alc: " + str(valid_alc) + " test alc: " + str(test_alc),\
-                verbose)
-        else:
-            valid_alc = 0
-            test_alc = 0
-
-
-        numpy.random.seed(0xcafebeef)
-
-        # for each class combination (i.e. (0,1), (1,2), ..., (0, 1, 2), etc)
-        for train_cls_idx, idx in enumerate(class_combs(transfer_labels.shape[1])):
-            label_idx = (transfer_labels[:,idx] > 0).any(axis=1)
-
-            tmp_data  = dataset_train[label_idx]
-            tmp_label = transfer_labels[:,idx]
-            tmp_label = tmp_label[label_idx]
-
-            # repeat for different examples
-            for perm_idx in range(conf['alc_perm_nb']):
-                rand_idx = sorted(numpy.random.permutation(tmp_data.shape[0])[:4096])
-
-                # compute the alc
-                experiment(conf, layers, tmp_data[rand_idx], tmp_data[rand_idx], tmp_label[rand_idx])
-                append_result(results, [exp_idx, train_cls_idx, perm_idx, conf['alc'], valid_alc, test_alc], verbose)
+    run_experiments(confs, results, log, min_exp_idx, max_exp_idx, verbose)
