@@ -1,5 +1,5 @@
 
-class TrainingAlgorithm:
+class DefaultTrainingAlgorithm:
     def __init__(self, batch_size, batches_per_iter):
         self.batch_size, self.batches_per_iter = batch_size, batches_per_iter
     #

@@ -55,11 +55,14 @@ if ~isfield(pars,'display_every')	pars.display_every = 1;	end;
 if ~isfield(pars,'save_every')	pars.save_every = 1;	end;
 if ~isfield(pars,'save_basis_timestamps')	pars.save_basis_timestamps = true;	end;
 
+pars.save_every = 1
+
 if exist('fname_save', 'var') && ~isempty(fname_save)
     pars.filename = fname_save;
 else
     pars.filename = sprintf('../results/sc_b%d_%s', num_bases, datestr(now, 30));	
 end;
+fprintf(1,'using filename %s\n',pars.filename)
 
 % Sparsity parameters
 if ~isfield(pars,'tol');                 pars.tol = 0.005; end;
@@ -211,6 +214,8 @@ while t < pars.num_trials
         
         save(experiment.matfname, 't', 'pars', 'B', 'stat');
         fprintf('saved as %s\n', experiment.matfname);
+    else
+        fprintf('not saving this iteration')
     end
 end
 
