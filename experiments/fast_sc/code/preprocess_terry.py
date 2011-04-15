@@ -9,6 +9,9 @@ pca_components = 512
 
 devel, valid, test = utlc.load_sparse_dataset('terry')
 
+print devel.shape
+print valid.shape
+print test.shape
 
 #Constrain only to features that appear in intersection of devel, valid, test
 def get_mask(mat):
