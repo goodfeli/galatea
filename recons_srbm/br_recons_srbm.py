@@ -20,12 +20,11 @@ class BR_ReconsSRBM:
     def __getstate__(self):
         d = copy.copy(self.__dict__)
 
-        """#remove everything set up by redo_theano
+        #remove everything set up by redo_theano
 
         for name in self.names_to_del:
             if name in d:
                 del d[name]
-        """
 
 
         return d
@@ -64,7 +63,7 @@ class BR_ReconsSRBM:
         self.gibbs_iters = gibbs_iters
         self.damping_factor = damping_factor
         self.enc_weight_decay = N.cast[floatX](enc_weight_decay)
-
+	self.names_to_del = []
         self.redo_everything()
 
     def set_error_record_mode(self, mode):
@@ -124,6 +123,8 @@ class BR_ReconsSRBM:
 
     def redo_theano(self):
 
+	init_names = dir(self)
+
         self.W_T = self.W.T
         self.W_T.name = 'W.T'
 
@@ -173,7 +174,9 @@ class BR_ReconsSRBM:
 
         self.recons_func = function([X], self.gibbs_step_exp(X) , name = 'recons_func')
 
+	final_names = dir(self)
 
+	self.names_to_del = [ name for name in final_names if name not in init_names ]
 
     def learn(self, dataset, batch_size):
         self.learn_mini_batch(dataset.get_batch_design(batch_size))
