@@ -1,19 +1,19 @@
 !obj:framework.scripts.train.Train {
-    "dataset": !pkl: "/u/goodfeli/ift6266h11/recons_srbm/cifar10_preprocessed_train.pkl",
+    "dataset": !pkl: "/home/ia3n/ift6266h11/recons_srbm/cifar10_preprocessed_train.pkl",
     "model": !obj:recons_srbm.br_recons_srbm.BR_ReconsSRBM {
                 "nvis" : 192,
                 "nhid" : 400,
                 "init_bias_hid" : 0.0,
                 "irange"  : 0.05,
-                "beta"    : 0.01,
-                "mean_field_iters" : 10,
+                "beta"    : 30.0,
+                "mean_field_iters" : 5,
                 "damping_factor" : 0.5,
                 "gibbs_iters" : 1,
                 "persistent_chains" : 5,
                 "enc_weight_decay" : .003,
                 "learning_rate" : .002
         },
-    "algorithm": !obj:recons_srbm.training_algorithm.TrainingAlgorithm {
+    "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 5,
                "batches_per_iter" : 100
     },
