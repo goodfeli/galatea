@@ -109,26 +109,18 @@ class BR_ReconsSRBM:
 
     def expected_energy(self, V, Q):
 
-        #TODO-- both of these axis=1 sums of elemwise might be sped up by an elemwise-reduce fusion op or rewriting in scan
-        expected_energy = T.mean(
-                                  - T.dot(Q,self.c)
-                                  + 0.5 * self.beta * (
-                                                        T.sum( T.sqr(V), axis = 1 )
-                                                        - 2.0 * T.dot(V, self.vis_mean)
-                                                        -T.sum(
-                                                                T.dot(2.0 * V,self.W) *
-                                                                Q, axis = 1
-                                                               )
+	def f(v,q,w):
+		return self.beta * (
+					0.5 * T.dot(v,v) 
+					- T.dot(self.vis_mean,v)
+					-T.dot(v,T.dot(self.W,q))
+					+0.5*T.dot(T.dot(self.W,q).T,T.dot(self.W,q))
+					+0.5 * T.dot(w,q-T.sqr(q))
+				    ) - T.dot(self.c,q)
 
+        rval, updates = scan( f, sequences = [V,Q], non_sequences = [self.W_norms] )
 
-                                                        - T.dot(T.sqr(Q),
-                                                                self.W_norms
-                                                                )
-                                                       )
-                                ) \
-                                + T.sum(T.dot(Q.T,Q) * self.wprod)/Q.shape[0]
-
-        return expected_energy
+        return T.mean(rval)
 
     def redo_theano(self):
 
@@ -256,7 +248,7 @@ class BR_ReconsSRBM:
 
         m = self.gibbs_step_exp(V)
         sample = self.theano_rng.normal(size = V.shape, avg = m,
-                                    std = N.sqrt(self.beta), dtype = V.dtype)
+                                    std = N.sqrt(1./self.beta), dtype = V.dtype)
 
         sample.name = base_name + '->sample'
 
@@ -290,13 +282,16 @@ class BR_ReconsSRBM:
 
     def damped_mean_field_step(self, V, P):
 
+	def f(p,w):
+		return - T.dot(self.W.T,T.dot(self.W,p))+w*(p-.5)
+
         interaction_term, updates = \
-            scan( lambda p, mask, wprod: T.sum(T.dot( p * mask, wprod),axis=1), sequences  = P, non_sequences= [self.mask, self.wprod])
+            scan( f, sequences  = P, non_sequences= self.W_norms)
 
 
         Q = T.nnet.sigmoid(self.c+self.beta *
                              (T.dot(V-self.vis_mean, self.W)
-                               - interaction_term
+                               + interaction_term
                              )
                            )
 
