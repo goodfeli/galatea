@@ -11,7 +11,7 @@
                 "gibbs_iters" : 1,
                 "persistent_chains" : 5,
                 "enc_weight_decay" : .003,
-                "learning_rate" : .002
+                "learning_rate" : .0002
         },
     "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 5,

@@ -6,7 +6,7 @@ from theano.printing import Print
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano
 floatX = theano.config.floatX
-
+import cPickle
 
 class BR_ReconsSRBM:
     def reset_rng(self):
@@ -26,6 +26,8 @@ class BR_ReconsSRBM:
             if name in d:
                 del d[name]
 
+	print "WARNING: not pickling random number generator!!!!"
+	del d['theano_rng']
 
         return d
 
@@ -119,6 +121,8 @@ class BR_ReconsSRBM:
 
         rval, updates = scan( f, sequences = [V,Q], non_sequences = [self.W_norms] )
 
+	assert len(updates.keys()) == 0
+
         return T.mean(rval)
 
     def redo_theano(self):
@@ -179,15 +183,10 @@ class BR_ReconsSRBM:
 	self.names_to_del = [ name for name in final_names if name not in init_names ]
 
     def learn(self, dataset, batch_size):
+	w = self.W.get_value(borrow=True)
+	print 'weights summary: '+str( (w.min(),w.mean(),w.max()))
         self.learn_mini_batch(dataset.get_batch_design(batch_size))
 
-
-    def recons_func(self, x):
-        rval = N.zeros(x.shape)
-        for i in xrange(x.shape[0]):
-            rval[i,:] = self.gibbs_step_exp(x[i,:])
-
-        return rval
 
     def error_func(self, x):
         return N.square( x - self.recons_func(x)).mean()
@@ -291,6 +290,8 @@ class BR_ReconsSRBM:
         interaction_term, updates = \
             scan( f, sequences  = P, non_sequences= self.W_norms)
 
+
+	assert len(updates.keys()) == 0
 
         Q = T.nnet.sigmoid(self.c+self.beta *
                              (T.dot(V-self.vis_mean, self.W)
