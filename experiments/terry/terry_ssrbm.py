@@ -110,7 +110,6 @@ def experiment0(state, channel):
             from scipy.io import loadmat
             data = loadmat(conf['dataset_path'])
         elif conf['dataset_path'][-4:] == '.npz':
-            import pdb; pdb.set_trace()
             data = numpy.load(conf['dataset_path'])
         else:
             raise ValueError('Unknown extension: %s' % conf['dataset_path'][-4:])
@@ -163,8 +162,9 @@ def experiment0(state, channel):
         layer1['log_alpha_max'] = numpy.log(alpha_max)
 
     print 'Training layer1 (%s)' % layer1['name']
-    rbm1 = exp.create_rbm(conf, layer1, data, model=layer1['name'])
+    rbm1 = exp.create_rbm(conf, layer1, data, label=label, model=layer1['name'])
     print 'processing data through layer1'
+
     train_data = data[0].get_value(borrow=True)
     batch_size = layer1['batch_size']
     repr_fn = rbm1.function()
