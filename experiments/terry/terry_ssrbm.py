@@ -166,18 +166,17 @@ def experiment0(state, channel):
     rbm1 = exp.create_rbm(conf, layer1, data, model=layer1['name'])
     print 'processing data through layer1'
     train_data = data[0].get_value(borrow=True)
-    n_train = train_data.shape[0]
     batch_size = layer1['batch_size']
-    train_repr = numpy.empty((n_train, rbm1.nhid))
     repr_fn = rbm1.function()
 
-    for i in xrange(0, n_train, batch_size):
-        train_repr[i:i+batch_size] = repr_fn(train_data[i:i+batch_size])
-
-    # TODO: process valid and test set by minibatch too?
-    data = (utils.sharedX(train_repr, borrow=True),
-            utils.sharedX(repr_fn(data[1].get_value(borrow=True)), borrow=True),
-            utils.sharedX(repr_fn(data[2].get_value(borrow=True)), borrow=True))
+    data = [utils.sharedX(
+                utils.minibatch_map(
+                    repr_fn,
+                    batch_size,
+                    dataset.get_value(borrow=True),
+                    output_width=rbm1.nhid),
+                borrow=True)
+            for dataset in data]
 
     # Compute train ALC
     if conf.get('transfer', False):
