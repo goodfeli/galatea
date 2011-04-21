@@ -6,7 +6,6 @@ from theano.printing import Print
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano
 floatX = theano.config.floatX
-import cPickle
 
 class BR_ReconsSRBM:
     def reset_rng(self):
@@ -26,8 +25,8 @@ class BR_ReconsSRBM:
             if name in d:
                 del d[name]
 
-	print "WARNING: not pickling random number generator!!!!"
-	del d['theano_rng']
+        print "WARNING: not pickling random number generator!!!!"
+        del d['theano_rng']
 
         return d
 
@@ -36,7 +35,7 @@ class BR_ReconsSRBM:
         #self.redo_theano()      # todo: make some way of not running this, so it's possible to just open something up and look at its weights fast without recompiling it
 
     def weights_format(self):
-        return 'col_major'
+        return ['v','h']
 
     def get_dimensionality(self):
         return 0
@@ -49,13 +48,14 @@ class BR_ReconsSRBM:
                 init_bias_hid, mean_field_iters,
                 damping_factor,
                 persistent_chains, beta, gibbs_iters,
-                enc_weight_decay):
+                enc_weight_decay, fold_biases):
         self.initialized = False
         self.reset_rng()
         self.nhid = nhid
         self.nvis = nvis
         self.learning_rate = learning_rate
         self.ERROR_RECORD_MODE_MONITORING = 0
+        self.error_record_mode = self.ERROR_RECORD_MODE_MONITORING
         self.init_weight_mag = irange
         self.force_batch_size = 0
         self.init_bias_hid = init_bias_hid
@@ -65,7 +65,8 @@ class BR_ReconsSRBM:
         self.gibbs_iters = gibbs_iters
         self.damping_factor = damping_factor
         self.enc_weight_decay = N.cast[floatX](enc_weight_decay)
-	self.names_to_del = []
+        self.names_to_del = []
+        self.fold_biases = fold_biases
         self.redo_everything()
 
     def set_error_record_mode(self, mode):
@@ -110,13 +111,13 @@ class BR_ReconsSRBM:
 
     def expected_energy(self, V, Q):
 
-	def f(v,q,w):
-		return self.beta * (
-					0.5 * T.dot(v,v) 
+        def f(v,q,w):
+            return self.beta * (
+					0.5 * T.dot(v,v)
 					- T.dot(self.vis_mean,v)
-					-T.dot(v,T.dot(self.W,q))
+					-T.dot(v- (1.-self.fold_biases)*self.vis_mean,T.dot(self.W,q))
 					+0.5*T.dot(T.dot(self.W,q).T,T.dot(self.W,q))
-					+0.5 * T.dot(w,q-T.sqr(q))
+					+0.5 * T.dot(w,(1.-self.fold_biases)*q-T.sqr(q))
 				    ) - T.dot(self.c,q)
 
         rval, updates = scan( f, sequences = [V,Q], non_sequences = [self.W_norms] )
@@ -127,7 +128,13 @@ class BR_ReconsSRBM:
 
     def redo_theano(self):
 
-	init_names = dir(self)
+        init_names = dir(self)
+
+        if 'theano_rng' not in dir(self):
+            assert self.initialized
+            print "WARNING: pickle did not contain theano_rng, starting from default one"
+            self.reset_rng()
+            return
 
         self.W_T = self.W.T
         self.W_T.name = 'W.T'
@@ -178,13 +185,11 @@ class BR_ReconsSRBM:
 
         self.recons_func = function([X], self.gibbs_step_exp(X) , name = 'recons_func')
 
-	final_names = dir(self)
+        final_names = dir(self)
 
-	self.names_to_del = [ name for name in final_names if name not in init_names ]
+        self.names_to_del = [ name for name in final_names if name not in init_names ]
 
     def learn(self, dataset, batch_size):
-	w = self.W.get_value(borrow=True)
-	print 'weights summary: '+str( (w.min(),w.mean(),w.max()))
         self.learn_mini_batch(dataset.get_batch_design(batch_size))
 
 
@@ -193,6 +198,9 @@ class BR_ReconsSRBM:
 
     def record_monitoring_error(self, dataset, batch_size, batches):
         assert self.error_record_mode == self.ERROR_RECORD_MODE_MONITORING
+
+        w = self.W.get_value(borrow=True)
+        print 'weights summary: '+str( (w.min(),w.mean(),w.max()))
 
         errors = []
 
@@ -234,6 +242,7 @@ class BR_ReconsSRBM:
         H = self.sample_hid(Q)
 
         H.name =  base_name + '->hid_sample'
+
 
         sample =  self.vis_mean + T.dot(H,self.W_T)
 
@@ -279,22 +288,22 @@ class BR_ReconsSRBM:
 
     def init_mean_field_step(self, V):
         return T.nnet.sigmoid(self.c+self.beta*
-                    (T.dot(V-self.vis_mean,self.W)
-                          ))
+                    (T.dot(V-(1.-self.fold_biases)*self.vis_mean,self.W)
+                      -(1.-self.fold_biases)*0.5*self.W_norms    ))
 
     def damped_mean_field_step(self, V, P):
 
-	def f(p,w):
-		return - T.dot(self.W.T,T.dot(self.W,p))+w*(p-.5)
+        def f(p,w):
+            return - T.dot(self.W.T,T.dot(self.W,p))+w*(p-(1.-self.fold_biases)*.5)
 
         interaction_term, updates = \
             scan( f, sequences  = P, non_sequences= self.W_norms)
 
 
-	assert len(updates.keys()) == 0
+        assert len(updates.keys()) == 0
 
         Q = T.nnet.sigmoid(self.c+self.beta *
-                             (T.dot(V-self.vis_mean, self.W)
+                             (T.dot(V-(1.-self.fold_biases)*self.vis_mean, self.W)
                                + interaction_term
                              )
                            )
