@@ -17,14 +17,13 @@ def experiment0(state, channel):
     # All the values in the configuration dictionaries can be overridden
     # from state.
 
-    conf = {'dataset_path': '/u/goodfeli/ift6266h11/experiments/fast_sc/data/terry_pca_512.mat',
+    conf = {'dataset_path': '/data/lisatmp/ift6266h11/lamblinp/terry_pca_512.npz',
             # /u/goodfeli/ift6266h11/experiments/fast_sc/data/terry_pca_512.mat
             # gives 3 dictionaries, with keys 'devel', 'valid' and 'test'
             # The *first* row from 'valid' and 'test' should be discarded.
             'expname': 'Zarathustra',
             'transfer': True, # default: True
             'savedir': './outputs',
-
             }
 
     layer1 = {
@@ -64,8 +63,9 @@ def experiment0(state, channel):
             #'anneal_start': None,
 
             # Training
-            'epochs': 10,
+            'epochs': 100,
             'proba': [1, 0, 0],
+            'saving_rate': 10,
             }
 
     trans_pca_valid = {
@@ -105,10 +105,16 @@ def experiment0(state, channel):
     ## Load data
     ## ---------
 
-    if 'dataset_path' in conf and conf['dataset_path'][-4:] == '.mat':
-        from scipy.io import loadmat
-        mat_data = loadmat(conf['dataset_path'])
-        data = (mat_data['devel'], mat_data['valid'], mat_data['test'])
+    if 'dataset_path' in conf:
+        if conf['dataset_path'][-4:] == '.mat':
+            from scipy.io import loadmat
+            data = loadmat(conf['dataset_path'])
+        elif conf['dataset_path'][-4:] == '.npz':
+            data = numpy.load(conf['dataset_path'])
+        else:
+            raise ValueError('Unknown extension: %s' % conf['dataset_path'][-4:])
+
+        data = (data['devel'], data['valid'], data['test'])
 
         if 'dataset' in conf:
             dataset_name = conf['dataset']
@@ -156,15 +162,26 @@ def experiment0(state, channel):
         layer1['log_alpha_max'] = numpy.log(alpha_max)
 
     print 'Training layer1 (%s)' % layer1['name']
-    rbm1 = exp.create_rbm(conf, layer1, data, model=layer1['name'])
+    rbm1 = exp.create_rbm(conf, layer1, data, label=label, model=layer1['name'])
     print 'processing data through layer1'
-    data = [utils.sharedX(rbm1.function()(dataset.get_value(borrow=True)),
-                          borrow=True)
-                for dataset in data]
+
+    train_data = data[0].get_value(borrow=True)
+    batch_size = layer1['batch_size']
+    repr_fn = rbm1.function()
+
+    data = [utils.sharedX(
+                utils.minibatch_map(
+                    repr_fn,
+                    batch_size,
+                    dataset.get_value(borrow=True),
+                    output_width=rbm1.nhid),
+                borrow=True)
+            for dataset in data]
 
     # Compute train ALC
     if conf.get('transfer', False):
         print 'Computing train ALC'
+        # TODO: does that take much memory?
         data_train, label_train = utils.filter_labels(data[0], label)
         alc = embed.score(data_train, label_train)
         print '... resulting ALC on train is', alc
