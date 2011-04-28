@@ -48,7 +48,8 @@ class BR_ReconsSRBM:
                 init_bias_hid, mean_field_iters,
                 damping_factor,
                 persistent_chains, beta, gibbs_iters,
-                enc_weight_decay, fold_biases):
+                enc_weight_decay, fold_biases,
+                use_cd):
         self.initialized = False
         self.reset_rng()
         self.nhid = nhid
@@ -67,6 +68,7 @@ class BR_ReconsSRBM:
         self.enc_weight_decay = N.cast[floatX](enc_weight_decay)
         self.names_to_del = []
         self.fold_biases = fold_biases
+        self.use_cd = use_cd
         self.redo_everything()
 
     def set_error_record_mode(self, mode):
@@ -154,7 +156,10 @@ class BR_ReconsSRBM:
         pos_Q = self.infer_Q(X)
         pos_Q.name = 'pos_Q'
 
-        samples = [ self.chains ]
+        if self.use_cd:
+            samples = [ X ]
+        else:
+            samples = [ self.chains ]
 
         for i in xrange(self.gibbs_iters):
             samples.append(self.gibbs_step(samples[-1]))
@@ -165,7 +170,13 @@ class BR_ReconsSRBM:
         neg_Q = self.infer_Q(final_sample)
         neg_Q.name = 'neg_Q'
 
-        self.run_sampling = function([X],[pos_Q, neg_Q], updates = [(self.chains,final_sample)] , name='run_sampling')
+
+        sampling_updates = []
+
+        if not self.use_cd:
+            sampling_updates.append((self.chains,final_sample))
+
+        self.run_sampling = function([X],[pos_Q, neg_Q], updates = sampling_updates , name='run_sampling')
 
         outside_pos_Q = T.matrix()
         outside_pos_Q.name = 'outside_pos_Q'

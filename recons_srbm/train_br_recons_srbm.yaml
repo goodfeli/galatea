@@ -3,16 +3,17 @@
     "model": !obj:recons_srbm.br_recons_srbm.BR_ReconsSRBM {
                 "nvis" : 192,
                 "nhid" : 400,
-                "init_bias_hid" : 0.0,
+                "init_bias_hid" : -3.0,
                 "irange"  : 0.05,
                 "beta"    : 3.0,
-                "mean_field_iters" : 1,
+                "mean_field_iters" : 5,
                 "damping_factor" : 0.5,
                 "gibbs_iters" : 1,
                 "persistent_chains" : 5,
                 "enc_weight_decay" : .003,
-                "learning_rate" : .000000002,
-                "fold_biases" : 1.
+                "learning_rate" : .00002,
+                "fold_biases" : 0.0,
+                "use_cd": 1
         },
     "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 5,
