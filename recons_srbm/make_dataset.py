@@ -14,6 +14,11 @@ test = cifar10.CIFAR10(which_set="test")
 train.apply_preprocessor(preprocessor = pipeline, can_fit = True)
 test.apply_preprocessor(preprocessor = pipeline, can_fit = False)
 
+
+train.use_design_loc('/data/lisatmp/goodfeli/cifar10_preprocessed_train_design.npy')
+test.use_design_loc('/data/lisatmp/goodfeli/cifar10_preprocessed_test_design.npy')
+
+
 serial.save('cifar10_preprocessed_train.pkl',train)
 serial.save('cifar10_preprocessed_test.pkl',test)
 
