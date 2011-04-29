@@ -47,6 +47,7 @@ class BR_ReconsSRBM:
                 learning_rate, irange,
                 init_bias_hid, mean_field_iters,
                 damping_factor,
+                no_damp_iters,
                 persistent_chains, beta, gibbs_iters,
                 enc_weight_decay, fold_biases,
                 use_cd):
@@ -62,6 +63,7 @@ class BR_ReconsSRBM:
         self.init_bias_hid = init_bias_hid
         self.persistent_chains = persistent_chains
         self.mean_field_iters = mean_field_iters
+        self.no_damp_iters = no_damp_iters
         self.beta = N.cast[floatX] (beta)
         self.gibbs_iters = gibbs_iters
         self.damping_factor = damping_factor
@@ -196,6 +198,8 @@ class BR_ReconsSRBM:
 
         self.recons_func = function([X], self.gibbs_step_exp(X) , name = 'recons_func')
 
+        self.sample = function([X], self.gibbs_step(X), name = 'sample_func')
+
         final_names = dir(self)
 
         self.names_to_del = [ name for name in final_names if name not in init_names ]
@@ -289,8 +293,15 @@ class BR_ReconsSRBM:
 
         Q =  [ self.init_mean_field_step(V) ]
 
+        no_damp = 0
+
         for i in xrange(self.mean_field_iters - 1):
-            Q.append ( self.damped_mean_field_step(V,Q[-1]) )
+            damp = i + 1 < self.mean_field_iters - self.no_damp_iters
+            no_damp += (damp == False)
+            Q.append ( self.damped_mean_field_step(V,Q[-1] , damp ) )
+        #
+
+        assert no_damp == self.no_damp_iters
 
         for i in xrange(len(Q)):
             Q[i].name = base_name + '->Q ('+str(i)+')'
@@ -302,7 +313,7 @@ class BR_ReconsSRBM:
                     (T.dot(V-(1.-self.fold_biases)*self.vis_mean,self.W)
                       -(1.-self.fold_biases)*0.5*self.W_norms    ))
 
-    def damped_mean_field_step(self, V, P):
+    def damped_mean_field_step(self, V, P, damp):
 
         def f(p,w):
             return - T.dot(self.W.T,T.dot(self.W,p))+w*(p-(1.-self.fold_biases)*.5)
@@ -319,8 +330,12 @@ class BR_ReconsSRBM:
                              )
                            )
 
-
-        return self.damping_factor * P + (1.0 - self.damping_factor) * Q
+        if damp:
+            return self.damping_factor * P + (1.0 - self.damping_factor) * Q
+        else:
+            return Q
+        #
+    #
 
 
     def learn_mini_batch(self, x):

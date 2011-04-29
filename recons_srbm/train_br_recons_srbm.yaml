@@ -7,6 +7,7 @@
                 "irange"  : 0.05,
                 "beta"    : 3.0,
                 "mean_field_iters" : 5,
+                "no_damp_iters" : 2,
                 "damping_factor" : 0.5,
                 "gibbs_iters" : 1,
                 "persistent_chains" : 5,

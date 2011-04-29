@@ -8,7 +8,7 @@ import theano
 floatX = theano.config.floatX
 
 
-class LocalNoiseRBM(object):
+class LocalNoiseEBM(object):
     def reset_rng(self):
 
         self.rng = N.random.RandomState([12.,9.,2.])
@@ -52,9 +52,11 @@ class LocalNoiseRBM(object):
                 noise_var_scale_down,
                 max_noise_var,
                 different_examples,
+                energy_function,
                 init_vis_prec,
                 learn_vis_prec,
-                vis_prec_lr_scale = 1e-2 # 0 won't make it not learn, it will just make the transfer function invalid
+                vis_prec_lr_scale = 1e-2, # 0 won't make it not learn, it will just make the transfer function invalid
+                init_delta = 0.0
                 ):
         self.initialized = False
         self.reset_rng()
@@ -78,6 +80,8 @@ class LocalNoiseRBM(object):
         self.init_vis_prec = init_vis_prec
         self.learn_vis_prec = learn_vis_prec
         self.vis_prec_lr_scale = vis_prec_lr_scale
+        self.energy_function = energy_function
+        self.init_delta = init_delta
 
         self.names_to_del = []
 
@@ -127,11 +131,22 @@ class LocalNoiseRBM(object):
             self.params.append(self.vis_prec_driver)
         #
 
+        if self.energy_function == 'mse autoencoder':
+            self.delta = shared(self.init_delta + N.zeros(self.nhid))
+            self.s = shared(N.ones(self.nhid))
+            self.params.append(self.s)
+            self.params.append(self.delta)
+        #
+
+
         self.redo_theano()
     #
 
 
     def batch_energy(self, V, H):
+
+        if self.energy_function != 'gaussian-binary rbm':
+            assert False
 
         output_scan, updates = scan(
                  lambda v, h, beta: 0.5 * T.dot(v,beta*v) - T.dot(self.b,h) - T.dot(self.c,v) -T.dot(v,T.dot(self.W,h)),
@@ -141,17 +156,54 @@ class LocalNoiseRBM(object):
         return output_scan
 
     def p_h_given_v(self, V):
+        if self.energy_function != 'gaussian-binary rbm':
+            assert False
+
         return T.nnet.sigmoid(self.b + T.dot(V,self.W))
 
     def batch_free_energy(self, V):
-        output_scan, updates = scan(
+
+        if self.energy_function == 'gaussian-binary rbm':
+            output_scan, updates = scan(
                 lambda v, beta: 0.5 * T.dot(v,beta * v) - T.dot(self.c,v) - T.sum(T.nnet.softplus( T.dot(v,self.W)+self.b)),
                  sequences  = V,  non_sequences = self.vis_prec
                  )
+        elif self.energy_function == 'mse autoencoder':
+
+
+            def fn(v, beta, w):
+                h = T.nnet.sigmoid((self.s/w) * T.dot(v,self.W)-self.s+self.b)
+                h.name = 'h'
+                r = T.dot(self.W,h)+self.c
+                r.name = 'r'
+
+                assert len(h.type().broadcastable ) == 1
+                assert len(self.delta.type().broadcastable ) == 1
+
+                penalty =  - T.dot(self.delta , h)
+
+                d = v -r
+
+                scaled_mse = T.dot(d,beta * d)
+
+                rval =  scaled_mse + penalty
+
+                assert len(rval.type().broadcastable ) == 0
+
+                return rval
+
+            output_scan, updates = scan(
+                    fn,
+                    sequences = V, non_sequences = [self.vis_prec, self.wnorms])
+
+        assert len(output_scan.type().broadcastable ) == 1
 
         return output_scan
 
     def redo_theano(self):
+
+        if 'energy_function' not in dir(self):
+            self.energy_function = 'gaussian-binary rbm'
 
         if 'noise_var' not in dir(self):
             self.noise_var = self.beta
@@ -166,6 +218,8 @@ class LocalNoiseRBM(object):
 
 
         pre_existing_names = dir(self)
+
+        self.wnorms = T.sum(T.sqr(self.W),axis=0)
 
         self.vis_prec = T.nnet.softplus(self.vis_prec_driver *  self.vis_prec_lr_scale)
 
@@ -226,6 +280,7 @@ class LocalNoiseRBM(object):
         #
 
         E_d = self.batch_free_energy(X2)
+        assert len(E_d.type().broadcastable) == 1
 
         E_d.name = 'E_d'
 
@@ -251,6 +306,7 @@ class LocalNoiseRBM(object):
 
         self.E_d_func = function(inputs, E_d.mean())
         self.E_d_batch_func = function(inputs, E_d)
+        self.E_X_batch_func =  function([X2], E_d)
         self.E_c_func = function(inputs, E_c.mean())
         self.sqnorm_grad_E_c_func = function(inputs, T.sum(T.sqr(T.grad(T.mean(E_c),X))))
         self.sqnorm_grad_E_d_func = function(inputs, T.sum(T.sqr(T.grad(T.mean(E_d),X2))))
@@ -273,7 +329,9 @@ class LocalNoiseRBM(object):
                 [ (param, param - alpha * grad) for (param,grad)
                     in zip(self.params, grads) ] , name='learn_func')
 
-        self.recons_func = function([X], self.gibbs_step_exp(X) , name = 'recons_func')
+        if self.energy_function != 'mse autoencoder':
+            self.recons_func = function([X], self.gibbs_step_exp(X) , name = 'recons_func')
+        #
 
         post_existing_names = dir(self)
 
