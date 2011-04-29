@@ -48,7 +48,7 @@ class BR_ReconsSRBM:
                 init_bias_hid, mean_field_iters,
                 damping_factor,
                 no_damp_iters,
-                persistent_chains, beta, gibbs_iters,
+                persistent_chains, init_beta, learn_beta, beta_lr_scale, gibbs_iters,
                 enc_weight_decay, fold_biases,
                 use_cd):
         self.initialized = False
@@ -64,13 +64,17 @@ class BR_ReconsSRBM:
         self.persistent_chains = persistent_chains
         self.mean_field_iters = mean_field_iters
         self.no_damp_iters = no_damp_iters
-        self.beta = N.cast[floatX] (beta)
         self.gibbs_iters = gibbs_iters
         self.damping_factor = damping_factor
         self.enc_weight_decay = N.cast[floatX](enc_weight_decay)
         self.names_to_del = []
         self.fold_biases = fold_biases
         self.use_cd = use_cd
+
+        self.init_beta = init_beta
+        self.learn_beta = learn_beta
+        self.beta_lr_scale = beta_lr_scale
+
         self.redo_everything()
 
     def set_error_record_mode(self, mode):
@@ -107,7 +111,14 @@ class BR_ReconsSRBM:
         self.chains = shared ( N.cast[floatX]( N.zeros((self.persistent_chains,self.nvis))) )
         self.chains.name = 'chains'
 
+        init_beta_driver = N.log(N.exp(self.init_beta) - 1.) / self.beta_lr_scale
+        self.beta_driver = shared(N.cast[floatX] (init_beta_driver))
+
         self.params = [ self.W, self.c, self.vis_mean ]
+
+        if self.learn_beta:
+            self.params.append(self.beta_driver)
+        #
 
         self.redo_theano()
     #
@@ -115,8 +126,8 @@ class BR_ReconsSRBM:
 
     def expected_energy(self, V, Q):
 
-        def f(v,q,w):
-            return self.beta * (
+        def f(v,q,w,beta):
+            return beta * (
 					0.5 * T.dot(v,v)
 					- T.dot(self.vis_mean,v)
 					-T.dot(v- (1.-self.fold_biases)*self.vis_mean,T.dot(self.W,q))
@@ -124,7 +135,7 @@ class BR_ReconsSRBM:
 					+0.5 * T.dot(w,(1.-self.fold_biases)*q-T.sqr(q))
 				    ) - T.dot(self.c,q)
 
-        rval, updates = scan( f, sequences = [V,Q], non_sequences = [self.W_norms] )
+        rval, updates = scan( f, sequences = [V,Q], non_sequences = [self.W_norms, self.beta] )
 
 	assert len(updates.keys()) == 0
 
@@ -139,6 +150,8 @@ class BR_ReconsSRBM:
             print "WARNING: pickle did not contain theano_rng, starting from default one"
             self.reset_rng()
             return
+
+        self.beta = T.nnet.softplus(self.beta_driver * self.beta_lr_scale)
 
         self.W_T = self.W.T
         self.W_T.name = 'W.T'
@@ -274,7 +287,7 @@ class BR_ReconsSRBM:
 
         m = self.gibbs_step_exp(V)
         sample = self.theano_rng.normal(size = V.shape, avg = m,
-                                    std = N.sqrt(1./self.beta), dtype = V.dtype)
+                                    std = T.sqrt(1./self.beta), dtype = V.dtype)
 
         sample.name = base_name + '->sample'
 

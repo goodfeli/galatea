@@ -57,7 +57,6 @@ def make_img(f):
     rval *= 2.0
     rval -= 1.0
 
-    """
     rval2 = N.zeros((rval.shape[0]-1,rval.shape[1]-1,3))
 
     for i in xrange(rval2.shape[0]):
@@ -73,7 +72,6 @@ def make_img(f):
 
 
     rval = rval2
-"""
 
     return rval
 
