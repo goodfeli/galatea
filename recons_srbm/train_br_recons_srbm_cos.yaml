@@ -1,0 +1,26 @@
+!obj:framework.scripts.train.Train {
+    "dataset": !obj:framework.datasets.cos_dataset.CosDataset &data {},
+    "model": !obj:recons_srbm.br_recons_srbm.BR_ReconsSRBM {
+                "nvis" : 2,
+                "nhid" : 30,
+                "init_bias_hid" : 0.0,
+                "irange"  : 3.,
+                "beta"    : 50.0,
+                "mean_field_iters" : 5,
+                "damping_factor" : 0.5,
+                "gibbs_iters" : 1,
+                "persistent_chains" : 5,
+                "enc_weight_decay" : .003,
+                "learning_rate" : .0000002,
+                "fold_biases" : 0.0,
+                "use_cd": 0
+        },
+    "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 5,
+               "batches_per_iter" : 1000,
+               "monitoring_batches" : 100,
+               "monitoring_dataset" : *data
+    },
+    "save_path": "rbm_cos.pkl"
+}
+
