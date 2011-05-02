@@ -171,6 +171,8 @@ class BR_ReconsSRBM:
         pos_Q = self.infer_Q(X)
         pos_Q.name = 'pos_Q'
 
+        self.hid_exp_func = function([X],pos_Q)
+
         if self.use_cd:
             samples = [ X ]
         else:
