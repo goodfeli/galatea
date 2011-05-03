@@ -12,6 +12,7 @@ batch_size = 5
 nhid = model.get_output_dim()
 
 W = model.W.get_value()
+b = model.c.get_value()
 
 print 'making dot products'
 dots = N.cast['float32'](N.dot(X,W))
@@ -35,4 +36,4 @@ acts_path = output_path + '_acts.npy'
 N.save(dots_path, dots)
 N.save(acts_path, acts)
 
-serial.save(output_path+'.pkl',{ 'dots' : dots_path, 'acts' : acts_path } )
+serial.save(output_path+'.pkl',{ 'dots' : dots_path, 'acts' : acts_path, 'b' : b } )

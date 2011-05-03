@@ -5,6 +5,7 @@ import copy
 from theano.printing import Print
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano
+import time
 floatX = theano.config.floatX
 
 class BR_ReconsSRBM:
@@ -355,9 +356,14 @@ class BR_ReconsSRBM:
 
     def learn_mini_batch(self, x):
 
-        pos_Q, neg_Q = self.run_sampling(x)
+        t1 = time.time()
 
+        pos_Q, neg_Q = self.run_sampling(x)
         self.learn_from_samples(x, pos_Q, neg_Q, self.learning_rate)
+
+        t2 = time.time()
+
+        print 'batch took '+str(t2-t1)+' sec'
 
         self.examples_seen += x.shape[0]
         self.batches_seen += 1
