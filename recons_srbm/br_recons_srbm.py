@@ -424,7 +424,7 @@ class BR_ReconsSRBM:
 
     def learn_mini_batch(self, x):
 
-        t1 = time.time()
+        #t1 = time.time()
 
         if self.first_mini_batch:
             self.first_mini_batch = False
@@ -439,9 +439,9 @@ class BR_ReconsSRBM:
         #pos_Q, neg_Q = self.run_sampling(x)
         #self.learn_from_samples(x, pos_Q, neg_Q, self.learning_rate)
 
-        t2 = time.time()
+        #t2 = time.time()
 
-        print 'batch took '+str(t2-t1)+' sec'
+        #print 'batch took '+str(t2-t1)+' sec'
 
         self.examples_seen += x.shape[0]
         self.batches_seen += 1
