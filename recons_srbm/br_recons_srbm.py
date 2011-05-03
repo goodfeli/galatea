@@ -127,20 +127,33 @@ class BR_ReconsSRBM:
 
     def expected_energy(self, V, Q):
 
+        """
         def f(v,q,w,beta):
             return beta * (
-					0.5 * T.dot(v,v)
-					- T.dot(self.vis_mean,v)
-					-T.dot(v- (1.-self.fold_biases)*self.vis_mean,T.dot(self.W,q))
-					+0.5*T.dot(T.dot(self.W,q).T,T.dot(self.W,q))
-					+0.5 * T.dot(w,(1.-self.fold_biases)*q-T.sqr(q))
-				    ) - T.dot(self.c,q)
+					#0.5 * T.dot(v,v)
+					#- T.dot(self.vis_mean,v)
+					#-T.dot(v- (1.-self.fold_biases)*self.vis_mean,T.dot(self.W,q))
+					#+
+                    #0.5*T.dot(T.dot(self.W,q).T,T.dot(self.W,q))
+					#+0.5 * T.dot(w,(1.-self.fold_biases)*q-T.sqr(q))
+				    #) - T.dot(self.c,q)
 
         rval, updates = scan( f, sequences = [V,Q], non_sequences = [self.W_norms, self.beta] )
 
-	assert len(updates.keys()) == 0
+        assert len(updates.keys()) == 0
 
-        return T.mean(rval)
+        #return T.mean(rval)"""  #scan is really slow
+
+        return  0.5 * self.beta * self.nvis * T.mean(T.sqr(V)) - \
+                            self.beta * T.mean(T.dot(V,self.vis_mean)) - \
+                            self.beta * self.nvis * T.mean( ( V - (1.-self.fold_biases)*self.vis_mean ) * T.dot(Q,self.W.T) ) + \
+                            0.5 * self.beta * self.nvis * T.mean(T.sqr(T.dot(Q,self.W.T))) + \
+                            0.5 * self.beta * T.mean( \
+                                                     T.dot(\
+                                                           (1.-self.fold_biases)*Q-T.sqr(Q),self.W_norms\
+                                                          )\
+                                                    ) \
+                            - T.mean(T.dot(Q,self.c))
 
     def redo_theano(self):
 
@@ -179,8 +192,22 @@ class BR_ReconsSRBM:
         else:
             samples = [ self.chains ]
 
+        outside_pos_Q = shared(N.cast[floatX](N.zeros((1,1))))
+        outside_neg_Q = shared(N.cast[floatX](N.zeros((1,1))))
+
         for i in xrange(self.gibbs_iters):
-            samples.append(self.gibbs_step(samples[-1]))
+            if i == 0 and not self.use_cd:
+                #if using SML, the first Q of gibbs sampling was already computed during the
+                #previous call to learn_mini_batch
+                samples.append(self.gibbs_step( Q = outside_neg_Q) )
+            else:
+                samples.append(self.gibbs_step( V = samples[-1]))
+            #
+        #
+
+        #if using SML, this needs to be called on the first mini batch to make sure outside_neg_Q is initialized
+        self.set_up_sampler = function([],updates=[(outside_neg_Q, self.infer_Q(self.chains))])
+        self.first_mini_batch = True
 
         final_sample = samples[-1]
         final_sample.name = 'final_sample'
@@ -189,17 +216,19 @@ class BR_ReconsSRBM:
         neg_Q.name = 'neg_Q'
 
 
-        sampling_updates = []
+
+        sampling_updates = [ (outside_pos_Q, pos_Q), (outside_neg_Q, neg_Q) ]
 
         if not self.use_cd:
             sampling_updates.append((self.chains,final_sample))
 
-        self.run_sampling = function([X],[pos_Q, neg_Q], updates = sampling_updates , name='run_sampling')
+        self.run_sampling = function([X], updates = sampling_updates, name = 'run_sampling')
+        #self.run_sampling = function([X],[pos_Q, neg_Q], updates = sampling_updates , name='run_sampling')
 
-        outside_pos_Q = T.matrix()
-        outside_pos_Q.name = 'outside_pos_Q'
-        outside_neg_Q = T.matrix()
-        outside_neg_Q.name = 'outside_neg_Q'
+        #outside_pos_Q = T.matrix()
+        #outside_pos_Q.name = 'outside_pos_Q'
+        #outside_neg_Q = T.matrix()
+        #outside_neg_Q.name = 'outside_neg_Q'
 
         obj = self.expected_energy(X,outside_pos_Q) \
             - self.expected_energy(self.chains,outside_neg_Q) \
@@ -208,8 +237,9 @@ class BR_ReconsSRBM:
 
         grads = [ T.grad(obj,param) for param in self.params ]
 
-        self.learn_from_samples = function([X, outside_pos_Q, outside_neg_Q, alpha], updates =
-                [ (param, param - alpha * grad) for (param,grad)
+        #self.learn_from_samples = function([X, outside_pos_Q, outside_neg_Q, alpha], updates =
+        self.learn_from_samples = function([X, alpha], updates =
+        [ (param, param - alpha * grad) for (param,grad)
                     in zip(self.params, grads) ] , name='learn_from_samples')
 
         self.recons_func = function([X], self.gibbs_step_exp(X) , name = 'recons_func')
@@ -263,13 +293,28 @@ class BR_ReconsSRBM:
         print 'recons summary: '+str((self.reconstruction.min(),self.reconstruction.mean(),self.reconstruction.max()))
 
 
-    def gibbs_step_exp(self, V):
-        base_name = V.name
+    def gibbs_step_exp(self, V = None, Q = None):
+        if V is not None:
+            assert Q is None
 
-        if base_name is None:
-            base_name = 'anon'
+            base_name = V.name
 
-        Q = self.infer_Q(V)
+            if base_name is None:
+                base_name = 'anon'
+
+            Q = self.infer_Q(V)
+        else:
+            assert Q is not None
+
+            Q_name = Q.name
+
+            if Q_name is None:
+                Q_name = 'anon'
+
+            base_name = 'from_Q_'+Q_name
+        #
+
+
         H = self.sample_hid(Q)
 
         H.name =  base_name + '->hid_sample'
@@ -282,15 +327,34 @@ class BR_ReconsSRBM:
         return sample
 
 
-    def gibbs_step(self, V):
-        base_name = V.name
+    def gibbs_step(self, V = None, Q = None):
 
-        if base_name is None:
-            base_name = 'anon'
+        if V is not None:
+            assert Q is None
 
-        m = self.gibbs_step_exp(V)
-        sample = self.theano_rng.normal(size = V.shape, avg = m,
-                                    std = T.sqrt(1./self.beta), dtype = V.dtype)
+            base_name = V.name
+
+            if base_name is None:
+                base_name = 'anon'
+            #
+
+        else:
+            assert Q is not None
+            Q_name = Q.name
+
+            if Q_name is None:
+                Q_name = 'anon'
+            #
+
+            base_name = 'from_Q_'+Q_name
+
+        #
+
+        m = self.gibbs_step_exp(V, Q)
+
+        assert m.dtype == floatX
+        sample = self.theano_rng.normal(size = m.shape, avg = m,
+                                    std = T.sqrt(1./self.beta), dtype = m.dtype)
 
         sample.name = base_name + '->sample'
 
@@ -331,14 +395,18 @@ class BR_ReconsSRBM:
 
     def damped_mean_field_step(self, V, P, damp):
 
-        def f(p,w):
+        """def f(p,w):
             return - T.dot(self.W.T,T.dot(self.W,p))+w*(p-(1.-self.fold_biases)*.5)
 
         interaction_term, updates = \
             scan( f, sequences  = P, non_sequences= self.W_norms)
 
 
-        assert len(updates.keys()) == 0
+        assert len(updates.keys()) == 0"""
+
+        interaction_term = - T.dot(T.dot(P,self.W.T),self.W) + self.W_norms * (P-(1.-self.fold_biases)*.5)
+
+
 
         Q = T.nnet.sigmoid(self.c+self.beta *
                              (T.dot(V-(1.-self.fold_biases)*self.vis_mean, self.W)
@@ -358,8 +426,18 @@ class BR_ReconsSRBM:
 
         t1 = time.time()
 
-        pos_Q, neg_Q = self.run_sampling(x)
-        self.learn_from_samples(x, pos_Q, neg_Q, self.learning_rate)
+        if self.first_mini_batch:
+            self.first_mini_batch = False
+            if not self.use_cd:
+                self.set_up_sampler()
+            #
+        #
+
+        self.run_sampling(x)
+        self.learn_from_samples(x,self.learning_rate)
+
+        #pos_Q, neg_Q = self.run_sampling(x)
+        #self.learn_from_samples(x, pos_Q, neg_Q, self.learning_rate)
 
         t2 = time.time()
 
