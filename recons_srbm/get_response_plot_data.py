@@ -1,6 +1,7 @@
 import sys
 from framework.utils import serial
 import numpy as N
+from theano import function
 
 model = serial.load(sys.argv[1])
 model.redo_theano()
@@ -13,6 +14,15 @@ nhid = model.get_output_dim()
 
 W = model.W.get_value()
 b = model.c.get_value()
+beta = function([],model.beta)()
+if not model.fold_biases:
+    print 'compensating for fancy biases'
+    W_norms = N.square(W).sum(axis=0)
+    b += beta * (- N.dot(model.vis_mean.get_value(), W) - 0.5 * W_norms )
+#
+
+#compensate for beta scaling the responses
+W = (W.T * beta).T
 
 print 'making dot products'
 dots = N.cast['float32'](N.dot(X,W))
@@ -36,4 +46,4 @@ acts_path = output_path + '_acts.npy'
 N.save(dots_path, dots)
 N.save(acts_path, acts)
 
-serial.save(output_path+'.pkl',{ 'dots' : dots_path, 'acts' : acts_path, 'b' : b } )
+serial.save(output_path+'.pkl',{ 'dots' : dots_path, 'acts' : acts_path, 'b' : b , 'beta' : beta} )

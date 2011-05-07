@@ -29,7 +29,8 @@ for i in xrange(dots.shape[1]):
 
     plt.hold(False)
     a = acts[:,i]
-    plt.hexbin(dots[:,i],a)
+    #plt.hexbin(dots[:,i],a)
+    plt.scatter(dots[:,i],a)
 
     print 'expected act: '+str(a.mean())
 
