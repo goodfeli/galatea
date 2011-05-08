@@ -6,6 +6,7 @@ from theano.printing import Print
 from theano.tensor.shared_randomstreams import RandomStreams
 import theano
 import time
+from framework.instrument_record import InstrumentRecord
 floatX = theano.config.floatX
 
 class BR_ReconsSRBM:
@@ -51,7 +52,7 @@ class BR_ReconsSRBM:
                 no_damp_iters,
                 persistent_chains, init_beta, learn_beta, beta_lr_scale, gibbs_iters,
                 enc_weight_decay, fold_biases,
-                use_cd):
+                use_cd, instrumented):
         self.initialized = False
         self.reset_rng()
         self.nhid = nhid
@@ -71,11 +72,10 @@ class BR_ReconsSRBM:
         self.names_to_del = []
         self.fold_biases = fold_biases
         self.use_cd = use_cd
-
         self.init_beta = init_beta
         self.learn_beta = learn_beta
         self.beta_lr_scale = beta_lr_scale
-
+        self.instrumented = instrumented
         self.redo_everything()
 
     def set_error_record_mode(self, mode):
@@ -97,6 +97,9 @@ class BR_ReconsSRBM:
         self.initialized = True
 
         self.error_record = []
+        if self.instrumented:
+            self.instrument_record = InstrumentRecord()
+        #
         self.examples_seen = 0
         self.batches_seen = 0
 
@@ -246,6 +249,10 @@ class BR_ReconsSRBM:
 
         self.sample = function([X], self.gibbs_step(X), name = 'sample_func')
 
+        if self.instrumented:
+            self.make_instruments()
+        #
+
         final_names = dir(self)
 
         self.names_to_del = [ name for name in final_names if name not in init_names ]
@@ -258,22 +265,197 @@ class BR_ReconsSRBM:
         return N.square( x - self.recons_func(x)).mean()
 
     def record_monitoring_error(self, dataset, batch_size, batches):
+        print 'running on monitoring set'
         assert self.error_record_mode == self.ERROR_RECORD_MODE_MONITORING
 
         w = self.W.get_value(borrow=True)
         print 'weights summary: '+str( (w.min(),w.mean(),w.max()))
 
         errors = []
+        
+        if self.instrumented:
+            self.clear_instruments()
 
         for i in xrange(batches):
             x = dataset.get_batch_design(batch_size)
             error = self.error_func(x)
             errors.append( error )
+            if self.instrumented:
+                self.update_instruments(x)
+            #
         #
 
 
         self.error_record.append( (self.examples_seen, self.batches_seen, N.asarray(errors).mean() ) )
+
+
+        if self.instrumented:
+            self.instrument_record.begin_report(examples_seen = self.examples_seen, batches_seen = self.batches_seen)
+            self.make_instrument_report()
+            self.instrument_record.end_report()
+            self.clear_instruments()
+        #
+        print 'monitoring set done'
     #
+
+
+    def recons_from_Q(self,Q):
+        return self.vis_mean + T.dot(Q, self.W.T)
+    #
+
+    def recons_err_from_Q(self,Q,V):
+        return T.mean(T.sqr(V-self.recons_from_Q(Q)))
+
+    def binary_entropy(self,Q):
+        mod_Q = 1e-6 + (1.-2e-6)*Q
+
+        return -(mod_Q * T.log(Q) + (1.-mod_Q)*T.log(1.-mod_Q))
+
+    def make_instruments(self):
+        assert not self.use_cd #currently just supports PCD
+
+        recons_outputs = []
+        ave_act_outputs = []
+        cond_ent_outputs = []
+        neg_chains_recons_outputs = []
+        neg_chains_ave_act_outputs = []
+        neg_chains_cond_ent_outputs = []
+
+        self.instrument_X = T.matrix()
+        
+        for max_iters in xrange(1,self.mean_field_iters+1):
+            pos_Q = self.infer_Q(self.instrument_X, max_iters = max_iters)
+            neg_Q = self.infer_Q(self.chains, max_iters = max_iters)
+            
+            recons_outputs.append(self.recons_err_from_Q(pos_Q,self.instrument_X))
+            neg_chains_recons_outputs.append(self.recons_err_from_Q(neg_Q,self.chains))
+
+            ave_act_outputs.append(T.mean(pos_Q, axis=0))
+            neg_chains_ave_act_outputs.append(T.mean(neg_Q, axis=0))
+
+            cond_ent_outputs.append(T.mean(self.binary_entropy(pos_Q),axis=0))
+            neg_chains_cond_ent_outputs.append(T.mean(self.binary_entropy(neg_Q),axis=0))
+        #
+
+        self.neg_chains_recons_after_mean_field   = function([],neg_chains_recons_outputs)
+        self.neg_chains_ave_act_after_mean_field  = function([],neg_chains_ave_act_outputs)
+        self.neg_chains_cond_ent_after_mean_field = function([],neg_chains_cond_ent_outputs)
+
+        self.recons_after_mean_field_func = function([self.instrument_X],recons_outputs)
+        self.ave_act_after_mean_field_func = function([self.instrument_X],ave_act_outputs)
+        self.cond_ent_after_mean_field_func = function([self.instrument_X],cond_ent_outputs)
+
+        neg_chain_norms = T.sqrt(T.sum(T.sqr(self.chains),axis=1))
+        self.neg_chain_norms_summary = function([], [neg_chain_norms.min(),neg_chain_norms.mean(),neg_chain_norms.max()])
+
+        weight_norms = T.sqrt(T.sum(T.sqr(self.W),axis=0))
+        self.weight_norms_summary = function([], [weight_norms.min(),weight_norms.mean(),weight_norms.max()])
+
+        self.hid_bias_summary = function([],[self.c.min(),self.c.mean(),self.c.max()])
+        self.vis_bias_summary = function([],[self.vis_mean.min(),self.vis_mean.mean(),self.vis_mean.max()])        
+
+        self.beta_func = function([],self.beta)   
+    #
+
+    def clear_instruments(self):
+
+        self.cond_ent_after_mean_field = [[] for i in xrange(self.mean_field_iters)] 
+        self.recons_after_mean_field = [[] for i in xrange(self.mean_field_iters)] 
+        self.ave_act_after_mean_field = [[] for i in xrange(self.mean_field_iters)]
+    #
+
+    def update_instruments(self, X):
+        ce = self.cond_ent_after_mean_field_func(X)
+        re = self.recons_after_mean_field_func(X)
+        
+        aa = self.ave_act_after_mean_field_func(X)
+
+        for fr, to in [ (ce,self.cond_ent_after_mean_field),
+                        (re, self.recons_after_mean_field),
+                        (aa, self.ave_act_after_mean_field) ]:
+            assert len(to) == self.mean_field_iters
+            assert len(fr) == self.mean_field_iters
+
+            for fr_elem, to_elem in zip(fr,to):
+                to_elem.append(fr_elem)
+            #
+        #
+    #
+
+
+    def make_instrument_report(self):
+        r = self.instrument_record
+
+        neg_chains_recons = self.neg_chains_recons_after_mean_field()
+        neg_chains_ave_act = self.neg_chains_ave_act_after_mean_field()
+        neg_chains_cond_ent = self.neg_chains_cond_ent_after_mean_field()
+
+        for i in xrange(1,self.mean_field_iters+1):
+            re = N.asarray(self.recons_after_mean_field[i-1]).mean()
+            r.report(('recons_err_after_mean_field',i),re)
+            r.report(('neg_recons_err_after_mean_field',i),neg_chains_recons[i-1])
+
+            aa_mat = N.asarray(self.ave_act_after_mean_field[i-1])
+            assert len(aa_mat.shape) == 2
+            assert aa_mat.shape[1] == self.nhid
+
+            aa_vec = aa_mat.mean(axis=0)
+            aa_min = aa_vec.min()
+            aa_mean = aa_vec.mean()
+            aa_max = aa_vec.max()
+            naa_vec = neg_chains_ave_act[i-1]
+            naa_min = naa_vec.min()
+            naa_mean = naa_vec.mean()
+            naa_max = naa_vec.max()
+            r.report(('ave_act_after_mean_field_min',i),aa_min)
+            r.report(('ave_act_after_mean_field_mean',i),aa_mean)
+            r.report(('ave_act_after_mean_field_max',i),aa_max)
+            r.report(('neg_ave_act_after_mean_field_min',i),naa_min)
+            r.report(('neg_ave_act_after_mean_field_mean',i),naa_mean)
+            r.report(('neg_ave_act_after_mean_field_max',i),naa_max)
+
+            ce_mat = N.asarray(self.cond_ent_after_mean_field[i-1])
+            assert len(ce_mat.shape) == 2
+            assert ce_mat.shape[1] == self.nhid
+            ce_vec = ce_mat.mean(axis=0)
+            ce_min, ce_mean, ce_max = ce_vec.min(), ce_vec.mean(), ce_vec.max()
+            nce_vec = neg_chains_cond_ent[i-1]
+            nce_min, nce_mean, nce_max = nce_vec.min(), nce_vec.mean(), nce_vec.max()
+            r.report(('cond_ent_after_mean_field_min',i),ce_min)
+            r.report(('cond_ent_after_mean_field_mean',i),ce_mean)
+            r.report(('cond_ent_after_mean_field_max',i),ce_max)
+            r.report(('neg_cond_ent_after_mean_field_min',i),nce_min)
+            r.report(('neg_cond_ent_after_mean_field_mean',i),nce_mean)
+            r.report(('neg_cond_ent_after_mean_field_max',i),nce_max)
+        #
+    
+      
+        neg_chain_norms_min, neg_chain_norms_mean, neg_chain_norms_max  = self.neg_chain_norms_summary()
+        r.report('neg_chain_norms_min', neg_chain_norms_min)
+        r.report('neg_chain_norms_mean', neg_chain_norms_mean)
+        r.report('neg_chain_norms_max', neg_chain_norms_max)
+
+        weight_norms_min, weight_norms_mean, weight_norms_max = self.weight_norms_summary()
+        r.report('weight_norms_min', weight_norms_min)
+        r.report('weight_norms_mean', weight_norms_mean)
+        r.report('weight_norms_max', weight_norms_max)
+
+        
+        hid_bias_min, hid_bias_mean, hid_bias_max = self.hid_bias_summary()
+        r.report('hid_bias_min', hid_bias_min)
+        r.report('hid_bias_mean', hid_bias_mean)
+        r.report('hid_bias_max', hid_bias_max)
+
+        vis_bias_min, vis_bias_mean, vis_bias_max = self.vis_bias_summary()
+        r.report('vis_bias_min', vis_bias_min)
+        r.report('vis_bias_mean', vis_bias_mean)
+        r.report('vis_bias_max', vis_bias_max)
+
+
+        r.report('beta',self.beta_func())
+        
+    #
+
 
     def reconstruct(self, x, use_noise):
         assert x.shape[0] == 1
@@ -284,7 +466,7 @@ class BR_ReconsSRBM:
         self.truth_shared = shared(x.copy())
 
         if use_noise:
-            self.vis_shared = shared(x.copy() + 0.15 *  self.rng.randn(*x.shape))
+            self.vis_shared = shared(x.copy() + 0.15 *  N.cast[floatX](self.rng.randn(*x.shape)))
         else:
             self.vis_shared = shared(x.copy())
 
@@ -365,7 +547,14 @@ class BR_ReconsSRBM:
                                 dtype = Q.dtype)
 
 
-    def infer_Q(self, V):
+    def infer_Q(self, V, max_iters = 0):
+        
+        if max_iters > 0:
+            iters = min(max_iters, self.mean_field_iters)
+        else:
+            iters = self.mean_field_iters
+        #
+
         base_name = V.name
 
         if base_name is None:
@@ -375,13 +564,17 @@ class BR_ReconsSRBM:
 
         no_damp = 0
 
-        for i in xrange(self.mean_field_iters - 1):
+        for i in xrange(iters - 1):
             damp = i + 1 < self.mean_field_iters - self.no_damp_iters
             no_damp += (damp == False)
             Q.append ( self.damped_mean_field_step(V,Q[-1] , damp ) )
         #
 
-        assert no_damp == self.no_damp_iters
+        if max_iters == 0:
+            assert no_damp == self.no_damp_iters
+        else:
+            assert no_damp == max(0, self.no_damp_iters - (self.mean_field_iters - max_iters))
+        #
 
         for i in xrange(len(Q)):
             Q[i].name = base_name + '->Q ('+str(i)+')'
