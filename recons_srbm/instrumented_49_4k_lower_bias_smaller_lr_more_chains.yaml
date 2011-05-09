@@ -1,0 +1,30 @@
+
+!obj:framework.scripts.train.Train {
+    "dataset": !pkl: &data "cifar10_preprocessed_train_2M.pkl",
+    "model": !obj:recons_srbm.br_recons_srbm.BR_ReconsSRBM {
+                "nvis" : 192,
+                "nhid" : 4000,
+                "init_bias_hid" : -3.,
+                "irange"  : 0.021844,
+                "init_beta"    : 6.516413,
+                "learn_beta" : 0,
+                "beta_lr_scale" : 1.000000,
+                "mean_field_iters" : 5,
+                "damping_factor" : 0.418724,
+                "no_damp_iters" : 0,
+                "gibbs_iters" : 1,
+                "persistent_chains" : 100,
+                "enc_weight_decay" : 0.000073,
+                "learning_rate" : 0.00007,
+                "fold_biases" : 0.000000,
+                "use_cd" : 0.000000,
+                "instrumented" : 1
+        },
+    "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 9,
+               "batches_per_iter" : 10000,
+               "monitoring_batches" : 10,
+               "monitoring_dataset" : *data
+    },
+    "save_path": "instrumented_49_4k_lower_bias_smaller_lr_more_chains.pkl"
+}
