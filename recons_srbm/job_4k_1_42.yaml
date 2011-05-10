@@ -1,0 +1,29 @@
+
+!obj:framework.scripts.train.Train {
+    "dataset": !pkl: &data "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+    "model": !obj:recons_srbm.br_recons_srbm.BR_ReconsSRBM {
+                "nvis" : 192,
+                "nhid" : 4000,
+                "init_bias_hid" : -2.444376,
+                "irange"  : 0.138582,
+                "init_beta"    : 1.525763,
+                "learn_beta" : 1,
+                "beta_lr_scale" : 0.005706,
+                "mean_field_iters" : 7,
+                "damping_factor" : 0.891573,
+                "no_damp_iters" : 0,
+                "gibbs_iters" : 1,
+                "persistent_chains" : 78,
+                "enc_weight_decay" : 0.000009,
+                "learning_rate" : 0.000015,
+                "fold_biases" : 0.000000,
+                "use_cd" : 0.000000
+        },
+    "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 78,
+               "batches_per_iter" : 1000,
+               "monitoring_batches" : 10,
+               "monitoring_dataset" : *data
+    },
+    "save_path": "/data/lisatmp/goodfeli/expdir/recons_srbm_4000_1/models/model_42.pkl"
+}
