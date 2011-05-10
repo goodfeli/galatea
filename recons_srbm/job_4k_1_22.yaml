@@ -1,6 +1,6 @@
 
 !obj:framework.scripts.train.Train {
-    "dataset": !pkl: &data "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+    "dataset": !pkl: &data "cifar10_preprocessed_train_2M.pkl",
     "model": !obj:recons_srbm.br_recons_srbm.BR_ReconsSRBM {
                 "nvis" : 192,
                 "nhid" : 4000,
@@ -17,7 +17,8 @@
                 "enc_weight_decay" : 0.000000,
                 "learning_rate" : 0.000001,
                 "fold_biases" : 0.000000,
-                "use_cd" : 0.000000
+                "use_cd" : 0.000000,
+                "instrumented" : 1
         },
     "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 66,
@@ -25,5 +26,5 @@
                "monitoring_batches" : 10,
                "monitoring_dataset" : *data
     },
-    "save_path": "/data/lisatmp/goodfeli/expdir/recons_srbm_4000_1/models/model_22.pkl"
+    "save_path": "job_4k_1_22.pkl"
 }
