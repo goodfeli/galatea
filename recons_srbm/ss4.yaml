@@ -16,12 +16,14 @@
                 "persistent_chains" : 100,
                 "enc_weight_decay" : 0.000099,
                 "learning_rate" : 0.000430,
-                "use_cd" : 0.000000
+                "use_cd" : 0.000000,
+                "instrumented" : 1
         },
     "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 100,
                "batches_per_iter" : 100,
                "monitoring_batches" : 1,
                "monitoring_dataset" : *data
-    }
+    },
+    "save_path" : "ss4.pkl"
 }
