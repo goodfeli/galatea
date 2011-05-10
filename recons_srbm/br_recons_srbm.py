@@ -51,8 +51,8 @@ class BR_ReconsSRBM:
                 damping_factor,
                 no_damp_iters,
                 persistent_chains, init_beta, learn_beta, beta_lr_scale, gibbs_iters,
-                enc_weight_decay, fold_biases,
-                use_cd, instrumented):
+                enc_weight_decay, fold_biases = False,
+                use_cd = False, instrumented = False):
         self.initialized = False
         self.reset_rng()
         self.nhid = nhid
@@ -272,7 +272,7 @@ class BR_ReconsSRBM:
         print 'weights summary: '+str( (w.min(),w.mean(),w.max()))
 
         errors = []
-        
+
         if self.instrumented:
             self.clear_instruments()
 
@@ -322,11 +322,11 @@ class BR_ReconsSRBM:
         neg_chains_cond_ent_outputs = []
 
         self.instrument_X = T.matrix()
-        
+
         for max_iters in xrange(1,self.mean_field_iters+1):
             pos_Q = self.infer_Q(self.instrument_X, max_iters = max_iters)
             neg_Q = self.infer_Q(self.chains, max_iters = max_iters)
-            
+
             recons_outputs.append(self.recons_err_from_Q(pos_Q,self.instrument_X))
             neg_chains_recons_outputs.append(self.recons_err_from_Q(neg_Q,self.chains))
 
@@ -352,22 +352,22 @@ class BR_ReconsSRBM:
         self.weight_norms_summary = function([], [weight_norms.min(),weight_norms.mean(),weight_norms.max()])
 
         self.hid_bias_summary = function([],[self.c.min(),self.c.mean(),self.c.max()])
-        self.vis_bias_summary = function([],[self.vis_mean.min(),self.vis_mean.mean(),self.vis_mean.max()])        
+        self.vis_bias_summary = function([],[self.vis_mean.min(),self.vis_mean.mean(),self.vis_mean.max()])
 
-        self.beta_func = function([],self.beta)   
+        self.beta_func = function([],self.beta)
     #
 
     def clear_instruments(self):
 
-        self.cond_ent_after_mean_field = [[] for i in xrange(self.mean_field_iters)] 
-        self.recons_after_mean_field = [[] for i in xrange(self.mean_field_iters)] 
+        self.cond_ent_after_mean_field = [[] for i in xrange(self.mean_field_iters)]
+        self.recons_after_mean_field = [[] for i in xrange(self.mean_field_iters)]
         self.ave_act_after_mean_field = [[] for i in xrange(self.mean_field_iters)]
     #
 
     def update_instruments(self, X):
         ce = self.cond_ent_after_mean_field_func(X)
         re = self.recons_after_mean_field_func(X)
-        
+
         aa = self.ave_act_after_mean_field_func(X)
 
         for fr, to in [ (ce,self.cond_ent_after_mean_field),
@@ -428,8 +428,8 @@ class BR_ReconsSRBM:
             r.report(('neg_cond_ent_after_mean_field_mean',i),nce_mean)
             r.report(('neg_cond_ent_after_mean_field_max',i),nce_max)
         #
-    
-      
+
+
         neg_chain_norms_min, neg_chain_norms_mean, neg_chain_norms_max  = self.neg_chain_norms_summary()
         r.report('neg_chain_norms_min', neg_chain_norms_min)
         r.report('neg_chain_norms_mean', neg_chain_norms_mean)
@@ -440,7 +440,7 @@ class BR_ReconsSRBM:
         r.report('weight_norms_mean', weight_norms_mean)
         r.report('weight_norms_max', weight_norms_max)
 
-        
+
         hid_bias_min, hid_bias_mean, hid_bias_max = self.hid_bias_summary()
         r.report('hid_bias_min', hid_bias_min)
         r.report('hid_bias_mean', hid_bias_mean)
@@ -453,7 +453,7 @@ class BR_ReconsSRBM:
 
 
         r.report('beta',self.beta_func())
-        
+
     #
 
 
@@ -548,7 +548,7 @@ class BR_ReconsSRBM:
 
 
     def infer_Q(self, V, max_iters = 0):
-        
+
         if max_iters > 0:
             iters = min(max_iters, self.mean_field_iters)
         else:

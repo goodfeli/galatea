@@ -25,5 +25,5 @@
                "monitoring_batches" : 10,
                "monitoring_dataset" : *data
     },
-    "save_path": "/data/lisatmp/goodfeli/expdir/recons_srbm_4000_1/models/model_42.pkl"
+    "save_path": "job_4k_1_42.pkl"
 }
