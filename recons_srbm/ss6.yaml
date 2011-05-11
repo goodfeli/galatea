@@ -7,17 +7,17 @@
                 "init_c" : -2.072342,
                 "irange"  : 0.014345,
                 "init_beta"    : 2.795510,
-                "init_alpha" : 1,
+                "init_alpha" : 10.,
                 "init_a" : 0.,
                 "mean_field_iters" : 10,
-                "damping_factor" : 0.406090,
-                "no_damp_iters" : 1,
+                "damping_factor" : 0.95,
+                "no_damp_iters" : 0,
                 "gibbs_iters" : 1,
                 "persistent_chains" : 1,
                 "enc_weight_decay" : 0.000099,
                 "learning_rate" : 0.000430,
                 "use_cd" : 0.000000,
-                "instrumented": 0
+                "instrumented": 1
         },
     "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 3,
@@ -25,5 +25,5 @@
                "monitoring_batches" : 10,
                "monitoring_dataset" : *data
     },
-    "save_path": "ss5.pkl"
+    "save_path": "ss6.pkl"
 }

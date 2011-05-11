@@ -132,61 +132,61 @@ class SS_ReconsSRBM:
     def expected_energy(self, V, Q, Mu1):
 
         name = V.name
-        V = Print('V.'+V.name,attrs=['min','mean','max'])(V); V.name = name
-        Q = Print('Q.'+V.name,attrs=['min','mean','max'])(Q)
-        Mu1 = Print('Mu1.'+V.name,attrs=['min','mean','max'])(Mu1)
+        #V = Print('V.'+V.name,attrs=['min','mean','max'])(V); V.name = name
+        #Q = #Print('Q.'+V.name,attrs=['min','mean','max'])(Q)
+        #Mu1 = #Print('Mu1.'+V.name,attrs=['min','mean','max'])(Mu1)
 
         ugly = Q*(1/self.gamma+T.sqr(Mu1)) - T.sqr(Q)*T.sqr(Mu1)
-        #ugly = Print('ugly',attrs=['shape'])(ugly)
+        #ugly = #Print('ugly',attrs=['shape'])(ugly)
         ugly.name = 'ugly'
         term_1 = 0.5 * T.dot(self.w, T.mean(ugly,axis=0))
         term_1.name = 'term_1'
-        term_1 = Print('term_1')(term_1)
+        #term_1 = #Print('term_1')(term_1)
 
         recons = T.dot(Q*Mu1,self.W.T)
-        recons = Print('recons',attrs=['shape'])(recons)
+        #recons = #Print('recons',attrs=['shape'])(recons)
         recons.name = 'recons'
         iterm = 0.5*self.nvis*T.mean(T.sqr(recons)*self.beta)
-        #iterm = Print('iterm',attrs=['shape'])(iterm)
-        iterm = Print('iterm')(iterm)
+        #iterm = #Print('iterm',attrs=['shape'])(iterm)
+        #iterm = #Print('iterm')(iterm)
         iterm.name = 'iterm'
 
         normalized_vis = self.beta * (V-self.b)
         main_term = - self.nvis * T.mean(normalized_vis*recons)
-        #main_term = Print('main_term',attrs=['shape'])(main_term)
-        main_term = Print('main_term')(main_term)
+        #main_term = #Print('main_term',attrs=['shape'])(main_term)
+        #main_term = #Print('main_term')(main_term)
         normalized_vis.name = 'normalized_vis'
-        #normalized_vis = Print('normalized_vis',attrs=['shape'])(normalized_vis)
+        #normalized_vis = #Print('normalized_vis',attrs=['shape'])(normalized_vis)
         main_term.name = 'main_term'
 
         S = (1-Q)*(T.sqr(self.a)/T.sqr(self.alpha)+1./self.alpha) + Q*(T.sqr(Mu1)+1./self.gamma)
-        #S = Print('S',attrs=['shape'])(S)
-        S = Print('S.'+V.name)(S)
+        #S = #Print('S',attrs=['shape'])(S)
+        #S = #Print('S.'+V.name)(S)
         S.name = 'S'
 
         contain_s = 0.5 * T.mean(T.dot(S,self.alpha))
-        #contain_s = Print('contain_s',attrs=['shape'])(contain_s)
-        contain_s = Print('contain_s')(contain_s)
+        #contain_s = #Print('contain_s',attrs=['shape'])(contain_s)
+        #contain_s = #Print('contain_s')(contain_s)
         contain_s.name = 'contain_s'
 
         vis_bias = - self.nvis * T.mean(normalized_vis)
-        #vis_bias = Print('vis_bias',attrs=['shape'])(vis_bias)
-        vis_bias = Print('vis_bias')(vis_bias)
+        #vis_bias = #Print('vis_bias',attrs=['shape'])(vis_bias)
+        #vis_bias = #Print('vis_bias')(vis_bias)
         vis_bias.name = 'vis_bias'
 
         contain_v = 0.5 * T.mean(T.dot(T.sqr(V),self.beta))
-        #contain_v = Print('contain_v',attrs=['shape'])(contain_v)
-        contain_v = Print('contain_v')(contain_v)
+        #contain_v = #Print('contain_v',attrs=['shape'])(contain_v)
+        #contain_v = #Print('contain_v')(contain_v)
         contain_v.name = 'contain_v'
 
         hid_bias = -T.mean(T.dot(Q,self.c))
-        #hid_bias = Print('hid_bias',attrs=['shape'])(hid_bias)
-        hid_bias = Print('his_bias')(hid_bias)
+        #hid_bias = #Print('hid_bias',attrs=['shape'])(hid_bias)
+        #hid_bias = #Print('his_bias')(hid_bias)
         hid_bias.name = 'hid_bias'
 
         s_bias = -T.mean(T.dot(Q*Mu1+(1.-Q)*(self.a/self.alpha),self.a))
-        #s_bias = Print('s_bias',attrs=['s_bias'])(s_bias)
-        s_bias = Print('s_bias')(s_bias)
+        #s_bias = #Print('s_bias',attrs=['s_bias'])(s_bias)
+        #s_bias = #Print('s_bias')(s_bias)
         s_bias.name = 's_boas'
 
         rval =   term_1 + iterm + main_term + contain_s + vis_bias \
@@ -213,11 +213,11 @@ class SS_ReconsSRBM:
         self.w = T.sum(self.beta * T.sqr(self.W).T,axis=1)
         self.w.name = 'w'
 
-        self.alpha = Print('alpha',attrs=['min','mean','max'])(self.alpha)
-        self.w = Print('w',attrs=['min','mean','max'])(self.w)
+        #self.alpha = #Print('alpha',attrs=['min','mean','max'])(self.alpha)
+        #self.w = #Print('w',attrs=['min','mean','max'])(self.w)
 
         self.gamma = self.alpha + self.w
-        self.gamma = Print('gamma',attrs=['min','mean','max'])(self.gamma)
+        #self.gamma = #Print('gamma',attrs=['min','mean','max'])(self.gamma)
 
         lr = T.scalar()
 
@@ -229,7 +229,7 @@ class SS_ReconsSRBM:
         pos_Mu1.name = 'pos_Mu1'
 
         self.H_exp_func = function([X],pos_Q)
-        self.S_exp_func = function([X],pos_Mu1)
+        self.Mu1_func = function([X],pos_Mu1)
         self.hid_exp_func = function([X],pos_Q*pos_Mu1)
 
         if self.use_cd:
@@ -285,7 +285,7 @@ class SS_ReconsSRBM:
 
         for i in xrange(len(self.params)):
             update = self.params[i] - lr * grads[i]
-            #update = Print(self.params[i].name+' preclip',attrs=['min','mean','max'])(update)
+            #update = #Print(self.params[i].name+' preclip',attrs=['min','mean','max'])(update)
             if self.clip[i]:
                 update = T.clip(update,.1,1000)
             #
@@ -596,7 +596,7 @@ class SS_ReconsSRBM:
 
         assert m.dtype == floatX
         std = T.sqrt(1./self.beta)
-        std = Print('vis_std',attrs=['min','mean','max'])(std)
+        #std = #Print('vis_std',attrs=['min','mean','max'])(std)
         sample = self.theano_rng.normal(size = m.shape, avg = m,
                                     std = std, dtype = m.dtype)
 
@@ -608,7 +608,7 @@ class SS_ReconsSRBM:
         H =  self.theano_rng.binomial(size = Q.shape, n = 1, p = Q,
                                 dtype = Q.dtype)
         std = T.sqrt(1./self.gamma)
-        std = Print('hid_std',attrs=['min','mean','max'])(std)
+        #std = #Print('hid_std',attrs=['min','mean','max'])(std)
         S = self.theano_rng.normal(size = Mu1.shape, avg = Mu1, std = std, dtype = Mu1.dtype)
 
         return H, S
@@ -681,8 +681,9 @@ class SS_ReconsSRBM:
     #
 
 
-    def init_mean_field_step(self, V):
-        return self.mean_field_step(V, T.nnet.sigmoid(self.c-0.5*T.log(self.gamma/self.alpha)), self.a/self.alpha)
+    def init_mean_field_step(self, V, damp = True):
+        #return self.damped_mean_field_step(V, T.nnet.sigmoid(self.c-0.5*T.log(self.gamma/self.alpha)), self.a/self.alpha, damp)
+        return self.damped_mean_field_step(V, T.zeros_like(T.dot(V,self.W)), T.zeros_like(T.dot(V,self.W)), damp)
 
     def damped_mean_field_step(self, V, P, Mu, damp):
 
@@ -701,6 +702,40 @@ class SS_ReconsSRBM:
         return r_Q, r_Mu
     #
 
+    def debug_dump(self, x):
+
+        print "making debug dump"
+
+        print 'x: '+str((x.min(),x.mean(),x.max()))
+        W = self.W.get_value()
+        print 'W: '+str((W.min(),W.mean(),W.max()))
+        w = function([],self.w)()
+        print 'w: '+str((w.min(),w.mean(),w.max()))
+        alpha = self.alpha.get_value()
+        print 'alpha: '+str((alpha.min(),alpha.mean(),alpha.max()))
+        beta = self.beta.get_value()
+        print 'beta: '+str((beta.min(),beta.mean(),beta.max()))
+        
+
+        prior_Q = function([],T.nnet.sigmoid(self.c-0.5*T.log(self.gamma/self.alpha)))()
+        print 'prior_Q: '+str((prior_Q.min(),prior_Q.mean(),prior_Q.max()))
+
+        prior_Mu = function([],self.a/self.alpha)()
+        print 'prior_Mu: '+str((prior_Mu.min(),prior_Mu.mean(),prior_Mu.max()))
+
+
+        var = T.matrix()
+        var.name = 'debug_x'
+        for i in xrange(1,self.mean_field_iters+1):
+            outputs = self.infer_Q_Mu1(var,max_iters=i)
+            Q, Mu = function([var],outputs)(x)
+            print 'after '+str(i)+' mean field steps:'
+            print '\tQ: '+str((Q.min(),Q.mean(),Q.max()))
+            print '\tMu: '+str((Mu.min(),Mu.mean(),Mu.max()))
+        #
+
+        assert False
+
 
     def learn_mini_batch(self, x):
 
@@ -713,11 +748,16 @@ class SS_ReconsSRBM:
             #
         #
 
-        print '\nrun_sampling\n'
+        Mu1 = self.Mu1_func(x)
+        if Mu1.max() > 500.:
+            self.debug_dump(x)
+
+
+        #print '\nrun_sampling\n'
 
         self.run_sampling(x)
 
-        print '\nlearn_from_samples\n'
+        #print '\nlearn_from_samples\n'
 
         self.learn_from_samples(x,self.learning_rate)
 
