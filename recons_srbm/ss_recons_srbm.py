@@ -131,57 +131,62 @@ class SS_ReconsSRBM:
 
     def expected_energy(self, V, Q, Mu1):
 
+        name = V.name
+        V = Print('V.'+V.name,attrs=['min','mean','max'])(V); V.name = name
+        Q = Print('Q.'+V.name,attrs=['min','mean','max'])(Q)
+        Mu1 = Print('Mu1.'+V.name,attrs=['min','mean','max'])(Mu1)
+
         ugly = Q*(1/self.gamma+T.sqr(Mu1)) - T.sqr(Q)*T.sqr(Mu1)
         #ugly = Print('ugly',attrs=['shape'])(ugly)
         ugly.name = 'ugly'
         term_1 = 0.5 * T.dot(self.w, T.mean(ugly,axis=0))
         term_1.name = 'term_1'
-        #term_1 = Print('term_1')(term_1)
+        term_1 = Print('term_1')(term_1)
 
         recons = T.dot(Q*Mu1,self.W.T)
-        #recons = Print('recons',attrs=['shape'])(recons)
+        recons = Print('recons',attrs=['shape'])(recons)
         recons.name = 'recons'
         iterm = 0.5*self.nvis*T.mean(T.sqr(recons)*self.beta)
         #iterm = Print('iterm',attrs=['shape'])(iterm)
-        #iterm = Print('iterm')(iterm)
+        iterm = Print('iterm')(iterm)
         iterm.name = 'iterm'
 
         normalized_vis = self.beta * (V-self.b)
         main_term = - self.nvis * T.mean(normalized_vis*recons)
         #main_term = Print('main_term',attrs=['shape'])(main_term)
-        #main_term = Print('main_term')(main_term)
+        main_term = Print('main_term')(main_term)
         normalized_vis.name = 'normalized_vis'
         #normalized_vis = Print('normalized_vis',attrs=['shape'])(normalized_vis)
         main_term.name = 'main_term'
 
         S = (1-Q)*(T.sqr(self.a)/T.sqr(self.alpha)+1./self.alpha) + Q*(T.sqr(Mu1)+1./self.gamma)
         #S = Print('S',attrs=['shape'])(S)
-        #S = Print('S')(S)
+        S = Print('S.'+V.name)(S)
         S.name = 'S'
 
         contain_s = 0.5 * T.mean(T.dot(S,self.alpha))
         #contain_s = Print('contain_s',attrs=['shape'])(contain_s)
-        #contain_s = Print('contain_s')(contain_s)
+        contain_s = Print('contain_s')(contain_s)
         contain_s.name = 'contain_s'
 
         vis_bias = - self.nvis * T.mean(normalized_vis)
         #vis_bias = Print('vis_bias',attrs=['shape'])(vis_bias)
-        #vis_bias = Print('vis_bias')(vis_bias)
+        vis_bias = Print('vis_bias')(vis_bias)
         vis_bias.name = 'vis_bias'
 
         contain_v = 0.5 * T.mean(T.dot(T.sqr(V),self.beta))
         #contain_v = Print('contain_v',attrs=['shape'])(contain_v)
-        #contain_v = Print('contain_v')(contain_v)
+        contain_v = Print('contain_v')(contain_v)
         contain_v.name = 'contain_v'
 
         hid_bias = -T.mean(T.dot(Q,self.c))
         #hid_bias = Print('hid_bias',attrs=['shape'])(hid_bias)
-        #hid_bias = Print('his_bias')(hid_bias)
+        hid_bias = Print('his_bias')(hid_bias)
         hid_bias.name = 'hid_bias'
 
         s_bias = -T.mean(T.dot(Q*Mu1+(1.-Q)*(self.a/self.alpha),self.a))
         #s_bias = Print('s_bias',attrs=['s_bias'])(s_bias)
-        #s_bias = Print('s_bias')(s_bias)
+        s_bias = Print('s_bias')(s_bias)
         s_bias.name = 's_boas'
 
         rval =   term_1 + iterm + main_term + contain_s + vis_bias \
@@ -208,7 +213,11 @@ class SS_ReconsSRBM:
         self.w = T.sum(self.beta * T.sqr(self.W).T,axis=1)
         self.w.name = 'w'
 
+        self.alpha = Print('alpha',attrs=['min','mean','max'])(self.alpha)
+        self.w = Print('w',attrs=['min','mean','max'])(self.w)
+
         self.gamma = self.alpha + self.w
+        self.gamma = Print('gamma',attrs=['min','mean','max'])(self.gamma)
 
         lr = T.scalar()
 
@@ -311,9 +320,9 @@ class SS_ReconsSRBM:
 
         w = self.W.get_value(borrow=True)
 
-        alpha = self.alpha.get_value(borrow=True)
+        #alpha = self.alpha.get_value(borrow=True)
         beta = self.beta.get_value(borrow=True)
-        print "alpha summary: "+str( (alpha.min(),alpha.mean(),alpha.max()))
+        #print "alpha summary: "+str( (alpha.min(),alpha.mean(),alpha.max()))
         print "beta summary: "+str( (beta.min(), beta.mean(), beta.max()))
 
         if N.any(N.isnan(w)):
@@ -586,8 +595,10 @@ class SS_ReconsSRBM:
         m = self.gibbs_step_exp(V, Q, Mu1)
 
         assert m.dtype == floatX
+        std = T.sqrt(1./self.beta)
+        std = Print('vis_std',attrs=['min','mean','max'])(std)
         sample = self.theano_rng.normal(size = m.shape, avg = m,
-                                    std = T.sqrt(1./self.beta), dtype = m.dtype)
+                                    std = std, dtype = m.dtype)
 
         sample.name = base_name + '->sample'
 
@@ -596,7 +607,9 @@ class SS_ReconsSRBM:
     def sample_hid(self, Q, Mu1):
         H =  self.theano_rng.binomial(size = Q.shape, n = 1, p = Q,
                                 dtype = Q.dtype)
-        S = self.theano_rng.normal(size = Mu1.shape, avg = Mu1, std = T.sqrt(1./self.gamma), dtype = Mu1.dtype)
+        std = T.sqrt(1./self.gamma)
+        std = Print('hid_std',attrs=['min','mean','max'])(std)
+        S = self.theano_rng.normal(size = Mu1.shape, avg = Mu1, std = std, dtype = Mu1.dtype)
 
         return H, S
 
@@ -700,7 +713,12 @@ class SS_ReconsSRBM:
             #
         #
 
+        print '\nrun_sampling\n'
+
         self.run_sampling(x)
+
+        print '\nlearn_from_samples\n'
+
         self.learn_from_samples(x,self.learning_rate)
 
         #pos_Q, neg_Q = self.run_sampling(x)

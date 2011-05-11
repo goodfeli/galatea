@@ -1,7 +1,7 @@
 
 !obj:framework.scripts.train.Train {
-    "dataset": !pkl: &data "/data/lisatmp/goodfeli/cifar10_preprocessed_train.pkl",
-    "model": !obj:recons_srbm.br_recons_srbm.BR_ReconsSRBM {
+    "dataset": !pkl: &data "cifar10_preprocessed_train.pkl",
+    "model": !obj:galatea.recons_srbm.br_recons_srbm.BR_ReconsSRBM {
                 "nvis" : 192,
                 "nhid" : 400,
                 "init_bias_hid" : -2.072342,
@@ -25,5 +25,5 @@
                "monitoring_batches" : 10,
                "monitoring_dataset" : *data
     },
-    "save_path": "/data/lisatmp/goodfeli/expdir/recons_srbm_2/models/model_6.pkl"
+    "save_path": "model_6.pkl"
 }
