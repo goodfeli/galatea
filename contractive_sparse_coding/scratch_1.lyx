@@ -1,0 +1,551 @@
+#LyX 1.6.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 345
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Problem definition
+\end_layout
+
+\begin_layout Standard
+Suppose we use Drew Bagnell's differentiable sparse coding cost function:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+C(v,h;W)=\sum_{i}(v_{i}-W_{i}h)^{2}+\sum_{i}\lambda_{i}(w_{i}\log\frac{w_{i}}{p_{i}}-w_{i}+p_{i})\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Where 
+\begin_inset Formula $v$
+\end_inset
+
+ is continuous-valued visible units, 
+\begin_inset Formula $h$
+\end_inset
+
+ is strictly positive continuous hidden units, 
+\begin_inset Formula $W$
+\end_inset
+
+ is the weights (constrained to have unit norm in each column), 
+\begin_inset Formula $\lambda$
+\end_inset
+
+ is the strength of the sparsity penalty on each hidden unit, and 
+\begin_inset Formula $p$
+\end_inset
+
+ is the target value of each unit.
+\end_layout
+
+\begin_layout Standard
+Sparse coding implicitly defines a hidden unit activation function 
+\begin_inset Formula $h(v)$
+\end_inset
+
+ via the following relation:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\frac{\partial C}{\partial h}=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\forall j:-2\sum_{i}(v_{i}-W_{i}h)W_{ij}+\lambda_{j}\log(h_{j}/p_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Jacobian
+\end_layout
+
+\begin_layout Standard
+We can find the Jacobian matrix of the hidden units with respect to the
+ visible units by differentiating both sides of this relation with respect
+ to 
+\begin_inset Formula $x_{k}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\forall j:-2W_{kj}+2\sum_{i}W_{ij}\sum_{l}W_{il}\frac{\partial h_{l}}{\partial x_{k}}+\frac{\lambda_{j}}{h_{j}}\frac{\partial h_{j}}{\partial x_{k}}=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+By solving this equation, we get that the Jacobian is:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+W\left[(W^{T}W+\frac{1}{2}\text{diag}(\lambda/h))^{-1}\right]\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The contractive penalty will thus prefer sparsity, so (given the hyperparameter
+ for the strength of the contractive penalty) we can learn 
+\begin_inset Formula $\lambda$
+\end_inset
+
+ and 
+\begin_inset Formula $p$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+\begin_inset Formula $\lambda$
+\end_inset
+
+ gradient
+\end_layout
+
+\begin_layout Standard
+Since 
+\begin_inset Formula $h(v)$
+\end_inset
+
+ is only defined implicitly, we can't just symbolically differentiate this
+ expression.
+ We have to find the derivatives of 
+\begin_inset Formula $h$
+\end_inset
+
+ by differentiating the relation above.
+ For 
+\begin_inset Formula $\lambda_{k}$
+\end_inset
+
+we get, two cases.
+\end_layout
+
+\begin_layout Standard
+For 
+\begin_inset Formula $j=k$
+\end_inset
+
+, the relation is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+-2\sum_{i}(v_{i}-W_{i}h)W_{ik}+\lambda_{k}\log(h_{k}/p_{k})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}(W_{i}h-v_{i})W_{ik}+\lambda_{k}\log(h_{k}/p_{k})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Since we're going to take derivatives, drop terms not involve 
+\begin_inset Formula $h$
+\end_inset
+
+ or 
+\begin_inset Formula $\lambda_{k}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}W_{ik}W_{i}h+\lambda_{k}\log(h_{k})-\lambda_{k}\log(p_{k})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Differentiating with respect to 
+\begin_inset Formula $\lambda_{k}$
+\end_inset
+
+we get:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}W_{ik}\sum_{l}W_{il}\frac{\partial h_{l}}{\lambda_{k}}+\frac{\lambda_{k}}{h_{k}}\frac{\partial h_{k}}{\partial\lambda_{k}}+\log(h_{k}/p_{k})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+For 
+\begin_inset Formula $j\neq k$
+\end_inset
+
+ the relation is:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+-2\sum_{i}(v_{i}-W_{i}h)W_{ij}+\lambda_{j}\log(h_{j}/p_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}(W_{i}h-v_{i})W_{ij}+\lambda_{j}\log(h_{j}/p_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Drop terms not involving 
+\begin_inset Formula $h$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}W_{ij}W_{i}h+\lambda_{j}\log(h_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now differentiate with respect to 
+\begin_inset Formula $\lambda_{k}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}W_{ij}\sum_{l}W_{il}\frac{\partial h_{l}}{\partial\lambda_{k}}+\frac{\lambda_{j}}{h_{j}}\frac{\partial h_{j}}{\partial\lambda_{k}}=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So we know:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\forall j:2\sum_{i}W_{ij}\sum_{l}W_{il}\frac{\partial h_{l}}{\partial\lambda_{k}}+\frac{\lambda_{j}}{h_{j}}\frac{\partial h_{j}}{\partial\lambda_{k}}=\delta(j=k)\log(p_{k}/h_{k})\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\forall j:\sum_{l}\frac{\partial h_{l}}{\partial\lambda_{k}}\sum_{i}W_{ij}W_{il}+\frac{1}{2}\frac{\lambda_{j}}{h_{j}}\frac{\partial h_{j}}{\partial\lambda_{k}}=\delta(j=k)\frac{1}{2}\log(p_{k}/h_{k})\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\forall j:\sum_{l}\frac{\partial h_{l}}{\partial\lambda_{k}}\left(\sum_{i}W_{ij}W_{il}+\delta(l=j)\frac{1}{2}\frac{\lambda_{l}}{h_{l}}\right)=\delta(j=k)\frac{1}{2}\log(p_{k}/h_{k})\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+M\frac{\partial h}{\partial\lambda_{k}}=z\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $z$
+\end_inset
+
+ is all zeros except index 
+\begin_inset Formula $k$
+\end_inset
+
+, which is 
+\begin_inset Formula $\frac{1}{2}\log(p_{k}/h_{k})$
+\end_inset
+
+, and
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+M=(W^{T}W+\frac{1}{2}\text{diag}(\frac{\lambda}{h}))\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+\begin_inset Formula $W$
+\end_inset
+
+ gradient
+\end_layout
+
+\begin_layout Standard
+.For 
+\begin_inset Formula $j=k$
+\end_inset
+
+ the relation is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}(W_{i}h-v_{i})W_{ik}+\lambda_{k}\log(h_{k}/p_{k})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}W_{il}h_{l}-2\sum_{i}v_{i}W_{ik}+\lambda_{k}\log(h_{k}/p_{k})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now take the derivative with respect to 
+\begin_inset Formula $W_{mk}$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}(\delta(i=m\wedge l=k)h_{l}+W_{il}\frac{\partial h_{l}}{\partial W_{mk}})-2v_{m}+\frac{\lambda_{k}}{h_{k}}\frac{\partial h_{k}}{\partial W_{mk}}\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+For 
+\begin_inset Formula $j\neq k$
+\end_inset
+
+, the relation is:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+-2\sum_{i}(v_{i}-W_{i}h)W_{ij}+\lambda_{j}\log(h_{j}/p_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}W_{il}h_{l}-2\sum_{i}v_{i}W_{ij}+\lambda_{j}\log(h_{j}/p_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}W_{il}h_{l}-2\sum_{i}v_{i}W_{ij}+\lambda_{j}\log(h_{j}/p_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Dropping terms not involving 
+\begin_inset Formula $h$
+\end_inset
+
+ or 
+\begin_inset Formula $W_{mk}$
+\end_inset
+
+ we get:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}W_{il}h_{l}+\lambda_{j}\log(h_{j})=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The derivative with respect to 
+\begin_inset Formula $W_{mk}$
+\end_inset
+
+ is:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}(\delta(i=m,l=k)h_{l}+W_{il}\frac{\partial h_{l}}{\partial W_{mk}})+\frac{\lambda_{j}}{h_{j}}\frac{\partial h_{j}}{\partial W_{mk}}\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Putting this altogether, we get, 
+\begin_inset Formula $\forall j$
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}(\delta(i=m,l=k)h_{l}+W_{il}\frac{\partial h_{l}}{\partial W_{mk}})-\delta(j=k)2v_{m}+\frac{\lambda_{j}}{h_{j}}\frac{\partial h_{j}}{\partial W_{mk}}=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{i}\sum_{l}W_{il}\frac{\partial h_{l}}{\partial W_{mk}}-\delta(j=k)2v_{m}+2h_{k}+\frac{\lambda_{j}}{h_{j}}\frac{\partial h_{j}}{\partial W_{mk}}=0\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+2\sum_{l}\frac{\partial h_{l}}{\partial W_{mk}}(\sum_{i}W_{il}+\delta(l=j)\frac{\lambda_{j}}{h_{j}})=\delta(j=k)2v_{m}-2h_{k}\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\sum_{l}\frac{\partial h_{l}}{\partial W_{mk}}(\sum_{i}W_{il}+\frac{1}{2}\delta(l=j)\frac{\lambda_{j}}{h_{j}})=\delta(j=k)v_{m}-h_{k}\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\frac{\partial h}{\partial W_{mk}}=(W^{T}\vec{1}+\frac{1}{2}\text{diag}(\frac{\lambda}{h}))^{-1}(e_{m}\circ v_{m}-h_{k})\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

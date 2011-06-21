@@ -1,0 +1,47 @@
+
+Say we want to find f(x) such that
+
+E_x f_i(x) = 0
+E_x f_i(x)^2 = 1
+E_x f_i(x) f_j(x)^2 = 0
+
+and we minimize the following:
+
+E_x sum_i,j  (d f_i(x) / d x_j )^2
+
+
+Let f(x) = W g(x) and let's find the optimal W.
+
+d f_i(x) / d x_j = sum_ k ( d f_i(x) / d g_k (x) ) ( d g_k(x) / d x_j )
+= sum_ k ( d f_i(x) / d g_k (x) ) ( d g_k(x) / d x_j )
+= sum_ k W_ik G_kj 
+where G_kj = d g_k(x) / d x_j
+
+so we want to minimize the squared frobenius norm of 
+
+Fro(WG)^2 = Tr( WG G^T W^T ) 
+
+I think you just take the eigenvectors with SMALLEST eigenvalue of G G^T
+
+
+procedure:
+    compute g1(X), G1(X)  (note that G1 is actually a 3 tensor)
+    mu = g1(X)
+    g2(X) = g1(X) - mu ; G2(X) = G1(X)
+    compute Z = whitening matrix of g2
+    G3(X) = G3(X) Z
+
+    compute W from G3
+
+
+final feature extractor is:
+    (g(X)-mu)ZW
+
+
+
+
+WQ is of dim h x v.
+Q is of dim g x v
+W is of dim h x g
+
+
