@@ -40,7 +40,7 @@ batch_size = serial.load(components+'/batch_size.pkl')
 expanded_dim = serial.load(components+'/expanded_dim.pkl')
 
 #Restrict X to just the examples we're supposed to run on
-X = X[idx:idx+batch_size,:]
+X = X[idx:idx+chunk_size,:]
 
 pca_model = serial.load(components+'/pca_model.pkl')
 
@@ -79,13 +79,14 @@ for b in xrange(0,chunk_size, batch_size):
 
     #print 'Computing Jacobian of basis expansion composed with PCA'
     for i in xrange(batch_size):
-        #print G1[i,:,:].shape, J[i,:,:].shape, P.shape
+        #print J.shape
+        #print i,G1[i,:,:].shape, J[i,:,:].shape, P.shape
         G1[i,:,:] = N.dot(J[i,:,:],P.T)
     del J
 
     #print 'Computing final (post-whitening) Jacobian'
     G3 = G1
-    del G1
+
     for i in xrange(batch_size):
         #TODO: should this be Z.T ?
         G3[i,:,:]  = N.dot(Z, G3[i,:,:])
