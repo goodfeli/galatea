@@ -1,8 +1,10 @@
-job_name = 'cfa'
+job_name = 'cfa_full'
 
 from pylearn2.utils import serial
 import SkyNet
 import numpy as N
+from scipy.linalg import eigh
+import time
 
 SkyNet.set_job_name(job_name)
 components = SkyNet.get_dir_path('components')
@@ -10,7 +12,7 @@ components = SkyNet.get_dir_path('components')
 num_examples = serial.load(components+'/num_examples.pkl')
 chunk_size = serial.load(components+'/chunk_size.pkl')
 batch_size = serial.load(components+'/batch_size.pkl')
-expaned_dim = serial.load(components+'/expanded_dim.pkl')
+expanded_dim = serial.load(components+'/expanded_dim.pkl')
 
 instability_matrices = SkyNet.get_dir_path('instability_matrices')
 components = SkyNet.get_dir_path('components')

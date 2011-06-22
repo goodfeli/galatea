@@ -1,5 +1,5 @@
-job_name = 'cfa'
-chunk_size = 50
+job_name = 'cfa_test'
+chunk_size = 500
 batch_size = 10
 
 from pylearn2.utils import serial

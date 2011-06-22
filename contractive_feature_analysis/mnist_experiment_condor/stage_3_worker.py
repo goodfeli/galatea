@@ -75,7 +75,7 @@ for b in xrange(0,chunk_size, batch_size):
     #print 'Computing Jacobian of basis expansion composed with PCA'
     for i in xrange(batch_size):
         #print J.shape
-        #print i,G1[i,:,:].shape, J[i,:,:].shape, P.shape
+        print i,G1[i,:,:].shape, J[i,:,:].shape, P.shape
         G1[i,:,:] = N.dot(J[i,:,:],P.T)
     del J
 
@@ -83,8 +83,8 @@ for b in xrange(0,chunk_size, batch_size):
     G3 = G1
 
     for i in xrange(batch_size):
-        #TODO: should this be Z.T ?
-        G3[i,:,:]  = N.dot(Z, G3[i,:,:])
+        #verified that this is Z.T and not Z by running a test with one whitened component dropped
+        G3[i,:,:]  = N.dot(Z.T, G3[i,:,:])
 
     #print 'Computing instability matrix'
     for i in xrange(batch_size):
