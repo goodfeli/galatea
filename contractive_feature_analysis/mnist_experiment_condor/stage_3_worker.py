@@ -11,6 +11,7 @@ from scipy.linalg import eigh
 from pylearn2.utils import serial
 import time
 import sys 
+import SkyNet
 
 job_name = sys.argv[1]
 idx = int(sys.argv[2])
@@ -67,6 +68,7 @@ batch_size = 50
 
 G1 = N.zeros((batch_size,expanded_dim,input_dim))
 
+assert chunk_size % batch_size == 0
 
 print 'Computing instability matrix'
 for b in xrange(0,chunk_size, batch_size):
@@ -100,4 +102,4 @@ G /= float(chunk_size)
 
 instability_matrices = SkyNet.get_dir_path('instability_matrices')
 
-N.save('instability_matrix_%d.npy' % idx, G)
+N.save(instability_matrices+'/instability_matrix_%d.npy' % idx, G)

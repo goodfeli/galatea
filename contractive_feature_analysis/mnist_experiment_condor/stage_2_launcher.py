@@ -15,6 +15,8 @@ serial.save(components+'/batch_size.pkl',batch_size)
 
 command = SkyNet.get_user_dir(tmp = False, force = SkyNet.cluster) + '/galatea/contractive_feature_analysis/mnist_experiment_condor/stage_3_worker.py '+job_name+' "{{'
 
+assert num_examples % chunk_size == 0
+
 for b in xrange(0,num_examples,chunk_size):
     if b != 0:
         command+=','
