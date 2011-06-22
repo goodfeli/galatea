@@ -1,4 +1,4 @@
-pca_dim = 100
+#!/bin/env python
 exp_name = 'cfa'
 
 from pylearn2.datasets.mnist import MNIST
@@ -10,7 +10,7 @@ import numpy as N
 from scipy.linalg import eigh
 from pylearn2.utils import serial
 import time
-import sys 
+import sys
 
 job_name = sys.argv[1]
 idx = int(sys.argv[2])
