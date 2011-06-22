@@ -14,6 +14,11 @@ import SkyNet
 job_name = sys.argv[1]
 idx = int(sys.argv[2])
 
+SkyNet.set_job_name(job_name)
+components = SkyNet.get_dir_path('components')
+whitener = serial.load(components+'/whitener.pkl')
+
+
 print 'Loading MNIST train set'
 t1 = time.time()
 X = MNIST(which_set = 'train').get_design_matrix()
@@ -26,14 +31,13 @@ X = X[0:6000,:]
 num_examples, input_dim = X.shape
 
 
-SkyNet.set_job_name(job_name)
-components = SkyNet.get_dir_path('components')
 
 check_num_examples = serial.load(components+'/num_examples.pkl')
 assert num_examples == check_num_examples
 
 chunk_size = serial.load(components+'/chunk_size.pkl')
 batch_size = serial.load(components+'/batch_size.pkl')
+expanded_dim = serial.load(components+'/expanded_dim.pkl')
 
 #Restrict X to just the examples we're supposed to run on
 X = X[idx:idx+batch_size,:]
@@ -58,11 +62,8 @@ print (t2-t1),' seconds'
 P  = pca_model.get_weights()
 
 
-
-
 G = N.zeros((expanded_dim,expanded_dim))
 Z = whitener.get_weights()
-batch_size = 50
 
 G1 = N.zeros((batch_size,expanded_dim,input_dim))
 
