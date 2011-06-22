@@ -1,16 +1,14 @@
-pca_dim = 100
+#!/bin/env python
 exp_name = 'cfa'
 
 from pylearn2.datasets.mnist import MNIST
-from pylearn2.pca import CovEigPCA
 import theano.tensor as T
 from theano import function
 from models import expand
 import numpy as N
-from scipy.linalg import eigh
 from pylearn2.utils import serial
 import time
-import sys 
+import sys
 import SkyNet
 
 job_name = sys.argv[1]
