@@ -13,7 +13,7 @@ num_examples = serial.load(components+'/num_examples.pkl')
 serial.save(components+'/chunk_size.pkl',chunk_size)
 serial.save(components+'/batch_size.pkl',batch_size)
 
-command = SkyNet.get_user_dir(tmp = False, force = SkyNet.cluster) + '/galatea/contractive_feature_analysis/mnist_experiment_condor/stage_3_worker.py '+job_name+' "{{'
+command = '--mem=2000 '+SkyNet.get_user_dir(tmp = False, force = SkyNet.cluster) + '/galatea/contractive_feature_analysis/mnist_experiment_condor/stage_3_worker.py '+job_name+' "{{'
 
 assert num_examples % chunk_size == 0
 
