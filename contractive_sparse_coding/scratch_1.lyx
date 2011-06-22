@@ -36,6 +36,7 @@
 \tracking_changes false
 \output_changes false
 \author "" 
+\author "" 
 \end_header
 
 \begin_body
@@ -50,7 +51,7 @@ Suppose we use Drew Bagnell's differentiable sparse coding cost function:
 
 \begin_layout Standard
 \begin_inset Formula \[
-C(v,h;W)=\sum_{i}(v_{i}-W_{i}h)^{2}+\sum_{i}\lambda_{i}(w_{i}\log\frac{w_{i}}{p_{i}}-w_{i}+p_{i})\]
+C(v,h;W)=\sum_{i}(v_{i}-W_{i}h)^{2}+\sum_{i}\lambda_{i}(h_{i}\log\frac{h_{i}}{p_{i}}-h_{i}+p_{i})\]
 
 \end_inset
 
@@ -78,7 +79,8 @@ Where
 \begin_inset Formula $p$
 \end_inset
 
- is the target value of each unit.
+ is the target value of each unit / determines how much the sparsity penalty
+ behaves like L1 versus L2.
 \end_layout
 
 \begin_layout Standard

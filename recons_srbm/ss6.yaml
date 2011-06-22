@@ -10,14 +10,17 @@
                 "init_alpha" : 10.,
                 "init_a" : 0.,
                 "mean_field_iters" : 10,
-                "damping_factor" : 0.95,
+                "q_damping_factor" : 0.4,
                 "no_damp_iters" : 0,
                 "gibbs_iters" : 1,
                 "persistent_chains" : 1,
                 "enc_weight_decay" : 0.000099,
                 "learning_rate" : 0.000430,
                 "use_cd" : 0.000000,
-                "instrumented": 1
+                "instrumented": 1,
+                "tau": -0.5,
+                "s_default_damping_factor" : .4,
+                "fancy_damp" : 1
         },
     "algorithm": !obj:framework.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 3,

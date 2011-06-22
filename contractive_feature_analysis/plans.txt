@@ -26,16 +26,40 @@ I think you just take the eigenvectors with SMALLEST eigenvalue of G G^T
 
 procedure:
     compute g1(X), G1(X)  (note that G1 is actually a 3 tensor)
-    mu = g1(X)
+        say there is PCA preprocessing g0(X) = (X-mu0)*P
+
+        dg0_i / d_xj = P_ji
+
+        let J_ij = dg1_i / dg0_j
+
+        dg1_i / d_xj = sum_k (dg1_i / dg0_k) (dg0_k / d_xj)
+                     = sum_k (dg1_i / dg0_k) P_kj
+                     = sum_k J_ik P_kj
+
+        so G1 = JP
+
+    mu = mean(g1(X))
     g2(X) = g1(X) - mu ; G2(X) = G1(X)
     compute Z = whitening matrix of g2
-    G3(X) = G3(X) Z
+    G3(X) = G2(X) Z
 
     compute W from G3
 
 
 final feature extractor is:
-    (g(X)-mu)ZW
+    (g( (X-mu0)P)-mu)ZW
+
+
+    G3(X) = Z G2(X)
+          = Z J P
+
+    G = G3 G3^T
+
+      = Z J P P^T J^T Z^T
+
+    where P is r x n
+ 
+
 
 
 

@@ -49,12 +49,21 @@ class SS_ReconsSRBM:
                 learning_rate,
                 irange,
                 init_c, mean_field_iters,
-                damping_factor,
+                q_damping_factor,
+                s_default_damping_factor,
+                tau,
+                fancy_damp,
                 no_damp_iters,
                 persistent_chains, init_a, init_alpha, init_beta,  gibbs_iters,
                 enc_weight_decay,
                 use_cd, instrumented = False):
         self.initialized = False
+        self.fancy_damp = fancy_damp
+        if fancy_damp:
+            assert q_damping_factor == s_default_damping_factor
+        self.s_default_damping_factor = s_default_damping_factor
+        self.tau = tau
+        assert type(tau) == type(1.)
         self.reset_rng()
         self.nhid = nhid
         self.nvis = nvis
@@ -70,7 +79,7 @@ class SS_ReconsSRBM:
         self.mean_field_iters = mean_field_iters
         self.no_damp_iters = no_damp_iters
         self.gibbs_iters = gibbs_iters
-        self.damping_factor = damping_factor
+        self.q_damping_factor = q_damping_factor
         self.enc_weight_decay = N.cast[floatX](enc_weight_decay)
         self.names_to_del = []
         self.use_cd = use_cd
@@ -681,17 +690,56 @@ class SS_ReconsSRBM:
     #
 
 
+    def mean_field_fancy_step(self, V, P, Mu):
+
+        iterm = T.dot(T.dot(P*Mu,self.W.T*self.beta),self.W)
+
+        normalized_V = self.beta * (V-self.b)
+        main_term = T.dot(normalized_V, self.W)
+
+
+        iA = self.w * P*Mu - iterm
+
+        full_A = iA + main_term+self.a
+        Mu1 = full_A / self.gamma
+
+        Q = self.Q_from_A( full_A)
+
+        iMu = iA / self.gamma
+
+        #if this is negative, we are ammplifying so we use default damping
+        #if this is positive, we are flipping, use max(0,lambda(tau))
+        discriminant = T.sgn(Mu-iMu) * Mu/(1e-10+abs(Mu-iMu))
+
+        Lambda = self.tau * discriminant -  T.sgn(Mu-iMu) * iMu/(1e-10+abs(Mu-iMu))
+
+        mask = discriminant <= 0
+
+        fancy_damp = mask*self.s_default_damping_factor + (1.-mask)*T.maximum(0.,Lambda)
+
+
+        return Q, Mu1, fancy_damp
+
+
     def init_mean_field_step(self, V, damp = True):
         #return self.damped_mean_field_step(V, T.nnet.sigmoid(self.c-0.5*T.log(self.gamma/self.alpha)), self.a/self.alpha, damp)
         return self.damped_mean_field_step(V, T.zeros_like(T.dot(V,self.W)), T.zeros_like(T.dot(V,self.W)), damp)
 
     def damped_mean_field_step(self, V, P, Mu, damp):
 
-        Q, Mu1 = self.mean_field_step(V,P,Mu)
+        if self.fancy_damp:
+            Q, Mu1, fancy_damp = self.mean_field_fancy_step(V,P,Mu)
+        else:
+            Q, Mu1 = self.mean_field_step(V,P,Mu)
+        #
 
         if damp:
-            r_Q =  self.damping_factor * P + (1.0 - self.damping_factor) * Q
-            r_Mu = self.damping_factor * Mu + (1.0-self.damping_factor) * Mu1
+            r_Q =  self.q_damping_factor * P + (1.0 - self.q_damping_factor) * Q
+            if self.fancy_damp:
+                r_Mu = fancy_damp * Mu + (1.0-fancy_damp) * Mu1
+            else:
+                r_Mu = self.s_default_damping_factor * Mu + (1.0-self.s_default_damping_factor) * Mu1
+            #
         else:
             r_Q = Q
             r_Mu = Mu1
@@ -715,7 +763,7 @@ class SS_ReconsSRBM:
         print 'alpha: '+str((alpha.min(),alpha.mean(),alpha.max()))
         beta = self.beta.get_value()
         print 'beta: '+str((beta.min(),beta.mean(),beta.max()))
-        
+
 
         prior_Q = function([],T.nnet.sigmoid(self.c-0.5*T.log(self.gamma/self.alpha)))()
         print 'prior_Q: '+str((prior_Q.min(),prior_Q.mean(),prior_Q.max()))
