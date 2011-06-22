@@ -25,12 +25,7 @@ X = MNIST(which_set = 'train').get_design_matrix()
 t2 = time.time()
 print (t2-t1),' seconds'
 
-print 'HACK: truncating data to 6000 entries'
-X = X[0:6000,:]
-
 num_examples, input_dim = X.shape
-
-
 
 check_num_examples = serial.load(components+'/num_examples.pkl')
 assert num_examples == check_num_examples
