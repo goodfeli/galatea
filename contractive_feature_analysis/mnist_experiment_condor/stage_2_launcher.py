@@ -1,4 +1,4 @@
-job_name = 'cfa_test'
+job_name = 'cfa_olshausen'
 chunk_size = 500
 batch_size = 10
 

@@ -1,4 +1,4 @@
-job_name = 'cfa_full'
+job_name = 'cfa_olshausen'
 
 from pylearn2.utils import serial
 import SkyNet

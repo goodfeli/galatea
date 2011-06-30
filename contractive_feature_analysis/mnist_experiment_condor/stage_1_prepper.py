@@ -10,6 +10,7 @@ from pylearn2.utils import serial
 import time
 import SkyNet
 import gc
+import numpy as N
 
 print 'Loading MNIST train set'
 t1 = time.time()
@@ -65,19 +66,22 @@ gc.collect()
 
 print 'Whitening expanded data'
 t1 = time.time()
-print "HACK"
-expanded_dim -= 1
 whitener = CovEigPCA(cov_batch_size = 50, num_components = expanded_dim, whiten=True)
 print g1.shape
 whitener.train(g1)
 t2 = time.time()
 print (t2-t1),' seconds'
 
-del g1
-
-
-
 
 serial.save(components+'/whitener.pkl',whitener)
 serial.save(components+'/num_examples.pkl',num_examples)
 serial.save(components+'/expanded_dim.pkl',expanded_dim)
+
+
+#checks
+out = whitener(pca_input)
+out_func = function([pca_input],out)
+g1 = out_func(N.cast['float32'](g1))
+
+mu = g1.mean(axis=0)
+print (mu.min(),mu.max())
