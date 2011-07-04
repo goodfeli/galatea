@@ -21,7 +21,7 @@ print (t2-t1),' seconds'
 
 num_examples, input_dim = X.shape
 
-fe = TanhFeatureExtractor.make_from_examples(X[0:72,:], -.99, .99)
+fe = TanhFeatureExtractor.make_from_examples(X[0:72,:], -.99, .99, directed = False)
 
 
 
@@ -59,16 +59,22 @@ gc.collect()
 print 'Whitening expanded data'
 t1 = time.time()
 whitener = CovEigPCA(cov_batch_size = 50, num_components = expanded_dim, whiten=True)
-print g1.shape
+print 'white components: '+str(expanded_dim)
+print 'expanded dataset shape: '+str(g1.shape)
 whitener.train(g1)
 t2 = time.time()
 print (t2-t1),' seconds'
+
+Z = whitener.get_weights()
 
 serial.save(components+'/whitener.pkl',whitener)
 serial.save(components+'/num_examples.pkl',num_examples)
 serial.save(components+'/expanded_dim.pkl',expanded_dim)
 
-print 'done, checking result'
+if Z.shape[0] != Z.shape[1]:
+    print "fuck! Z.shape = "+str(Z.shape)
+
+"""print 'done, checking result'
 
 #checks
 from theano import function
@@ -86,4 +92,4 @@ print g1[0:5,0:5]
 
 mu = g1.mean(axis=0)
 print (mu.min(),mu.max())
-
+"""

@@ -16,9 +16,9 @@ components = SkyNet.get_dir_path('components')
 whitener = serial.load(components+'/whitener.pkl')
 
 
-print 'Loading MNIST train set'
+print 'Loading train set'
 t1 = time.time()
-X = MNIST(which_set = 'train').get_design_matrix()
+X = serial.load(components+'/dataset.pkl').get_design_matrix()
 t2 = time.time()
 print (t2-t1),' seconds'
 
@@ -56,10 +56,12 @@ print (t2-t1),' seconds'
 P  = pca_model.get_weights()
 
 
-G = N.zeros((expanded_dim,expanded_dim))
 Z = whitener.get_weights()
+whitened_dim = Z.shape[1]
 
 G1 = N.zeros((batch_size,expanded_dim,input_dim))
+G3 = N.zeros((batch_size,whitened_dim,input_dim))
+G = N.zeros((whitened_dim,whitened_dim))
 
 assert chunk_size % batch_size == 0
 
@@ -74,16 +76,15 @@ for b in xrange(0,chunk_size, batch_size):
     #print 'Computing Jacobian of basis expansion composed with PCA'
     for i in xrange(batch_size):
         #print J.shape
-        print i,G1[i,:,:].shape, J[i,:,:].shape, P.shape
+        #print i,G1[i,:,:].shape, J[i,:,:].shape, P.shape
         G1[i,:,:] = N.dot(J[i,:,:],P.T)
     del J
 
     #print 'Computing final (post-whitening) Jacobian'
-    G3 = G1
 
     for i in xrange(batch_size):
         #verified that this is Z.T and not Z by running a test with one whitened component dropped
-        G3[i,:,:]  = N.dot(Z.T, G3[i,:,:])
+        G3[i,:,:]  = N.dot(Z.T, G1[i,:,:])
 
     #print 'Computing instability matrix'
     for i in xrange(batch_size):

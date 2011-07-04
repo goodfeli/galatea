@@ -20,13 +20,19 @@ class TanhFeatureExtractor:
 
 
     @classmethod
-    def make_from_examples(cls, X, low, high):
-        #for every directed pair of examples (i,j)
+    def make_from_examples(cls, X, low, high, directed = True):
+        #for every pair of examples (i,j)
         #make a feature that takes on the value low at i
         #and value high at j
+        #if directed, order of (i,j) matters, otherwise it does not
+
 
         m,n =  X.shape
-        h = m **2 - m
+
+        if directed:
+            h = m **2 - m
+        else:
+            h = m * (m-1)/2
         W = N.zeros((n,h))
         b = N.zeros(h)
         idx = 0
@@ -39,7 +45,12 @@ class TanhFeatureExtractor:
         inv_high = N.arctanh(high)
 
         for i in xrange(X.shape[0]):
-            for j in xrange(X.shape[1]):
+            if directed:
+                r = xrange(m)
+            else:
+                r = xrange(i+1,m)
+
+            for j in r:
                 if i == j:
                     continue
 
@@ -62,5 +73,8 @@ class TanhFeatureExtractor:
                 assert abs(jval-high) < 1e-6
 
                 idx += 1
+
+        assert idx == h
+
 
         return TanhFeatureExtractor(W,b)
