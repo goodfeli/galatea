@@ -20,7 +20,7 @@ class TanhFeatureExtractor:
 
 
     @classmethod
-    def make_from_examples(X, low, high):
+    def make_from_examples(cls, X, low, high):
         #for every directed pair of examples (i,j)
         #make a feature that takes on the value low at i
         #and value high at j
@@ -28,10 +28,15 @@ class TanhFeatureExtractor:
         m,n =  X.shape
         h = m **2 - m
         W = N.zeros((n,h))
+        b = N.zeros(h)
         idx = 0
 
-        inv_low = N.arctan(low)
-        inv_high = N.arctan(high)
+        inv_low = N.arctanh(low)
+        if N.abs(N.tanh(inv_low)-low) > 1e-6:
+            assert False
+        #
+
+        inv_high = N.arctanh(high)
 
         for i in xrange(X.shape[0]):
             for j in xrange(X.shape[1]):
@@ -46,11 +51,12 @@ class TanhFeatureExtractor:
                 wmag =  (inv_high - inv_low) / (pj - pi)
 
                 b[idx] = (pj*inv_low - pi*inv_high) / (pj - pi)
-                W[:,idx] = wmag * diff
+                W[:,idx] = wmag * direction
 
                 #check it
                 ival = N.tanh(N.dot(W[:,idx],X[i,:])+b[idx])
                 jval = N.tanh(N.dot(W[:,idx],X[j,:])+b[idx])
+
 
                 assert abs(ival-low) < 1e-6
                 assert abs(jval-high) < 1e-6

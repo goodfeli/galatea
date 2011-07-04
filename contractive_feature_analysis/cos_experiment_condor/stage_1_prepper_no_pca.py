@@ -21,7 +21,7 @@ print (t2-t1),' seconds'
 
 num_examples, input_dim = X.shape
 
-fe = TanhFeatureExtractor.make_from_examples(X, -.99, .99)
+fe = TanhFeatureExtractor.make_from_examples(X[0:72,:], -.99, .99)
 
 
 
