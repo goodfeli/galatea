@@ -21,7 +21,7 @@ whitener = serial.load(components+'/whitener.pkl')
 
 print 'Loading MNIST train set'
 t1 = time.time()
-X = MNIST(which_set = 'train').get_design_matrix()
+X = serial.load(components+'/dataset.pkl').get_design_matrix()
 t2 = time.time()
 print (t2-t1),' seconds'
 
