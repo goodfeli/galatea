@@ -3,13 +3,14 @@ exp_name = 'cfa'
 
 from pylearn2.datasets.mnist import MNIST
 import theano.tensor as T
-from theano import function
+from theano import config, function
 from models import expand
 import numpy as N
 from pylearn2.utils import serial
 import time
 import sys
 import SkyNet
+floatX = config.floatX
 
 job_name = sys.argv[1]
 idx = int(sys.argv[2])
@@ -21,7 +22,8 @@ whitener = serial.load(components+'/whitener.pkl')
 
 print 'Loading MNIST train set'
 t1 = time.time()
-X = MNIST(which_set = 'train').get_design_matrix()
+data = serial.load(components+'/dataset.pkl')
+X = N.cast[floatX](data.get_design_matrix())
 t2 = time.time()
 print (t2-t1),' seconds'
 
