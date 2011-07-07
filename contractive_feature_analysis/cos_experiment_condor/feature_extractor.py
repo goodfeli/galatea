@@ -10,7 +10,7 @@ class TanhFeatureExtractor:
 
     def redo_theano(self):
         X = T.matrix()
-        H = T.tanh(T.dot(X,self.W)+self.b)
+        H = self(X)
         self.extract = function([X],H)
 
         #number examples x number hiddens x number visibles
@@ -18,6 +18,9 @@ class TanhFeatureExtractor:
         self.jacobian_of_expand = function([X],J)
     #
 
+    def __call__(self, X):
+        return T.tanh(T.dot(X, self.W)+self.b)
+    #
 
     @classmethod
     def make_from_examples(cls, X, low, high, directed = True):

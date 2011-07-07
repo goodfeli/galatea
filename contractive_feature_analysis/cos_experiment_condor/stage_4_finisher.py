@@ -1,4 +1,4 @@
-job_name = 'cfa_olshausen'
+job_name = 'cfa_cos_tanh'
 
 from pylearn2.utils import serial
 import SkyNet
@@ -13,6 +13,7 @@ num_examples = serial.load(components+'/num_examples.pkl')
 chunk_size = serial.load(components+'/chunk_size.pkl')
 batch_size = serial.load(components+'/batch_size.pkl')
 expanded_dim = serial.load(components+'/expanded_dim.pkl')
+whitened_dim = serial.load(components+'/whitener.pkl').get_weights().shape[1]
 
 instability_matrices = SkyNet.get_dir_path('instability_matrices')
 components = SkyNet.get_dir_path('components')
@@ -20,7 +21,7 @@ components = SkyNet.get_dir_path('components')
 assert num_examples % chunk_size == 0
 num_chunks = num_examples / chunk_size
 
-G = N.zeros((expanded_dim, expanded_dim) )
+G = N.zeros((whitened_dim, whitened_dim) )
 
 print 'Summing up instability matrices'
 for b in xrange(0,num_examples,chunk_size):

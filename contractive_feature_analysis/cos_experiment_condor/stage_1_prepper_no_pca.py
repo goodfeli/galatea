@@ -9,11 +9,13 @@ import gc
 from pylearn2.datasets.cos_dataset import CosDataset
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from feature_extractor import TanhFeatureExtractor
+from theano import config
+floatX = config.floatX
 
 print 'making dataset'
 t1 = time.time()
 data = CosDataset()
-X = data.get_batch_design(50000)
+X = N.cast[floatX](data.get_batch_design(50000))
 data = DenseDesignMatrix(X)
 t2 = time.time()
 print (t2-t1),' seconds'
@@ -31,6 +33,7 @@ t1 = time.time()
 pca_model = CovEigPCA(num_components = pca_dim)
 pca_model.train(X)
 pca_model.W.set_value(N.cast['float32'](N.identity(X.shape[1])))
+assert pca_model.get_weights().shape[1] == pca_dim
 pca_model.mean.set_value(N.cast['float32'](N.zeros(X.shape[1])))
 t2 = time.time()
 print (t2-t1),' seconds'
@@ -71,25 +74,52 @@ serial.save(components+'/whitener.pkl',whitener)
 serial.save(components+'/num_examples.pkl',num_examples)
 serial.save(components+'/expanded_dim.pkl',expanded_dim)
 
-if Z.shape[0] != Z.shape[1]:
-    print "fuck! Z.shape = "+str(Z.shape)
 
-"""print 'done, checking result'
+print 'done, checking result'
 
 #checks
 from theano import function
 import theano.tensor as T
 pca_input = T.matrix()
+assert pca_input.dtype == floatX
 
 del whitener
 whitener = serial.load(components+'/whitener.pkl')
 
 out = whitener(pca_input)
+assert out.dtype == floatX
 out_func = function([pca_input],out)
-g1 = out_func(N.cast['float32'](g1))
+test = out_func((g1))
 
-print g1[0:5,0:5]
+#print g1[0:5,0:5]
 
+
+
+"""g1 -= whitener.mean.get_value()
+print 'after manual mean subtract, mean is'
 mu = g1.mean(axis=0)
-print (mu.min(),mu.max())
+print (mu.min(), mu.max())
+g1 = N.dot(g1,whitener.get_weights())
+print 'after manual whitening, mean is '
 """
+
+mu = test.mean(axis=0)
+print (mu.min(), mu.max())
+
+print 'standard deviation'
+std = test.std(axis=0)
+print (std.min(), std.max())
+
+whitener.W.set_value(whitener.W.get_value() / std )
+
+test = out_func(g1)
+
+
+mu = test.mean(axis=0)
+print (mu.min(), mu.max())
+
+print 'standard deviation'
+std = test.std(axis=0)
+print (std.min(), std.max())
+
+serial.save(components+'/whitener.pkl',whitener)

@@ -85,3 +85,5 @@ g1 = out_func(N.cast['float32'](g1))
 
 mu = g1.mean(axis=0)
 print (mu.min(),mu.max())
+std = g1.mean(axis=0)
+print (std.min(),std.max())
