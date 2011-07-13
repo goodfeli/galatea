@@ -4,6 +4,7 @@
     "model": !obj:pylearn2.models.normalized_ebm.NormalizedEBM {
                 "init_logZ" : 0.,
                 "learn_logZ" : 1,
+                "logZ_lr_scale" : .001,
                 "ebm": !obj:galatea.models.febm.FEBM {
                 "energy_function": !obj:galatea.energy_functions.scratch.recons_model_1 {
                         "nvis" : 2,

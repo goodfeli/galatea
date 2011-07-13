@@ -16,7 +16,7 @@
                         }
         },
     "algorithm": !obj:pylearn2.training_algorithms.sgd.SGD {
-               "learning_rate" : .02,
+               "learning_rate" : .002,
                "batch_size" : 5,
                "batches_per_iter" : 1000,
                "monitoring_batches" : 10,

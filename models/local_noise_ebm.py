@@ -171,6 +171,9 @@ class LocalNoiseEBM(object):
 
         return T.nnet.sigmoid(self.b + T.dot(V,self.W))
 
+    def free_energy(self, V):
+        return self.batch_free_energy(V)
+
     def batch_free_energy(self, V):
 
         if self.energy_function == 'gaussian-binary rbm':
@@ -279,7 +282,7 @@ class LocalNoiseEBM(object):
         #corrupted = corrupted * norm_ratio_shuffled
         #corrupted.name = 'postnorm_corrupted'
 
-
+        print "NOT USING NORM RESCALING"
 
         self.corruption_func = function([X],corrupted)
 

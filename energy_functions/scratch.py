@@ -59,6 +59,14 @@ class recons_model_1(EnergyFunction):
         #
     #
 
+    def get_weights_format(self):
+        return ['v','h']
+    #
+
+    def get_weights(self, borrow = False):
+        return self.W.get_value(borrow = borrow)
+    #
+
     def encode(self, X):
         X_name = 'X' if X.name is None else X.name
         H = T.nnet.sigmoid(T.dot(X, self.W) + self.bias_hid)

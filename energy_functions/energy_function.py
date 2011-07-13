@@ -11,7 +11,7 @@ class EnergyFunction(object):
 
         X_name = 'X' if X.name is None else X.name
 
-        E = self(X)
+        E = self.free_energy(X)
 
         #There should be one energy value for each example in the batch
         assert len(E.type.broadcastable) == 1

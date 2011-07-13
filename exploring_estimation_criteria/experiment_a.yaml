@@ -1,5 +1,4 @@
-#this learns a model with the right gradient direction everywhere, but totally wrong global structure
-
+#like snapshot 1, but with few hidden units, to see what happens less capacity
 !obj:pylearn2.scripts.train.Train {
     "dataset": !obj:pylearn2.datasets.cos_dataset.CosDataset {},
     "model": !obj:galatea.models.local_noise_ebm.LocalNoiseEBM {

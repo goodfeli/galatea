@@ -1,6 +1,6 @@
-from framework.utils import serial
-from framework.datasets import cifar10
-from framework.datasets import preprocessing
+from pylearn2.utils import serial
+from pylearn2.datasets import cifar10
+from pylearn2.datasets import preprocessing
 
 train = cifar10.CIFAR10(which_set="train")
 

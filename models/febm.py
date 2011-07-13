@@ -26,6 +26,14 @@ class FEBM:
         return self.energy_function.get_params()
     #
 
+    def get_weights(self):
+        return self.energy_function.get_weights()
+    #
+
+    def get_weights_format(self):
+        return self.energy_function.get_weights_format()
+    #
+
     def redo_theano(self):
         X = T.matrix()
 
