@@ -1,0 +1,24 @@
+
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !obj:pylearn2.datasets.cos_dataset.CosDataset {},
+    "model": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 2,
+               "nhid" : 5,
+               "init_bias_hid" : 0.0,
+               "irange"  : .05,
+               "init_B"  : 1.,
+               "init_alpha" : 1.,
+               "init_mu" : 1.,
+               "N_schedule" : [1., 2., 4., 8., 16., 32., 64., 128., 256., 400.],
+               "step_scale" : .01
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 3,
+               "batches_per_iter" : 1000,
+               "monitoring_batches" : 10,
+               "monitoring_dataset" : !obj:pylearn2.datasets.cos_dataset.CosDataset {},
+
+        },
+    "save_path": "s3c_first_attempt.pkl"
+}
+
