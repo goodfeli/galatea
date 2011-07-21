@@ -3,9 +3,10 @@ from theano import config, function, shared
 import theano.tensor as T
 import numpy as N
 floatX = config.floatX
-from theano_linalg.ops import alloc_diag, matrix_inverse
+from theano_linalg.ops import alloc_diag, extract_diag, matrix_inverse, pseudo_inverse
 from theano.printing import Print
-#config.compute_test_value = 'raise'
+from scipy.linalg import inv
+config.compute_test_value = 'raise'
 
 def sharedX(X):
     return shared(N.cast[floatX](X))
@@ -45,20 +46,20 @@ class S3C(Model):
         self.redo_theano()
     #
 
-    def init_mf_H(self):
+    def init_mf_H(self,V):
         assert type(self.N_schedule[-1]) == type(3.)
         assert self.N_schedule[-1] >= 1
-        #self.w = Print('w')(self.w)
         arg_to_log = 1.+(1./self.alpha) * self.N_schedule[-1] * self.w
-        #arg_to_log = Print('arg_to_log')(arg_to_log)
-        h = T.nnet.sigmoid(self.bias_hid - 0.5 * T.log(arg_to_log) )
-        H = h.dimshuffle('x',0)
+
+        kklhlh = 0.5 * T.sqr (self.alpha*self.mu+T.dot(V*self.B,self.W)) / (self.alpha + self.w)
+
+        H = T.nnet.sigmoid( kklhlh + self.bias_hid - 0.5 * T.log(arg_to_log) )
         return H
     #
 
-    def init_mf_Mu1(self):
-        mu1 = self.mu
-        Mu1 = mu1.dimshuffle('x',0)
+    def init_mf_Mu1(self, V):
+        Mu1 = (self.alpha*self.mu + T.dot(V*self.B,self.W))/(self.alpha+self.w)
+
         return Mu1
     #
 
@@ -79,67 +80,77 @@ class S3C(Model):
     #
 
     def mean_field_H(self, U, V, N):
-        weighty_factor = (self.B.dimshuffle(0,'x')*self.W).dimshuffle('x',1,0)
-        diff = V.dimshuffle(0,'x',1) - U
 
-        tensordot = (weighty_factor * diff).sum(axis=2)
+        BW = self.W * (self.B.dimshuffle(0,'x'))
 
-        C = T.sqr(tensordot)
+        filt = T.dot(V,BW)
 
-        A = (0.5 / (self.alpha + N * self.w)) * C
+        u_contrib = (U * BW.dimshuffle('x',1,0)).sum(axis=2)
 
-        Z = A + self.bias_hid - 0.5 * T.log(1.+N * self.w/self.alpha)
+        pre_sq = filt - u_contrib + self.alpha * self.mu
 
-        H = T.nnet.sigmoid(Z)
+        sq_term = T.sqr(pre_sq)
+
+        beta = self.alpha + N * self.w
+
+        log_term = T.log(1.0 + N * self.w / self.alpha )
+
+        H = T.nnet.sigmoid(self.b + 0.5 * sq_term / beta  - 0.5 * log_term )
 
         return H
     #
 
-    def mean_field_Mu1(self, U, V, H, N):
+    def mean_field_Mu1(self, U, V, N):
 
-        BW = self.B.dimshuffle(0,'x')*self.W
-        mlas = BW.dimshuffle('x',1,0) * H.dimshuffle(0,1,'x')
-        diff = V.dimshuffle(0,'x',1) - U
-        ioho = (mlas*diff).sum(axis=2)
+        beta = self.alpha + N * self.w
 
-        Mu1 = ioho / (self.alpha + N * self.w)
+        BW = self.W * self.B.dimshuffle(0,'x')
+
+        filt = T.dot(V,BW)
+
+        u_mod = - (U * BW.dimshuffle('x',1,0)).sum(axis=2)
+
+        Mu1 = (filt + u_mod + self.alpha * self.mu) / beta
 
         return Mu1
     #
 
 
-    def mean_field_Sigma1(self, H, N):
-        Sigma1 = 1./(self.alpha + N * self.w*H)
+    def mean_field_Sigma1(self, N):
+        Sigma1 = 1./(self.alpha + N * self.w)
         return Sigma1
     #
 
 
     def mean_field(self, V):
-        mu0 = self.mu
         sigma0 = 1. / self.alpha
+        mu0 = T.zeros_like(sigma0)
 
-        H   =    self.init_mf_H()
-        Mu1 =    self.init_mf_Mu1()
+        H   =    self.init_mf_H(V)
+        Mu1 =    self.init_mf_Mu1(V)
 
-        #H = Print('H')(H)
 
         for N in self.N_schedule:
             U   = self.mean_field_U  (H = H, Mu1 = Mu1, N = N)
             H   = self.mean_field_H  (U = U, V = V,     N = N)
-            #H = Print('H')(H)
-            Mu1 = self.mean_field_Mu1(U = U, V = V, H = H,     N = N)
+            Mu1 = self.mean_field_Mu1(U = U, V = V,     N = N)
 
-        Sigma1 = self.mean_field_Sigma1(H = H, N = self.N_schedule[-1])
+
+        Sigma1 = self.mean_field_Sigma1(N = self.N_schedule[-1])
 
         return H, mu0, Mu1, sigma0, Sigma1
     #
 
 
     def learn_params(self, X, H, mu0, Mu1, sigma0, Sigma1):
+
+
         #Solve multiple linear regression problem where
         # W is a matrix used to predict v from h*s
 
         mean_HS = H * Mu1
+
+
         outer = T.dot(mean_HS.T,mean_HS)
 
 
@@ -147,14 +158,29 @@ class S3C(Model):
 
         mask = T.identity_like(outer)
         masked_outer = (1-mask)*outer
-        eps = 1e-3
+
+        #extracted_diag = extract_diag(outer)
+
+        eps = 1e-6
+        #floored_diag = T.clip(extracted_diag, eps, 1e30)
+        #xtx = masked_outer + floored_diag
         xtx = (1-mask)*outer + alloc_diag(diag+eps)
 
-        #xtx = Print('xtx')(xtx)
+        xtx_inv =  matrix_inverse(xtx)
 
-        xtx_inv = matrix_inverse(xtx)
+        #print "WARNING: still not really the right thing, b/c of issue with diag."
 
         W = T.dot(xtx_inv,T.dot(mean_HS.T,X)).T
+
+        #W = T.dot(pseudo_inverse(mean_HS),X).T
+
+        #debugging hacks
+        self.H = mean_HS
+        self.Wres = W
+        self.X = X
+        residuals = T.dot(mean_HS, self.W.T) - X
+        self.mse = T.mean(T.sqr(residuals))
+        self.tsq = T.mean(T.sqr(X))
 
 
         # B is the precision of the residuals
@@ -233,6 +259,19 @@ class S3C(Model):
 
         self.censor_updates(learning_updates)
 
+        #debugging hack
+        self.mse_shared = sharedX(0)
+        learning_updates[self.mse_shared] = self.mse
+        self.tsq_shared = sharedX(0)
+        learning_updates[self.tsq_shared] = self.tsq
+        """self.H_shared = sharedX(N.zeros((1,1)))
+        self.Wres_shared = sharedX(N.zeros((1,1)))
+        self.X_shared = sharedX(N.zeros((1,1)))
+        learning_updates[self.H_shared] = self.H
+        learning_updates[self.Wres_shared] = self.Wres
+        learning_updates[self.X_shared] = self.X
+        """
+
         return function([X], updates = learning_updates)
     #
 
@@ -249,6 +288,7 @@ class S3C(Model):
 
 
     def redo_theano(self):
+        init_names = dir(self)
 
         self.w = T.dot(self.B, T.sqr(self.W))
 
@@ -256,6 +296,10 @@ class S3C(Model):
         X.tag.test_value = N.cast[floatX](self.rng.randn(5,self.nvis))
 
         self.learn_func = self.make_learn_func(X)
+
+        final_names = dir(self)
+
+        self.register_names_to_del([name for name in final_names if name not in init_names])
     #
 
     def learn(self, dataset, batch_size):
@@ -263,7 +307,41 @@ class S3C(Model):
     #
 
     def learn_mini_batch(self, X):
+        #print "batch mean removal hack"
+        #X -= X.mean(axis=0)
+
+        print 'mean mag of mean feature value '
+        print N.abs(X.mean(axis=0)).mean()
+
+
         self.learn_func(X)
+
+        #debugging hack
+        print 'mse: ',self.mse_shared.get_value()
+        print 'tsq: ',self.tsq_shared.get_value()
+
+        """W, H, X = self.Wres_shared.get_value(borrow=True), self.H_shared.get_value(borrow=True), self.X_shared.get_value(borrow=True)
+
+        print 'diff W'
+        print N.abs(W-
+                    N.dot(inv(H),
+                        N.dot(H.T,X)
+                        ).T
+                   ).max()
+        print 'diff from ident'
+        print N.abs(N.identity(H.shape[0])-N.dot(inv(N.dot(H.T,H)),N.dot(H.T,H))).max()
+
+        print 'resid'
+        print N.abs(X - N.dot(H, W.T) ).max()
+        print 'proj resid'
+        print N.abs(N.dot(H.T,N.dot(H,W.T))-N.dot(H.T,X)).max()
+        """
+
+        #assert False
+    #
+
+    def get_weights_format(self):
+        return ['v','h']
     #
 #
 
