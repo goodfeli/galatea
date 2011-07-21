@@ -34,6 +34,18 @@ estimation algorithms
 
 		nce: implemented and reasonably confident it works, could use
 		some more testing.
+			I was trying to do NCE of Coates/Lee preprocessed
+			CIFAR patches against a full covariance gaussian
+			distribution. This doesn't seem to work at all.
+			The experiments in the NCE paper preprocessed by
+			subtracting the mean and dividing by the variance,
+			and using a uniform distribution on the unit sphere
+			for the noise.
+
+		ratio matching: have not implemented.
+				probably want to consider a version based on
+				the Bregman divergence paper that samples
+				which bits to flip
 
 	adding consistent estimators:
 		try for example score matching + noise contrastive.
@@ -64,6 +76,20 @@ Turn PSD into an EBM and sample from it
 PMIL
 	Rejected from UAI.
 	Redo with flashier experiments, such as running it on video.
+	New competition: look at Hugo's UAI 2011 paper on discriminative RBMs.
+	Part of it is about MIL with dRBMs.
+Making hidden units do more work
+	Aaron has an idea for showing that Canonical Ridge Analysis
+	gives rise to Partial Least Squares at one end of a spectrum
+	and Canonical Correlation Analysis at another. The idea is that
+	CRA does more generative modeling work with the covariance matrices
+	on the visible units, and PLS does more modeling work with the
+	hidden units.
+	Aaron told me about this b/c I said I was interested in regularizers
+	that make RBM's do more of the modeling work with the hidden units
+	(i.e., make a GRBM or ssRBM try not to rely too much on the visible
+	unit variance parameter)
+
 
 Dead ends:
 	Reconstruction SRBM:
