@@ -95,7 +95,7 @@ class S3C(Model):
 
         log_term = T.log(1.0 + N * self.w / self.alpha )
 
-        H = T.nnet.sigmoid(self.b + 0.5 * sq_term / beta  - 0.5 * log_term )
+        H = T.nnet.sigmoid(self.bias_hid + 0.5 * sq_term / beta  - 0.5 * log_term )
 
         return H
     #
