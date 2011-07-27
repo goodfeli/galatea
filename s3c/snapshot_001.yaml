@@ -22,6 +22,6 @@
                "monitoring_batches" : 1,
                "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
         },
-    "save_path": "attempt_002.pkl"
+    "save_path": "snapshot_001.pkl"
 }
 
