@@ -1,17 +1,38 @@
-analysis of GRBM
+I. analysis of GRBM
 	present at CIFAR if possible
 	try to prove that >2 collinear equiprobable modes are impossible
-auxiliary variable ss sparse coding
-	1. Understand Aaron's lyx file
-	2. Code it up
+
+II. auxiliary variable ss sparse coding
 	present at CIFAR
 		RBM prior says features should be correlated based on weight directions -> bad
 		Coates' work implies there should be an emphasis on encoding
-estimation algorithms
-	KL theory
+	
+	-convert to Aaron's new E-step with N^2 variables
+	-convert to gradient descent, resolve issue of log(0)
+
+
+	side-direction: doing M-step with aux variables thrown out improves
+		lower bound on likelihood more than doing M-step with them
+		in--- this claim always holds for discrete aux variables,
+		sometimes holds for continuous aux variables.
+		if we can prove this M-step combined with the aux variable E
+		step make a convergent EM learning algorithm, this could be a
+		cool algorithm to propose for other models (ie, could make an
+		aux variable binary sparse coding model)
+
+
+III. estimation algorithms
+	1. KL theory
 		on binary data
 			checkpoint = my e-mail w/subject "Binary KL guides features, not pmfs!"
 			see how much any of this generalizes
+			another idea: with multilayer models, deep
+			reconstruction (like my first project with Andrew)
+			might be a particularly bad idea b/c it
+			under-constrains the pdf, ie, going to deep models
+			might be an easy way to find a class where there is so
+			much capacity that KL only chooses parameters, not
+			pmfs
 		on continous data
 			still possible we might be able to derive KL from
 			score matching on continuous inputs
