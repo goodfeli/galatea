@@ -8,7 +8,7 @@
                "irange"  : .5,
                "init_B"  : 3.,
                "min_B"   : 3.,
-               "max_B"   : 1000.,
+               "max_B"   : 3.,
                "init_alpha" : 1.,
                "min_alpha" : 1.,
                "max_alpha" : 1000.,
@@ -22,6 +22,6 @@
                "monitoring_batches" : 1,
                "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
         },
-    "save_path": "s3c_first_attempt.pkl"
+    "save_path": "attempt_002.pkl"
 }
 

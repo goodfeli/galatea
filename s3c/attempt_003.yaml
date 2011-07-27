@@ -3,25 +3,30 @@
     "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 192,
-               "nhid" : 300,
-               "init_bias_hid" : -1.5,
+               "nhid" : 4000,
+               "init_bias_hid" : -4,
+               "min_bias_hid" : -4,
+               "max_bias_hid" : -4,
                "irange"  : .5,
                "init_B"  : 3.,
                "min_B"   : 3.,
-               "max_B"   : 1000.,
+               "max_B"   : 10.,
+               "W_eps"   : 1e-8,
                "init_alpha" : 1.,
                "min_alpha" : 1.,
                "max_alpha" : 1000.,
                "init_mu" : 5.,
                "N_schedule" : [1.,2.,4.,8.,16.,32.,64.,128.,256.,300.],
-               "step_scale" : .01
+               "step_scale" : 1e-3,
+               "step_space" : "suff_stat",
+               "learn_after" : 10000
         },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
-               "batch_size" : 600,
-               "batches_per_iter" : 5,
+               "batch_size" : 5,
+               "batches_per_iter" : 1000,
                "monitoring_batches" : 1,
                "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
         },
-    "save_path": "s3c_first_attempt.pkl"
+    "save_path": "attempt_003.pkl"
 }
 
