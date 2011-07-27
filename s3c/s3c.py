@@ -5,7 +5,6 @@ import numpy as N
 floatX = config.floatX
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 from theano.printing import Print
-from scipy.linalg import inv
 #config.compute_test_value = 'raise'
 
 def sharedX(X, name):
@@ -141,8 +140,6 @@ class SufficientStatistics:
         return SufficientStatistics(rval_d)
 
 
-
-
 class S3C(Model):
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
@@ -232,7 +229,6 @@ class S3C(Model):
 
 
     def learn_from_stats(self, stats):
-        assert self.stat_space_step
 
         #Solve multiple linear regression problem where
         # W is a matrix used to predict v from h*s
@@ -240,14 +236,18 @@ class S3C(Model):
 
         #cov_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
         cov_hs = stats.d['cov_hs']
+        assert cov_hs.dtype == floatX
         #mean_hsv[i,j] = E_D,Q h_i s_i v_j
         mean_hsv = stats.d['mean_hsv']
 
         regularized = cov_hs + alloc_diag(T.ones_like(self.mu) * self.W_eps)
+        assert regularized.dtype == floatX
 
         inv = matrix_inverse(regularized)
+        assert inv.dtype == floatX
 
         W = T.dot(inv,mean_hsv).T
+        assert W.dtype == floatX
 
         # B is the precision of the residuals
         # variance of residuals:
@@ -336,8 +336,6 @@ class S3C(Model):
 
         return W, bias_hid, alpha, mu, B
     #
-
-
 
     def init_mf_H(self,V):
         assert type(self.N_schedule[-1]) == type(3.)
@@ -434,142 +432,6 @@ class S3C(Model):
         return H, mu0, Mu1, sigma0, Sigma1
     #
 
-
-    def learn_from_batch_obs(self, X, H, mu0, Mu1, sigma0, Sigma1):
-        #assert not self.stat_space_step
-
-        m = T.cast(X.shape[0],floatX)
-
-        assert X.dtype == floatX
-
-        #Solve multiple linear regression problem where
-        # W is a matrix used to predict v from h*s
-
-        mean_HS = H * Mu1
-        mean_sq_HS = H * (Sigma1+T.sqr(Mu1))
-        mean_mean_sq_HS = mean_sq_HS.mean(axis=0)
-        sum_mean_sq_HS = mean_mean_sq_HS * T.cast(H.shape[0],dtype=floatX)
-
-        outer = T.dot(mean_HS.T,mean_HS)
-
-
-        diag = sum_mean_sq_HS
-        assert diag.dtype == floatX
-
-        mask = T.identity_like(outer)
-        masked_outer = (N.cast[floatX](1)-mask)*outer
-        assert masked_outer.dtype == floatX
-
-        #extracted_diag = extract_diag(outer)
-
-        eps = self.W_eps
-        #floored_diag = T.clip(extracted_diag, eps, 1e30)
-        #xtx = masked_outer + floored_diag
-        final_diag = diag + eps
-        assert final_diag.dtype == floatX
-        diag_mat = alloc_diag(final_diag)
-        assert diag_mat.dtype == floatX
-        xtx = masked_outer + diag_mat
-
-        assert xtx.dtype == floatX
-        xtx = xtx / m
-
-        xtx_inv =  matrix_inverse(xtx)
-        assert xtx_inv.dtype == floatX
-
-        #print "WARNING: still not really the right thing, b/c of issue with diag."
-
-        W = T.dot(xtx_inv,T.dot(mean_HS.T,X/m)).T
-        assert W.dtype == floatX
-
-        #W = T.dot(pseudo_inverse(mean_HS),X).T
-
-        #debugging hacks
-        self.H = mean_HS
-        self.Wres = W
-        self.X = X
-        residuals = T.dot(mean_HS, self.W.T) - X
-        self.mse = T.mean(T.sqr(residuals))
-        self.tsq = T.mean(T.sqr(X))
-
-
-        # B is the precision of the residuals
-        # variance of residuals:
-        # var( [W hs - t]_i ) =
-        # var( W_i hs ) + var( t_i ) + 2 ( mean( W_i hs ) mean(t_i) - mean( W_i hs t_i ) )
-        # = var_recons + var_target + 2 ( mean_recons * mean_target - mean_recons_target )
-
-
-        mean_target = T.mean(X,axis=0)
-        assert mean_target.dtype == floatX
-        mean_sq_target = T.mean(T.sqr(X),axis=0)
-        var_target = mean_sq_target - T.sqr(mean_target)
-        assert var_target.dtype == floatX
-
-        mean_mean_HS = T.mean(mean_HS, axis=0)
-        assert mean_mean_HS.dtype == floatX
-        mean_recons = T.dot(W, mean_mean_HS)
-        assert mean_recons.dtype == floatX
-
-        W_sq = T.sqr(W)
-        term1 = T.dot(W_sq, mean_mean_sq_HS)
-        term2 = T.mean(T.sqr(T.dot(mean_HS,W.T)),axis=0)
-        term3 = T.dot(W_sq,T.mean(T.sqr(mean_HS),axis=0))
-        mean_sq_recons = term1 + term2 - term3
-        assert mean_sq_recons.dtype == floatX
-
-        #memory hog:
-        #mean_sq_recons = T.dot(T.sqr(W), diag) + (W.dimshuffle(0,1,'x')*W.dimshuffle(0,'x',1)*masked_outer.dimshuffle('x',0,1)).sum(axis=(1,2))
-
-        var_recons = mean_sq_recons - T.sqr(mean_recons)
-        assert var_recons.dtype == floatX
-
-        mean_recons_target = T.mean(X * T.dot(mean_HS,W.T), axis = 0)
-        assert mean_recons_target.dtype == floatX
-
-
-
-        var_residuals = var_recons + var_target + N.cast[floatX](2.) * ( mean_recons * mean_target - mean_recons_target)
-
-        assert var_residuals.dtype == floatX
-
-        B = 1. / var_residuals
-
-
-        # Now a linear regression problem where mu_i is used to predict
-        # s_i from h_i
-
-        # mu_i = ( h^T h + reg)^-1 h^T s_i
-
-        q = T.mean(H,axis=0)
-        reg = self.mu_eps
-        mu = T.mean(mean_HS,axis=0)/(q+reg)
-        #mu = T.mean(Mu1,axis=0)
-
-        var_mu_h = T.sqr(mu) * (q*(1.-q))
-        var_s = T.mean( H * (Sigma1+T.sqr(Mu1)) + (1-H)*(sigma0+T.sqr(sigma0)) , axis=0)
-
-
-        mean_mu_h = mu * q
-        mean_s = T.mean(H*Mu1+(1.-H)*mu0,axis=0)
-        mean_mu_h_s = mu * T.mean(mean_HS,axis=0)
-
-        var_s_resid = var_mu_h + var_s + 2. * (mean_mu_h * mean_s - mean_mu_h_s)
-
-        alpha = 1. / var_s_resid
-
-
-        #probability of hiddens just comes from sample counting
-        #to put it back in bias_hid space apply sigmoid inverse
-        p = T.mean(H,axis=0)
-
-        p = T.clip(p,1e-8,1.-1e-8)
-
-        bias_hid = T.log( - p / (p-1.) )
-
-        return W, bias_hid, alpha, mu, B
-    #
-
     def make_learn_func(self, X, learn = None):
         """
         X: a symbolic design matrix
@@ -584,13 +446,13 @@ class S3C(Model):
 
 
         m = T.cast(X.shape[0],dtype = floatX)
+        new_stats = SufficientStatistics.from_observations(X, H, mu0, Mu1, sigma0, Sigma1)
 
         if self.stat_space_step:
             ######## Exponential decay in sufficient statistic space
             assert learn is not None
 
             old_stats = SufficientStatistics.from_holder(self.suff_stat_holder)
-            new_stats = SufficientStatistics.from_observations(X, H, mu0, Mu1, sigma0, Sigma1)
 
             if learn:
                 updated_stats = old_stats.decay(1.0-self.step_scale)
@@ -619,11 +481,15 @@ class S3C(Model):
             assert learn is None
 
             #M step
-            W, bias_hid, alpha, mu, B = self.learn_from_batch_obs(X, H, mu0, Mu1, sigma0, Sigma1)
+            W, bias_hid, alpha, mu, B = self.learn_from_stats(new_stats)
 
             #parameter updates-- don't do a full M step since we're using minibatches
             def step(old, new):
-                return self.step_scale * new + (1.-self.step_scale) * old
+                assert old.dtype == floatX
+                assert new.dtype == floatX
+                rval =  self.step_scale * new + (N.cast[floatX](1.)-self.step_scale) * old
+                assert rval.dtype == floatX
+                return rval
 
             learning_updates = {
                     self.W: step(self.W, W),
@@ -738,53 +604,7 @@ class S3C(Model):
     #
 
 
-    def run_test(self, X):
-
-        V = T.matrix()
-
-        H, mu0, Mu1, sigma0, Sigma1 = self.mean_field(X)
-
-        stats = SufficientStatistics.from_observations( V, H, mu0, Mu1, sigma0, Sigma1)
-
-        batch_func = function([V], self.learn_from_batch_obs( V, H, mu0, Mu1, sigma0, Sigma1))
-        stats_func = function([V], self.learn_from_stats(stats))
-
-        batch_results = batch_func(X)
-        stats_results = stats_func(X)
-
-
-        assert len(batch_results) == len(stats_results)
-
-
-        temp = batch_results[2]
-        batch_results[2] = batch_results[3]
-        batch_results[3] = batch_results[2]
-
-        temp = stats_results[2]
-        stats_results[2] = stats_results[3]
-        stats_results[3] = stats_results[2]
-
-
-        for i in xrange(len(batch_results)):
-            if not N.allclose(batch_results[i],stats_results[i]):
-                if i == 0 and N.abs(batch_results[i] - stats_results[i]).max() < 1e-4:
-                    continue
-
-                print 'parameter ',i,'does not match'
-                print 'max diff: ',N.abs(batch_results[i]-stats_results[i]).max()
-                assert False
-
-        print "test passed"
-
-
-
-
-
     def learn_mini_batch(self, X):
-
-
-        #self.run_test(X)
-
 
         if self.stat_space_step:
             if self.monitor.examples_seen >= self.learn_after:
