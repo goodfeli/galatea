@@ -13,16 +13,17 @@ def sharedX(X, name):
 class SufficientStatisticsHolder:
     def __init__(self, nvis, nhid):
         self.d = {
-                    "mean_h" :      sharedX(N.zeros(nhid), "mean_h" ),
-                    "mean_v" :      sharedX(N.zeros(nvis), "mean_v" ),
-                    "mean_sq_v" :   sharedX(N.zeros(nvis), "mean_sq_v" ),
-                    "mean_s1"   :   sharedX(N.zeros(nhid), "mean_s1"),
-                    "mean_s"    :   sharedX(N.zeros(nhid), "mean_s" ),
-                    "mean_sq_s" :   sharedX(N.zeros(nhid), "mean_sq_s" ),
-                    "mean_hs" :     sharedX(N.zeros(nhid), "mean_hs" ),
-                    "mean_sq_hs" :  sharedX(N.zeros(nhid), "mean_sq_hs" ),
-                    "cov_hs" :      sharedX(N.zeros((nhid,nhid)), 'cov_hs'),
-                    "mean_hsv" :    sharedX(N.zeros((nhid,nvis)), 'mean_hsv')
+                    "mean_h"                :   sharedX(N.zeros(nhid), "mean_h" ),
+                    "mean_v"                :   sharedX(N.zeros(nvis), "mean_v" ),
+                    "mean_sq_v"             :   sharedX(N.zeros(nvis), "mean_sq_v" ),
+                    "mean_s1"               :   sharedX(N.zeros(nhid), "mean_s1"),
+                    "mean_s"                :   sharedX(N.zeros(nhid), "mean_s" ),
+                    "mean_sq_s"             :   sharedX(N.zeros(nhid), "mean_sq_s" ),
+                    "mean_hs"               :   sharedX(N.zeros(nhid), "mean_hs" ),
+                    "mean_sq_hs"            :   sharedX(N.zeros(nhid), "mean_sq_hs" ),
+                    "mean_D_sq_mean_Q_hs"   :   sharedX(N.zeros(nhid), "mean_D_sq_mean_Q_hs"),
+                    "cov_hs"                :   sharedX(N.zeros((nhid,nhid)), 'cov_hs'),
+                    "mean_hsv"              :   sharedX(N.zeros((nhid,nvis)), 'mean_hsv')
                 }
 
     def update(self, updates, updated_stats):
@@ -78,6 +79,7 @@ class SufficientStatistics:
         #mean_hs
         mean_HS = H * Mu1
         mean_hs = T.mean(mean_HS,axis=0)
+        mean_D_sq_mean_Q_hs = T.mean(T.sqr(mean_HS), axis=0)
 
         #mean_sq_hs
         mean_sq_HS = H * (Sigma1 + T.sqr(Mu1))
@@ -94,16 +96,17 @@ class SufficientStatistics:
 
 
         d = {
-                    "mean_h"        :   mean_h,
-                    "mean_v"        :   mean_v,
-                    "mean_sq_v"     :   mean_sq_v,
-                    "mean_s"        :   mean_s,
-                    "mean_s1"       :   mean_s1,
-                    "mean_sq_s"     :   mean_sq_s,
-                    "mean_hs"       :   mean_hs,
-                    "mean_sq_hs"    :   mean_sq_hs,
-                    "cov_hs"        :   cov_hs,
-                    "mean_hsv"      :   mean_hsv
+                    "mean_h"                :   mean_h,
+                    "mean_v"                :   mean_v,
+                    "mean_sq_v"             :   mean_sq_v,
+                    "mean_s"                :   mean_s,
+                    "mean_s1"               :   mean_s1,
+                    "mean_sq_s"             :   mean_sq_s,
+                    "mean_hs"               :   mean_hs,
+                    "mean_sq_hs"            :   mean_sq_hs,
+                    "mean_D_sq_mean_Q_hs"   :   mean_D_sq_mean_Q_hs,
+                    "cov_hs"                :   cov_hs,
+                    "mean_hsv"              :   mean_hsv
                 }
 
         for key in d:
@@ -123,19 +126,19 @@ class SufficientStatistics:
 
         return SufficientStatistics(rval_d)
 
-    def accum(self, coeff, stats):
+    def accum(self, new_stat_coeff, new_stats):
 
-        if hasattr(coeff,'dtype'):
-            assert coeff.dtype == floatX
+        if hasattr(new_stat_coeff,'dtype'):
+            assert new_stat_coeff.dtype == floatX
         else:
-            assert isinstance(coeff,float)
-            coeff = N.cast[floatX](coeff)
+            assert isinstance(new_stat_coeff,float)
+            new_stat_coeff = N.cast[floatX](new_stat_coeff)
 
         rval_d = {}
 
         for key in self.d:
-            rval_d[key] = self.d[key] + coeff * stats.d[key]
-            rval_d[key].name = 'blend_'+self.d[key].name+'_'+stats.d[key].name
+            rval_d[key] = self.d[key] + new_stat_coeff * new_stats.d[key]
+            rval_d[key].name = 'blend_'+self.d[key].name+'_'+new_stats.d[key].name
 
         return SufficientStatistics(rval_d)
 
@@ -144,8 +147,9 @@ class S3C(Model):
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
                        init_alpha, min_alpha, max_alpha, init_mu, N_schedule,
-                       step_space,
-                       step_scale, W_eps = 1e-6, mu_eps = 1e-8,
+                       new_stat_coeff,
+                       m_step,
+                       W_eps = 1e-6, mu_eps = 1e-8,
                         min_bias_hid = -1e30, max_bias_hid = 1e30,
                        learn_after = None):
         """"
@@ -160,16 +164,12 @@ class S3C(Model):
         init_mu: initial value of mu (scalar or vector)
         N_schedule: list of values to use for N throughout mean field updates.
                     len(N_schedule) determines # mean field steps
-        step_scale: Exponential decay steps on a variable eta take the form
-                        eta:=  step_scale * new_observation + (1-step_scale) * eta
-        step_space: Possible values:
-                    "suff_stat" : exponentially decay sufficient statistics,
-                                  jump to new parameter solution on each batch
-                    "params" : recompute sufficient statistics on each batch,
-                                 exponentially decay parameters
+        new_stat_coeff: Exponential decay steps on a variable eta take the form
+                        eta:=  new_stat_coeff * new_observation + (1-new_stat_coeff) * eta
+        m_step:      An M_Step object that determines what kind of M-step to do
         W_eps:       L2 regularization parameter for linear regression problem for W
         mu_eps:      L2 regularization parameter for linear regression problem for b
-        learn_after: only applicable for step_space = 'suff_stat'
+        learn_after: only applicable when new_stat_coeff < 1.0
                         begins learning parameters and decaying sufficient statistics
                         after seeing learn_after examples
                         until this time, only accumulates sufficient statistics
@@ -190,21 +190,18 @@ class S3C(Model):
         self.min_B = min_B
         self.max_B = max_B
         self.N_schedule = N_schedule
-        self.step_scale = N.cast[floatX](float(step_scale))
+        self.m_step = m_step
         self.init_mu = init_mu
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
 
-        assert step_space in ['suff_stat', 'params']
-        if step_space == 'suff_stat':
+        self.new_stat_coeff = new_stat_coeff
+        if self.new_stat_coeff < 1.0:
             assert learn_after is not None
-            self.stat_space_step = True
         else:
-            self.stat_space_step = False
             assert learn_after is None
         #
 
-        self.step_space = step_space
         self.learn_after = learn_after
 
         self.reset_rng()
@@ -222,10 +219,18 @@ class S3C(Model):
         self.mu = sharedX(N.zeros(self.nhid)+self.init_mu, name='mu')
         self.B = sharedX(N.zeros(self.nvis)+self.init_B, name='B')
 
-        self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid)
+        if self.new_stat_coeff < 1.0:
+            self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid)
 
         self.redo_theano()
     #
+
+
+    def get_monitoring_channels(self, V):
+        return self.m_step.get_monitoring_channels(V, self)
+
+    def get_params(self):
+        return [self.W, self.bias_hid, self.alpha, self.mu, self.B ]
 
 
     def learn_from_stats(self, stats):
@@ -242,6 +247,7 @@ class S3C(Model):
 
         regularized = cov_hs + alloc_diag(T.ones_like(self.mu) * self.W_eps)
         assert regularized.dtype == floatX
+
 
         inv = matrix_inverse(regularized)
         assert inv.dtype == floatX
@@ -337,14 +343,18 @@ class S3C(Model):
         return W, bias_hid, alpha, mu, B
     #
 
+    def h_coeff(self):
+        """ Returns the coefficient on h in the energy function """
+        return - self.bias_hid  + 0.5 * T.sqr(self.mu) * self.alpha
+
     def init_mf_H(self,V):
-        assert type(self.N_schedule[-1]) == type(3.)
-        assert self.N_schedule[-1] >= 1
-        arg_to_log = 1.+(1./self.alpha) * self.N_schedule[-1] * self.w
+        NH = N.cast[floatX] ( self.nhid)
+        arg_to_log = 1.+(1./self.alpha) * NH * self.w
 
         kklhlh = 0.5 * T.sqr (self.alpha*self.mu+T.dot(V*self.B,self.W)) / (self.alpha + self.w)
 
-        H = T.nnet.sigmoid( kklhlh + self.bias_hid - 0.5 * T.log(arg_to_log) )
+        H = T.nnet.sigmoid( kklhlh - self.h_coeff() - 0.5 * T.log(arg_to_log) )
+
         return H
     #
 
@@ -354,7 +364,7 @@ class S3C(Model):
         return Mu1
     #
 
-    def mean_field_U(self, H, Mu1, N):
+    def mean_field_U(self, H, Mu1, NH):
         prod = Mu1 * H
 
         first_term = T.dot(prod, self.W.T)
@@ -363,14 +373,14 @@ class S3C(Model):
         W_broadcast = self.W.dimshuffle('x',1,0)
         prod_broadcast = prod.dimshuffle(0,1,'x')
 
-        second_term = N * W_broadcast * prod_broadcast
+        second_term = NH * W_broadcast * prod_broadcast
 
         U = first_term_broadcast - second_term
 
         return U
     #
 
-    def mean_field_H(self, U, V, N):
+    def mean_field_H(self, U, V, NH):
 
         BW = self.W * (self.B.dimshuffle(0,'x'))
 
@@ -382,18 +392,18 @@ class S3C(Model):
 
         sq_term = T.sqr(pre_sq)
 
-        beta = self.alpha + N * self.w
+        beta = self.alpha + NH * self.w
 
-        log_term = T.log(1.0 + N * self.w / self.alpha )
+        log_term = T.log(1.0 + NH * self.w / self.alpha )
 
-        H = T.nnet.sigmoid(self.bias_hid + 0.5 * sq_term / beta  - 0.5 * log_term )
+        H = T.nnet.sigmoid(-self.h_coeff() + 0.5 * sq_term / beta  - 0.5 * log_term )
 
         return H
     #
 
-    def mean_field_Mu1(self, U, V, N):
+    def mean_field_Mu1(self, U, V, NH):
 
-        beta = self.alpha + N * self.w
+        beta = self.alpha + NH * self.w
 
         BW = self.W * self.B.dimshuffle(0,'x')
 
@@ -407,8 +417,8 @@ class S3C(Model):
     #
 
 
-    def mean_field_Sigma1(self, N):
-        Sigma1 = 1./(self.alpha + N * self.w)
+    def mean_field_Sigma1(self, NH):
+        Sigma1 = 1./(self.alpha + NH * self.w)
         return Sigma1
     #
 
@@ -421,13 +431,13 @@ class S3C(Model):
         Mu1 =    self.init_mf_Mu1(V)
 
 
-        for N in self.N_schedule:
-            U   = self.mean_field_U  (H = H, Mu1 = Mu1, N = N)
-            H   = self.mean_field_H  (U = U, V = V,     N = N)
-            Mu1 = self.mean_field_Mu1(U = U, V = V,     N = N)
+        for NH in self.N_schedule:
+            U   = self.mean_field_U  (H = H, Mu1 = Mu1, NH = NH)
+            H   = self.mean_field_H  (U = U, V = V,     NH = NH)
+            Mu1 = self.mean_field_Mu1(U = U, V = V,     NH = NH)
 
 
-        Sigma1 = self.mean_field_Sigma1(N = self.N_schedule[-1])
+        Sigma1 = self.mean_field_Sigma1(NH = N.cast[floatX](self.nhid))
 
         return H, mu0, Mu1, sigma0, Sigma1
     #
@@ -436,7 +446,7 @@ class S3C(Model):
         """
         X: a symbolic design matrix
         learn:
-            must be None unless taking steps in sufficient statistics space
+            must be None unless using sufficient statistics decay
             False: accumulate sufficient statistics
             True: exponentially decay sufficient statistics, accumulate new ones, and learn new params
         """
@@ -444,68 +454,37 @@ class S3C(Model):
         #E step
         H, mu0, Mu1, sigma0, Sigma1 = self.mean_field(X)
 
-
         m = T.cast(X.shape[0],dtype = floatX)
         new_stats = SufficientStatistics.from_observations(X, H, mu0, Mu1, sigma0, Sigma1)
 
-        if self.stat_space_step:
-            ######## Exponential decay in sufficient statistic space
-            assert learn is not None
+
+        if self.new_stat_coeff == 1.0:
+            assert learn is None
+            updated_stats = new_stats
+            do_learn_updates = True
+            do_stats_updates = False
+        else:
+            do_stats_updates = True
+            do_learn_updates = learn
 
             old_stats = SufficientStatistics.from_holder(self.suff_stat_holder)
 
             if learn:
-                updated_stats = old_stats.decay(1.0-self.step_scale)
-                updated_stats = updated_stats.accum(coeff = self.step_scale, stats = new_stats)
-
-                #M step
-                W, bias_hid, alpha, mu, B = self.learn_from_stats( updated_stats )
-
-                learning_updates = {
-                  self.W: W,
-                  self.bias_hid: bias_hid,
-                  self.alpha: alpha,
-                  self.mu: mu,
-                  self.B : B
-                }
+                updated_stats = old_stats.decay(1.0-self.new_stat_coeff)
+                updated_stats = updated_stats.accum(new_stat_coeff = self.new_stat_coeff, new_stats = new_stats)
             else:
-                updated_stats = old_stats.accum(coeff = m / self.learn_after, stats = new_stats)
-
-                learning_updates = {}
+                updated_stats = old_stats.accum(new_stat_coeff = m / self.learn_after, new_stats = new_stats)
             #
 
+        if do_learn_updates:
+            learning_updates = self.m_step.get_updates(self, updated_stats)
+        else:
+            learning_updates = {}
+
+        if do_stats_updates:
             self.suff_stat_holder.update(learning_updates, updated_stats)
 
-        else:
-            #######  Exponential decay in parameter space
-            assert learn is None
-
-            #M step
-            W, bias_hid, alpha, mu, B = self.learn_from_stats(new_stats)
-
-            #parameter updates-- don't do a full M step since we're using minibatches
-            def step(old, new):
-                assert old.dtype == floatX
-                assert new.dtype == floatX
-                rval =  self.step_scale * new + (N.cast[floatX](1.)-self.step_scale) * old
-                assert rval.dtype == floatX
-                return rval
-
-            learning_updates = {
-                    self.W: step(self.W, W),
-                    self.bias_hid: step(self.bias_hid,bias_hid),
-                    self.alpha: step(self.alpha, alpha),
-                    self.mu: step(self.mu, mu),
-                    self.B: step(self.B, B)
-                    }
-
         self.censor_updates(learning_updates)
-
-        #debugging hack
-        #self.mse_shared = sharedX(0,'mse')
-        #learning_updates[self.mse_shared] = self.mse
-        #self.tsq_shared = sharedX(0,'tsq')
-        #learning_updates[self.tsq_shared] = self.tsq
 
         return function([X], updates = learning_updates)
     #
@@ -529,11 +508,48 @@ class S3C(Model):
     def log_likelihood_vhs(self, stats):
         """Note: drops some constant terms"""
 
-        log_likelihood_v_given_hs = self.log_likelihood_v_given_hs(self, stats)
-        log_likelihood_s_given_h  = self.log_likelihood_s_given_h(self, stats)
-        log_likelihood_h          = self.log_likelihood_h(self, stats)
+        log_likelihood_v_given_hs = self.log_likelihood_v_given_hs(stats)
+        log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
+        log_likelihood_h          = self.log_likelihood_h(stats)
 
         rval = log_likelihood_v_given_hs + log_likelihood_s_given_h + log_likelihood_h
+
+        assert len(rval.type.broadcastable) == 0
+
+        return rval
+
+    def log_likelihood_vhsu(self, stats):
+        """Note: drops some constant terms """
+
+        log_likelihood_vhs        = self.log_likelihood_vhs( stats )
+        log_likelihood_u_given_hs = self.log_likelihood_u_given_hs( stats)
+
+        rval = log_likelihood_vhs + log_likelihood_u_given_hs
+
+        return rval
+
+
+    def log_likelihood_u_given_hs(self, stats):
+        """Note: drops some constant terms """
+
+        NH = N.cast[floatX](self.nhid)
+
+        mean_sq_hs = stats.d['mean_sq_hs']
+        cov_hs = stats.d['cov_hs']
+        mean_D_sq_mean_Q_hs = stats.d['mean_D_sq_mean_Q_hs']
+
+        term1 = 0.5 * T.sqr(NH) * T.sum(T.log(self.B))
+        #term1 = Print('term1')(term1)
+        term2 = 0.5 * (NH + 1) * T.dot(self.B,T.dot(self.W,mean_sq_hs))
+        #term2 = Print('term2')(term2)
+        term3 = - (self.B *  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+                        self.W.dimshuffle(0,'x',1)).sum(axis=(1,2))).sum()
+        #term3 = Print('term3')(term3)
+        a = T.dot(T.sqr(self.W), mean_D_sq_mean_Q_hs)
+        term4 = -0.5 * T.dot(self.B, a)
+        #term4 = Print('term4')(term4)
+
+        rval = term1 + term2 + term3 + term4
 
         return rval
 
@@ -544,13 +560,15 @@ class S3C(Model):
         mean_hsv  = stats.d['mean_hsv']
         cov_hs = stats.d['cov_hs']
 
-        term1 = 0.5 * T.log(self.B).sum()
+        term1 = 0.5 * T.sum(T.log(self.B))
         term2 = - 0.5 * T.dot(self.B, mean_sq_v)
-        term3 = B * T.dot(mean_hsv,self.W).sum()
-        term4 = -0.5 * B *  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
-                        self.W.dimshuffle(0,'x',1)).sum()
+        term3 = (self.B * T.dot(self.W, mean_hsv)).sum()
+        term4 = -0.5 * (self.B *  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+                        self.W.dimshuffle(0,'x',1)).sum(axis=(1,2))).sum()
 
         rval = term1 + term2 + term3 + term4
+
+        assert len(rval.type.broadcastable) == 0
 
         return rval
 
@@ -566,6 +584,8 @@ class S3C(Model):
 
         rval = term1 + term2 + term3
 
+        assert len(rval.type.broadcastable) == 0
+
         return rval
 
     def log_likelihood_h(self, stats):
@@ -575,6 +595,8 @@ class S3C(Model):
         term2 = - T.dot(mean_h, T.nnet.softplus(-self.bias_hid))
 
         rval = term1 + term2
+
+        assert len(rval.type.broadcastable) == 0
 
         return rval
 
@@ -587,7 +609,7 @@ class S3C(Model):
         X = T.matrix()
         X.tag.test_value = N.cast[floatX](self.rng.randn(5,self.nvis))
 
-        if self.stat_space_step:
+        if self.learn_after is not None:
             self.learn_func = self.make_learn_func(X, learn = True )
             self.accum_func = self.make_learn_func(X, learn = False )
         else:
@@ -606,37 +628,13 @@ class S3C(Model):
 
     def learn_mini_batch(self, X):
 
-        if self.stat_space_step:
+        if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
                 self.learn_func(X)
             else:
                 self.accum_func(X)
         else:
             self.learn_func(X)
-        #
-
-        #debugging hack
-        #print 'mse: ',self.mse_shared.get_value()
-        #print 'tsq: ',self.tsq_shared.get_value()
-
-
-
-        """W, H, X = self.Wres_shared.get_value(borrow=True), self.H_shared.get_value(borrow=True), self.X_shared.get_value(borrow=True)
-
-        print 'diff W'
-        print N.abs(W-
-                    N.dot(inv(H),
-                        N.dot(H.T,X)
-                        ).T
-                   ).max()
-        print 'diff from ident'
-        print N.abs(N.identity(H.shape[0])-N.dot(inv(N.dot(H.T,H)),N.dot(H.T,H))).max()
-
-        print 'resid'
-        print N.abs(X - N.dot(H, W.T) ).max()
-        print 'proj resid'
-        print N.abs(N.dot(H.T,N.dot(H,W.T))-N.dot(H.T,X)).max()
-        """
 
         """cov_hs = self.suff_stat_holder.d['cov_hs'].get_value(borrow=True)
         a,b = N.linalg.eigh(cov_hs)
@@ -646,7 +644,7 @@ class S3C(Model):
         print 'minimum eigenvalue: '+str(a.min())
         assert a.min() >= 0"""
 
-        if self.monitor.examples_seen % 1000 == 0:
+        if True:#self.monitor.examples_seen % 1000 == 0:
             B = self.B.get_value(borrow=True)
             print 'B: ',(B.min(),B.mean(),B.max())
             mu = self.mu.get_value(borrow=True)
@@ -660,4 +658,114 @@ class S3C(Model):
         return ['v','h']
     #
 #
+
+class M_Step(object):
+
+    def get_updates(self, model, stats):
+        raise NotImplementedError()
+
+    def get_monitoring_channels(self, V, model):
+        return {}
+
+class VHS_M_Step(M_Step):
+    """ An M-step based on learning using the distribution
+        over V,H, and S-- i.e. ignore the U variables.
+
+        Currently we do not have a theoretical justification
+        for this.
+    """
+
+    def get_monitoring_channels(self, V, model):
+
+        hid_observations = model.mean_field(V)
+
+        stats = SufficientStatistics.from_observations(V, *hid_observations)
+
+        obj = model.log_likelihood_vhs(stats)
+
+        return { 'log_likelihood_vhs' : obj }
+
+class VHSU_M_Step(M_Step):
+    """ An M-step based on learning using the distribution over
+        V,H,S, and U-- i.e. good old-fashioned, theoretically
+        justified EM
+    """
+
+    def get_monitoring_channels(self, V, model):
+
+        hid_observations = model.mean_field(V)
+
+        stats = SufficientStatistics.from_observations(V, *hid_observations)
+
+        obj = model.log_likelihood_vhsu(stats)
+
+        return { 'log_likelihood_vhsu' : obj }
+
+
+class VHS_Solve_M_Step(VHS_M_Step):
+
+    def __init__(self, new_coeff):
+        self.new_coeff = N.cast[floatX](float(new_coeff))
+
+    def get_updates(self, model, stats):
+
+        W, bias_hid, alpha, mu, B = model.learn_from_stats(stats)
+
+        def step(old, new):
+            if self.new_coeff == 1.0:
+                return new
+            else:
+                rval =  self.new_coeff * new + (N.cast[floatX](1.)-self.new_coeff) * old
+            return rval
+
+        learning_updates = {
+                model.W: step(model.W, W),
+                model.bias_hid: step(model.bias_hid,bias_hid),
+                model.alpha: step(model.alpha, alpha),
+                model.mu: step(model.mu, mu),
+                model.B: step(model.B, B)
+                }
+
+        return learning_updates
+
+class VHS_Grad_M_Step(VHS_M_Step):
+
+    def __init__(self, learning_rate):
+        self.learning_rate = N.cast[floatX](float(learning_rate))
+
+    def get_updates(self, model, stats):
+
+        params = model.get_params()
+
+        obj = model.log_likelihood_vhs(stats)
+
+        grads = T.grad(obj, params, consider_constant = stats.d.values())
+
+        updates = {}
+
+        for param, grad in zip(params, grads):
+            updates[param] = param + self.learning_rate * grad
+
+        return updates
+
+
+class VHSU_Grad_M_Step(VHSU_M_Step):
+
+    def __init__(self, learning_rate):
+        self.learning_rate = N.cast[floatX](float(learning_rate))
+
+    def get_updates(self, model, stats):
+
+        params = model.get_params()
+
+        obj = model.log_likelihood_vhsu(stats)
+
+        grads = T.grad(obj, params, consider_constant = stats.d.values())
+
+        updates = {}
+
+        for param, grad in zip(params, grads):
+            updates[param] = param + self.learning_rate * grad
+
+        return updates
 
