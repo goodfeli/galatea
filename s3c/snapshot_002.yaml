@@ -1,4 +1,5 @@
-
+#snapshot_001 updated for a new interface. interface has
+#changed since this file was made, see snapshot_003 for update
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
