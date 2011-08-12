@@ -1,0 +1,117 @@
+analysis of GRBM
+	present at CIFAR if possible
+	try to prove that >2 collinear equiprobable modes are impossible
+auxiliary variable ss sparse coding
+	1. Understand Aaron's lyx file
+	2. Code it up
+	present at CIFAR
+		RBM prior says features should be correlated based on weight directions -> bad
+		Coates' work implies there should be an emphasis on encoding
+estimation algorithms
+	KL theory
+		on binary data
+			checkpoint = my e-mail w/subject "Binary KL guides features, not pmfs!"
+			see how much any of this generalizes
+		on continous data
+			still possible we might be able to derive KL from
+			score matching on continuous inputs
+
+	status of currently existing estimators:
+		smd: implemented and confident it works. see
+		exploring_estimation_criteria/cifar_grbm_smd.yaml
+
+		lnce: implemented and confident it works. not implemented as a
+		pylearn2 cost.
+
+		sm: implemented but slow (must use scan to compute each row
+		of the hessian and then index out the diagonals of the
+		hessian-- no good way of computing vector of second
+		derivatives). could use optimization based on
+		kevin swersky's paper to make it fast for models that can be
+		converted to autoencoders.
+		don't remember whether I was confident it works or not, could
+		definitely use more testing
+
+		nce: implemented and reasonably confident it works, could use
+		some more testing.
+			I was trying to do NCE of Coates/Lee preprocessed
+			CIFAR patches against a full covariance gaussian
+			distribution. This doesn't seem to work at all.
+			The experiments in the NCE paper preprocessed by
+			subtracting the mean and dividing by the variance,
+			and using a uniform distribution on the unit sphere
+			for the noise.
+
+		ratio matching: have not implemented.
+				probably want to consider a version based on
+				the Bregman divergence paper that samples
+				which bits to flip
+
+	adding consistent estimators:
+		try for example score matching + noise contrastive.
+
+	LNCE:
+		Is LNCE really consistent? I think not, the version of
+		consistency we were using when we wrote that proof was weaker
+		than Hyvarinen's definitions (need to check this). Also, I think the
+		Bregman divergence paper's derivation of ratio matching lets
+		us do a fixed version LNCE for the binary case (by sampling B
+		matrices other than single bit flips). Comparing
+		these may be helpful for deciding whether LNCE is consistent.
+bilinear rbm
+	figure out conditions needed for learning to do anything useful
+	Aaron's approach with noise variables in the middle
+	use slowness
+	try a PSD version
+SFA
+	run Wiskott lab's code, see if their results are reproducible
+	did Wiskott lab ever re-run their own code after fixing the bug I
+	found?
+	revisit ICML 11 code, try to get MLPs working better maybe using
+	mu-ssRBM or score matching training
+Contractive Sparse Coding
+	Differentiable sparse coding is written up but slow. Haven't added the
+	contractive terms.
+Turn PSD into an EBM and sample from it
+PMIL
+	Rejected from UAI.
+	Redo with flashier experiments, such as running it on video.
+	New competition: look at Hugo's UAI 2011 paper on discriminative RBMs.
+	Part of it is about MIL with dRBMs.
+Making hidden units do more work
+	Aaron has an idea for showing that Canonical Ridge Analysis
+	gives rise to Partial Least Squares at one end of a spectrum
+	and Canonical Correlation Analysis at another. The idea is that
+	CRA does more generative modeling work with the covariance matrices
+	on the visible units, and PLS does more modeling work with the
+	hidden units.
+	Aaron told me about this b/c I said I was interested in regularizers
+	that make RBM's do more of the modeling work with the hidden units
+	(i.e., make a GRBM or ssRBM try not to rely too much on the visible
+	unit variance parameter)
+
+
+Dead ends:
+	Reconstruction SRBM:
+		The Reconstruction SRBM turns out to be just doing a directed
+		model, generally equivalent to sparse coding (though sparse
+		coding doesn't estimate the model with true maximum
+		likelihood).
+
+	Contractive coding:
+		All ways that I tried to pose the problem ended up being
+		differential equations that only had numerical solutions,
+		even for extremely simple versions with only one hidden unit,
+		etc.
+
+	Deriving binary cross-entropy between data and autoencoder reconstruction
+	as being some kind of consistent estimator:
+		This is a dead end specifically for the case of binary input
+		data. Autoencoder reconstruction is a function only of the
+		model's score, and the pmf conveys no information about the
+		score. Thus estimators based on the consistency of the
+		recovered pmf are not able to influence the autoencoder
+		reconstruction.
+
+		This is not yet proven to be a dead end for the case of
+		continous inputs.
