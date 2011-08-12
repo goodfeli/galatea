@@ -1,0 +1,33 @@
+
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+    "model": !obj:galatea.models.febm.FEBM {
+                "energy_function": !obj:galatea.energy_functions.scratch.recons_model_1 {
+                        "nvis" : 192,
+                        "nhid" : 400,
+                        "irange"  : .05,
+                        "init_bias_hid" : 0.,
+
+                        "init_vis_prec" : 1.,
+                        "vis_prec_lr_scale" : .001,
+                        "learn_vis_prec" : 1.,
+
+                        "init_delta" : 0.0
+                        }
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.sgd.SGD {
+               "learning_rate" : 1e-3,
+               "batch_size" : 50,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 10,
+               "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+               "cost" : !obj:pylearn2.costs.ebm_estimation.SMD {
+                        "corruptor": !obj:pylearn2.corruption.GaussianCorruptor {
+                                "stdev": .3
+                        }
+               }
+        },
+    "save_path": "cifar_reconsE_smd.pkl"
+}
+
+

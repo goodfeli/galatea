@@ -1,0 +1,38 @@
+#adjustment to experiment a
+#experiment a seemed to get the gradient direction fairly stable throughout learning
+#however, the gradient magnitude and the pdf itself were unstable
+#at some point in learning the right side of the curve had mass but the left did not
+#later in learning this switched
+#I'm trying to compensate for this by using a larger batch size
+
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !obj:pylearn2.datasets.cos_dataset.CosDataset {},
+    "model": !obj:galatea.models.local_noise_ebm.LocalNoiseEBM {
+                "nvis" : 2,
+                "nhid" : 5,
+                "init_bias_hid" : 0.0,
+                "irange"  : 5.0,
+                "init_noise_var"    : 1.0,
+                "min_misclass"  : .05,
+                "max_misclass"  : .5,
+                "noise_var_scale_up" : 1.001,
+                "noise_var_scale_down" : .999,
+                "max_noise_var"       : 2.,
+                "time_constant"  : .1,
+                "learning_rate" : .002,
+                "different_examples" : 0.,
+                "init_vis_prec" : 30.,
+                "learn_vis_prec" : 1.,
+                "energy_function" : "mse autoencoder",
+                "init_delta" : -0.5
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 50,
+               "monitoring_batches" : 10,
+               "monitoring_dataset" : !obj:pylearn2.datasets.cos_dataset.CosDataset {},
+
+        },
+    "save_path": "experiment_b.pkl"
+}
+
