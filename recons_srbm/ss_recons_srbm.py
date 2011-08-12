@@ -715,7 +715,7 @@ class SS_ReconsSRBM:
         print 'alpha: '+str((alpha.min(),alpha.mean(),alpha.max()))
         beta = self.beta.get_value()
         print 'beta: '+str((beta.min(),beta.mean(),beta.max()))
-        
+
 
         prior_Q = function([],T.nnet.sigmoid(self.c-0.5*T.log(self.gamma/self.alpha)))()
         print 'prior_Q: '+str((prior_Q.min(),prior_Q.mean(),prior_Q.max()))
@@ -748,9 +748,9 @@ class SS_ReconsSRBM:
             #
         #
 
-        Mu1 = self.Mu1_func(x)
-        if Mu1.max() > 500.:
-            self.debug_dump(x)
+        #Mu1 = self.Mu1_func(x)
+        #if Mu1.max() > 500.:
+        #    self.debug_dump(x)
 
 
         #print '\nrun_sampling\n'
