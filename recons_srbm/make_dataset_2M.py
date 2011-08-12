@@ -19,7 +19,7 @@ train.use_design_loc('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M_desig
 test.use_design_loc('/data/lisatmp/goodfeli/cifar10_preprocessed_test_2M_design.npy')
 
 
-serial.save('cifar10_preprocessed_train_2M.pkl',train)
-serial.save('cifar10_preprocessed_test_2M.pkl',test)
+serial.save('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl',train)
+serial.save('/data/lisatmp/goodfeli/cifar10_preprocessed_test_2M.pkl',test)
 
 

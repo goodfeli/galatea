@@ -1,0 +1,36 @@
+
+!obj:pylearn2.scripts.train.Train {
+    "dataset": &training_data !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+    "model": !obj:pylearn2.models.normalized_ebm.NormalizedEBM {
+                "init_logZ" : 0.,
+                "learn_logZ" : 1,
+                "logZ_lr_scale" : .001,
+                "ebm" : !obj:pylearn2.models.rbm.GaussianBinaryRBM {
+                      "nvis" : 192,
+                      "nhid" : 400,
+                      "irange" : 0.05,
+                      "energy_function_class" : !obj:pylearn2.energy_functions.rbm_energy.grbm_type_1 {},
+                      "learn_sigma" : True,
+                      "init_sigma" : .4,
+                      "init_bias_hid" : -2.,
+                      "mean_vis" : False,
+                      "sigma_lr_scale" : 1e-3
+            }
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.sgd.SGD {
+               "learning_rate" : 1e-3,
+               "batch_size" : 50,
+               "batches_per_iter" : 200,
+               "monitoring_batches" : 2,
+               "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+               "cost" : !obj:pylearn2.costs.ebm_estimation.NCE {
+                        "noise" : !obj:pylearn2.distributions.mnd.fit {
+                                "dataset" : *training_data,
+                                "n_samples" : 2000000
+                                }
+               }
+        },
+    "save_path": "cifar_grbm_nce.pkl"
+}
+
+
