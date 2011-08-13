@@ -48,13 +48,13 @@ class SufficientStatistics:
     @classmethod
     def from_observations(self, X, H, mu0, Mu1, sigma0, Sigma1):
 
-        m = T.cast(X.shape[0],floatX)
+        m = T.cast(X.shape[0],config.floatX)
 
         #mean_h
-        assert H.dtype == floatX
+        assert H.dtype == config.floatX
         mean_h = T.mean(H, axis=0)
         assert H.dtype == mean_h.dtype
-        assert mean_h.dtype == floatX
+        assert mean_h.dtype == config.floatX
 
         #mean_v
         mean_v = T.mean(X,axis=0)
@@ -114,7 +114,7 @@ class SufficientStatistics:
     def decay(self, coeff):
         rval_d = {}
 
-        coeff = N.cast[floatX](coeff)
+        coeff = np.cast[config.floatX](coeff)
 
         for key in self.d:
             rval_d[key] = self.d[key] * coeff
@@ -126,10 +126,10 @@ class SufficientStatistics:
     def accum(self, new_stat_coeff, new_stats):
 
         if hasattr(new_stat_coeff,'dtype'):
-            assert new_stat_coeff.dtype == floatX
+            assert new_stat_coeff.dtype == config.floatX
         else:
             assert isinstance(new_stat_coeff,float)
-            new_stat_coeff = N.cast[floatX](new_stat_coeff)
+            new_stat_coeff = np.cast[config.floatX](new_stat_coeff)
 
         rval_d = {}
 
@@ -174,8 +174,8 @@ class S3C(Model):
 
         super(S3C,self).__init__()
 
-        self.W_eps = N.cast[floatX](float(W_eps))
-        self.mu_eps = N.cast[floatX](float(mu_eps))
+        self.W_eps = np.cast[config.floatX](float(W_eps))
+        self.mu_eps = np.cast[config.floatX](float(mu_eps))
         self.nvis = nvis
         self.nhid = nhid
         self.irange = irange
@@ -206,15 +206,15 @@ class S3C(Model):
         self.redo_everything()
 
     def reset_rng(self):
-        self.rng = N.random.RandomState([1.,2.,3.])
+        self.rng = np.random.RandomState([1.,2.,3.])
 
     def redo_everything(self):
 
         self.W = sharedX(self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid)), name = 'W')
-        self.bias_hid = sharedX(N.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
-        self.alpha = sharedX(N.zeros(self.nhid)+self.init_alpha, name = 'alpha')
-        self.mu = sharedX(N.zeros(self.nhid)+self.init_mu, name='mu')
-        self.B = sharedX(N.zeros(self.nvis)+self.init_B, name='B')
+        self.bias_hid = sharedX(np.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
+        self.alpha = sharedX(np.zeros(self.nhid)+self.init_alpha, name = 'alpha')
+        self.mu = sharedX(np.zeros(self.nhid)+self.init_mu, name='mu')
+        self.B = sharedX(np.zeros(self.nvis)+self.init_B, name='B')
 
         if self.new_stat_coeff < 1.0:
             self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid)
@@ -230,7 +230,7 @@ class S3C(Model):
         return [self.W, self.bias_hid, self.alpha, self.mu, self.B ]
 
 
-    def learn_from_stats(self, stats):
+    def solve_vhs_from_stats(self, stats):
 
         #Solve multiple linear regression problem where
         # W is a matrix used to predict v from h*s
@@ -238,19 +238,19 @@ class S3C(Model):
 
         #cov_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
         cov_hs = stats.d['cov_hs']
-        assert cov_hs.dtype == floatX
+        assert cov_hs.dtype == config.floatX
         #mean_hsv[i,j] = E_D,Q h_i s_i v_j
         mean_hsv = stats.d['mean_hsv']
 
         regularized = cov_hs + alloc_diag(T.ones_like(self.mu) * self.W_eps)
-        assert regularized.dtype == floatX
+        assert regularized.dtype == config.floatX
 
 
         inv = matrix_inverse(regularized)
-        assert inv.dtype == floatX
+        assert inv.dtype == config.floatX
 
         W = T.dot(inv,mean_hsv).T
-        assert W.dtype == floatX
+        assert W.dtype == config.floatX
 
         # B is the precision of the residuals
         # variance of residuals:
@@ -294,7 +294,7 @@ class S3C(Model):
 
 
 
-        var_residuals = var_recons + var_v + N.cast[floatX](2.) * ( mean_recons * mean_v - mean_recons_v)
+        var_residuals = var_recons + var_v + np.cast[config.floatX](2.) * ( mean_recons * mean_v - mean_recons_v)
 
 
         B = 1. / var_residuals
@@ -306,7 +306,7 @@ class S3C(Model):
         # mu_i = ( h^T h + reg)^-1 h^T s_i
 
         mean_h = stats.d['mean_h']
-        assert mean_h.dtype == floatX
+        assert mean_h.dtype == config.floatX
         reg = self.mu_eps
         mu = mean_hs/(mean_h+reg)
 
@@ -329,13 +329,13 @@ class S3C(Model):
         #probability of hiddens just comes from sample counting
         #to put it back in bias_hid space apply sigmoid inverse
 
-        p = T.clip(mean_h,N.cast[floatX](1e-8),N.cast[floatX](1.-1e-8))
+        p = T.clip(mean_h,np.cast[config.floatX](1e-8),np.cast[config.floatX](1.-1e-8))
 
-        assert p.dtype == floatX
+        assert p.dtype == config.floatX
 
         bias_hid = T.log( - p / (p-1.) )
 
-        assert bias_hid.dtype == floatX
+        assert bias_hid.dtype == config.floatX
 
         return W, bias_hid, alpha, mu, B
     #
@@ -345,7 +345,7 @@ class S3C(Model):
         return - self.bias_hid  + 0.5 * T.sqr(self.mu) * self.alpha
 
     def init_mf_H(self,V):
-        NH = N.cast[floatX] ( self.nhid)
+        NH = np.cast[config.floatX] ( self.nhid)
         arg_to_log = 1.+(1./self.alpha) * NH * self.w
 
         kklhlh = 0.5 * T.sqr (self.alpha*self.mu+T.dot(V*self.B,self.W)) / (self.alpha + self.w)
@@ -434,7 +434,7 @@ class S3C(Model):
             Mu1 = self.mean_field_Mu1(U = U, V = V,     NH = NH)
 
 
-        Sigma1 = self.mean_field_Sigma1(NH = N.cast[floatX](self.nhid))
+        Sigma1 = self.mean_field_Sigma1(NH = np.cast[config.floatX](self.nhid))
 
         return H, mu0, Mu1, sigma0, Sigma1
     #
@@ -451,7 +451,7 @@ class S3C(Model):
         #E step
         H, mu0, Mu1, sigma0, Sigma1 = self.mean_field(X)
 
-        m = T.cast(X.shape[0],dtype = floatX)
+        m = T.cast(X.shape[0],dtype = config.floatX)
         new_stats = SufficientStatistics.from_observations(X, H, mu0, Mu1, sigma0, Sigma1)
 
 
@@ -516,12 +516,62 @@ class S3C(Model):
         return rval
 
     def log_likelihood_vhsu(self, stats):
-        """Note: drops some constant terms """
 
-        log_likelihood_vhs        = self.log_likelihood_vhs( stats )
-        log_likelihood_u_given_hs = self.log_likelihood_u_given_hs( stats)
+        Z_b_term = - T.nnet.softplus(self.bias_hid).sum()
+        Z_alpha_term = 0.5 * T.log(self.alpha).sum()
 
-        rval = log_likelihood_vhs + log_likelihood_u_given_hs
+        N = np.cast[config.floatX]( self.nhid )
+        D = np.cast[config.floatX]( self.nvis )
+        half = np.cast[config.floatX]( 0.5)
+        one = np.cast[config.floatX](1.)
+        two = np.cast[config.floatX](2.)
+        four = np.cast[config.floatX](4.)
+        pi = np.cast[config.floatX](np.pi)
+
+        Z_B_term = half * (np.square(N) + one) * T.log(self.B).sum()
+
+        Z_constant_term = - half * (N+D)*np.log(two*pi) - half * np.square(N)*D*np.log(four*pi)
+
+
+        negative_log_Z = Z_b_term + Z_alpha_term + Z_B_term + Z_constant_term
+
+
+        u_stat_1 = stats.d['u_stat_1']
+
+        first_term = half * T.dot(self.B, T.dot(self.W, u_stat_1) )
+
+        mean_hs_v = stats.d['mean_hs_v']
+
+        second_term = T.sum(self.B *  T.sum(self.W * mean_hs_v,axis=1))
+
+        mean_sq_hs = stats.d['mean_sq_hs']
+        third_term = - half * N *  T.dot(self.B, T.dot(T.sqr(self.W),mean_sq_hs))
+
+        mean_hs = stats.d['mean_hs']
+
+        fourth_term = T.dot(self.mu, self.alpha * mean_hs)
+
+        mean_sq_v = stats.d['mean_sq_v']
+
+        fifth_term = - half * T.dot(self.B, mean_sq_v)
+
+        mean_sq_s = stats.d['mean_sq_s']
+
+        sixth_term = - half * T.dot(self.alpha, mean_sq_s)
+
+        mean_h = stats.d['mean_h']
+
+        seventh_term = T.dot(self.bias_hid, mean_h)
+
+        eighth_term = - half * T.dot(mean_h, self.alpha * T.sqr(self.mu))
+
+        u_stat_2 = stats.d['u_stat_2']
+
+        ninth_term = - (one / four ) * T.dot( self.B, u_stat_2)
+
+        negative_energy = first_term + second_term + third_term + fourth_term + fifth_term + sixth_term + seventh_term + eighth_term + ninth_term
+
+        rval = negative_energy + negative_log_Z
 
         return rval
 
@@ -529,7 +579,7 @@ class S3C(Model):
     def log_likelihood_u_given_hs(self, stats):
         """Note: drops some constant terms """
 
-        NH = N.cast[floatX](self.nhid)
+        NH = np.cast[config.floatX](self.nhid)
 
         mean_sq_hs = stats.d['mean_sq_hs']
         cov_hs = stats.d['cov_hs']
@@ -604,7 +654,7 @@ class S3C(Model):
         self.w = T.dot(self.B, T.sqr(self.W))
 
         X = T.matrix()
-        X.tag.test_value = N.cast[floatX](self.rng.randn(5,self.nvis))
+        X.tag.test_value = np.cast[config.floatX](self.rng.randn(5,self.nvis))
 
         if self.learn_after is not None:
             self.learn_func = self.make_learn_func(X, learn = True )
@@ -634,10 +684,10 @@ class S3C(Model):
             self.learn_func(X)
 
         """cov_hs = self.suff_stat_holder.d['cov_hs'].get_value(borrow=True)
-        a,b = N.linalg.eigh(cov_hs)
+        a,b = np.linalg.eigh(cov_hs)
 
-        assert not N.any(N.isnan(a))
-        assert not N.any(N.isinf(a))
+        assert not np.any(np.isnan(a))
+        assert not np.any(np.isinf(a))
         print 'minimum eigenvalue: '+str(a.min())
         assert a.min() >= 0"""
 
@@ -699,36 +749,60 @@ class VHSU_M_Step(M_Step):
         return { 'log_likelihood_vhsu' : obj }
 
 
+def take_step(model, W, bias_hid, alpha, mu, B, new_coeff):
+    """
+    Returns a dictionary of learning updates of the form
+        model.param := new_coeff * param + (1-new_coeff) * model.param
+    """
+
+    def step(old, new):
+        if new_coeff == 1.0:
+            return new
+        else:
+            rval =  new_coeff * new + (np.cast[config.floatX](1.)-new_coeff) * old
+        return rval
+
+    learning_updates = \
+        {
+            model.W: step(model.W, W),
+            model.bias_hid: step(model.bias_hid,bias_hid),
+            model.alpha: step(model.alpha, alpha),
+            model.mu: step(model.mu, mu),
+            model.B: step(model.B, B)
+        }
+
+    return learning_updates
+
 class VHS_Solve_M_Step(VHS_M_Step):
 
     def __init__(self, new_coeff):
-        self.new_coeff = N.cast[floatX](float(new_coeff))
+        self.new_coeff = np.cast[config.floatX](float(new_coeff))
 
     def get_updates(self, model, stats):
 
-        W, bias_hid, alpha, mu, B = model.learn_from_stats(stats)
+        W, bias_hid, alpha, mu, B = model.solve_vhs_from_stats(stats)
 
-        def step(old, new):
-            if self.new_coeff == 1.0:
-                return new
-            else:
-                rval =  self.new_coeff * new + (N.cast[floatX](1.)-self.new_coeff) * old
-            return rval
+        learning_updates = take_step(model, W, bias_hid, alpha, mu, B, self.new_coeff)
 
-        learning_updates = {
-                model.W: step(model.W, W),
-                model.bias_hid: step(model.bias_hid,bias_hid),
-                model.alpha: step(model.alpha, alpha),
-                model.mu: step(model.mu, mu),
-                model.B: step(model.B, B)
-                }
+        return learning_updates
+
+class VHSU_Solve_M_Step(VHSU_M_Step):
+
+    def __init__(self, new_coeff):
+        self.new_coeff = np.cast[config.floatX](float(new_coeff))
+
+    def get_updates(self, model, stats):
+
+        W, bias_hid, alpha, mu, B = model.solve_vhsu_from_stats(stats)
+
+        learning_updates = take_step(model, W, bias_hid, alpha, mu, B, self.new_coeff)
 
         return learning_updates
 
 class VHS_Grad_M_Step(VHS_M_Step):
 
     def __init__(self, learning_rate):
-        self.learning_rate = N.cast[floatX](float(learning_rate))
+        self.learning_rate = np.cast[config.floatX](float(learning_rate))
 
     def get_updates(self, model, stats):
 
@@ -749,7 +823,7 @@ class VHS_Grad_M_Step(VHS_M_Step):
 class VHSU_Grad_M_Step(VHSU_M_Step):
 
     def __init__(self, learning_rate):
-        self.learning_rate = N.cast[floatX](float(learning_rate))
+        self.learning_rate = np.cast[config.floatX](float(learning_rate))
 
     def get_updates(self, model, stats):
 
@@ -765,4 +839,6 @@ class VHSU_Grad_M_Step(VHSU_M_Step):
             updates[param] = param + self.learning_rate * grad
 
         return updates
+
+
 
