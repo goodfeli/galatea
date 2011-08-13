@@ -5,7 +5,7 @@ import numpy as np
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 from theano.printing import Print
 from pylearn2.utils import sharedX
-config.compute_test_value = 'raise'
+#config.compute_test_value = 'raise'
 
 class SufficientStatisticsHolder:
     def __init__(self, nvis, nhid):
