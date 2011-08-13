@@ -521,7 +521,14 @@ class S3C(Model):
 
         Sigma1 = self.mean_field_Sigma1(NH = np.cast[config.floatX](self.nhid))
 
-        return H, mu0, Mu1, sigma0, Sigma1, U
+        return {
+                'H' : H,
+                'mu0' : mu0,
+                'Mu1' : Mu1,
+                'sigma0' : sigma0,
+                'Sigma1': Sigma1,
+                'U' : U
+                }
     #
 
     def make_learn_func(self, X, learn = None):
@@ -534,11 +541,11 @@ class S3C(Model):
         """
 
         #E step
-        H, mu0, Mu1, sigma0, Sigma1, U = self.mean_field(X)
+        hidden_obs = self.mean_field(X)
 
         m = T.cast(X.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
-        new_stats = SufficientStatistics.from_observations(X, H, mu0, Mu1, sigma0, Sigma1, U, N, self.B, self.W)
+        new_stats = SufficientStatistics.from_observations(X = X, N = N, B = self.B, W = self.W, **hidden_obs)
 
 
         if self.new_stat_coeff == 1.0:
@@ -841,12 +848,13 @@ class VHSU_M_Step(M_Step):
 
     def get_monitoring_channels(self, V, model):
 
-        hid_observations = model.mean_field(V)
+        hidden_obs  = model.mean_field(V)
 
-        stats = SufficientStatistics.from_observations(V, *hid_observations,
+        stats = SufficientStatistics.from_observations(V, \
                                                             N = np.cast[config.floatX](model.nhid),
                                                             B = model.B,
-                                                            W = model.W)
+                                                            W = model.W,
+                                                            **hidden_obs)
 
         obj = model.log_likelihood_vhsu(stats)
 
