@@ -1,29 +1,26 @@
 from pylearn2.models.model import Model
 from theano import config, function, shared
 import theano.tensor as T
-import numpy as N
-floatX = config.floatX
+import numpy as np
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 from theano.printing import Print
+from pylearn2.utils import sharedX
 #config.compute_test_value = 'raise'
-
-def sharedX(X, name):
-    return shared(N.cast[floatX](X),name=name)
 
 class SufficientStatisticsHolder:
     def __init__(self, nvis, nhid):
         self.d = {
-                    "mean_h"                :   sharedX(N.zeros(nhid), "mean_h" ),
-                    "mean_v"                :   sharedX(N.zeros(nvis), "mean_v" ),
-                    "mean_sq_v"             :   sharedX(N.zeros(nvis), "mean_sq_v" ),
-                    "mean_s1"               :   sharedX(N.zeros(nhid), "mean_s1"),
-                    "mean_s"                :   sharedX(N.zeros(nhid), "mean_s" ),
-                    "mean_sq_s"             :   sharedX(N.zeros(nhid), "mean_sq_s" ),
-                    "mean_hs"               :   sharedX(N.zeros(nhid), "mean_hs" ),
-                    "mean_sq_hs"            :   sharedX(N.zeros(nhid), "mean_sq_hs" ),
-                    "mean_D_sq_mean_Q_hs"   :   sharedX(N.zeros(nhid), "mean_D_sq_mean_Q_hs"),
-                    "cov_hs"                :   sharedX(N.zeros((nhid,nhid)), 'cov_hs'),
-                    "mean_hsv"              :   sharedX(N.zeros((nhid,nvis)), 'mean_hsv')
+                    "mean_h"                :   sharedX(np.zeros(nhid), "mean_h" ),
+                    "mean_v"                :   sharedX(np.zeros(nvis), "mean_v" ),
+                    "mean_sq_v"             :   sharedX(np.zeros(nvis), "mean_sq_v" ),
+                    "mean_s1"               :   sharedX(np.zeros(nhid), "mean_s1"),
+                    "mean_s"                :   sharedX(np.zeros(nhid), "mean_s" ),
+                    "mean_sq_s"             :   sharedX(np.zeros(nhid), "mean_sq_s" ),
+                    "mean_hs"               :   sharedX(np.zeros(nhid), "mean_hs" ),
+                    "mean_sq_hs"            :   sharedX(np.zeros(nhid), "mean_sq_hs" ),
+                    "mean_D_sq_mean_Q_hs"   :   sharedX(np.zeros(nhid), "mean_D_sq_mean_Q_hs"),
+                    "cov_hs"                :   sharedX(np.zeros((nhid,nhid)), 'cov_hs'),
+                    "mean_hsv"              :   sharedX(np.zeros((nhid,nvis)), 'mean_hsv')
                 }
 
     def update(self, updates, updated_stats):
