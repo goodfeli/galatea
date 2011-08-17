@@ -5,6 +5,8 @@ import numpy as np
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 from theano.printing import Print
 from pylearn2.utils import sharedX
+from pylearn2.monitor import Monitor
+import copy
 #config.compute_test_value = 'raise'
 
 class SufficientStatisticsHolder:
@@ -96,7 +98,7 @@ class SufficientStatistics:
 
         #u_stat_1
         two = np.cast[config.floatX](2.)
-        u_stat_1 = - two * T.mean( mean_HS.dimshuffle(0,1,'x') * U, axis=0)
+        u_stat_1 = - two * T.mean( T.as_tensor_variable(mean_HS).dimshuffle(0,1,'x') * U, axis=0)
 
         #u_stat_2
         term1 = two * T.sqr(N)/B
@@ -198,16 +200,19 @@ class S3C(Model):
         self.irange = irange
         self.init_bias_hid = init_bias_hid
         self.init_alpha = init_alpha
-        self.min_alpha = min_alpha
-        self.max_alpha = max_alpha
+        self.min_alpha = float(min_alpha)
+        self.max_alpha = float(max_alpha)
         self.init_B = init_B
-        self.min_B = min_B
-        self.max_B = max_B
+        self.min_B = float(min_B)
+        self.max_B = float(max_B)
         self.N_schedule = N_schedule
         self.m_step = m_step
         self.init_mu = init_mu
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
+
+        #this class always needs a monitor, since it is used to implement the learn_after feature
+        Monitor.get_monitor(self)
 
         self.new_stat_coeff = np.cast[config.floatX](float(new_stat_coeff))
         if self.new_stat_coeff < 1.0:
@@ -347,6 +352,7 @@ class S3C(Model):
         #to put it back in bias_hid space apply sigmoid inverse
 
         p = T.clip(mean_h,np.cast[config.floatX](1e-8),np.cast[config.floatX](1.-1e-8))
+        p.name = 'mean_h_clipped'
 
         assert p.dtype == config.floatX
 
@@ -367,26 +373,32 @@ class S3C(Model):
         mean_sq_hs = stats.d['mean_sq_hs']
         N = np.cast[config.floatX](self.nhid)
 
-        numer1 = - mean_hsv.T
-        numer2 = - half * u_stat_1.T
+        numer1 = mean_hsv.T
+        numer2 = half * u_stat_1.T
 
         numer = numer1 + numer2
+
+        #mean_sq_hs = Print('mean_sq_hs',attrs=['mean'])(mean_sq_hs)
 
         denom = N * mean_sq_hs
 
         new_W = numer / denom
+        new_W.name = 'new_W'
+
 
         #Solve for mu
         mean_hs = stats.d['mean_hs']
         mean_h =  stats.d['mean_h']
         new_mu = mean_hs / (mean_h + self.W_eps)
+        new_mu.name = 'new_mu'
+
 
         #Solve for bias_hid
-        p = T.clip(mean_h,np.cast[config.floatX](1e-8),np.cast[config.floatX](1.-1e-8))
+        denom = T.clip(mean_h - 1., -1., -1e-10)
 
-        assert p.dtype == config.floatX
 
-        new_bias_hid = T.log( - p / (p-1.) )
+        new_bias_hid = T.log( - mean_h / denom )
+        new_bias_hid.name = 'new_bias_hid'
 
 
         #Solve for alpha
@@ -394,7 +406,8 @@ class S3C(Model):
         one = np.cast[config.floatX](1.)
         two = np.cast[config.floatX](2.)
         denom = mean_sq_s + mean_h * T.sqr(new_mu) - two * new_mu * mean_hs
-        new_alpha = T.sqrt( one / denom )
+        new_alpha =  one / denom
+        new_alpha.name = 'new_alpha'
 
 
         #Solve for B
@@ -426,7 +439,7 @@ class S3C(Model):
         arg_to_log = 1.+(1./self.alpha) * NH * self.w
 
         hid_vec = self.alpha * self.mu
-        assert V.tag.test_value is not None
+        #assert (hasattr(V,'__array__') or (V.tag.test_value is not None))
         dotty_thing = T.dot(V*self.B, self.W)
         pre_sq = hid_vec + dotty_thing
         numer = T.sqr(pre_sq)
@@ -437,11 +450,21 @@ class S3C(Model):
 
         H = T.nnet.sigmoid( first_term - self.h_coeff() - 0.5 * T.log(arg_to_log) )
 
+
+        #just use the prior
+        H = T.nnet.sigmoid( self.bias_hid )
+
+        #H = Print('init_mf_H')(H)
+
         return H
     #
 
     def init_mf_Mu1(self, V):
-        Mu1 = (self.alpha*self.mu + T.dot(V*self.B,self.W))/(self.alpha+self.w)
+        #Mu1 = (self.alpha*self.mu + T.dot(V*self.B,self.W))/(self.alpha+self.w)
+        #Just use the prior
+        Mu1 = self.mu.dimshuffle('x',0)
+
+        Mu1.name = "init_mf_Mu1"
 
         return Mu1
     #
@@ -458,6 +481,8 @@ class S3C(Model):
         second_term = NH * W_broadcast * prod_broadcast
 
         U = first_term_broadcast - second_term
+
+        U.name = "mean_field_U"
 
         return U
     #
@@ -480,6 +505,8 @@ class S3C(Model):
 
         H = T.nnet.sigmoid(-self.h_coeff() + 0.5 * sq_term / beta  - 0.5 * log_term )
 
+        H.name = "mean_field_H"
+
         return H
     #
 
@@ -495,12 +522,17 @@ class S3C(Model):
 
         Mu1 = (filt + u_mod + self.alpha * self.mu) / beta
 
+        Mu1.name = "mean_field_Mu1"
+
         return Mu1
     #
 
 
     def mean_field_Sigma1(self, NH):
         Sigma1 = 1./(self.alpha + NH * self.w)
+
+        Sigma1.name = "mean_field_Sigma1"
+
         return Sigma1
     #
 
@@ -580,6 +612,15 @@ class S3C(Model):
     #
 
     def censor_updates(self, updates):
+
+        #print 'hack! only updating bias_hid'
+        #for key in copy.copy(updates.keys()):
+        #    if key is not self.bias_hid:
+        #        del updates[key]
+        #    else:
+        #        updates[key] = Print('updated value')(updates[key])
+
+
         if self.alpha in updates:
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)
         #
@@ -627,6 +668,7 @@ class S3C(Model):
 
 
         negative_log_Z = Z_b_term + Z_alpha_term + Z_B_term + Z_constant_term
+        negative_log_Z.name = 'negative_log_Z'
         assert len(negative_log_Z.type.broadcastable) == 0
 
         u_stat_1 = stats.d['u_stat_1']
@@ -636,6 +678,7 @@ class S3C(Model):
         mean_hsv = stats.d['mean_hsv']
 
         second_term = T.sum(self.B *  T.sum(self.W.T * mean_hsv,axis=0))
+
 
         mean_sq_hs = stats.d['mean_sq_hs']
         third_term = - half * N *  T.dot(self.B, T.dot(T.sqr(self.W),mean_sq_hs))
@@ -676,10 +719,12 @@ class S3C(Model):
         assert len(ne_second_half.type.broadcastable) == 0
 
         negative_energy = ne_first_half + ne_second_half
+        negative_energy.name = 'negative_energy'
         assert len(negative_energy.type.broadcastable) ==0
 
         rval = negative_energy + negative_log_Z
         assert len(rval.type.broadcastable) == 0
+        rval.name = 'log_likelihood_vhsu'
 
         return rval
 
@@ -765,7 +810,9 @@ class S3C(Model):
         X.tag.test_value = np.cast[config.floatX](self.rng.randn(5,self.nvis))
 
         if self.learn_after is not None:
+            print "MAKING LEARN FUNC"
             self.learn_func = self.make_learn_func(X, learn = True )
+            print "MAKING ACCUM FUNC"
             self.accum_func = self.make_learn_func(X, learn = False )
         else:
             self.learn_func = self.make_learn_func(X)
@@ -785,8 +832,10 @@ class S3C(Model):
 
         if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
+                #print "LEARNING"
                 self.learn_func(X)
             else:
+                #print "ACCUMULATING"
                 self.accum_func(X)
         else:
             self.learn_func(X)
@@ -799,14 +848,15 @@ class S3C(Model):
         print 'minimum eigenvalue: '+str(a.min())
         assert a.min() >= 0"""
 
-        if True:#self.monitor.examples_seen % 1000 == 0:
+        if self.monitor.examples_seen % 1000 == 0:
             B = self.B.get_value(borrow=True)
             print 'B: ',(B.min(),B.mean(),B.max())
             mu = self.mu.get_value(borrow=True)
             print 'mu: ',(mu.min(),mu.mean(),mu.max())
             alpha = self.alpha.get_value(borrow=True)
             print 'alpha: ',(alpha.min(),alpha.mean(),alpha.max())
-
+            W = self.W.get_value(borrow=True)
+            print 'W: ',(W.min(),W.mean(),W.max())
     #
 
     def get_weights_format(self):
@@ -953,6 +1003,9 @@ class VHSU_Grad_M_Step(VHSU_M_Step):
         updates = {}
 
         for param, grad in zip(params, grads):
+            #if param is model.W:
+            #    grad = Print('grad_W',attrs=['min','mean','max'])(grad)
+
             updates[param] = param + self.learning_rate * grad
 
         return updates
