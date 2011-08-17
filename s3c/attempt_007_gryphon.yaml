@@ -28,6 +28,6 @@
                "monitoring_batches" : 1,
                "monitoring_dataset" : !pkl: "/home/ia3n/data/cifar10_preprocessed_train_2M.pkl",
         },
-    "save_path": "attempt_006.pkl"
+    "save_path": "attempt_007.pkl"
 }
 
