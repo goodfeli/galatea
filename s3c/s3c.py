@@ -415,12 +415,15 @@ class S3C(Model):
         assert numer.dtype == config.floatX
         u_stat_2 = stats.d['u_stat_2']
 
+        mean_sq_v = stats.d['mean_sq_v']
+
         denom1 = N * T.dot(T.sqr(new_W), mean_sq_hs)
         denom2 = half * u_stat_2
         denom3 = - (new_W.T *  u_stat_1).sum(axis=0)
         denom4 = - two * (new_W.T * mean_hsv).sum(axis=0)
+        denom5 = mean_sq_v
 
-        denom = denom1 + denom2 + denom3 + denom4
+        denom = denom1 + denom2 + denom3 + denom4 + denom5
         assert denom.dtype == config.floatX
 
         new_B = numer / denom
@@ -675,9 +678,13 @@ class S3C(Model):
 
         first_term = half * T.dot(self.B, (self.W.T * u_stat_1).sum(axis=0) )
 
+        assert len(first_term.type.broadcastable) == 0
+
         mean_hsv = stats.d['mean_hsv']
 
-        second_term = T.sum(self.B *  T.sum(self.W.T * mean_hsv,axis=0))
+        second_term = T.sum(self.B *  T.sum(self.W.T * mean_hsv,axis=0), axis=0)
+
+        assert len(second_term.type.broadcastable) == 0
 
 
         mean_sq_hs = stats.d['mean_sq_hs']

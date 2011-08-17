@@ -199,7 +199,11 @@ class TestS3C:
 
         term5 = T.sqr(N + one) * half / self.model.B
 
-        analytical = term1 + term2 + term3 + term4 + term5
+        mean_sq_v = self.stats.d['mean_sq_v']
+
+        term6 = - half * mean_sq_v
+
+        analytical = term1 + term2 + term3 + term4 + term5 + term6
 
         f = function([],(g,analytical))
 
@@ -210,6 +214,10 @@ class TestS3C:
         max_diff = np.abs(gv-av).max()
 
         if max_diff > tol:
+            print "gv"
+            print gv
+            print "av"
+            print av
             raise Exception("analytical gradient on B deviates from theano gradient on B by up to "+str(max_diff))
 
     def test_likelihood_vshu_solve_M_step(self):
