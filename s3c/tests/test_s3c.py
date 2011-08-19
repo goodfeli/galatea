@@ -1,4 +1,4 @@
-from galatea.s3c.s3c import S3C, SufficientStatistics, VHSU_Solve_M_Step
+from galatea.s3c.s3c import S3C, SufficientStatistics, VHSU_Solve_M_Step, SufficientStatisticsHolder
 from pylearn2.datasets.cifar10 import CIFAR10
 from pylearn2.utils import as_floatX
 from theano import function
@@ -6,6 +6,8 @@ import numpy as np
 import theano.tensor as T
 import copy
 from theano.printing import Print
+from theano import config
+from pylearn2.utils import serial
 
 tol = 1e-7
 
@@ -19,23 +21,24 @@ class TestS3C:
             sets up an S3C model and learns on the data
             creates an expression for the log likelihood of the data
         """
-        dataset = CIFAR10(which_set = 'train')
+        dataset = serial.load('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl')
 
-        X = dataset.get_batch_design(2)
-        X = X[:,0:5]
-        X -= X.mean()
-        X /= X.std()
+        X = dataset.get_batch_design(1000)
+        #X = X[:,0:5]
+        #X -= X.mean()
+        #X /= X.std()
         m, D = X.shape
+        N = 300
 
         self.model = S3C(nvis = D,
-                         nhid = 3,
+                         nhid = N,
                          irange = .5,
                          init_bias_hid = 0.,
                          init_B = 3.,
-                         min_B = 3.,
-                         max_B = 3.,
+                         min_B = 1e-8,
+                         max_B = 1000.,
                          init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
-                         init_mu = 1., N_schedule = [1., 2., 4, 8., 16., 32., 64., 128., 200. ],
+                         init_mu = 1., N_schedule = [1., 2., 4, 8., 16., 32., 64., 128., 256., 300. ],
                          new_stat_coeff = 1.,
                          m_step = VHSU_Solve_M_Step( new_coeff = 1.0 ),
                          W_eps = 1e-6, mu_eps = 1e-8,
@@ -47,21 +50,32 @@ class TestS3C:
         model = self.model
         mf_obs = model.mean_field(X)
 
-        keys = copy.copy(mf_obs.keys())
+        stats = SufficientStatistics.from_observations(X,
+                N = model.nhid, B = model.B.get_value(),
+                W = model.W.get_value(), ** mf_obs)
 
-        f = function([], [ mf_obs[key] for key in mf_obs ] )
+        holder = SufficientStatisticsHolder(nvis = D, nhid = N)
 
-        values = f()
+        keys = copy.copy(stats.d.keys())
 
-        for key, value in zip(keys,values):
-            mf_obs[key] = value
+        outputs = [ stats.d[key] for key in keys ]
 
-        self.stats = SufficientStatistics.from_observations(X, N = model.nhid,
-                B = model.B.get_value(), W = model.W.get_value(), ** mf_obs)
+        f = function([], outputs)
+
+        vals = f()
+
+        for key, val in zip(keys, vals):
+            holder.d[key].set_value(val)
+
+        #print 'mean u_stat_2 in holder: '+str(holder.d['u_stat_2'].get_value().mean())
+
+        self.stats = SufficientStatistics.from_holder(holder)
 
 
         self.model.learn_mini_batch(X)
 
+
+        self.new_params = model.get_param_values()
 
 
         self.prob = self.model.log_likelihood_vhsu( self.stats )
