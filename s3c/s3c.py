@@ -4,7 +4,7 @@ import theano.tensor as T
 import numpy as np
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 from theano.printing import Print
-from pylearn2.utils import sharedX
+from pylearn2.utils import sharedX, as_floatX
 from pylearn2.monitor import Monitor
 import copy
 #config.compute_test_value = 'raise'
@@ -52,6 +52,8 @@ class SufficientStatistics:
 
     @classmethod
     def from_observations(self, X, H, mu0, Mu1, sigma0, Sigma1, U, N, B, W):
+
+        N = as_floatX(N)
 
         m = T.cast(X.shape[0],config.floatX)
 
