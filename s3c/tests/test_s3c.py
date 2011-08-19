@@ -138,12 +138,9 @@ class TestS3C:
                     " (this indicates a problem in the testing setup itself) ")
 
 
-
-
-
-    def test_grad_b(self):
-        """ tests that the gradient of the log probability with respect to bias_hid
-            matches my analytical derivation """
+    """def test_grad_b(self):
+        "" tests that the gradient of the log probability with respect to bias_hid
+            matches my analytical derivation ""
 
         if not self.bSetup:
             self.setup()
@@ -175,16 +172,16 @@ class TestS3C:
 
         max_av = np.abs(av).max()
 
-        if max_av > tol:
-            raise Exception("analytical gradient on b should be 0. max deviation "+str(max_av)+\
-                            "average deviation "+str(np.abs(av).mean()))
 
     def test_grad_B(self):
-        """ tests that the gradient of the log probability with respect to B
-        matches my analytical derivation """
+        "" tests that the gradient of the log probability with respect to B
+        matches my analytical derivation ""
 
         if not self.bSetup:
             self.setup()
+
+
+        self.model.set_param_values(self.new_params)
 
         g = T.grad(self.prob, self.model.B)
 
@@ -211,7 +208,7 @@ class TestS3C:
 
         one = as_floatX(1.)
 
-        term5 = T.sqr(N + one) * half / self.model.B
+        term5 = (T.sqr(N) + one) * half / self.model.B
 
         mean_sq_v = self.stats.d['mean_sq_v']
 
@@ -234,6 +231,71 @@ class TestS3C:
             print av
             raise Exception("analytical gradient on B deviates from theano gradient on B by up to "+str(max_diff))
 
+    """
+
+    def test_B_jump(self):
+        " tests that B is where I think it should be "
+
+
+        if not self.bSetup:
+            self.setup()
+
+        N = as_floatX(self.model.nhid)
+        one = as_floatX(1.)
+        half = as_floatX(.5)
+        two = as_floatX(2.)
+
+        mean_sq_hs = self.stats.d['mean_sq_hs']
+        #mean_sq_hs = Print('mean_sq_hs',attrs=['mean'])(mean_sq_hs)
+        u_stat_1 = self.stats.d['u_stat_1']
+        #u_stat_1 = Print('u_stat_1',attrs=['mean'])(u_stat_1)
+        mean_hsv = self.stats.d['mean_hsv']
+        #mean_hsv = Print('mean_hsv',attrs=['mean'])(mean_hsv)
+
+        #Solve for B
+        numer = T.sqr(N)+one
+        #numer = Print('numer')(numer)
+        assert numer.dtype == config.floatX
+        u_stat_2 = self.stats.d['u_stat_2']
+        #u_stat_2 = Print('u_stat_2',attrs=['mean'])(u_stat_2)
+
+        mean_sq_v = self.stats.d['mean_sq_v']
+        #mean_sq_v = Print('mean_sq_v',attrs=['mean'])(mean_sq_v)
+
+        W = self.model.W
+        #W = Print('W',attrs=['mean'])(W)
+
+        denom1 = N * T.dot(T.sqr(W), mean_sq_hs)
+        denom2 = half * u_stat_2
+        denom3 = - (W.T *  u_stat_1).sum(axis=0)
+        denom4 = - two * (W.T * mean_hsv).sum(axis=0)
+        denom5 = mean_sq_v
+
+        denom = denom1 + denom2 + denom3 + denom4 + denom5
+        assert denom.dtype == config.floatX
+        #denom = Print('denom',attrs=['min','max'])(denom)
+
+        new_B = numer / denom
+        new_B.name = 'new_B'
+        assert new_B.dtype == config.floatX
+
+        f = function([], new_B)
+
+        Bv = f()
+        aBv = self.model.B.get_value()
+
+        #print 'desired B'
+        #print Bv
+        #print 'actual B'
+        #print aBv
+
+        diffs = Bv - aBv
+        max_diff = np.abs(diffs).max()
+
+        if max_diff > tol:
+            raise Exception("B deviates from its correct value by at most "+str(max_diff))
+
+
     def test_likelihood_vshu_solve_M_step(self):
         """ tests that the log likelihood was increased by the learning """
 
@@ -244,13 +306,19 @@ class TestS3C:
 
         new_likelihood = f()
 
-        new_params = self.model.get_param_values()
+        if np.isnan(new_likelihood) or np.isinf(new_likelihood):
+            raise Exception('new_likelihood is NaN/Inf')
+
 
         self.model.set_param_values(self.orig_params)
 
         old_likelihood = f()
 
-        self.model.set_param_values(new_params)
+        self.model.set_param_values(self.new_params)
+
+        if np.isnan(old_likelihood) or np.isinf(old_likelihood):
+            raise Exception('old_likelihood is NaN/Inf')
+
 
         if new_likelihood < old_likelihood:
             raise Exception('M step worsened likelihood. new likelihood: ',new_likelihood,
@@ -259,4 +327,4 @@ class TestS3C:
 
 if __name__ == '__main__':
     obj = TestS3C()
-    obj.test_grad_b()
+    obj.test_B_jump()
