@@ -1,4 +1,8 @@
-from galatea.s3c.s3c import S3C, SufficientStatistics, VHSU_Solve_M_Step, SufficientStatisticsHolder
+from galatea.s3c.s3c import S3C
+from galatea.s3c.s3c import SufficientStatistics
+from galatea.s3c.s3c import SufficientStatisticsHolder
+from galatea.s3c.s3c import VHSU_E_Step
+from galatea.s3c.s3c import VHSU_Solve_M_Step
 from pylearn2.datasets.cifar10 import CIFAR10
 from pylearn2.utils import as_floatX
 from theano import function
@@ -38,7 +42,7 @@ class TestS3C:
                          min_B = 1e-8,
                          max_B = 1000.,
                          init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
-                         init_mu = 1., N_schedule = [1., 2., 4, 8., 16., 32., 64., 128., 256., 300. ],
+                         init_mu = 1., e_step = VHSU_E_Step(N_schedule = [1., 2., 4, 8., 16., 32., 64., 128., 256., 300. ]),
                          new_stat_coeff = 1.,
                          m_step = VHSU_Solve_M_Step( new_coeff = 1.0 ),
                          W_eps = 1e-6, mu_eps = 1e-8,
@@ -48,7 +52,7 @@ class TestS3C:
         self.orig_params = self.model.get_param_values()
 
         model = self.model
-        mf_obs = model.mean_field(X)
+        mf_obs = model.e_step.mean_field(X)
 
         stats = SufficientStatistics.from_observations(X,
                 N = model.nhid, B = model.B.get_value(),

@@ -171,8 +171,9 @@ class SufficientStatistics:
 class S3C(Model):
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
-                       init_alpha, min_alpha, max_alpha, init_mu, N_schedule,
+                       init_alpha, min_alpha, max_alpha, init_mu,
                        new_stat_coeff,
+                       e_step,
                        m_step,
                        W_eps = 1e-6, mu_eps = 1e-8,
                         min_bias_hid = -1e30, max_bias_hid = 1e30,
@@ -187,10 +188,9 @@ class S3C(Model):
         init_alpha: initial value of alpha (scalar or vector)
         min_alpha, max_alpha: (scalar) learning updates to alpha are clipped to [min_alpha, max_alpha]
         init_mu: initial value of mu (scalar or vector)
-        N_schedule: list of values to use for N throughout mean field updates.
-                    len(N_schedule) determines # mean field steps
         new_stat_coeff: Exponential decay steps on a variable eta take the form
                         eta:=  new_stat_coeff * new_observation + (1-new_stat_coeff) * eta
+        e_step:      An E_Step object that determines what kind of E-step to do
         m_step:      An M_Step object that determines what kind of M-step to do
         W_eps:       L2 regularization parameter for linear regression problem for W
         mu_eps:      L2 regularization parameter for linear regression problem for b
@@ -214,7 +214,8 @@ class S3C(Model):
         self.init_B = init_B
         self.min_B = float(min_B)
         self.max_B = float(max_B)
-        self.N_schedule = N_schedule
+        self.e_step = e_step
+        self.e_step.register_model(self)
         self.m_step = m_step
         self.init_mu = init_mu
         self.min_bias_hid = min_bias_hid
@@ -452,139 +453,6 @@ class S3C(Model):
         return new_W, new_bias_hid, new_alpha, new_mu, new_B
 
 
-    def h_coeff(self):
-        """ Returns the coefficient on h in the energy function """
-        return - self.bias_hid  + 0.5 * T.sqr(self.mu) * self.alpha
-
-    def init_mf_H(self,V):
-        NH = np.cast[config.floatX] ( self.nhid)
-        arg_to_log = 1.+(1./self.alpha) * NH * self.w
-
-        hid_vec = self.alpha * self.mu
-        #assert (hasattr(V,'__array__') or (V.tag.test_value is not None))
-        dotty_thing = T.dot(V*self.B, self.W)
-        pre_sq = hid_vec + dotty_thing
-        numer = T.sqr(pre_sq)
-        denom = self.alpha + self.w
-        frac = numer/ denom
-
-        first_term = 0.5 *  frac
-
-        H = T.nnet.sigmoid( first_term - self.h_coeff() - 0.5 * T.log(arg_to_log) )
-
-
-        #just use the prior
-        H = T.nnet.sigmoid( self.bias_hid )
-
-        #H = Print('init_mf_H')(H)
-
-        return H
-    #
-
-    def init_mf_Mu1(self, V):
-        #Mu1 = (self.alpha*self.mu + T.dot(V*self.B,self.W))/(self.alpha+self.w)
-        #Just use the prior
-        Mu1 = self.mu.dimshuffle('x',0)
-
-        Mu1.name = "init_mf_Mu1"
-
-        return Mu1
-    #
-
-    def mean_field_U(self, H, Mu1, NH):
-        prod = Mu1 * H
-
-        first_term = T.dot(prod, self.W.T)
-        first_term_broadcast = first_term.dimshuffle(0,'x',1)
-
-        W_broadcast = self.W.dimshuffle('x',1,0)
-        prod_broadcast = prod.dimshuffle(0,1,'x')
-
-        second_term = NH * W_broadcast * prod_broadcast
-
-        U = first_term_broadcast - second_term
-
-        U.name = "mean_field_U"
-
-        return U
-    #
-
-    def mean_field_H(self, U, V, NH):
-
-        BW = self.W * (self.B.dimshuffle(0,'x'))
-
-        filt = T.dot(V,BW)
-
-        u_contrib = (U * BW.dimshuffle('x',1,0)).sum(axis=2)
-
-        pre_sq = filt - u_contrib + self.alpha * self.mu
-
-        sq_term = T.sqr(pre_sq)
-
-        beta = self.alpha + NH * self.w
-
-        log_term = T.log(1.0 + NH * self.w / self.alpha )
-
-        H = T.nnet.sigmoid(-self.h_coeff() + 0.5 * sq_term / beta  - 0.5 * log_term )
-
-        H.name = "mean_field_H"
-
-        return H
-    #
-
-    def mean_field_Mu1(self, U, V, NH):
-
-        beta = self.alpha + NH * self.w
-
-        BW = self.W * self.B.dimshuffle(0,'x')
-
-        filt = T.dot(V,BW)
-
-        u_mod = - (U * BW.dimshuffle('x',1,0)).sum(axis=2)
-
-        Mu1 = (filt + u_mod + self.alpha * self.mu) / beta
-
-        Mu1.name = "mean_field_Mu1"
-
-        return Mu1
-    #
-
-
-    def mean_field_Sigma1(self, NH):
-        Sigma1 = 1./(self.alpha + NH * self.w)
-
-        Sigma1.name = "mean_field_Sigma1"
-
-        return Sigma1
-    #
-
-
-    def mean_field(self, V):
-        sigma0 = 1. / self.alpha
-        mu0 = T.zeros_like(sigma0)
-
-        H   =    self.init_mf_H(V)
-        Mu1 =    self.init_mf_Mu1(V)
-
-
-        for NH in self.N_schedule:
-            U   = self.mean_field_U  (H = H, Mu1 = Mu1, NH = NH)
-            H   = self.mean_field_H  (U = U, V = V,     NH = NH)
-            Mu1 = self.mean_field_Mu1(U = U, V = V,     NH = NH)
-
-
-        Sigma1 = self.mean_field_Sigma1(NH = np.cast[config.floatX](self.nhid))
-
-        return {
-                'H' : H,
-                'mu0' : mu0,
-                'Mu1' : Mu1,
-                'sigma0' : sigma0,
-                'Sigma1': Sigma1,
-                'U' : U
-                }
-    #
-
     def make_learn_func(self, X, learn = None):
         """
         X: a symbolic design matrix
@@ -595,7 +463,7 @@ class S3C(Model):
         """
 
         #E step
-        hidden_obs = self.mean_field(X)
+        hidden_obs = self.e_step.mean_field(X)
 
         m = T.cast(X.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
@@ -890,6 +758,175 @@ class S3C(Model):
     #
 #
 
+class E_step(object):
+    def __init__(self):
+        self.model = None
+
+    def register_model(self, model):
+        self.model = model
+
+class VHSU_E_Step(E_step):
+    """ A variational E-step that works by running mean field on
+        the auxiliary variable model """
+
+    def __init__(self, N_schedule):
+        """
+        parameters:
+            N_schedule: list of values to use for N throughout mean field updates.
+                    len(N_schedule) determines # mean field steps
+        """
+        self.N_schedule = N_schedule
+
+        super(VHSU_E_Step, self).__init__()
+
+
+    def init_mf_Mu1(self, V):
+        #Mu1 = (self.alpha*self.mu + T.dot(V*self.B,self.W))/(self.alpha+self.w)
+        #Just use the prior
+        Mu1 = self.model.mu.dimshuffle('x',0)
+
+        Mu1.name = "init_mf_Mu1"
+
+        return Mu1
+    #
+
+
+    def mean_field_H(self, U, V, NH):
+
+        BW = self.model.W * (self.model.B.dimshuffle(0,'x'))
+
+        filt = T.dot(V,BW)
+
+        u_contrib = (U * BW.dimshuffle('x',1,0)).sum(axis=2)
+
+        pre_sq = filt - u_contrib + self.model.alpha * self.model.mu
+
+        sq_term = T.sqr(pre_sq)
+
+        beta = self.model.alpha + NH * self.model.w
+
+        log_term = T.log(1.0 + NH * self.model.w / self.model.alpha )
+
+        H = T.nnet.sigmoid(-self.h_coeff() + 0.5 * sq_term / beta  - 0.5 * log_term )
+
+        H.name = "mean_field_H"
+
+        return H
+    #
+
+    def mean_field_Mu1(self, U, V, NH):
+
+        beta = self.model.alpha + NH * self.model.w
+
+        BW = self.model.W * self.model.B.dimshuffle(0,'x')
+
+        filt = T.dot(V,BW)
+
+        u_mod = - (U * BW.dimshuffle('x',1,0)).sum(axis=2)
+
+        Mu1 = (filt + u_mod + self.model.alpha * self.model.mu) / beta
+
+        Mu1.name = "mean_field_Mu1"
+
+        return Mu1
+    #
+
+
+    def mean_field_Sigma1(self, NH):
+        Sigma1 = 1./(self.model.alpha + NH * self.model.w)
+
+        Sigma1.name = "mean_field_Sigma1"
+
+        return Sigma1
+    #
+
+
+    def mean_field(self, V):
+        alpha = self.model.alpha
+
+        sigma0 = 1. / alpha
+        mu0 = T.zeros_like(sigma0)
+
+        H   =    self.init_mf_H(V)
+        Mu1 =    self.init_mf_Mu1(V)
+
+
+        for NH in self.N_schedule:
+            U   = self.mean_field_U  (H = H, Mu1 = Mu1, NH = NH)
+            H   = self.mean_field_H  (U = U, V = V,     NH = NH)
+            Mu1 = self.mean_field_Mu1(U = U, V = V,     NH = NH)
+
+
+        Sigma1 = self.mean_field_Sigma1(NH = np.cast[config.floatX](self.model.nhid))
+
+        return {
+                'H' : H,
+                'mu0' : mu0,
+                'Mu1' : Mu1,
+                'sigma0' : sigma0,
+                'Sigma1': Sigma1,
+                'U' : U
+                }
+    #
+
+    def mean_field_U(self, H, Mu1, NH):
+
+        W = self.model.W
+
+        prod = Mu1 * H
+
+        first_term = T.dot(prod, W.T)
+        first_term_broadcast = first_term.dimshuffle(0,'x',1)
+
+        W_broadcast = W.dimshuffle('x',1,0)
+        prod_broadcast = prod.dimshuffle(0,1,'x')
+
+        second_term = NH * W_broadcast * prod_broadcast
+
+        U = first_term_broadcast - second_term
+
+        U.name = "mean_field_U"
+
+        return U
+    #
+
+    def h_coeff(self):
+        """ Returns the coefficient on h in the energy function """
+        return - self.model.bias_hid  + 0.5 * T.sqr(self.model.mu) * self.model.alpha
+
+    def init_mf_H(self,V):
+        nhid = self.model.nhid
+        w = self.model.w
+        alpha = self.model.alpha
+        mu = self.model.mu
+        W = self.model.W
+        B = self.model.B
+
+        NH = np.cast[config.floatX] ( nhid)
+        arg_to_log = 1.+(1./alpha) * NH * w
+
+        hid_vec = alpha * mu
+        #assert (hasattr(V,'__array__') or (V.tag.test_value is not None))
+        dotty_thing = T.dot(V*B, W)
+        pre_sq = hid_vec + dotty_thing
+        numer = T.sqr(pre_sq)
+        denom = alpha + w
+        frac = numer/ denom
+
+        first_term = 0.5 *  frac
+
+        H = T.nnet.sigmoid( first_term - self.h_coeff() - 0.5 * T.log(arg_to_log) )
+
+
+        #just use the prior
+        H = T.nnet.sigmoid( self.model.bias_hid )
+
+        #H = Print('init_mf_H')(H)
+
+        return H
+    #
+
+
 class M_Step(object):
 
     def get_updates(self, model, stats):
@@ -924,7 +961,7 @@ class VHSU_M_Step(M_Step):
 
     def get_monitoring_channels(self, V, model):
 
-        hidden_obs  = model.mean_field(V)
+        hidden_obs  = model.e_step.mean_field(V)
 
         stats = SufficientStatistics.from_observations(V, \
                                                             N = np.cast[config.floatX](model.nhid),
