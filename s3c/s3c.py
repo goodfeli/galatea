@@ -10,9 +10,8 @@ import copy
 #config.compute_test_value = 'raise'
 
 class SufficientStatisticsHolder:
-    def __init__(self, nvis, nhid):
-        self.d = {
-            #TODO: set up the code to automatically determine which of these are needed
+    def __init__(self, nvis, nhid, needed_stats):
+        d = {
                     "mean_h"                :   sharedX(np.zeros(nhid), "mean_h" ),
                     "mean_v"                :   sharedX(np.zeros(nvis), "mean_v" ),
                     "mean_sq_v"             :   sharedX(np.zeros(nvis), "mean_sq_v" ),
@@ -22,11 +21,16 @@ class SufficientStatisticsHolder:
                     "mean_hs"               :   sharedX(np.zeros(nhid), "mean_hs" ),
                     "mean_sq_hs"            :   sharedX(np.zeros(nhid), "mean_sq_hs" ),
                     #"mean_D_sq_mean_Q_hs"   :   sharedX(np.zeros(nhid), "mean_D_sq_mean_Q_hs"),
-                    #"cov_hs"                :   sharedX(np.zeros((nhid,nhid)), 'cov_hs'),
+                    "cov_hs"                :   sharedX(np.zeros((nhid,nhid)), 'cov_hs'),
                     "mean_hsv"              :   sharedX(np.zeros((nhid,nvis)), 'mean_hsv'),
                     "u_stat_1"              :   sharedX(np.zeros((nhid,nvis)), 'u_stat_1'),
                     "u_stat_2"              :   sharedX(np.zeros((nvis,)),'u_stat_2')
                 }
+
+        self.d = {}
+
+        for stat in needed_stats:
+            self.d[stat] = d[stat]
 
     def update(self, updates, updated_stats):
         for key in updated_stats.d:
@@ -46,14 +50,12 @@ class SufficientStatistics:
 
     @classmethod
     def from_holder(self, holder):
-
         return SufficientStatistics(holder.d)
 
 
     @classmethod
-    def from_observations(self, X, H, mu0, Mu1, sigma0, Sigma1, U, N, B, W):
-
-        N = as_floatX(N)
+    def from_observations(self, needed_stats, X, H, mu0, Mu1, sigma0, Sigma1, \
+            U = None, N = None, B = None, W = None):
 
         m = T.cast(X.shape[0],config.floatX)
 
@@ -97,24 +99,27 @@ class SufficientStatistics:
         #mean_hsv
         mean_hsv = T.dot(mean_HS.T,X) / m
 
+        u_stat_1 = None
+        u_stat_2 = None
+        if U is not None:
+            N = as_floatX(N)
+            #u_stat_1
+            two = np.cast[config.floatX](2.)
+            u_stat_1 = - two * T.mean( T.as_tensor_variable(mean_HS).dimshuffle(0,1,'x') * U, axis=0)
 
-        #u_stat_1
-        two = np.cast[config.floatX](2.)
-        u_stat_1 = - two * T.mean( T.as_tensor_variable(mean_HS).dimshuffle(0,1,'x') * U, axis=0)
+            #u_stat_2
+            #B = Print('B',attrs=['mean'])(B)
+            #N = Print('N')(N)
+            coeff = two * T.sqr(N)
+            #coeff = Print('coeff')(coeff)
+            term1 = coeff/B
+            #term1 = Print('us2 term1',attrs=['mean'])(term1)
+            term2 = two * N * T.dot(T.sqr(mean_HS),T.sqr(W.T))
+            #term2 = Print('us2 term2',attrs=['mean'])(term2)
+            term3 = - two * T.sqr(T.dot(mean_HS, W.T))
+            #term3 = Print('us2 term3',attrs=['mean'])(term3)
 
-        #u_stat_2
-        #B = Print('B',attrs=['mean'])(B)
-        #N = Print('N')(N)
-        coeff = two * T.sqr(N)
-        #coeff = Print('coeff')(coeff)
-        term1 = coeff/B
-        #term1 = Print('us2 term1',attrs=['mean'])(term1)
-        term2 = two * N * T.dot(T.sqr(mean_HS),T.sqr(W.T))
-        #term2 = Print('us2 term2',attrs=['mean'])(term2)
-        term3 = - two * T.sqr(T.dot(mean_HS, W.T))
-        #term3 = Print('us2 term3',attrs=['mean'])(term3)
-
-        u_stat_2 = (term1+term2+term3).mean(axis=0)
+            u_stat_2 = (term1+term2+term3).mean(axis=0)
 
 
 
@@ -128,16 +133,20 @@ class SufficientStatistics:
                     "mean_hs"               :   mean_hs,
                     "mean_sq_hs"            :   mean_sq_hs,
                     #"mean_D_sq_mean_Q_hs"   :   mean_D_sq_mean_Q_hs,
-                    #"cov_hs"                :   cov_hs,
+                    "cov_hs"                :   cov_hs,
                     "mean_hsv"              :   mean_hsv,
                     "u_stat_1"              :   u_stat_1,
                     "u_stat_2"              :   u_stat_2
                 }
 
-        for key in d:
-            d[key].name = 'observed_'+key
 
-        return SufficientStatistics(d)
+        final_d = {}
+
+        for stat in needed_stats:
+            final_d[stat] = d[stat]
+            final_d[stat].name = 'observed_'+stat
+
+        return SufficientStatistics(final_d)
 
     def decay(self, coeff):
         rval_d = {}
@@ -249,7 +258,8 @@ class S3C(Model):
         self.B = sharedX(np.zeros(self.nvis)+self.init_B, name='B')
 
         if self.new_stat_coeff < 1.0:
-            self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid)
+            self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid,
+                    needed_stats = self.m_step.needed_stats() )
 
         self.redo_theano()
     #
@@ -261,6 +271,17 @@ class S3C(Model):
     def get_params(self):
         return [self.W, self.bias_hid, self.alpha, self.mu, self.B ]
 
+    @classmethod
+    def solve_vhs_needed_stats(cls):
+        return set([ 'cov_hs',
+                 'mean_hsv',
+                 'mean_v',
+                 'mean_sq_v',
+                 'mean_sq_s',
+                 'mean_hs',
+                 'mean_s',
+                 'mean_h'
+                ])
 
     def solve_vhs_from_stats(self, stats):
 
@@ -467,7 +488,8 @@ class S3C(Model):
 
         m = T.cast(X.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
-        new_stats = SufficientStatistics.from_observations(X = X, N = N, B = self.B, W = self.W, **hidden_obs)
+        new_stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
+                X = X, N = N, B = self.B, W = self.W, **hidden_obs)
 
 
         if self.new_stat_coeff == 1.0:
@@ -524,6 +546,16 @@ class S3C(Model):
         #
     #
 
+
+    @classmethod
+    def log_likelihood_vhs_needed_stats(cls):
+        h = S3C.log_likelihood_h_needed_stats()
+        s = S3C.log_likelihood_s_given_h_needed_stats()
+        v = S3C.log_likelihood_v_given_hs_needed_stats()
+
+        union = h.union(s).union(v)
+
+        return union
 
 
     def log_likelihood_vhs(self, stats):
@@ -647,6 +679,10 @@ class S3C(Model):
 
         return rval
 
+    @classmethod
+    def log_likelihood_v_given_hs_needed_stats(cls):
+        return set(['mean_sq_v','mean_hsv','cov_hs'])
+
     def log_likelihood_v_given_hs(self, stats):
         """Note: drops some constant terms"""
 
@@ -666,8 +702,14 @@ class S3C(Model):
 
         return rval
 
+    @classmethod
+    def log_likelihood_s_given_h_needed_stats(cls):
+        return set(['mean_h','mean_sq_s'])
+
     def log_likelihood_s_given_h(self, stats):
         """Note: drops some constant terms"""
+
+        print "TODO: log_likelihood_s doesn't use mean_s ? This seems incredibly fishy, double check it "
 
         mean_h = stats.d['mean_h']
         mean_sq_s = stats.d['mean_sq_s']
@@ -681,6 +723,10 @@ class S3C(Model):
         assert len(rval.type.broadcastable) == 0
 
         return rval
+
+    @classmethod
+    def log_likelihood_h_needed_stats(cls):
+        return set(['mean_h'])
 
     def log_likelihood_h(self, stats):
         mean_h = stats.d['mean_h']
@@ -764,6 +810,156 @@ class E_step(object):
 
     def register_model(self, model):
         self.model = model
+
+    def mean_field(self, V):
+        raise NotImplementedError()
+
+class VHS_E_Step(E_step):
+    """ A variational E_step that works by running damped mean field
+        on the original  model
+
+        All variables are updated simultaneously, in parallel. The
+        spike variables are updated with a fixed damping. The slab
+        variables are updated with a unit-specific damping designed
+        to ensure stability.
+
+        Note that while the updates for s_i and h_i have common
+        sub-expressions, the update for h_i does not depend on s_i
+        and vice versa. Thus the question of whether to update
+        h and s in parallel (as opposed to updating h, then updating
+        s, or vice versa) is probably not that important; the only
+        difference is how quickly changes in one variable will
+        appear in the interaction term of the other variable.
+
+        """
+
+    def __init__(self, h_new_coeff_schedule):
+        """Parameters
+        --------------
+        h_new_coeff_schedule:
+            list of coefficients to put on the new value of h on each damped mean field step
+                    (coefficients on s are driven by a special formula)
+            length of this list determines the number of mean field steps
+        """
+        self.h_new_coeff_schedule = h_new_coeff_schedule
+
+        super(VHS_E_Step, self).__init__()
+
+    def init_mf_H(self, V):
+        #just use the prior
+        return T.nnet.sigmoid(self.model.bias_hid).dimshuffle('x',0)
+
+    def init_mf_Mu1(self, V):
+        #just use the prior
+        return self.model.mu.dimshuffle('x',0)
+
+
+
+    def mean_field_A(self, V, H, Mu1):
+
+        mu = self.model.mu
+        alpha = self.model.alpha
+        W = self.model.W
+        B = self.model.B
+        w = self.model.w
+
+        BW = B.dimshuffle(0,'x') * W
+
+        HS = H * Mu1
+
+        mean_term = mu * alpha
+
+        data_term = T.dot(V, BW)
+
+        iterm_part_1 = - T.dot(T.dot(HS, W.T), BW)
+        iterm_part_2 = w * HS
+
+        interaction_term = iterm_part_1 + iterm_part_2
+
+        A = mean_term + data_term + interaction_term
+
+        return A
+
+    def mean_field_Mu1(self, A):
+
+        alpha = self.model.alpha
+        w = self.model.w
+
+        denom = alpha + w
+
+        Mu1 =  A / denom
+
+        return Mu1
+
+    def mean_field_Sigma1(self):
+        #TODO: this is a bad name, since it's really more like sigma^2
+
+        return 1./ (self.model.alpha + self.model.w )
+
+    def mean_field_H(self, A):
+
+        half = as_floatX(.5)
+
+        term1 = half * T.sqr(A)
+
+        term2 = self.model.bias_hid
+
+        term3 = - T.sqr(self.model.mu) * self.model.alpha
+
+        term4 = -half * T.log(self.model.alpha + self.model.w)
+
+        term5 = half * T.log(self.model.alpha)
+
+        arg_to_sigmoid = term1 + term2 + term3 + term4 + term5
+
+        H = T.nnet.sigmoid(arg_to_sigmoid)
+
+        return H
+
+    def damp_H(self, H, new_H, new_coeff):
+        return new_coeff * new_H + (1. - new_coeff) * H
+
+    def damp_Mu1(self, Mu1, new_Mu1):
+        rho = 0.5
+        ceiling = 1000.
+
+        positives = Mu1 > 0
+        non_positives = 1. - positives
+        negatives = Mu1 < 0
+        non_negatives = 1. - negatives
+
+        rval = T.clip(new_Mu1, - rho * positives * Mu1 - non_positives * ceiling, non_negatives * ceiling - rho * negatives * Mu1 )
+
+        return rval
+
+    def mean_field(self, V):
+        alpha = self.model.alpha
+
+        sigma0 = 1. / alpha
+        mu0 = T.zeros_like(sigma0)
+
+        H   =    self.init_mf_H(V)
+        Mu1 =    self.init_mf_Mu1(V)
+
+        for new_coeff in self.h_new_coeff_schedule:
+            A = self.mean_field_A(V = V, H = H, Mu1 = Mu1)
+            new_Mu1 = self.mean_field_Mu1(A = A)
+            new_H = self.mean_field_H(A = A)
+
+            H = self.damp_H(H = H, new_H = new_H, new_coeff = new_coeff)
+            Mu1 = self.damp_Mu1(Mu1 = Mu1, new_Mu1 = new_Mu1)
+
+
+        Sigma1 = self.mean_field_Sigma1()
+
+        return {
+                'H' : H,
+                'mu0' : mu0,
+                'Mu1' : Mu1,
+                'sigma0' : sigma0,
+                'Sigma1': Sigma1,
+                }
+
 
 class VHSU_E_Step(E_step):
     """ A variational E-step that works by running mean field on
@@ -929,6 +1125,11 @@ class VHSU_E_Step(E_step):
 
 class M_Step(object):
 
+    def needed_stats(self):
+        """ Return a set of string names of the sufficient statistics that will be needed
+            TODO: do this automatically instead of requiring it to be hard-coded """
+        raise NotImplementedError()
+
     def get_updates(self, model, stats):
         raise NotImplementedError()
 
@@ -937,17 +1138,23 @@ class M_Step(object):
 
 class VHS_M_Step(M_Step):
     """ An M-step based on learning using the distribution
-        over V,H, and S-- i.e. ignore the U variables.
+        over V,H, and S.
 
-        Currently we do not have a theoretical justification
-        for this.
+        In conjunction with VHS_E_Step this does variational
+        EM in the original model. (Haven't run this yet as of
+        time of writing this comment)
+
+        In conjunction with VHSU_E_Step: we have no theoretical
+        justification for this. In experiments on CIFAR it learns
+        a mixture of gabors and dead filters.
     """
 
     def get_monitoring_channels(self, V, model):
 
-        hid_observations = model.mean_field(V)
+        hid_observations = model.e_step.mean_field(V)
 
-        stats = SufficientStatistics.from_observations(V, *hid_observations)
+        stats = SufficientStatistics.from_observations(needed_stats = S3C.log_likelihood_vhs_needed_stats(),
+                X = V, **hid_observations)
 
         obj = model.log_likelihood_vhs(stats)
 
@@ -957,13 +1164,18 @@ class VHSU_M_Step(M_Step):
     """ An M-step based on learning using the distribution over
         V,H,S, and U-- i.e. good old-fashioned, theoretically
         justified EM
+
+        This M step has been unit tested and seems to work correctly
+        in unit tests. It has not been shown to work well in learning
+        experiments. That could mean the auxiliary variables are a bad
+        idea or it could mean something is wrong with the VHSU E step.
     """
 
     def get_monitoring_channels(self, V, model):
 
         hidden_obs  = model.e_step.mean_field(V)
 
-        stats = SufficientStatistics.from_observations(V, \
+        stats = SufficientStatistics.from_observations(needed_stats = S3C.log_likelihood_vhsu_needed_stats(), X =V, \
                                                             N = np.cast[config.floatX](model.nhid),
                                                             B = model.B,
                                                             W = model.W,
@@ -1007,6 +1219,9 @@ class VHS_Solve_M_Step(VHS_M_Step):
 
     def __init__(self, new_coeff):
         self.new_coeff = np.cast[config.floatX](float(new_coeff))
+
+    def needed_stats(self):
+        return S3C.solve_vhs_needed_stats()
 
     def get_updates(self, model, stats):
 

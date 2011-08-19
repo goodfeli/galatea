@@ -1,4 +1,4 @@
-#changed attempt_007.yaml to work with new interface where E step is a separate object
+#first attempt using an E-step based on mean field in the original model
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
@@ -13,12 +13,12 @@
                "min_alpha" : 1e-8,
                "max_alpha" : 1000.,
                "init_mu" : 0.,
-               "e_step" : !obj:galatea.s3c.s3c.VHSU_E_Step {
-                        "N_schedule" : [1.,1.,1.,2.,4.,8.,16.,32.,64.,128.,256.,300.]
+               "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
+                        "h_new_coeff_schedule" : [ .1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ]
                },
                "new_stat_coeff" : .005,
                "learn_after" : 1000,
-               "m_step"     : !obj:galatea.s3c.s3c.VHSU_Solve_M_Step {
+               "m_step"     : !obj:galatea.s3c.s3c.VHS_Solve_M_Step {
                         "new_coeff" : 1.
                         #"learning_rate" : 1e-3
                },
