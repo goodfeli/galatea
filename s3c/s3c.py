@@ -103,9 +103,16 @@ class SufficientStatistics:
         u_stat_1 = - two * T.mean( T.as_tensor_variable(mean_HS).dimshuffle(0,1,'x') * U, axis=0)
 
         #u_stat_2
-        term1 = two * T.sqr(N)/B
+        #B = Print('B',attrs=['mean'])(B)
+        #N = Print('N')(N)
+        coeff = two * T.sqr(N)
+        #coeff = Print('coeff')(coeff)
+        term1 = coeff/B
+        #term1 = Print('us2 term1',attrs=['mean'])(term1)
         term2 = two * N * T.dot(T.sqr(mean_HS),T.sqr(W.T))
+        #term2 = Print('us2 term2',attrs=['mean'])(term2)
         term3 = - two * T.sqr(T.dot(mean_HS, W.T))
+        #term3 = Print('us2 term3',attrs=['mean'])(term3)
 
         u_stat_2 = (term1+term2+term3).mean(axis=0)
 
@@ -391,6 +398,7 @@ class S3C(Model):
         #Solve for mu
         mean_hs = stats.d['mean_hs']
         mean_h =  stats.d['mean_h']
+        mean_h = Print('mean_h',attrs=['min','mean','max'])(mean_h)
         new_mu = mean_hs / (mean_h + self.W_eps)
         new_mu.name = 'new_mu'
 
@@ -413,11 +421,19 @@ class S3C(Model):
 
 
         #Solve for B
+        #new_W = Print('new_W',attrs=['mean'])(new_W)
+
         numer = T.sqr(N)+one
+        numer = Print('numer')(numer)
         assert numer.dtype == config.floatX
         u_stat_2 = stats.d['u_stat_2']
+        #u_stat_2 = Print('u_stat_2',attrs=['mean'])(u_stat_2)
 
         mean_sq_v = stats.d['mean_sq_v']
+        #mean_sq_v = Print('mean_sq_v',attrs=['mean'])(mean_sq_v)
+
+        mean_sq_hs = Print('mean_sq_hs',attrs=['mean'])(mean_sq_hs)
+        #mean_hsv = Print('mean_hsv',attrs=['mean'])(mean_hsv)
 
         denom1 = N * T.dot(T.sqr(new_W), mean_sq_hs)
         denom2 = half * u_stat_2
