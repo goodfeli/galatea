@@ -441,7 +441,8 @@ class S3C(Model):
         denom4 = - two * (new_W.T * mean_hsv).sum(axis=0)
         denom5 = mean_sq_v
 
-        denom = denom1 + denom2 + denom3 + denom4 + denom5
+        denom = T.clip(denom1 + denom2 + denom3 + denom4 + denom5, 1e-8, 1e12)
+        #denom = Print('denom', attrs=['min','max'])(denom)
         assert denom.dtype == config.floatX
 
         new_B = numer / denom
