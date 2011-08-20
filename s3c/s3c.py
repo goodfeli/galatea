@@ -787,7 +787,7 @@ class S3C(Model):
         mean_h = stats.d['mean_h']
 
         term1 = T.dot(self.bias_hid, mean_h)
-        term2 = - T.nnet.softplus(self.bias_hid)
+        term2 = - T.nnet.softplus(self.bias_hid).sum()
 
         rval = term1 + term2
 
