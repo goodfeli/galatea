@@ -304,9 +304,10 @@ class S3C(Model):
         inv = matrix_inverse(regularized)
         assert inv.dtype == config.floatX
 
-        W = T.dot(inv,mean_hsv).T
-        assert W.dtype == config.floatX
+        new_W = T.dot(inv,mean_hsv).T
+        assert new_W.dtype == config.floatX
 
+        """
         # B is the precision of the residuals
         # variance of residuals:
         # var( [W hs - t]_i ) =
@@ -353,7 +354,24 @@ class S3C(Model):
 
 
         B = 1. / var_residuals
+        """
 
+        #Solve for B by setting gradient of log likelihood to 0
+        mean_sq_v = stats.d['mean_sq_v']
+
+        one = as_floatX(1.)
+        two = as_floatX(2.)
+
+        denom1 = mean_sq_v
+        denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
+        denom3 = (cov_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,1,'x')).sum(axis=(1,2))
+
+        denom = T.clip(denom1 + denom2 + denom3, 1e-10, 1e8)
+
+        new_B = one / denom
+
+
+        mean_hs = stats.d['mean_hs']
 
         # Now a linear regression problem where mu_i is used to predict
         # s_i from h_i
@@ -393,7 +411,7 @@ class S3C(Model):
 
         assert bias_hid.dtype == config.floatX
 
-        return W, bias_hid, alpha, mu, B
+        return new_W, bias_hid, alpha, mu, new_B
 
     def solve_vhsu_from_stats(self, stats):
          #TODO: write unit test verifying that this results in zero gradient
