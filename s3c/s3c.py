@@ -32,6 +32,21 @@ class SufficientStatisticsHolder:
         for stat in needed_stats:
             self.d[stat] = d[stat]
 
+
+    def __getstate__(self):
+        rval = {}
+
+        for name in self.d:
+            rval[name] = self.d[name].get_value(borrow=False)
+
+        return rval
+
+    def __setstate__(self,d):
+        self.d = {}
+
+        for name in d:
+            self.d[name] = shared(d[name])
+
     def update(self, updates, updated_stats):
         for key in updated_stats.d:
             assert key in self.d
