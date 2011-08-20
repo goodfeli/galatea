@@ -704,21 +704,35 @@ class S3C(Model):
 
     @classmethod
     def log_likelihood_s_given_h_needed_stats(cls):
-        return set(['mean_h','mean_sq_s'])
+        return set(['mean_h','mean_hs','mean_sq_s'])
 
     def log_likelihood_s_given_h(self, stats):
-        """Note: drops some constant terms"""
 
-        print "TODO: log_likelihood_s doesn't use mean_s ? This seems incredibly fishy, double check it "
+        """
+        E_h,s\sim Q log P(s|h)
+        = E_h,s\sim Q log sqrt( alpha / 2pi) exp(- 0.5 alpha (s-mu h)^2)
+        = E_h,s\sim Q log sqrt( alpha / 2pi) - 0.5 alpha (s-mu h)^2
+        = E_h,s\sim Q  0.5 log alpha - 0.5 log 2 pi - 0.5 alpha s^2 + alpha s mu h + 0.5 alpha mu^2 h^2
+        = E_h,s\sim Q 0.5 log alpha - 0.5 log 2 pi - 0.5 alpha s^2 + alpha mu h s + 0.5 alpha mu^2 h
+        = 0.5 log alpha - 0.5 log 2 pi - 0.5 alpha mean_sq_s + alpha mu mean_hs + 0.5 alpha mu^2 mean_h
+        """
 
         mean_h = stats.d['mean_h']
         mean_sq_s = stats.d['mean_sq_s']
+        mean_hs = stats.d['mean_hs']
 
-        term1 = 0.5 * T.log( self.alpha ).sum()
-        term2 = - 0.5 * T.dot( self.alpha , mean_sq_s )
-        term3 = T.dot(self.mu*self.alpha*mean_h,1.-0.5 * self.mu)
+        half = as_floatX(0.5)
+        two = as_floatX(2.)
+        N = as_floatX(self.nhid)
+        pi = as_floatX(np.pi)
 
-        rval = term1 + term2 + term3
+        term1 = half * T.log( self.alpha ).sum()
+        term2 = - half * N * T.log(two*pi)
+        term3 = - half * T.dot( self.alpha , mean_sq_s )
+        term4 = T.dot(self.mu*self.alpha,mean_hs)
+        term5 = half * T.dot(T.sqr(self.mu), mean_h)
+
+        rval = term1 + term2 + term3 + term4 + term5
 
         assert len(rval.type.broadcastable) == 0
 
