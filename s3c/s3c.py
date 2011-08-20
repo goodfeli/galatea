@@ -201,7 +201,7 @@ class S3C(Model):
                        m_step,
                        W_eps = 1e-6, mu_eps = 1e-8,
                         min_bias_hid = -1e30, max_bias_hid = 1e30,
-                       learn_after = None):
+                       learn_after = None, hard_max_step = None):
         """"
         nvis: # of visible units
         nhid: # of hidden units
@@ -222,6 +222,10 @@ class S3C(Model):
                         begins learning parameters and decaying sufficient statistics
                         after seeing learn_after examples
                         until this time, only accumulates sufficient statistics
+        hard_max_step:  if set to None, has no effect
+                        otherwise, every element of every parameter is not allowed to change
+                        by more than this amount on each M-step. This is basically a hack
+                        introduced to prevent explosion in gradient descent.
         """
 
         super(S3C,self).__init__()
@@ -244,6 +248,11 @@ class S3C(Model):
         self.init_mu = init_mu
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
+
+        self.hard_max_step = hard_max_step
+        if self.hard_max_step is not None:
+            self.hard_max_step = as_floatX(float(self.hard_max_step))
+
 
         #this class always needs a monitor, since it is used to implement the learn_after feature
         Monitor.get_monitor(self)
@@ -508,26 +517,18 @@ class S3C(Model):
 
     def censor_updates(self, updates):
 
-        #print 'hack! only updating bias_hid'
-        #for key in copy.copy(updates.keys()):
-        #    if key is not self.bias_hid:
-        #        del updates[key]
-        #    else:
-        #        updates[key] = Print('updated value')(updates[key])
-
-
         if self.alpha in updates:
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)
-        #
 
         if self.B in updates:
             updates[self.B] = T.clip(updates[self.B],self.min_B,self.max_B)
-        #
 
         if self.bias_hid in updates:
             updates[self.bias_hid] = T.clip(updates[self.bias_hid],self.min_bias_hid,self.max_bias_hid)
-        #
-    #
+
+        if self.hard_max_step is not None:
+            for param in updates:
+                updates[param] = T.clip(updates[param],param-self.hard_max_step,param+self.hard_max_step)
 
 
     @classmethod
