@@ -762,17 +762,14 @@ class S3C(Model):
 
         """
             E_h\sim Q log P(h)
-            = E_h\sim Q log P(h)
-            = P_D(h=1) log P(h=1) + P_D(h=0) log P(h=0)
-            = mean_h log sigmoid (b) + (1-mean_h) log sigmoid(-b)
-            = - mean_h softplus( - b) - (1-mean_h) softplus( b)
-            = (mean_h - 1) softplus(b) - mean_h softplus(-b)
+            = E_h\sim Q log exp( bh) / (1+exp(b))
+            = E_h\sim Q bh - softplus(b)
         """
 
         mean_h = stats.d['mean_h']
 
-        term1 = T.dot(mean_h - 1., T.nnet.softplus(self.bias_hid))
-        term2 = - T.dot(mean_h, T.nnet.softplus(-self.bias_hid))
+        term1 = T.dot(self.bias_hid, mean_h)
+        term2 = - T.nnet.softplus(self.bias_hid)
 
         rval = term1 + term2
 
