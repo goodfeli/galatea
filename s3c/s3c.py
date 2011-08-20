@@ -1285,6 +1285,8 @@ class VHS_Grad_M_Step(VHS_M_Step):
 
         return updates
 
+    def needed_stats(self):
+        return S3C.log_likelihood_vhs_needed_stats()
 
 class VHSU_Grad_M_Step(VHSU_M_Step):
 
