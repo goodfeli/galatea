@@ -545,8 +545,11 @@ class S3C(Model):
     def log_likelihood_vhs(self, stats):
 
         log_likelihood_v_given_hs = self.log_likelihood_v_given_hs(stats)
+        log_likelihood_v_given_hs = Print('log_likelihood_v_given_hs')(log_likelihood_v_given_hs)
         log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
+        log_likelihood_s_given_h = Print('log_likelihood_s_given_h')(log_likelihood_s_given_h)
         log_likelihood_h          = self.log_likelihood_h(stats)
+        log_likelihood_h = Print('log_likelihood_h')(log_likelihood_h)
 
         rval = log_likelihood_v_given_hs + log_likelihood_s_given_h + log_likelihood_h
 
@@ -808,7 +811,11 @@ class S3C(Model):
         print 'minimum eigenvalue: '+str(a.min())
         assert a.min() >= 0"""
 
-        if self.monitor.examples_seen % 1000 == 0:
+        if self.monitor.examples_seen % 10000 == 0:
+            print ""
+            b = self.bias_hid.get_value(borrow=True)
+            p = 1./(1.+np.exp(-b))
+            print 'p: ',(p.min(),p.mean(),p.max())
             B = self.B.get_value(borrow=True)
             print 'B: ',(B.min(),B.mean(),B.max())
             mu = self.mu.get_value(borrow=True)
