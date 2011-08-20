@@ -21,15 +21,15 @@
                "new_stat_coeff" : .005,
                "learn_after" : 1000,
                "m_step"     : !obj:galatea.s3c.s3c.VHS_Solve_M_Step {
-                        "new_coeff" : .01
+                        "new_coeff" : .001
                         #"learning_rate" : 1e-3
                },
                "mu_eps" : 0.
         },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
-               "batch_size" : 50,
-               "batches_per_iter" : 100,
-               "monitoring_batches" : 10,
+               "batch_size" : 500,
+               "batches_per_iter" : 10,
+               "monitoring_batches" : 1,
                "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
         },
     "save_path": "attempt_009.pkl"
