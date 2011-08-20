@@ -306,55 +306,6 @@ class S3C(Model):
         new_W = T.dot(inv,mean_hsv).T
         assert new_W.dtype == config.floatX
 
-        """
-        # B is the precision of the residuals
-        # variance of residuals:
-        # var( [W hs - t]_i ) =
-        # var( W_i hs ) + var( t_i ) + 2 ( mean( W_i hs ) mean(t_i) - mean( W_i hs t_i ) )
-        # = var_recons + var_target + 2 ( mean_recons * mean_target - mean_recons_target )
-
-
-        #mean_v[i] = E_D[ v_i ]
-        mean_v = stats.d['mean_v']
-        #mean_sq_v[i] = E_D[ v_i ^2 ]
-        mean_sq_v = stats.d['mean_sq_v']
-        var_v = mean_sq_v - T.sqr(mean_v)
-
-        #mean_hs[i] = E_D,Q[ h_i s_i ]
-        mean_hs = stats.d['mean_hs']
-        mean_recons = T.dot(W, mean_hs)
-
-        #mean_sq_recons[i] = E_D,Q [ ( W h \circ s)[i]^2 ]
-        #E_D,Q  [   (W h \circ s )_i ^2 ]
-        #= E_D,Q  [   (W_i: h \circ s )^2  ]
-        #= E_D,Q  [   \sum_j \sum_k W_ij h_j s_j W_ik h_k s_k    ]
-        #= E_D,Q  [   \sum_j W_ij^2 h_j s_j^2    \sum_{k \neq j} W_ij h_j s_j W_ik h_k s_k    ]
-        #=    \sum_j W_ij^2  E_D,Q  [ h_j s_j^2 ]   \sum_{k \neq j} E_D,Q  [ W_ij h_j s_j W_ik h_k s_k    ]
-        #=    \sum_j W_ij^2  mean_sq_hs[j] +   \sum_{k \neq j} E_D,Q  [ W_ij h_j s_j W_ik h_k s_k    ]
-        #=    T.dot(T.sqr(W),  mean_sq_hs)[i] +  \sum_j  \sum_{k \neq j} E_D,Q  [ W_ij h_j s_j W_ik h_k s_k    ]
-        #=    T.dot(T.sqr(W),  mean_sq_hs)[i] +  \sum_j  \sum_{k \neq j} W_ij  W_ik cov_hs[j,k]    ]
-        #(cov_hs is E_D E_Q hs, ie hs[j] and hs[k] are not independent in this distribution, since the way the distributional particles line up for different examples can correlate them)
-        #= (cov_hs.dimshuffle('x',0,1) * W.dimshuffle(0,'x',1) * W.dimshuffle(0,1,'x')).sum(axis=(1,2))
-        #TODO: is there a more efficient way to do this?
-        W_out = W.dimshuffle(0,'x',1) * W.dimshuffle(0,1,'x')
-        mean_sq_recons = (cov_hs.dimshuffle('x',0,1) * W_out).sum(axis=(1,2))
-
-        var_recons = mean_sq_recons - T.sqr(mean_recons)
-
-        #mean_recons_v[i] = E_D,Q [ v[i] W[i,:] h \circ s ]
-        #                 = E_D,Q [ v[i] \sum_j W_ij h_j s_j ]
-        #                 = \sum_j W_ij E_D,Q[ v[i] h[j] s[j] ]
-        #
-        mean_recons_v = (W * mean_hsv.T).sum(axis=1)
-
-
-
-        var_residuals = var_recons + var_v + np.cast[config.floatX](2.) * ( mean_recons * mean_v - mean_recons_v)
-
-
-        B = 1. / var_residuals
-        """
-
         #Solve for B by setting gradient of log likelihood to 0
         mean_sq_v = stats.d['mean_sq_v']
 
