@@ -773,9 +773,7 @@ class S3C(Model):
         X.tag.test_value = np.cast[config.floatX](self.rng.randn(5,self.nvis))
 
         if self.learn_after is not None:
-            print "MAKING LEARN FUNC"
             self.learn_func = self.make_learn_func(X, learn = True )
-            print "MAKING ACCUM FUNC"
             self.accum_func = self.make_learn_func(X, learn = False )
         else:
             self.learn_func = self.make_learn_func(X)
@@ -795,10 +793,8 @@ class S3C(Model):
 
         if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
-                #print "LEARNING"
                 self.learn_func(X)
             else:
-                #print "ACCUMULATING"
                 self.accum_func(X)
         else:
             self.learn_func(X)
@@ -828,8 +824,6 @@ class S3C(Model):
 
     def get_weights_format(self):
         return ['v','h']
-    #
-#
 
 class E_step(object):
     def __init__(self):
