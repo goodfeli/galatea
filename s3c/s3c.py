@@ -278,6 +278,7 @@ class S3C(Model):
                  'mean_v',
                  'mean_sq_v',
                  'mean_sq_s',
+                 'mean_sq_hs',
                  'mean_hs',
                  'mean_h'
                 ])
