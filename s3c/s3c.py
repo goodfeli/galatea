@@ -285,11 +285,13 @@ class S3C(Model):
 
     def solve_vhs_from_stats(self, stats):
 
-        #Solve multiple linear regression problem where
-        # W is a matrix used to predict v from h*s
+        """Solve multiple linear regression problem where
+         W is a matrix used to predict v from h*s
 
 
-        #cov_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
+        cov_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
+        """
+
         cov_hs = stats.d['cov_hs']
         assert cov_hs.dtype == config.floatX
         #mean_hsv[i,j] = E_D,Q h_i s_i v_j
@@ -392,7 +394,6 @@ class S3C(Model):
         assert bias_hid.dtype == config.floatX
 
         return W, bias_hid, alpha, mu, B
-    #
 
     def solve_vhsu_from_stats(self, stats):
          #TODO: write unit test verifying that this results in zero gradient
