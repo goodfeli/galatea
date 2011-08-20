@@ -712,7 +712,7 @@ class S3C(Model):
         = E_h,s\sim Q log sqrt( alpha / 2pi) - 0.5 alpha (s-mu h)^2
         = E_h,s\sim Q  0.5 log alpha - 0.5 log 2 pi - 0.5 alpha s^2 + alpha s mu h + 0.5 alpha mu^2 h^2
         = E_h,s\sim Q 0.5 log alpha - 0.5 log 2 pi - 0.5 alpha s^2 + alpha mu h s + 0.5 alpha mu^2 h
-        = 0.5 log alpha - 0.5 log 2 pi - 0.5 alpha mean_sq_s + alpha mu mean_hs + 0.5 alpha mu^2 mean_h
+        = 0.5 log alpha - 0.5 log 2 pi - 0.5 alpha mean_sq_s + alpha mu mean_hs - 0.5 alpha mu^2 mean_h
         """
 
         mean_h = stats.d['mean_h']
@@ -728,7 +728,7 @@ class S3C(Model):
         term2 = - half * N * T.log(two*pi)
         term3 = - half * T.dot( self.alpha , mean_sq_s )
         term4 = T.dot(self.mu*self.alpha,mean_hs)
-        term5 = half * T.dot(T.sqr(self.mu), mean_h)
+        term5 = - half * T.dot(T.sqr(self.mu), self.alpha * mean_h)
 
         rval = term1 + term2 + term3 + term4 + term5
 
