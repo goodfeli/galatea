@@ -279,7 +279,6 @@ class S3C(Model):
                  'mean_sq_v',
                  'mean_sq_s',
                  'mean_hs',
-                 'mean_s',
                  'mean_h'
                 ])
 
@@ -383,20 +382,18 @@ class S3C(Model):
         reg = self.mu_eps
         mu = mean_hs/(mean_h+reg)
 
-        #todo: get rid of mean_s1
 
-        var_mu_h = T.sqr(mu) * (mean_h*(1.-mean_h))
         mean_sq_s = stats.d['mean_sq_s']
-        mean_s = stats.d['mean_s']
-        var_s = mean_sq_s - T.sqr(mean_s)
+        mean_sq_hs = stats.d['mean_sq_hs']
+
+        s_denom1 = mean_sq_s
+        s_denom2 = - two * self.mu * mean_hs
+        s_denom3 = T.sqr(self.mu) * mean_sq_hs
 
 
-        mean_mu_h = mu * mean_h
-        mean_mu_h_s = mu * mean_hs
+        s_denom = s_denom1 + s_denom2 + s_denom3
 
-        var_s_resid = var_mu_h + var_s + 2. * (mean_mu_h * mean_s - mean_mu_h_s)
-
-        alpha = 1. / var_s_resid
+        alpha = one / s_denom
 
 
         #probability of hiddens just comes from sample counting
