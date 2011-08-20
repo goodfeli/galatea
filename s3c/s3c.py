@@ -559,7 +559,6 @@ class S3C(Model):
 
 
     def log_likelihood_vhs(self, stats):
-        """Note: drops some constant terms"""
 
         log_likelihood_v_given_hs = self.log_likelihood_v_given_hs(stats)
         log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
@@ -684,19 +683,31 @@ class S3C(Model):
         return set(['mean_sq_v','mean_hsv','cov_hs'])
 
     def log_likelihood_v_given_hs(self, stats):
-        """Note: drops some constant terms"""
+
+        """
+        E_v,h,s \sim Q log P( v | h, s)
+        = E_v,h,s \sim Q log sqrt(B/2 pi) exp( - 0.5 B (v- W[v,:] (h*s) )^2)
+        = E_v,h,s \sim Q 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + B W[v,:] (h*s) - 0.5 B sum_i sum_j W[v,i] W[v,j] h_i s_i h_j s_j
+        = 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + B W[v,:] (h*s) - 0.5 B sum_i,j W[v,i] W[v,j] cov(h_i s_i, h_j s_j)
+        """
+
+        half = as_floatX(0.5)
+        two = as_floatX(2.)
+        pi = as_floatX(np.pi)
+        N = as_floatX(self.nhid)
 
         mean_sq_v = stats.d['mean_sq_v']
         mean_hsv  = stats.d['mean_hsv']
         cov_hs = stats.d['cov_hs']
 
-        term1 = 0.5 * T.sum(T.log(self.B))
-        term2 = - 0.5 * T.dot(self.B, mean_sq_v)
-        term3 = (self.B * T.dot(self.W, mean_hsv)).sum()
-        term4 = -0.5 * (self.B *  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
-                        self.W.dimshuffle(0,'x',1)).sum(axis=(1,2))).sum()
+        term1 = half * T.sum(T.log(self.B))
+        term2 = - half * N * T.log(two * pi)
+        term3 = - half * T.dot(self.B, mean_sq_v)
+        term4 = (self.B * T.dot(self.W, mean_hsv)).sum()
+        term5 = - half * (self.B *  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+                        self.W.dimshuffle(0,'x',1)).sum(axis=(1,2))).sum(axis=0)
 
-        rval = term1 + term2 + term3 + term4
+        rval = term1 + term2 + term3 + term4 + term5
 
         assert len(rval.type.broadcastable) == 0
 
