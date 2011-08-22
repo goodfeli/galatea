@@ -274,7 +274,6 @@ class S3C(Model):
         self.rng = np.random.RandomState([1.,2.,3.])
 
     def redo_everything(self):
-
         self.W = sharedX(self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid)), name = 'W')
         self.bias_hid = sharedX(np.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
         self.alpha = sharedX(np.zeros(self.nhid)+self.init_alpha, name = 'alpha')
@@ -286,7 +285,6 @@ class S3C(Model):
                     needed_stats = self.m_step.needed_stats() )
 
         self.redo_theano()
-    #
 
 
     def get_monitoring_channels(self, V):
@@ -385,6 +383,17 @@ class S3C(Model):
         assert bias_hid.dtype == config.floatX
 
         return new_W, bias_hid, alpha, mu, new_B
+
+    @classmethod
+    def solve_vhsu_needed_stats(cls):
+        return set(['mean_hsv',
+                    'mean_sq_s',
+                    'u_stat_1',
+                    'mean_sq_hs',
+                    'mean_hs',
+                    'mean_h',
+                    'u_stat_2',
+                    'mean_sq_v'])
 
     def solve_vhsu_from_stats(self, stats):
          #TODO: write unit test verifying that this results in zero gradient
