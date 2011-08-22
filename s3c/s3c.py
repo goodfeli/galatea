@@ -817,17 +817,23 @@ class S3C(Model):
         assert a.min() >= 0"""
 
         if self.monitor.examples_seen % 10000 == 0:
+
             print ""
             b = self.bias_hid.get_value(borrow=True)
+            assert not np.any(np.isnan(b))
             p = 1./(1.+np.exp(-b))
             print 'p: ',(p.min(),p.mean(),p.max())
             B = self.B.get_value(borrow=True)
+            assert not np.any(np.isnan(B))
             print 'B: ',(B.min(),B.mean(),B.max())
             mu = self.mu.get_value(borrow=True)
+            assert not np.any(np.isnan(mu))
             print 'mu: ',(mu.min(),mu.mean(),mu.max())
             alpha = self.alpha.get_value(borrow=True)
+            assert not np.any(np.isnan(alpha))
             print 'alpha: ',(alpha.min(),alpha.mean(),alpha.max())
             W = self.W.get_value(borrow=True)
+            assert not np.any(np.isnan(W))
             print 'W: ',(W.min(),W.mean(),W.max())
     #
 
