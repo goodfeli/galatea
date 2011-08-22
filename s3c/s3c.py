@@ -358,16 +358,16 @@ class S3C(Model):
 
 
         mean_sq_s = stats.d['mean_sq_s']
-        mean_sq_hs = stats.d['mean_sq_hs']
+        mean_sq_hs = stats.d['mean_h']
 
         s_denom1 = mean_sq_s
         s_denom2 = - two * new_mu * mean_hs
-        s_denom3 = T.sqr(new_mu) * mean_sq_hs
+        s_denom3 = T.sqr(new_mu) * mean_h
 
 
         s_denom = s_denom1 + s_denom2 + s_denom3
 
-        alpha = one / s_denom
+        new_alpha = one / s_denom
 
 
         #probability of hiddens just comes from sample counting
@@ -382,7 +382,7 @@ class S3C(Model):
 
         assert bias_hid.dtype == config.floatX
 
-        return new_W, bias_hid, alpha, new_mu, new_B
+        return new_W, bias_hid, new_alpha, new_mu, new_B
 
     @classmethod
     def solve_vhsu_needed_stats(cls):

@@ -24,7 +24,7 @@ class TestS3C_VHS:
             creates an expression for the log likelihood of the data
         """
 
-        self.tol = 4e-3 #TODO: this seems really high, but it's what's needed to get the W grad to pas 4e-3
+        self.tol = 1e-5
 
         dataset = serial.load('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl')
 
@@ -292,7 +292,7 @@ class TestS3C_VHS:
 
         stats = self.stats
 
-        mean_sq_hs = stats.d['mean_sq_hs']
+        mean_h = stats.d['mean_h']
         new_mu = self.model.mu
         mean_hs = stats.d['mean_hs']
         mean_sq_s = stats.d['mean_sq_s']
@@ -301,7 +301,7 @@ class TestS3C_VHS:
         two = as_floatX(2.)
         s_denom1 = mean_sq_s
         s_denom2 = - two * new_mu * mean_hs
-        s_denom3 = T.sqr(new_mu) * mean_sq_hs
+        s_denom3 = T.sqr(new_mu) * mean_h
 
         s_denom = s_denom1 + s_denom2 + s_denom3
         new_alpha =  one / s_denom
