@@ -699,9 +699,9 @@ class S3C(Model):
         term1 = half * T.sum(T.log(self.B))
         term2 = - half * N * T.log(two * pi)
         term3 = - half * T.dot(self.B, mean_sq_v)
-        term4 = (self.B * T.dot(self.W, mean_hsv)).sum()
-        term5 = - half * (self.B *  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
-                        self.W.dimshuffle(0,'x',1)).sum(axis=(1,2))).sum(axis=0)
+        term4 = T.dot(self.B , (self.W * mean_hsv.T).sum(axis=1))
+        term5 = - half * T.dot(self.B,  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+                        self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
 
         rval = term1 + term2 + term3 + term4 + term5
 
