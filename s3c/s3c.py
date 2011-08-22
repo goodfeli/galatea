@@ -1272,6 +1272,9 @@ class VHSU_Solve_M_Step(VHSU_M_Step):
     def __init__(self, new_coeff):
         self.new_coeff = np.cast[config.floatX](float(new_coeff))
 
+    def needed_stats(self):
+        return S3C.solve_vhsu_needed_stats()
+
     def get_updates(self, model, stats):
 
         W, bias_hid, alpha, mu, B = model.solve_vhsu_from_stats(stats)
