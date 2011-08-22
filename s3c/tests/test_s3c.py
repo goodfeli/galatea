@@ -210,6 +210,47 @@ class TestS3C_VHS:
         max_av = np.abs(av).max()
 """
 
+    def test_grad_alpha(self):
+        """tests that the gradient of the log probability with respect to alpha
+        matches my analytical derivation """
+
+        self.model.set_param_values(self.new_params)
+
+        g = T.grad(self.prob, self.model.alpha)
+
+        mu = self.model.mu
+        alpha = self.model.alpha
+        half = as_floatX(.5)
+
+        mean_sq_s = self.stats.d['mean_sq_s']
+        mean_hs = self.stats.d['mean_hs']
+        mean_h = self.stats.d['mean_h']
+
+        term1 = - half * mean_sq_s
+
+        term2 = mu * mean_hs
+
+        term3 = - half * T.sqr(mu) * mean_h
+
+        term4 = half / alpha
+
+        analytical = term1 + term2 + term3 + term4
+
+        f = function([],(g,analytical))
+
+        gv, av = f()
+
+        assert gv.shape == av.shape
+
+        max_diff = np.abs(gv-av).max()
+
+        if max_diff > self.tol:
+            print "gv"
+            print gv
+            print "av"
+            print av
+            raise Exception("analytical gradient on alpha deviates from theano gradient on alpha by up to "+str(max_diff))
+
     def test_grad_W(self):
         """tests that the gradient of the log probability with respect to W
         matches my analytical derivation """
@@ -244,69 +285,45 @@ class TestS3C_VHS:
             raise Exception("analytical gradient on W deviates from theano gradient on W by up to "+str(max_diff))
 
 
-    """def test_B_jump(self):
-
-        This test currently fails. Disabled because our current fix is really just to abandon this M step
-
-        " tests that B is where I think it should be "
+    def test_alpha_jump(self):
 
 
+        " tests that alpha is where I think it should be "
 
-        N = as_floatX(self.model.nhid)
+        stats = self.stats
+
+        mean_sq_hs = stats.d['mean_sq_hs']
+        new_mu = self.model.mu
+        mean_hs = stats.d['mean_hs']
+        mean_sq_s = stats.d['mean_sq_s']
+
         one = as_floatX(1.)
-        half = as_floatX(.5)
         two = as_floatX(2.)
+        s_denom1 = mean_sq_s
+        s_denom2 = - two * new_mu * mean_hs
+        s_denom3 = T.sqr(new_mu) * mean_sq_hs
 
-        mean_sq_hs = self.stats.d['mean_sq_hs']
-        #mean_sq_hs = Print('mean_sq_hs',attrs=['mean'])(mean_sq_hs)
-        u_stat_1 = self.stats.d['u_stat_1']
-        #u_stat_1 = Print('u_stat_1',attrs=['mean'])(u_stat_1)
-        mean_hsv = self.stats.d['mean_hsv']
-        #mean_hsv = Print('mean_hsv',attrs=['mean'])(mean_hsv)
+        s_denom = s_denom1 + s_denom2 + s_denom3
+        new_alpha =  one / s_denom
+        new_alpha.name = 'new_alpha'
 
-        #Solve for B
-        numer = T.sqr(N)+one
-        #numer = Print('numer')(numer)
-        assert numer.dtype == config.floatX
-        u_stat_2 = self.stats.d['u_stat_2']
-        #u_stat_2 = Print('u_stat_2',attrs=['mean'])(u_stat_2)
+        f = function([], new_alpha)
 
-        mean_sq_v = self.stats.d['mean_sq_v']
-        #mean_sq_v = Print('mean_sq_v',attrs=['mean'])(mean_sq_v)
+        Alphav = f()
+        aAlphav = self.model.alpha.get_value()
 
-        W = self.model.W
-        #W = Print('W',attrs=['mean'])(W)
 
-        denom1 = N * T.dot(T.sqr(W), mean_sq_hs)
-        denom2 = half * u_stat_2
-        denom3 = - (W.T *  u_stat_1).sum(axis=0)
-        denom4 = - two * (W.T * mean_hsv).sum(axis=0)
-        denom5 = mean_sq_v
-
-        denom = denom1 + denom2 + denom3 + denom4 + denom5
-        assert denom.dtype == config.floatX
-        #denom = Print('denom',attrs=['min','max'])(denom)
-
-        new_B = numer / denom
-        new_B.name = 'new_B'
-        assert new_B.dtype == config.floatX
-
-        f = function([], new_B)
-
-        Bv = f()
-        aBv = self.model.B.get_value()
-
-        #print 'desired B'
-        #print Bv
-        #print 'actual B'
-        #print aBv
-
-        diffs = Bv - aBv
+        diffs = Alphav - aAlphav
         max_diff = np.abs(diffs).max()
 
         if max_diff > self.tol:
-            raise Exception("B deviates from its correct value by at most "+str(max_diff))
-    """
+            print 'Actual alpha: '
+            print aAlphav
+            print 'Expected alpha: '
+            print Alphav
+            raise Exception("alpha deviates from its correct value by at most "+str(max_diff))
+
+
 
     def test_likelihood_vsh_solve_M_step(self):
         """ tests that the log likelihood was increased by the learning """
@@ -643,5 +660,5 @@ class TestS3C_VHSU:
 """
 
 if __name__ == '__main__':
-    obj = TestS3C()
-    obj.test_B_jump()
+    obj = TestS3C_VHS()
+    obj.test_alpha_jump()
