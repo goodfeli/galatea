@@ -554,11 +554,11 @@ class S3C(Model):
     def log_likelihood_vhs(self, stats):
 
         log_likelihood_v_given_hs = self.log_likelihood_v_given_hs(stats)
-        log_likelihood_v_given_hs = Print('log_likelihood_v_given_hs')(log_likelihood_v_given_hs)
+        #log_likelihood_v_given_hs = Print('log_likelihood_v_given_hs')(log_likelihood_v_given_hs)
         log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
-        log_likelihood_s_given_h = Print('log_likelihood_s_given_h')(log_likelihood_s_given_h)
+        #log_likelihood_s_given_h = Print('log_likelihood_s_given_h')(log_likelihood_s_given_h)
         log_likelihood_h          = self.log_likelihood_h(stats)
-        log_likelihood_h = Print('log_likelihood_h')(log_likelihood_h)
+        #log_likelihood_h = Print('log_likelihood_h')(log_likelihood_h)
 
         rval = log_likelihood_v_given_hs + log_likelihood_s_given_h + log_likelihood_h
 
