@@ -354,15 +354,15 @@ class S3C(Model):
         mean_h = stats.d['mean_h']
         assert mean_h.dtype == config.floatX
         reg = self.mu_eps
-        mu = mean_hs/(mean_h+reg)
+        new_mu = mean_hs/(mean_h+reg)
 
 
         mean_sq_s = stats.d['mean_sq_s']
         mean_sq_hs = stats.d['mean_sq_hs']
 
         s_denom1 = mean_sq_s
-        s_denom2 = - two * self.mu * mean_hs
-        s_denom3 = T.sqr(self.mu) * mean_sq_hs
+        s_denom2 = - two * new_mu * mean_hs
+        s_denom3 = T.sqr(new_mu) * mean_sq_hs
 
 
         s_denom = s_denom1 + s_denom2 + s_denom3
@@ -382,7 +382,7 @@ class S3C(Model):
 
         assert bias_hid.dtype == config.floatX
 
-        return new_W, bias_hid, alpha, mu, new_B
+        return new_W, bias_hid, alpha, new_mu, new_B
 
     @classmethod
     def solve_vhsu_needed_stats(cls):
@@ -472,6 +472,7 @@ class S3C(Model):
         new_B.name = 'new_B'
         assert new_B.dtype == config.floatX
 
+
         return new_W, new_bias_hid, new_alpha, new_mu, new_B
 
 
@@ -520,6 +521,7 @@ class S3C(Model):
             self.suff_stat_holder.update(learning_updates, updated_stats)
 
         self.censor_updates(learning_updates)
+
 
         return function([X], updates = learning_updates)
     #
