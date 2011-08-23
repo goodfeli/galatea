@@ -204,6 +204,7 @@ class S3C(Model):
                         max_bias_hid = 1e30,
                         min_mu = -1e30,
                         max_mu = 1e30,
+                        tied_B = False,
                        learn_after = None, hard_max_step = None):
         """"
         nvis: # of visible units
@@ -229,6 +230,8 @@ class S3C(Model):
                         otherwise, every element of every parameter is not allowed to change
                         by more than this amount on each M-step. This is basically a hack
                         introduced to prevent explosion in gradient descent.
+        tied_B:         if True, use a scalar times identity for the precision on visible units.
+                        otherwise use a diagonal matrix for the precision on visible units
         """
 
         super(S3C,self).__init__()
@@ -253,6 +256,8 @@ class S3C(Model):
         self.max_mu = max_mu
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
+
+        self.tied_B = tied_B
 
         self.hard_max_step = hard_max_step
         if self.hard_max_step is not None:
@@ -283,7 +288,11 @@ class S3C(Model):
         self.bias_hid = sharedX(np.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
         self.alpha = sharedX(np.zeros(self.nhid)+self.init_alpha, name = 'alpha')
         self.mu = sharedX(np.zeros(self.nhid)+self.init_mu, name='mu')
-        self.B = sharedX(np.zeros(self.nvis)+self.init_B, name='B')
+        if self.tied_B:
+            self.B_driver = sharedX(0.0+self.init_B, name='B')
+        else:
+            self.B_driver = sharedX(np.zeros(self.nvis)+self.init_B, name='B')
+
 
         if self.new_stat_coeff < 1.0:
             self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid,
@@ -296,7 +305,7 @@ class S3C(Model):
         return self.m_step.get_monitoring_channels(V, self)
 
     def get_params(self):
-        return [self.W, self.bias_hid, self.alpha, self.mu, self.B ]
+        return [self.W, self.bias_hid, self.alpha, self.mu, self.B_driver ]
 
     @classmethod
     def solve_vhs_needed_stats(cls):
@@ -348,6 +357,8 @@ class S3C(Model):
 
         new_B = one / denom
 
+        if self.tied_B:
+            new_B = new_B.mean()
 
         mean_hs = stats.d['mean_hs']
 
@@ -539,6 +550,8 @@ class S3C(Model):
         if self.mu in updates:
             updates[self.mu] = T.clip(updates[self.mu],self.min_mu,self.max_mu)
 
+        if self.B_driver in updates:
+            updates[self.B_driver] = T.clip(updates[self.B_driver],self.min_B,self.max_B)
 
         if self.bias_hid in updates:
             updates[self.bias_hid] = T.clip(updates[self.bias_hid],self.min_bias_hid,self.max_bias_hid)
@@ -784,6 +797,12 @@ class S3C(Model):
     def redo_theano(self):
         init_names = dir(self)
 
+        if self.tied_B:
+            #can't just use a dimshuffle; dot products involving B won't work
+            self.B = self.B_driver + as_floatX(np.zeros(self.nvis))
+        else:
+            self.B = self.B_driver
+
         self.w = T.dot(self.B, T.sqr(self.W))
 
         X = T.matrix()
@@ -831,7 +850,7 @@ class S3C(Model):
             assert not np.any(np.isnan(b))
             p = 1./(1.+np.exp(-b))
             print 'p: ',(p.min(),p.mean(),p.max())
-            B = self.B.get_value(borrow=True)
+            B = self.B_driver.get_value(borrow=True)
             assert not np.any(np.isnan(B))
             print 'B: ',(B.min(),B.mean(),B.max())
             mu = self.mu.get_value(borrow=True)
@@ -1254,7 +1273,7 @@ def take_step(model, W, bias_hid, alpha, mu, B, new_coeff):
             model.bias_hid: step(model.bias_hid,bias_hid),
             model.alpha: step(model.alpha, alpha),
             model.mu: step(model.mu, mu),
-            model.B: step(model.B, B)
+            model.B_driver: step(model.B_driver, B)
         }
 
     return learning_updates
