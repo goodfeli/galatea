@@ -200,7 +200,10 @@ class S3C(Model):
                        e_step,
                        m_step,
                        W_eps = 1e-6, mu_eps = 1e-8,
-                        min_bias_hid = -1e30, max_bias_hid = 1e30,
+                        min_bias_hid = -1e30,
+                        max_bias_hid = 1e30,
+                        min_mu = -1e30,
+                        max_mu = 1e30,
                        learn_after = None, hard_max_step = None):
         """"
         nvis: # of visible units
@@ -246,6 +249,8 @@ class S3C(Model):
         self.e_step.register_model(self)
         self.m_step = m_step
         self.init_mu = init_mu
+        self.min_mu = min_mu
+        self.max_mu = max_mu
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
 
@@ -531,8 +536,9 @@ class S3C(Model):
         if self.alpha in updates:
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)
 
-        if self.B in updates:
-            updates[self.B] = T.clip(updates[self.B],self.min_B,self.max_B)
+        if self.mu in updates:
+            updates[self.mu] = T.clip(updates[self.mu],self.min_mu,self.max_mu)
+
 
         if self.bias_hid in updates:
             updates[self.bias_hid] = T.clip(updates[self.bias_hid],self.min_bias_hid,self.max_bias_hid)
