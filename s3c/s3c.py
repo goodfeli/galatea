@@ -242,7 +242,7 @@ class S3C(Model):
         self.nhid = nhid
         self.irange = irange
         self.init_bias_hid = init_bias_hid
-        self.init_alpha = init_alpha
+        self.init_alpha = float(init_alpha)
         self.min_alpha = float(min_alpha)
         self.max_alpha = float(max_alpha)
         self.init_B = init_B
