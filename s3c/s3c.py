@@ -205,7 +205,9 @@ class S3C(Model):
                         min_mu = -1e30,
                         max_mu = 1e30,
                         tied_B = False,
-                       learn_after = None, hard_max_step = None):
+                       learn_after = None, hard_max_step = None,
+                       monitor_stats = None,
+                       seed = None):
         """"
         nvis: # of visible units
         nhid: # of hidden units
@@ -232,9 +234,18 @@ class S3C(Model):
                         introduced to prevent explosion in gradient descent.
         tied_B:         if True, use a scalar times identity for the precision on visible units.
                         otherwise use a diagonal matrix for the precision on visible units
+        monitor_stats:  a list of sufficient statistics to monitor on the monitoring dataset
         """
 
         super(S3C,self).__init__()
+
+        if monitor_stats is None:
+            self.monitor_stats = []
+        else:
+            self.monitor_stats = [ elem for elem in monitor_stats ]
+
+        self.seed = seed
+
 
         self.W_eps = np.cast[config.floatX](float(W_eps))
         self.mu_eps = np.cast[config.floatX](float(mu_eps))
@@ -245,7 +256,7 @@ class S3C(Model):
         self.init_alpha = float(init_alpha)
         self.min_alpha = float(min_alpha)
         self.max_alpha = float(max_alpha)
-        self.init_B = init_B
+        self.init_B = float(init_B)
         self.min_B = float(min_B)
         self.max_B = float(max_B)
         self.e_step = e_step
@@ -262,6 +273,7 @@ class S3C(Model):
         self.hard_max_step = hard_max_step
         if self.hard_max_step is not None:
             self.hard_max_step = as_floatX(float(self.hard_max_step))
+
 
 
         #this class always needs a monitor, since it is used to implement the learn_after feature
@@ -281,7 +293,10 @@ class S3C(Model):
         self.redo_everything()
 
     def reset_rng(self):
-        self.rng = np.random.RandomState([1.,2.,3.])
+        if self.seed is None:
+            self.rng = np.random.RandomState([1.,2.,3.])
+        else:
+            self.rng = np.random.RandomState(self.seed)
 
     def redo_everything(self):
         self.W = sharedX(self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid)), name = 'W')
@@ -302,7 +317,23 @@ class S3C(Model):
 
 
     def get_monitoring_channels(self, V):
-        return self.m_step.get_monitoring_channels(V, self)
+        rval = self.m_step.get_monitoring_channels(V, self)
+
+        if len(self.monitor_stats) > 0:
+            obs = self.e_step.mean_field(V)
+
+            stats = SufficientStatistics.from_observations( needed_stats = set(self.monitor_stats),
+                        X = V, ** obs )
+
+
+            for stat in self.monitor_stats:
+                stat_val = stats.d[stat]
+
+                rval[stat+'_min'] = T.min(stat_val)
+                rval[stat+'_mean'] = T.mean(stat_val)
+                rval[stat+'_max'] = T.max(stat_val)
+
+        return rval
 
     def get_params(self):
         return [self.W, self.bias_hid, self.alpha, self.mu, self.B_driver ]
@@ -490,6 +521,63 @@ class S3C(Model):
 
 
         return new_W, new_bias_hid, new_alpha, new_mu, new_B
+
+
+
+    def expected_energy_vhs(self, V, H, mu0, Mu1, sigma0, Sigma1):
+
+        half = as_floatX(.5)
+
+        HS = H * Mu1
+
+        outer = T.dot(HS.T,HS) / as_floatX(H.shape[0])
+
+        mask = T.identity_like(outer)
+
+        sq_hs = T.mean( H * (Sigma1 + T.sqr(Mu1)), axis=1)
+
+        cov_hs = (1.-mask)*outer + alloc_diag(sq_hs)
+
+        sq_S = H*(Sigma1 + T.sqr(Mu1)) + (1.-H)*(sigma0 + T.sqr(mu0))
+
+        term1 = -T.dot(H, self.bias_hid)
+
+        term2 = half * T.dot(sq_S, self.alpha)
+
+        term3 = - T.dot(HS, self.alpha * self.mu)
+
+        term4 = half * T.dot(H, T.sqr(self.mu) * self.alpha)
+
+        term5_factor1 = V * self.B
+        term5_factor2 = T.dot(self.W, HS)
+        term5 = - (term5_factor1 * term5_factor2).sum(axis=1)
+
+        term6 = half *  T.dot(self.B, (cov_hs.dimshuffle('x',0,1)* self.W.dimshuffle(0,1,'x')*self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
+
+        rval = term1 + term2 + term3 + term4 + term5 + term6
+
+        return rval
+
+
+    def entropy_hs(self, H, sigma0, Sigma1):
+
+        half = as_floatX(.5)
+
+        two = as_floatX(2.)
+
+        pi = as_floatX(np.pi)
+
+        term1 = - T.sum( H * T.log(H) , axis=1)
+
+        term2 = - T.sum( (1.-H) * T.log(1.-H) )
+
+        term3 = T.sum( H * ( T.log(self.Sigma1) + half * (T.log(two*pi)) + half) , axis= 1)
+
+        term4 = T.dot( H, T.log(self.sigma0) + half * T.log(two*pi) + half)
+
+        rval = term1 + term2 + term3 + term4
+
+        return rval
 
 
     def make_learn_func(self, X, learn = None):
@@ -962,12 +1050,14 @@ class VHS_E_Step(E_step):
     def mean_field_H(self, A):
 
         half = as_floatX(.5)
+        alpha = self.model.alpha
+        w = self.model.w
 
-        term1 = half * T.sqr(A)
+        term1 = half * T.sqr(A) / (alpha + w)
 
         term2 = self.model.bias_hid
 
-        term3 = - T.sqr(self.model.mu) * self.model.alpha
+        term3 = - half * T.sqr(self.model.mu) * self.model.alpha
 
         term4 = -half * T.log(self.model.alpha + self.model.w)
 
