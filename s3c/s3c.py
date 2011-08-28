@@ -571,9 +571,9 @@ class S3C(Model):
 
         term2 = - T.sum( (1.-H) * T.log(1.-H) )
 
-        term3 = T.sum( H * ( T.log(self.Sigma1) + half * (T.log(two*pi)) + half) , axis= 1)
+        term3 = T.sum( H * ( T.log(Sigma1) + half * (T.log(two*pi)) + half) , axis= 1)
 
-        term4 = T.dot( H, T.log(self.sigma0) + half * T.log(two*pi) + half)
+        term4 = T.dot( H, T.log(sigma0) + half * T.log(two*pi) + half)
 
         rval = term1 + term2 + term3 + term4
 
