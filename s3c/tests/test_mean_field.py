@@ -1,3 +1,4 @@
+import os
 from galatea.s3c.s3c import S3C
 from galatea.s3c.s3c import SufficientStatistics
 from galatea.s3c.s3c import SufficientStatisticsHolder
@@ -17,6 +18,19 @@ from pylearn2.utils import serial
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 config.compute_test_value = 'raise'
 
+def broadcast(mat, shape_0):
+    rval = mat
+    if mat.shape[0] != shape_0:
+        assert mat.shape[0] == 1
+
+        rval = np.zeros((shape_0, mat.shape[1]),dtype=mat.dtype)
+
+        for i in xrange(shape_0):
+            rval[i,:] = mat[0,:]
+
+    return rval
+
+
 class TestMeanField_VHS:
     def __init__(self):
         """ gets a small batch of data
@@ -26,7 +40,8 @@ class TestMeanField_VHS:
 
         self.tol = 1e-5
 
-        dataset = serial.load('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl')
+        goodfeli_tmp = os.environ['GOODFELI_TMP']
+        dataset = serial.load(goodfeli_tmp + '/cifar10_preprocessed_train_2M.pkl')
 
         X = dataset.get_batch_design(1000)
         X = X[:,0:5]
@@ -52,7 +67,7 @@ class TestMeanField_VHS:
 
         self.X = X
         self.N = N
-
+        self.m = m
 
     def test_grad_s(self):
 
@@ -62,13 +77,20 @@ class TestMeanField_VHS:
         e_step = model.e_step
         X = self.X
 
+        assert X.shape[0] == self.m
+
         init_H = e_step.init_mf_H(V = X)
         init_Mu1 = e_step.init_mf_Mu1(V = X)
 
         H, Mu1 = function([], outputs=[init_H, init_Mu1])()
 
+        H = broadcast(H, self.m)
+        Mu1 = broadcast(Mu1, self.m)
+
         H_var = T.matrix()
+        H_var.tag.test_value = H
         Mu1_var = T.matrix()
+        Mu1_var.tag.test_value = Mu1
         idx = T.iscalar()
 
         A = e_step.mean_field_A(V = X, H = H_var, Mu1 = Mu1_var)

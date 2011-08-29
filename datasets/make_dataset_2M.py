@@ -1,6 +1,9 @@
 from pylearn2.utils import serial
 from pylearn2.datasets import cifar10
 from pylearn2.datasets import preprocessing
+import os
+
+goodfeli_tmp = os.environ['GOODFELI_TMP']
 
 train = cifar10.CIFAR10(which_set="train")
 
@@ -15,11 +18,11 @@ train.apply_preprocessor(preprocessor = pipeline, can_fit = True)
 test.apply_preprocessor(preprocessor = pipeline, can_fit = False)
 
 
-train.use_design_loc('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M_design.npy')
-test.use_design_loc('/data/lisatmp/goodfeli/cifar10_preprocessed_test_2M_design.npy')
+train.use_design_loc(goodfeli_tmp + '/cifar10_preprocessed_train_2M_design.npy')
+test.use_design_loc(goodfeli_tmp + '/cifar10_preprocessed_test_2M_design.npy')
 
 
-serial.save('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl',train)
-serial.save('/data/lisatmp/goodfeli/cifar10_preprocessed_test_2M.pkl',test)
+serial.save(goodfeli_tmp + '/cifar10_preprocessed_train_2M.pkl',train)
+serial.save(goodfeli_tmp + '/cifar10_preprocessed_test_2M.pkl',test)
 
 

@@ -1002,7 +1002,10 @@ class VHS_E_Step(E_step):
 
     def init_mf_Mu1(self, V):
         #just use the prior
-        return self.model.mu.dimshuffle('x',0)
+        rval = self.model.mu.dimshuffle('x',0)
+        print 'mu.dimshuffle: '+str(id(rval))
+        assert rval.tag.test_value != None
+        return rval
 
 
 
@@ -1017,15 +1020,19 @@ class VHS_E_Step(E_step):
         BW = B.dimshuffle(0,'x') * W
 
         HS = H * Mu1
+        HS = Print('HS',attrs=['shape'])(HS)
 
         mean_term = mu * alpha
+        mean_term = Print('mean_term',attrs=['shape'])(mean_term)
 
         data_term = T.dot(V, BW)
+        data_term = Print('data_term',attrs=['shape'])(data_term)
 
         iterm_part_1 = - T.dot(T.dot(HS, W.T), BW)
         iterm_part_2 = w * HS
 
         interaction_term = iterm_part_1 + iterm_part_2
+        interaction_term = Print('interaction_term',attrs=['shape'])(interaction_term)
 
         A = mean_term + data_term + interaction_term
 
@@ -1133,6 +1140,8 @@ class VHSU_E_Step(E_step):
         #Mu1 = (self.alpha*self.mu + T.dot(V*self.B,self.W))/(self.alpha+self.w)
         #Just use the prior
         Mu1 = self.model.mu.dimshuffle('x',0)
+        print 'mu dimshuffle: '+str(id(Mu1))
+        assert Mu1.tag.test_value != None
 
         Mu1.name = "init_mf_Mu1"
 
