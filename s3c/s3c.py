@@ -542,6 +542,37 @@ class S3C(Model):
         return new_W, new_bias_hid, new_alpha, new_mu, new_B
 
 
+    def energy_vhs(self, V, H, S):
+
+        " H MUST be binary "
+
+
+        h_term = - T.dot(H, self.bias_hid)
+        assert len(h_term.type.broadcastable) == 1
+
+        s_term = T.dot( T.sqr( S - self.mu * H) , self.alpha) / 2.
+        assert len(s_term.type.broadcastable) == 1
+
+        recons = T.dot(H*S, self.W.T)
+
+        #v_term_1 = T.dot( T.sqr(V), self.B) / 2.
+        #v_term_2 = T.dot( - V * recons, self.B)
+        #v_term_3 = T.dot( T.sqr(recons), self.B) / 2.
+
+        #v_term = v_term_1 + v_term_2 + v_term_3
+
+        v_term = T.dot( T.sqr( V - recons), self. B) / 2.
+        assert len(v_term.type.broadcastable) == 1
+
+
+        print "HACK: energy terms zeroed out"
+        v_term = 0.
+
+        rval = h_term + s_term + v_term
+        assert len(rval.type.broadcastable) == 1
+
+        return rval
+
 
     def expected_energy_vhs(self, V, H, mu0, Mu1, sigma0, Sigma1):
 
