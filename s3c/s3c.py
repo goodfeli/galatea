@@ -546,11 +546,18 @@ class S3C(Model):
 
         " H MUST be binary "
 
+        print "HACK: energy terms zeroed out"
 
         h_term = - T.dot(H, self.bias_hid)
         assert len(h_term.type.broadcastable) == 1
 
-        s_term = T.dot( T.sqr( S - self.mu * H) , self.alpha) / 2.
+
+        s_term_1 = T.dot(T.sqr(S), self.alpha)/2.
+        s_term_2 = -T.dot(S * self.mu * H , self.alpha)
+        s_term_3 = T.dot(T.sqr(self.mu * H), self.alpha)/2.
+
+        s_term = s_term_1 + s_term_2 + s_term_3
+        #s_term = T.dot( T.sqr( S - self.mu * H) , self.alpha) / 2.
         assert len(s_term.type.broadcastable) == 1
 
         recons = T.dot(H*S, self.W.T)
@@ -565,7 +572,6 @@ class S3C(Model):
         assert len(v_term.type.broadcastable) == 1
 
 
-        print "HACK: energy terms zeroed out"
         v_term = 0.
 
         rval = h_term + s_term + v_term
@@ -620,6 +626,7 @@ class S3C(Model):
         assert len(term7.type.broadcastable) == 1
 
         print "HACK: expected energy terms zeroed out"
+
         term5 = 0.
         term6 = 0.
         term7 = 0.
