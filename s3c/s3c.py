@@ -4,9 +4,9 @@ import theano.tensor as T
 import numpy as np
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 from theano.printing import Print
-from pylearn2.utils import sharedX, as_floatX
+from pylearn2.utils import make_name, sharedX, as_floatX
 from pylearn2.monitor import Monitor
-import copy
+#import copy
 #config.compute_test_value = 'raise'
 
 class SufficientStatisticsHolder:
@@ -74,11 +74,15 @@ class SufficientStatistics:
 
         m = T.cast(X.shape[0],config.floatX)
 
+        H_name = make_name(H, 'anon_H')
+        Mu1_name = make_name(Mu1, 'anon_Mu1')
+
         #mean_h
         assert H.dtype == config.floatX
         mean_h = T.mean(H, axis=0)
         assert H.dtype == mean_h.dtype
         assert mean_h.dtype == config.floatX
+        mean_h.name = 'mean_h('+H_name+')'
 
         #mean_v
         mean_v = T.mean(X,axis=0)
@@ -100,19 +104,26 @@ class SufficientStatistics:
         #mean_hs
         mean_HS = H * Mu1
         mean_hs = T.mean(mean_HS,axis=0)
+        mean_hs.name = 'mean_hs(%s,%s)' % (H_name, Mu1_name)
         mean_D_sq_mean_Q_hs = T.mean(T.sqr(mean_HS), axis=0)
 
         #mean_sq_hs
         mean_sq_HS = H * (Sigma1 + T.sqr(Mu1))
         mean_sq_hs = T.mean(mean_sq_HS, axis=0)
+        mean_sq_hs.name = 'mean_sq_hs(%s,%s)' % (H_name, Mu1_name)
 
         #cov_hs
-        outer = T.dot(mean_HS.T,mean_HS) /m
+        outer_prod = T.dot(mean_HS.T,mean_HS)
+        outer_prod.name = 'outer_prod<from_observations>'
+        outer = outer_prod/m
         mask = T.identity_like(outer)
         cov_hs = (1.-mask) * outer + alloc_diag(mean_sq_hs)
+        cov_hs.name = 'exp_outer_hs(%s,%s)' % (H_name, Mu1_name)
 
         #mean_hsv
-        mean_hsv = T.dot(mean_HS.T,X) / m
+        sum_hsv = T.dot(mean_HS.T,X)
+        sum_hsv.name = 'sum_hsv<from_observations>'
+        mean_hsv = sum_hsv / m
 
         u_stat_1 = None
         u_stat_2 = None
@@ -129,9 +140,13 @@ class SufficientStatistics:
             #coeff = Print('coeff')(coeff)
             term1 = coeff/B
             #term1 = Print('us2 term1',attrs=['mean'])(term1)
-            term2 = two * N * T.dot(T.sqr(mean_HS),T.sqr(W.T))
+            dotA = T.dot(T.sqr(mean_HS),T.sqr(W.T))
+            dotA.name = 'dotA'
+            term2 = two * N * dotA
             #term2 = Print('us2 term2',attrs=['mean'])(term2)
-            term3 = - two * T.sqr(T.dot(mean_HS, W.T))
+            dotB = T.dot(mean_HS, W.T)
+            dotB.name = 'dotB'
+            term3 = - two * T.sqr( dotB )
             #term3 = Print('us2 term3',attrs=['mean'])(term3)
 
             u_stat_2 = (term1+term2+term3).mean(axis=0)
@@ -371,7 +386,9 @@ class S3C(Model):
         inv = matrix_inverse(regularized)
         assert inv.dtype == config.floatX
 
-        new_W = T.dot(inv,mean_hsv).T
+        inv_prod = T.dot(inv,mean_hsv)
+        inv_prod.name = 'inv_prod'
+        new_W = inv_prod.T
         assert new_W.dtype == config.floatX
 
         #Solve for B by setting gradient of log likelihood to 0
@@ -505,7 +522,9 @@ class S3C(Model):
         mean_sq_hs = Print('mean_sq_hs',attrs=['mean'])(mean_sq_hs)
         #mean_hsv = Print('mean_hsv',attrs=['mean'])(mean_hsv)
 
-        denom1 = N * T.dot(T.sqr(new_W), mean_sq_hs)
+        dotC =  T.dot(T.sqr(new_W), mean_sq_hs)
+        dotC.name = 'dotC'
+        denom1 = N * dotC
         denom2 = half * u_stat_2
         denom3 = - (new_W.T *  u_stat_1).sum(axis=0)
         denom4 = - two * (new_W.T * mean_hsv).sum(axis=0)
@@ -530,52 +549,91 @@ class S3C(Model):
 
         HS = H * Mu1
 
-        outer = T.dot(HS.T,HS) / as_floatX(H.shape[0])
 
-        mask = T.identity_like(outer)
+        sq_HS = H * ( Sigma1 + T.sqr(Mu1))
 
-        sq_hs = T.mean( H * (Sigma1 + T.sqr(Mu1)), axis=1)
+        sq_S = sq_HS + (1.-H)*(sigma0 + T.sqr(mu0))
 
-        cov_hs = (1.-mask)*outer + alloc_diag(sq_hs)
+        presign = T.dot(H, self.bias_hid)
+        presign.name = 'presign'
+        term1 = - presign
+        assert len(term1.type.broadcastable) == 1
 
-        sq_S = H*(Sigma1 + T.sqr(Mu1)) + (1.-H)*(sigma0 + T.sqr(mu0))
+        precoeff =  T.dot(sq_S, self.alpha)
+        precoeff.name = 'precoeff'
+        term2 = half * precoeff
+        assert len(term2.type.broadcastable) == 1
 
-        term1 = -T.dot(H, self.bias_hid)
-
-        term2 = half * T.dot(sq_S, self.alpha)
-
-        term3 = - T.dot(HS, self.alpha * self.mu)
+        presign2 = T.dot(HS, self.alpha * self.mu)
+        presign2.name = 'presign2'
+        term3 = - presign2
+        assert len(term3.type.broadcastable) == 1
 
         term4 = half * T.dot(H, T.sqr(self.mu) * self.alpha)
+        assert len(term4.type.broadcastable) == 1
 
-        term5_factor1 = V * self.B
-        term5_factor2 = T.dot(self.W, HS)
-        term5 = - (term5_factor1 * term5_factor2).sum(axis=1)
+        term5 = half * T.dot(T.sqr(V),self.B)
+        assert len(term5.type.broadcastable) == 1
 
-        term6 = half *  T.dot(self.B, (cov_hs.dimshuffle('x',0,1)* self.W.dimshuffle(0,1,'x')*self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
+        term6_factor1 = V * self.B
+        term6_factor2 = T.dot(HS, self.W.T)
+        term6 = - (term6_factor1 * term6_factor2).sum(axis=1)
+        assert len(term6.type.broadcastable) == 1
 
-        rval = term1 + term2 + term3 + term4 + term5 + term6
+        term7_subterm1 = T.dot(T.sqr(T.dot(HS, self.W.T)), self.B)
+        assert len(term7_subterm1.type.broadcastable) == 1
+        term7_subterm2 = - T.dot( T.dot(T.sqr(HS), T.sqr(self.W.T)), self.B)
+        term7_subterm3 = T.dot( T.dot(sq_HS, T.sqr(self.W.T)), self.B )
+
+        term7 = half * (term7_subterm1 + term7_subterm2 + term7_subterm3)
+        assert len(term7.type.broadcastable) == 1
+
+        print "HACK: expected energy terms zeroed out"
+        term5 = 0.
+        term6 = 0.
+        term7 = 0.
+
+        rval = term1 + term2 + term3 + term4 + term5 + term6 + term7
 
         return rval
 
+
+    def entropy_h(self, H):
+
+        term1 = - T.sum( H * T.log(H) , axis=1)
+        assert len(term1.type.broadcastable) == 1
+
+        term2 = - T.sum( (1.-H) * T.log(1.-H) , axis =1 )
+        assert len(term2.type.broadcastable) == 1
+
+        rval = term1 + term2
+
+        return rval
 
     def entropy_hs(self, H, sigma0, Sigma1):
 
         half = as_floatX(.5)
 
+        one = as_floatX(1.)
+
         two = as_floatX(2.)
 
         pi = as_floatX(np.pi)
 
-        term1 = - T.sum( H * T.log(H) , axis=1)
+        term1_plus_term2 = self.entropy_h(H)
+        assert len(term1_plus_term2.type.broadcastable) == 1
 
-        term2 = - T.sum( (1.-H) * T.log(1.-H) )
+        #TODO: change Sigma1 back into a vector
+        #TODO: pick new name for Sigma1; does capitalization mean it's a covariance matrix rather than a scalar
+        #                               or does it mean it's a minibatch rather than one example?
+        #
+        term3 = T.sum( H * ( half * (T.log(Sigma1) +  T.log(two*pi) + one )  ) , axis= 1)
+        assert len(term3.type.broadcastable) == 1
 
-        term3 = T.sum( H * ( T.log(Sigma1) + half * (T.log(two*pi)) + half) , axis= 1)
+        term4 = T.dot( 1.-H, half * (T.log(sigma0) +  T.log(two*pi) + one ))
+        assert len(term4.type.broadcastable) == 1
 
-        term4 = T.dot( H, T.log(sigma0) + half * T.log(two*pi) + half)
-
-        rval = term1 + term2 + term3 + term4
+        rval = term1_plus_term2 + term3 + term4
 
         return rval
 
@@ -1003,8 +1061,8 @@ class VHS_E_Step(E_step):
     def init_mf_Mu1(self, V):
         #just use the prior
         rval = self.model.mu.dimshuffle('x',0)
-        print 'mu.dimshuffle: '+str(id(rval))
-        assert rval.tag.test_value != None
+        if config.compute_test_value != 'off':
+            assert rval.tag.test_value != None
         return rval
 
 
@@ -1020,21 +1078,23 @@ class VHS_E_Step(E_step):
         BW = B.dimshuffle(0,'x') * W
 
         HS = H * Mu1
-        HS = Print('HS',attrs=['shape'])(HS)
 
         mean_term = mu * alpha
-        mean_term = Print('mean_term',attrs=['shape'])(mean_term)
 
         data_term = T.dot(V, BW)
-        data_term = Print('data_term',attrs=['shape'])(data_term)
 
         iterm_part_1 = - T.dot(T.dot(HS, W.T), BW)
         iterm_part_2 = w * HS
 
         interaction_term = iterm_part_1 + iterm_part_2
-        interaction_term = Print('interaction_term',attrs=['shape'])(interaction_term)
 
         A = mean_term + data_term + interaction_term
+
+        V_name = make_name(V, 'anon_V')
+        H_name = make_name(H, 'anon_H')
+        Mu1_name = make_name(Mu1, 'anon_Mu1')
+
+        A.name = 'mean_field_A( %s, %s, %s ) ' % ( V_name, H_name, Mu1_name)
 
         return A
 
@@ -1047,12 +1107,23 @@ class VHS_E_Step(E_step):
 
         Mu1 =  A / denom
 
+        A_name = make_name(A, 'anon_A')
+
+        Mu1.name = 'mean_field_Mu1(%s)'%A_name
+
         return Mu1
 
     def mean_field_Sigma1(self):
-        #TODO: this is a bad name, since it's really more like sigma^2
+        #TODO: this is a bad name, since in the univariate case we would
+        #call this sigma^2
+        #I think what I was going for was covariance matrix Sigma constrained to be diagonal
+        #but it is still confusing
 
-        return 1./ (self.model.alpha + self.model.w )
+        rval =  1./ (self.model.alpha + self.model.w )
+
+        rval.name = 'mean_field_Sigma1'
+
+        return rval
 
     def mean_field_H(self, A):
 
@@ -1073,6 +1144,10 @@ class VHS_E_Step(E_step):
         arg_to_sigmoid = term1 + term2 + term3 + term4 + term5
 
         H = T.nnet.sigmoid(arg_to_sigmoid)
+
+        A_name = make_name(A, 'anon_A')
+
+        H.name = 'mean_field_H('+A_name+')'
 
         return H
 
@@ -1140,7 +1215,6 @@ class VHSU_E_Step(E_step):
         #Mu1 = (self.alpha*self.mu + T.dot(V*self.B,self.W))/(self.alpha+self.w)
         #Just use the prior
         Mu1 = self.model.mu.dimshuffle('x',0)
-        print 'mu dimshuffle: '+str(id(Mu1))
         assert Mu1.tag.test_value != None
 
         Mu1.name = "init_mf_Mu1"
