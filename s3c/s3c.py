@@ -207,6 +207,25 @@ class SufficientStatistics:
         return SufficientStatistics(rval_d)
 
 
+class DebugEnergy:
+    def __init__(self,
+                    h_term = True,
+                    s_term_1 = True,
+                    s_term_2 = True,
+                    s_term_3 = True,
+                    v_term = True):
+        self.h_term = h_term
+        self.s_term_1 = s_term_1
+        self.s_term_2 = s_term_2
+        self.s_term_3 = s_term_3
+        self.v_term = v_term
+
+        for field in dir(self):
+            if type(field) == type(True) and not field:
+                print "HACK: some terms of energy / expected energy zeroed out"
+                break
+
+
 class S3C(Model):
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
