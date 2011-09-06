@@ -1,9 +1,0 @@
-import numpy as np
-
-x = np.load('x.npy')
-diffs = np.load('diffs.npy')
-
-from matplotlib import pyplot as plt
-
-plt.plot(x,diffs)
-plt.show()

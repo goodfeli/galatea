@@ -1,21 +1,14 @@
+import warnings
 import os
 from galatea.s3c.s3c import S3C
-from galatea.s3c.s3c import SufficientStatistics
-from galatea.s3c.s3c import SufficientStatisticsHolder
-from galatea.s3c.s3c import VHSU_E_Step
 from galatea.s3c.s3c import VHS_E_Step
-from galatea.s3c.s3c import VHSU_Solve_M_Step
 from galatea.s3c.s3c import VHS_Solve_M_Step
-from pylearn2.datasets.cifar10 import CIFAR10
-from pylearn2.utils import as_floatX
 from theano import function
 import numpy as np
 import theano.tensor as T
-import copy
 from theano.printing import Print
 from theano import config
 from pylearn2.utils import serial
-from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 config.compute_test_value = 'raise'
 from theano.tensor.shared_randomstreams import RandomStreams
 
@@ -134,6 +127,7 @@ class TestWithFiniteSamples:
         approx_entropy_prediv = np.zeros(analytical_entropy.shape, dtype=analytical_entropy.dtype)
 
         for i in xrange(num_samples):
+            warnings.warn('not numerically stable, see the energy test for how to redo this')
             approx_entropy_prediv -= log_prob_func(H, Mu1)
 
             approx_entropy = approx_entropy_prediv / float(i+1)
@@ -182,6 +176,7 @@ class TestWithFiniteSamples:
         approx_entropy_prediv = np.zeros(analytical_entropy.shape, dtype=analytical_entropy.dtype)
 
         for i in xrange(num_samples):
+            warnings.warn('not numerically stable, see the energy test for how to redo this')
             approx_entropy_prediv -= log_prob_func(H)
 
             approx_entropy = approx_entropy_prediv / float(i+1)
@@ -241,31 +236,39 @@ class TestWithFiniteSamples:
         thousand = 1000
         million = thousand * thousand
 
-        num_samples = two * million
+        num_samples = 2 * thousand * thousand
 
-        approx_energy_prediv = np.zeros(analytical_energy.shape, dtype=analytical_energy.dtype)
+        approx_energy = np.zeros(analytical_energy.shape, dtype=analytical_energy.dtype)
 
-        write_freq = 1000
+        write_freq = 100
 
         diffs = np.zeros(num_samples/write_freq)
         x = np.zeros(num_samples/write_freq)
 
+        record = np.zeros(num_samples/write_freq)
 
         for i in xrange(num_samples):
-            approx_energy_prediv += energy_func(H, Mu1)
-
-            approx_energy = approx_energy_prediv / float(i+1)
+            energy_sample = energy_func(H, Mu1)
+            approx_energy += (energy_sample - approx_energy) / float(i+1)
 
             if i % write_freq == 0:
                 x[i/write_freq] = i
                 diffs[i/write_freq] = np.abs(approx_energy - analytical_energy).mean()
+                record[i/write_freq] = approx_energy[0]
+
 
             if i % 10000 == 0:
                 print 'ave diff: ',np.abs(approx_energy - analytical_energy).mean()
                 print 'diff std: ',np.abs(approx_energy - analytical_energy).std()
 
+        analytical = np.zeros(tuple()) + analytical_energy[0]
+        np.save('H.npy',H)
+        np.save('Mu1.npy',Mu1)
+        np.save('analytical.npy',analytical)
+        np.save('record.npy', record)
         np.save('x.npy', x)
         np.save('diffs.npy',diffs)
+        np.save('final_diffs.npy', np.abs(approx_energy - analytical_energy) )
 
         import matplotlib.pyplot as plt
         plt.plot(x,diffs)
