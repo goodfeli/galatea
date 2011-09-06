@@ -1246,10 +1246,10 @@ class VHS_E_Step(E_step):
         return Mu1
 
     def mean_field_Sigma1(self):
-        #TODO: this is a bad name, since in the univariate case we would
-        #call this sigma^2
-        #I think what I was going for was covariance matrix Sigma constrained to be diagonal
-        #but it is still confusing
+        """TODO: this is a bad name, since in the univariate case we would
+         call this sigma^2
+        I think what I was going for was covariance matrix Sigma constrained to be diagonal
+         but it is still confusing """
 
         rval =  1./ (self.model.alpha + self.model.w )
 
