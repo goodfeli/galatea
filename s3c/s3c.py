@@ -351,7 +351,12 @@ class S3C(Model):
 
 
     def get_monitoring_channels(self, V):
+
         rval = self.m_step.get_monitoring_channels(V, self)
+
+        from_e_step = self.e_step.get_monitoring_channels(V, self)
+
+        rval.update(from_e_step)
 
         if len(self.monitor_stats) > 0:
             obs = self.e_step.mean_field(V)
@@ -1074,6 +1079,9 @@ class E_step(object):
     def __init__(self):
         self.model = None
 
+    def get_monitoring_channels(self, V, model):
+        return {}
+
     def register_model(self, model):
         self.model = model
 
@@ -1089,15 +1097,45 @@ class VHS_E_Step(E_step):
         variables are updated with a unit-specific damping designed
         to ensure stability.
 
-        Note that while the updates for s_i and h_i have common
-        sub-expressions, the update for h_i does not depend on s_i
-        and vice versa. Thus the question of whether to update
-        h and s in parallel (as opposed to updating h, then updating
-        s, or vice versa) is probably not that important; the only
-        difference is how quickly changes in one variable will
-        appear in the interaction term of the other variable.
+        The update equations were derived based on updating h_i and
+        s_i simultaneously, but not updating all units simultaneously.
+
+        The updates are not valid for updating h_i without also updating
+        h_i (i.e., doing this could increase the KL divergence).
+
+        They are also not valid for updating all units simulataneously,
+        but we do this anyway.
 
         """
+
+    def truncated_KL_after_iters(self, V, model, iters):
+        """ KL divergence between variation and true posterior, dropping terms that don't
+            depend on the mean field parameters """
+
+        obs = self.mean_field(V, stop_after = iters)
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+        Mu1 = obs['Mu1']
+        mu0 = obs['mu0']
+
+        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
+        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
+
+        KL = entropy_term + energy_term
+
+        return KL
+
+    def get_monitoring_channels(self, V, model):
+
+        rval = {
+                'trunc_KL_initial' : self.truncated_KL_after_iters(V, model, 1).mean(),
+                'trunc_KL_final' : self.truncated_KL_after_iters(V, model, 1 + len(self.h_new_coeff_schedule) ).mean()
+                }
+
+        return rval
+
 
     def __init__(self, h_new_coeff_schedule):
         """Parameters
