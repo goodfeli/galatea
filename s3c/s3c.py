@@ -566,37 +566,54 @@ class S3C(Model):
         return new_W, new_bias_hid, new_alpha, new_mu, new_B
 
 
-    def energy_vhs(self, V, H, S):
-
+    def energy_vhs(self, V, H, S, debug_energy = None):
         " H MUST be binary "
 
-        print "HACK: energy terms zeroed out"
+        if debug_energy is None:
+            debug_energy = DebugEnergy()
+
+
 
         h_term = - T.dot(H, self.bias_hid)
         assert len(h_term.type.broadcastable) == 1
 
+        if not debug_energy.h_term:
+            h_term = 0.
+
 
         s_term_1 = T.dot(T.sqr(S), self.alpha)/2.
         s_term_2 = -T.dot(S * self.mu * H , self.alpha)
-        s_term_3 = T.dot(T.sqr(self.mu * H), self.alpha)/2.
+        #s_term_3 = T.dot(T.sqr(self.mu * H), self.alpha)/2.
+        s_term_3 = T.dot(T.sqr(self.mu) * H, self.alpha) / 2.
+
+        if not debug_energy.s_term_1:
+            s_term_1 = 0.
+
+        if not debug_energy.s_term_2:
+            s_term_2 = 0.
+
+        if not debug_energy.s_term_3:
+            s_term_3 = 0.
 
         s_term = s_term_1 + s_term_2 + s_term_3
         #s_term = T.dot( T.sqr( S - self.mu * H) , self.alpha) / 2.
         assert len(s_term.type.broadcastable) == 1
 
+
         recons = T.dot(H*S, self.W.T)
 
-        #v_term_1 = T.dot( T.sqr(V), self.B) / 2.
-        #v_term_2 = T.dot( - V * recons, self.B)
-        #v_term_3 = T.dot( T.sqr(recons), self.B) / 2.
+        v_term_1 = T.dot( T.sqr(V), self.B) / 2.
+        v_term_2 = T.dot( - V * recons, self.B)
+        v_term_3 = T.dot( T.sqr(recons), self.B) / 2.
 
-        #v_term = v_term_1 + v_term_2 + v_term_3
+        v_term = v_term_1 + v_term_2 + v_term_3
 
-        v_term = T.dot( T.sqr( V - recons), self. B) / 2.
+        #v_term = T.dot( T.sqr( V - recons), self. B) / 2.
         assert len(v_term.type.broadcastable) == 1
 
 
-        v_term = 0.
+        if not debug_energy.v_term:
+            v_term = 0.
 
         rval = h_term + s_term + v_term
         assert len(rval.type.broadcastable) == 1
@@ -604,7 +621,12 @@ class S3C(Model):
         return rval
 
 
-    def expected_energy_vhs(self, V, H, mu0, Mu1, sigma0, Sigma1):
+    def expected_energy_vhs(self, V, H, mu0, Mu1, sigma0, Sigma1, debug_energy = None):
+
+        var_HS = H * Sigma1 + (1.-H) * sigma0
+
+        if debug_energy is None:
+            debug_energy = DebugEnergy()
 
         half = as_floatX(.5)
 
@@ -617,45 +639,60 @@ class S3C(Model):
 
         presign = T.dot(H, self.bias_hid)
         presign.name = 'presign'
-        term1 = - presign
-        assert len(term1.type.broadcastable) == 1
+        h_term = - presign
+        assert len(h_term.type.broadcastable) == 1
+
+        if not debug_energy.h_term:
+            h_term = 0.
 
         precoeff =  T.dot(sq_S, self.alpha)
         precoeff.name = 'precoeff'
-        term2 = half * precoeff
-        assert len(term2.type.broadcastable) == 1
+        s_term_1 = half * precoeff
+        assert len(s_term_1.type.broadcastable) == 1
+
+        if not debug_energy.s_term_1:
+            s_term_1 = 0.
 
         presign2 = T.dot(HS, self.alpha * self.mu)
         presign2.name = 'presign2'
-        term3 = - presign2
-        assert len(term3.type.broadcastable) == 1
+        s_term_2 = - presign2
+        assert len(s_term_2.type.broadcastable) == 1
 
-        term4 = half * T.dot(H, T.sqr(self.mu) * self.alpha)
-        assert len(term4.type.broadcastable) == 1
+        if not debug_energy.s_term_2:
+            s_term_2 = 0.
 
-        term5 = half * T.dot(T.sqr(V),self.B)
-        assert len(term5.type.broadcastable) == 1
+        s_term_3 = half * T.dot(H, T.sqr(self.mu) * self.alpha)
+        assert len(s_term_3.type.broadcastable) == 1
+
+        if not debug_energy.s_term_3:
+            s_term_3 = 0.
+
+        s_term = s_term_1 + s_term_2 + s_term_3
+
+        v_term_1 = half * T.dot(T.sqr(V),self.B)
+        assert len(v_term_1.type.broadcastable) == 1
 
         term6_factor1 = V * self.B
         term6_factor2 = T.dot(HS, self.W.T)
-        term6 = - (term6_factor1 * term6_factor2).sum(axis=1)
-        assert len(term6.type.broadcastable) == 1
+        v_term_2 = - (term6_factor1 * term6_factor2).sum(axis=1)
+        assert len(v_term_2.type.broadcastable) == 1
 
         term7_subterm1 = T.dot(T.sqr(T.dot(HS, self.W.T)), self.B)
         assert len(term7_subterm1.type.broadcastable) == 1
+        #term7_subterm2 = T.dot(var_HS, self.w)
         term7_subterm2 = - T.dot( T.dot(T.sqr(HS), T.sqr(self.W.T)), self.B)
         term7_subterm3 = T.dot( T.dot(sq_HS, T.sqr(self.W.T)), self.B )
 
-        term7 = half * (term7_subterm1 + term7_subterm2 + term7_subterm3)
-        assert len(term7.type.broadcastable) == 1
+        #v_term_3 = half * (term7_subterm1 + term7_subterm2)
+        v_term_3 = half * (term7_subterm1 + term7_subterm2 + term7_subterm3)
+        assert len(v_term_3.type.broadcastable) == 1
 
-        print "HACK: expected energy terms zeroed out"
+        v_term = v_term_1 + v_term_2 + v_term_3
 
-        term5 = 0.
-        term6 = 0.
-        term7 = 0.
+        if not debug_energy.v_term:
+            v_term = 0.0
 
-        rval = term1 + term2 + term3 + term4 + term5 + term6 + term7
+        rval = h_term + s_term + v_term
 
         return rval
 
