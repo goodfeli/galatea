@@ -1299,7 +1299,13 @@ class VHS_E_Step(E_step):
 
         return rval
 
-    def mean_field(self, V):
+    def mean_field(self, V, stop_after = None):
+        """
+
+            stop_after: stop when the number of iterations performed reaches this number
+                        initialization counts as an iteration even though no damping is involved
+        """
+
         alpha = self.model.alpha
 
         sigma0 = 1. / alpha
@@ -1308,7 +1314,14 @@ class VHS_E_Step(E_step):
         H   =    self.init_mf_H(V)
         Mu1 =    self.init_mf_Mu1(V)
 
+        iters = 1
+
         for new_coeff in self.h_new_coeff_schedule:
+            if stop_after is not None:
+                if iters == stop_after:
+                    break
+                assert iters < stop_after
+
             A = self.mean_field_A(V = V, H = H, Mu1 = Mu1)
             new_Mu1 = self.mean_field_Mu1(A = A)
             new_H = self.mean_field_H(A = A)
@@ -1316,6 +1329,7 @@ class VHS_E_Step(E_step):
             H = self.damp_H(H = H, new_H = new_H, new_coeff = new_coeff)
             Mu1 = self.damp_Mu1(Mu1 = Mu1, new_Mu1 = new_Mu1)
 
+            iters += 1
 
         Sigma1 = self.mean_field_Sigma1()
 
