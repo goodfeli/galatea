@@ -1145,11 +1145,9 @@ class VHS_E_Step(E_step):
 
         """
 
-    def truncated_KL_after_iters(self, V, model, iters):
+    def truncated_KL(self, V, model, obs):
         """ KL divergence between variation and true posterior, dropping terms that don't
             depend on the mean field parameters """
-
-        obs = self.mean_field(V, stop_after = iters)
 
         H = obs['H']
         sigma0 = obs['sigma0']
@@ -1166,10 +1164,13 @@ class VHS_E_Step(E_step):
 
     def get_monitoring_channels(self, V, model):
 
-        rval = {
-                'trunc_KL_initial' : self.truncated_KL_after_iters(V, model, 1).mean(),
-                'trunc_KL_final' : self.truncated_KL_after_iters(V, model, 1 + len(self.h_new_coeff_schedule) ).mean()
-                }
+        rval = {}
+
+        obs_history = self.mean_field(V, return_history = True)
+
+        for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
+            obs = obs_history[i-1]
+            rval['trunc_KL_'+str(i)] = self.truncated_KL(V, model, obs).mean()
 
         return rval
 
@@ -1299,28 +1300,41 @@ class VHS_E_Step(E_step):
 
         return rval
 
-    def mean_field(self, V, stop_after = None):
+    def mean_field(self, V, return_history = False):
         """
 
-            stop_after: stop when the number of iterations performed reaches this number
-                        initialization counts as an iteration even though no damping is involved
+            return_history: if True:
+                                returns a list of dictionaries with
+                                showing the history of the mean field
+                                parameters
+                                throughout fixed point updates
+                            if False:
+                                returns a dictionary containing the final
+                                mean field parameters
         """
 
         alpha = self.model.alpha
 
         sigma0 = 1. / alpha
+        Sigma1 = self.mean_field_Sigma1()
         mu0 = T.zeros_like(sigma0)
 
         H   =    self.init_mf_H(V)
         Mu1 =    self.init_mf_Mu1(V)
 
-        iters = 1
+        def make_dict():
+
+            return {
+                    'H' : H,
+                    'mu0' : mu0,
+                    'Mu1' : Mu1,
+                    'sigma0' : sigma0,
+                    'Sigma1': Sigma1,
+                    }
+
+        history = [ make_dict() ]
 
         for new_coeff in self.h_new_coeff_schedule:
-            if stop_after is not None:
-                if iters == stop_after:
-                    break
-                assert iters < stop_after
 
             A = self.mean_field_A(V = V, H = H, Mu1 = Mu1)
             new_Mu1 = self.mean_field_Mu1(A = A)
@@ -1329,17 +1343,14 @@ class VHS_E_Step(E_step):
             H = self.damp_H(H = H, new_H = new_H, new_coeff = new_coeff)
             Mu1 = self.damp_Mu1(Mu1 = Mu1, new_Mu1 = new_Mu1)
 
-            iters += 1
+            history.append(make_dict())
 
-        Sigma1 = self.mean_field_Sigma1()
+        if return_history:
+            return history
+        else:
+            return history[-1]
 
-        return {
-                'H' : H,
-                'mu0' : mu0,
-                'Mu1' : Mu1,
-                'sigma0' : sigma0,
-                'Sigma1': Sigma1,
-                }
+
 
 
 class VHSU_E_Step(E_step):
