@@ -236,7 +236,7 @@ class S3C(Model):
                        new_stat_coeff,
                        e_step,
                        m_step,
-                       W_eps = 1e-6, mu_eps = 1e-8,
+                       W_eps = 1e-6, mu_eps = 1e-8, b_eps = 0.,
                         min_bias_hid = -1e30,
                         max_bias_hid = 1e30,
                         min_mu = -1e30,
@@ -260,7 +260,8 @@ class S3C(Model):
         e_step:      An E_Step object that determines what kind of E-step to do
         m_step:      An M_Step object that determines what kind of M-step to do
         W_eps:       L2 regularization parameter for linear regression problem for W
-        mu_eps:      L2 regularization parameter for linear regression problem for b
+        mu_eps:      L2 regularization parameter for linear regression problem for mu
+        b_eps:       L2 regularization parameter for linear regression problem for b
         learn_after: only applicable when new_stat_coeff < 1.0
                         begins learning parameters and decaying sufficient statistics
                         after seeing learn_after examples
@@ -283,9 +284,9 @@ class S3C(Model):
 
         self.seed = seed
 
-
         self.W_eps = np.cast[config.floatX](float(W_eps))
         self.mu_eps = np.cast[config.floatX](float(mu_eps))
+        self.b_eps = np.cast[config.floatX](float(b_eps))
         self.nvis = nvis
         self.nhid = nhid
         self.irange = irange
@@ -469,7 +470,7 @@ class S3C(Model):
 
         assert p.dtype == config.floatX
 
-        bias_hid = T.log( - p / (p-1.) )
+        bias_hid = T.log( - p / (p-1.+self.b_eps) )
 
         assert bias_hid.dtype == config.floatX
 
