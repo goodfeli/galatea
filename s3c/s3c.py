@@ -1070,6 +1070,7 @@ class S3C(Model):
 
     def log_prob_v_given_hs(self, V, H, Mu1):
         """
+        V, H, Mu1 are SAMPLES   (i.e., H must be LITERALLY BINARY)
         Return value is a vector, of length batch size
         """
 
@@ -1085,7 +1086,7 @@ class S3C(Model):
         recons = T.dot(H*Mu1, self.W.T)
         residuals = V - recons
 
-        term3 = T.dot(T.sqr(residuals), self.B)
+        term3 = - half * T.dot(T.sqr(residuals), self.B)
 
         rval = term1 + term2 + term3
 
