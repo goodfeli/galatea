@@ -2,7 +2,10 @@ from pylearn2.models.model import Model
 from theano import config, function, shared
 import theano.tensor as T
 import numpy as np
-from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
+from theano.sandbox.linalg.ops import alloc_diag
+#from theano.sandbox.linalg.ops import extract_diag
+from theano.sandbox.linalg.ops import matrix_inverse
+import warnings
 from theano.printing import Print
 from pylearn2.utils import make_name, sharedX, as_floatX
 from pylearn2.monitor import Monitor
