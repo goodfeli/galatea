@@ -369,10 +369,24 @@ class S3C(Model):
 
         self.redo_theano()
 
+
         if self.recycle_q:
             self.prev_H.set_value( np.cast[self.prev_H.dtype]( np.zeros((self.recycle_q, self.nhid)) + 1./(1.+np.exp(-self.bias_hid.get_value()))))
             self.prev_Mu1.set_value( np.cast[self.prev_Mu1.dtype]( np.zeros((self.recycle_q, self.nhid)) + self.mu.get_value() ) )
 
+    def em_functional(self, H, sigma0, Sigma1, stats):
+        """ Returns the em_functional for a single batch of data
+            stats is assumed to be computed from and only from
+            the same data points that yielded H """
+
+        assert self.new_stat_coeff == 1.0
+
+        entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+        likelihood_term = self.log_likelihood_vhs(stats)
+
+        em_functional = likelihood_term + entropy_term
+
+        return em_functional
 
     def get_monitoring_channels(self, V):
 
@@ -401,10 +415,7 @@ class S3C(Model):
             Sigma1 = obs['Sigma1']
 
             if self.monitor_functional:
-                entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
-                likelihood_term = self.log_likelihood_vhs(stats)
-
-                em_functional = entropy_term + likelihood_term
+                em_functional = self.em_functional(H = H, sigma0 = sigma0, Sigma1 = Sigma1, stats = stats)
 
                 rval['em_functional'] = em_functional
 
