@@ -367,6 +367,10 @@ class S3C(Model):
             self.prev_H = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_H")
             self.prev_Mu1 = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_Mu1")
 
+        self.debug_m_step = True
+        if self.debug_m_step:
+            self.em_functional_diff = sharedX(0.)
+
         self.redo_theano()
 
 
@@ -860,6 +864,42 @@ class S3C(Model):
 
         self.censor_updates(learning_updates)
 
+        if self.debug_m_step:
+            em_functional_before = self.em_functional(H = hidden_obs['H'],
+                                                      sigma0 = hidden_obs['sigma0'],
+                                                      Sigma1 = hidden_obs['Sigma1'],
+                                                      stats = updated_stats)
+
+            tmp_bias_hid = self.bias_hid
+            tmp_mu = self.mu
+            tmp_alpha = self.alpha
+            tmp_W = self.W
+            tmp_B_driver = self.B_driver
+
+            self.bias_hid = learning_updates[self.bias_hid]
+            self.mu = learning_updates[self.mu]
+            self.alpha = learning_updates[self.alpha]
+            if self.W in learning_updates:
+                self.W = learning_updates[self.W]
+            self.B_driver = learning_updates[self.B_driver]
+            self.make_B_and_w()
+
+            try:
+                em_functional_after  = self.em_functional(H = hidden_obs['H'],
+                                                          sigma0 = hidden_obs['sigma0'],
+                                                          Sigma1 = hidden_obs['Sigma1'],
+                                                          stats = updated_stats)
+            finally:
+                self.bias_hid = tmp_bias_hid
+                self.mu = tmp_mu
+                self.alpha = tmp_alpha
+                self.W = tmp_W
+                self.B_driver = tmp_B_driver
+                self.make_B_and_w()
+
+            em_functional_diff = em_functional_after - em_functional_before
+
+            learning_updates[self.em_functional_diff] = em_functional_diff
 
         return function([X], updates = learning_updates)
     #
@@ -1119,9 +1159,7 @@ class S3C(Model):
         return rval
 
 
-    def redo_theano(self):
-        init_names = dir(self)
-
+    def make_B_and_w(self):
         if self.tied_B:
             #can't just use a dimshuffle; dot products involving B won't work
             self.B = self.B_driver + as_floatX(np.zeros(self.nvis))
@@ -1130,7 +1168,12 @@ class S3C(Model):
 
         self.w = T.dot(self.B, T.sqr(self.W))
 
-        X = T.matrix()
+    def redo_theano(self):
+        init_names = dir(self)
+
+        self.make_B_and_w()
+
+        X = T.matrix(name='V')
         X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
         if self.learn_after is not None:
@@ -1187,6 +1230,10 @@ class S3C(Model):
             W = self.W.get_value(borrow=True)
             assert not np.any(np.isnan(W))
             print 'W: ',(W.min(),W.mean(),W.max())
+        if self.em_functional_diff.get_value() < 0.0:
+            print "FAIL!"
+            print self.em_functional_diff.get_value()
+            quit(-1)
     #
 
     def get_weights_format(self):
