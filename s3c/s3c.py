@@ -1226,20 +1226,44 @@ class VHS_E_Step(E_step):
 
         return KL
 
+    def em_functional(self, V, model, obs):
+        """ Return value is a scalar """
+
+        needed_stats = S3C.log_likelihood_vhs_needed_stats()
+
+        stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
+                                                        X = V, ** obs )
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+
+        entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+        likelihood_term = model.log_likelihood_vhs(stats)
+
+        em_functional = entropy_term + likelihood_term
+
+        return em_functional
+
+
     def get_monitoring_channels(self, V, model):
 
         rval = {}
 
-        obs_history = self.mean_field(V, return_history = True)
+        if self.monitor_kl or self.monitor_em_functional:
+            obs_history = self.mean_field(V, return_history = True)
 
-        for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
-            obs = obs_history[i-1]
-            rval['trunc_KL_'+str(i)] = self.truncated_KL(V, model, obs).mean()
+            for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
+                obs = obs_history[i-1]
+                if self.monitor_kl:
+                    rval['trunc_KL_'+str(i)] = self.truncated_KL(V, model, obs).mean()
+                if self.monitor_em_functional:
+                    rval['em_functional_'+str(i)] = self.em_functional(V, model, obs).mean()
 
         return rval
 
 
-    def __init__(self, h_new_coeff_schedule):
+    def __init__(self, h_new_coeff_schedule, monitor_kl, monitor_em_functional):
         """Parameters
         --------------
         h_new_coeff_schedule:
@@ -1249,6 +1273,8 @@ class VHS_E_Step(E_step):
         """
 
         self.h_new_coeff_schedule = h_new_coeff_schedule
+        self.monitor_kl = monitor_kl
+        self.monitor_em_functional = monitor_em_functional
 
         super(VHS_E_Step, self).__init__()
 
