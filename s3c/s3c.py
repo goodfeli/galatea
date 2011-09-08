@@ -1332,7 +1332,7 @@ class VHS_E_Step(E_step):
         return rval
 
 
-    def __init__(self, h_new_coeff_schedule, monitor_kl, monitor_em_functional):
+    def __init__(self, h_new_coeff_schedule, monitor_kl = False, monitor_em_functional = False):
         """Parameters
         --------------
         h_new_coeff_schedule:
