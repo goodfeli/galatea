@@ -386,7 +386,7 @@ class S3C(Model):
         assert self.new_stat_coeff == 1.0
 
         entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
-        likelihood_term = self.log_likelihood_vhs(stats)
+        likelihood_term = self.expected_log_prob_vhs(stats)
 
         em_functional = likelihood_term + entropy_term
 
@@ -931,26 +931,26 @@ class S3C(Model):
 
 
     @classmethod
-    def log_likelihood_vhs_needed_stats(cls):
+    def expected_log_prob_vhs_needed_stats(cls):
         h = S3C.log_likelihood_h_needed_stats()
         s = S3C.log_likelihood_s_given_h_needed_stats()
-        v = S3C.log_likelihood_v_given_hs_needed_stats()
+        v = S3C.expected_log_prob_v_given_hs_needed_stats()
 
         union = h.union(s).union(v)
 
         return union
 
 
-    def log_likelihood_vhs(self, stats):
+    def expected_log_prob_vhs(self, stats):
 
-        log_likelihood_v_given_hs = self.log_likelihood_v_given_hs(stats)
+        expected_log_prob_v_given_hs = self.expected_log_prob_v_given_hs(stats)
         #log_likelihood_v_given_hs = Print('log_likelihood_v_given_hs')(log_likelihood_v_given_hs)
         log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
         #log_likelihood_s_given_h = Print('log_likelihood_s_given_h')(log_likelihood_s_given_h)
         log_likelihood_h          = self.log_likelihood_h(stats)
         #log_likelihood_h = Print('log_likelihood_h')(log_likelihood_h)
 
-        rval = log_likelihood_v_given_hs + log_likelihood_s_given_h + log_likelihood_h
+        rval = expected_log_prob_v_given_hs + log_likelihood_s_given_h + log_likelihood_h
 
         assert len(rval.type.broadcastable) == 0
 
@@ -1065,10 +1065,40 @@ class S3C(Model):
         return rval
 
     @classmethod
-    def log_likelihood_v_given_hs_needed_stats(cls):
+    def expected_log_prob_v_given_hs_needed_stats(cls):
         return set(['mean_sq_v','mean_hsv','second_hs'])
 
-    def log_likelihood_v_given_hs(self, stats):
+    def log_prob_v_given_hs(self, V, H, Mu1):
+        """
+        Return value is a vector, of length batch size
+        """
+
+        half = as_floatX(0.5)
+        two = as_floatX(2.)
+        pi = as_floatX(np.pi)
+        N = as_floatX(self.nhid)
+
+        term1 = half * T.sum(T.log(self.B))
+        term2 = - half * N * T.log(two * pi)
+
+        mean_HS = H * Mu1
+        recons = T.dot(H*Mu1, self.W.T)
+        residuals = V - recons
+
+        term3 = T.dot(T.sqr(residuals), self.B)
+
+        rval = term1 + term2 + term3
+
+        assert len(rval.type.broadcastable) == 1
+
+        return rval
+
+
+    def expected_log_prob_v_given_hs(self, stats):
+        """
+        Return value is a SCALAR-- expectation taken across batch index too
+        """
+
 
         """
         E_v,h,s \sim Q log P( v | h, s)
