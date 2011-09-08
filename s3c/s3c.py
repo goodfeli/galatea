@@ -1273,7 +1273,7 @@ class VHS_E_Step(E_step):
         The updates are not valid for updating h_i without also updating
         h_i (i.e., doing this could increase the KL divergence).
 
-        They are also not valid for updating all units simulataneously,
+        They are also not valid for updating all units simultaneously,
         but we do this anyway.
 
         """
