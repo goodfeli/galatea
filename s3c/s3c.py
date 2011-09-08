@@ -745,10 +745,24 @@ class S3C(Model):
 
     def entropy_h(self, H):
 
-        term1 = - T.sum( H * T.log(H) , axis=1)
+        #TODO: replace with actually evaluating 0 log 0 as 0
+        #note: can't do 1e-8, 1.-1e-8 rounds to 1.0 in float32
+        H = T.clip(H, 1e-7, 1.-1e-7)
+
+        #H = Print('entropy_h',attrs=['min','max'])(H)
+
+        logH = T.log(H)
+
+        #logH = Print('logH',attrs=['min','max'])(logH)
+
+        logOneMinusH = T.log(1.-H)
+
+        #logOneMinusH = Print('logOneMinusH',attrs=['min','max'])(logOneMinusH)
+
+        term1 = - T.sum( H * logH , axis=1)
         assert len(term1.type.broadcastable) == 1
 
-        term2 = - T.sum( (1.-H) * T.log(1.-H) , axis =1 )
+        term2 = - T.sum( (1.-H) * logOneMinusH , axis =1 )
         assert len(term2.type.broadcastable) == 1
 
         rval = term1 + term2
