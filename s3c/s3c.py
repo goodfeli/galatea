@@ -245,7 +245,8 @@ class S3C(Model):
                        monitor_stats = None,
                        monitor_functional = False,
                        recycle_q = 0,
-                       seed = None):
+                       seed = None,
+                       disable_W_update = False):
         """"
         nvis: # of visible units
         nhid: # of hidden units
@@ -278,6 +279,7 @@ class S3C(Model):
         recycle_q: if nonzero, initializes the e-step with the output of the previous iteration's
                     e-step. obviously this should only be used if you are using the same data
                     in each batch. when recycle_q is nonzero, it should be set to the batch size.
+        disable_W_update: if true, doesn't update W (for debugging)
         """
 
         super(S3C,self).__init__()
@@ -289,6 +291,7 @@ class S3C(Model):
 
         self.seed = seed
 
+        self.disable_W_update = disable_W_update
         self.monitor_functional = monitor_functional
         self.W_eps = np.cast[config.floatX](float(W_eps))
         self.mu_eps = np.cast[config.floatX](float(mu_eps))
@@ -851,6 +854,9 @@ class S3C(Model):
     #
 
     def censor_updates(self, updates):
+
+        if self.disable_W_update and self.W in updates:
+            del updates[self.W]
 
         if self.alpha in updates:
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)
