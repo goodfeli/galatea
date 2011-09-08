@@ -1077,6 +1077,8 @@ class S3C(Model):
         = 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + v B W[v,:] (h*s) - 0.5 B sum_i,j W[v,i] W[v,j] cov(h_i s_i, h_j s_j)
         """
 
+        warnings.warn('This function has NOT been verified by the finite sample method')
+
         half = as_floatX(0.5)
         two = as_floatX(2.)
         pi = as_floatX(np.pi)
@@ -1104,6 +1106,8 @@ class S3C(Model):
         return set(['mean_h','mean_hs','mean_sq_s'])
 
     def log_likelihood_s_given_h(self, stats):
+
+        warnings.warn('This function has NOT been verified by the finite sample method')
 
         """
         E_h,s\sim Q log P(s|h)
@@ -1144,6 +1148,8 @@ class S3C(Model):
             under the model when the data is drawn according to
             stats
         """
+
+        warnings.warn('This function has not been verified by the finite sample method')
 
         """
             E_h\sim Q log P(h)
