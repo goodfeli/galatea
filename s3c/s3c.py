@@ -244,6 +244,7 @@ class S3C(Model):
                         tied_B = False,
                        learn_after = None, hard_max_step = None,
                        monitor_stats = None,
+                       monitor_functional = False,
                        seed = None):
         """"
         nvis: # of visible units
@@ -273,6 +274,7 @@ class S3C(Model):
         tied_B:         if True, use a scalar times identity for the precision on visible units.
                         otherwise use a diagonal matrix for the precision on visible units
         monitor_stats:  a list of sufficient statistics to monitor on the monitoring dataset
+        monitor_functional: if true, monitors the EM functional on the monitoring dataset
         """
 
         super(S3C,self).__init__()
@@ -284,6 +286,7 @@ class S3C(Model):
 
         self.seed = seed
 
+        self.monitor_functional = monitor_functional
         self.W_eps = np.cast[config.floatX](float(W_eps))
         self.mu_eps = np.cast[config.floatX](float(mu_eps))
         self.b_eps = np.cast[config.floatX](float(b_eps))
@@ -362,19 +365,43 @@ class S3C(Model):
 
         rval.update(from_e_step)
 
-        if len(self.monitor_stats) > 0:
+        monitor_stats = len(self.monitor_stats) > 0
+
+        if monitor_stats or self.monitor_functional:
+
             obs = self.e_step.mean_field(V)
 
-            stats = SufficientStatistics.from_observations( needed_stats = set(self.monitor_stats),
-                        X = V, ** obs )
+            needed_stats = set(self.monitor_stats)
+
+            if self.monitor_functional:
+                needed_stats = needed_stats.union(S3C.log_likelihood_vhs_needed_stats())
+
+            stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
+                                                            X = V, ** obs )
+
+            H = obs['H']
+            sigma0 = obs['sigma0']
+            Sigma1 = obs['Sigma1']
+
+            if self.monitor_functional:
+                entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+                likelihood_term = self.log_likelihood_vhs(stats)
+
+                em_functional = entropy_term + likelihood_term
+
+                rval['em_functional'] = em_functional
 
 
-            for stat in self.monitor_stats:
-                stat_val = stats.d[stat]
+            if monitor_stats:
 
-                rval[stat+'_min'] = T.min(stat_val)
-                rval[stat+'_mean'] = T.mean(stat_val)
-                rval[stat+'_max'] = T.max(stat_val)
+
+
+                for stat in self.monitor_stats:
+                    stat_val = stats.d[stat]
+
+                    rval[stat+'_min'] = T.min(stat_val)
+                    rval[stat+'_mean'] = T.mean(stat_val)
+                    rval[stat+'_max'] = T.max(stat_val)
 
         return rval
 
