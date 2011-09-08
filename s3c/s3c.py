@@ -245,6 +245,7 @@ class S3C(Model):
                        learn_after = None, hard_max_step = None,
                        monitor_stats = None,
                        monitor_functional = False,
+                       recycle_q = 0,
                        seed = None):
         """"
         nvis: # of visible units
@@ -275,6 +276,9 @@ class S3C(Model):
                         otherwise use a diagonal matrix for the precision on visible units
         monitor_stats:  a list of sufficient statistics to monitor on the monitoring dataset
         monitor_functional: if true, monitors the EM functional on the monitoring dataset
+        recycle_q: if nonzero, initializes the e-step with the output of the previous iteration's
+                    e-step. obviously this should only be used if you are using the same data
+                    in each batch. when recycle_q is nonzero, it should be set to the batch size.
         """
 
         super(S3C,self).__init__()
@@ -308,6 +312,7 @@ class S3C(Model):
         self.max_mu = max_mu
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
+        self.recycle_q = recycle_q
 
         self.tied_B = tied_B
 
@@ -354,7 +359,17 @@ class S3C(Model):
             self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid,
                     needed_stats = self.m_step.needed_stats() )
 
+        self.test_batch_size = 5
+
+        if self.recycle_q:
+            self.prev_H = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_H")
+            self.prev_Mu1 = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_Mu1")
+
         self.redo_theano()
+
+        if self.recycle_q:
+            self.prev_H.set_value( np.cast[self.prev_H.dtype]( np.zeros((self.recycle_q, self.nhid)) + 1./(1.+np.exp(-self.bias_hid.get_value()))))
+            self.prev_Mu1.set_value( np.cast[self.prev_Mu1.dtype]( np.zeros((self.recycle_q, self.nhid)) + self.mu.get_value() ) )
 
 
     def get_monitoring_channels(self, V):
@@ -812,6 +827,10 @@ class S3C(Model):
         if do_stats_updates:
             self.suff_stat_holder.update(learning_updates, updated_stats)
 
+        if self.recycle_q:
+            learning_updates[self.prev_H] = hidden_obs['H']
+            learning_updates[self.prev_Mu1] = hidden_obs['Mu1']
+
         self.censor_updates(learning_updates)
 
 
@@ -1082,7 +1101,7 @@ class S3C(Model):
         self.w = T.dot(self.B, T.sqr(self.W))
 
         X = T.matrix()
-        X.tag.test_value = np.cast[config.floatX](self.rng.randn(5,self.nvis))
+        X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
         if self.learn_after is not None:
             self.learn_func = self.make_learn_func(X, learn = True )
@@ -1214,19 +1233,31 @@ class VHS_E_Step(E_step):
                     (coefficients on s are driven by a special formula)
             length of this list determines the number of mean field steps
         """
+
         self.h_new_coeff_schedule = h_new_coeff_schedule
 
         super(VHS_E_Step, self).__init__()
 
     def init_mf_H(self, V):
-        #just use the prior
-        return T.nnet.sigmoid(self.model.bias_hid).dimshuffle('x',0)
+        if self.model.recycle_q:
+            rval = self.model.prev_H
+        else:
+            #just use the prior
+            value =  T.nnet.sigmoid(self.model.bias_hid)
+            rval = T.alloc(value, V.shape[0], value.shape[0])
+
+        return rval
 
     def init_mf_Mu1(self, V):
-        #just use the prior
-        rval = self.model.mu.dimshuffle('x',0)
-        if config.compute_test_value != 'off':
-            assert rval.tag.test_value != None
+        if self.model.recycle_q:
+            rval = self.model.prev_Mu1
+        else:
+            #just use the prior
+            value = self.model.mu
+            if config.compute_test_value != 'off':
+                assert value.tag.test_value != None
+            rval = T.alloc(value, V.shape[0], value.shape[0])
+
         return rval
 
 
@@ -1349,6 +1380,8 @@ class VHS_E_Step(E_step):
         sigma0 = 1. / alpha
         Sigma1 = self.mean_field_Sigma1()
         mu0 = T.zeros_like(sigma0)
+
+
 
         H   =    self.init_mf_H(V)
         Mu1 =    self.init_mf_Mu1(V)
