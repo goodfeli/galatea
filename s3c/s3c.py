@@ -1217,15 +1217,7 @@ class S3C(Model):
         else:
             self.learn_func(X)
 
-        """cov_hs = self.suff_stat_holder.d['cov_hs'].get_value(borrow=True)
-        a,b = np.linalg.eigh(cov_hs)
-
-        assert not np.any(np.isnan(a))
-        assert not np.any(np.isinf(a))
-        print 'minimum eigenvalue: '+str(a.min())
-        assert a.min() >= 0"""
-
-        if self.monitor.examples_seen % 10000 == 0:
+        if True:#self.monitor.examples_seen % 10000 == 0:
 
             print ""
             b = self.bias_hid.get_value(borrow=True)
