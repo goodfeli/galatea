@@ -1172,6 +1172,7 @@ class S3C(Model):
     def make_B_and_w(self):
         if self.tied_B:
             #can't just use a dimshuffle; dot products involving B won't work
+            #and because doing it this way makes the partition function multiply by nvis automatically
             self.B = self.B_driver + as_floatX(np.zeros(self.nvis))
         else:
             self.B = self.B_driver
