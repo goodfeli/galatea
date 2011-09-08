@@ -1,0 +1,36 @@
+#early attempt at using an E-step based on mean field in the original model
+#this is the first attempt at using a gradient-based M step with this model
+!obj:pylearn2.scripts.train.Train {
+    "save_path": "attempt_010.pkl",
+    "model": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 192,
+               "nhid" : 300,
+               "init_bias_hid" : -1.5,
+               "irange"  : .5,
+               "init_B"  : 3.,
+               "min_B"   : 1e-8,
+               "max_B"   : 10000,
+               "init_alpha" : 1.,
+               "min_alpha" : 1.,
+               "max_alpha" : 1000.,
+               "init_mu" : 1.,
+               "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
+                        "h_new_coeff_schedule" : [ .1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ]
+               },
+               "new_stat_coeff" : 1.,
+               #"learn_after" : 1000,
+               "m_step"     : !obj:galatea.s3c.s3c.VHS_Grad_M_Step {
+                        #"new_coeff" : .001
+                        "learning_rate" : 1e-3
+               },
+               "mu_eps" : 0.
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 50,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 10,
+               "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+        },
+    "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+}
+
