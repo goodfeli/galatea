@@ -1,3 +1,4 @@
+from galatea.s3c.s3c import SufficientStatistics
 import warnings
 import os
 from galatea.s3c.s3c import S3C
@@ -9,7 +10,7 @@ import theano.tensor as T
 from theano.printing import Print
 from theano import config
 from pylearn2.utils import serial
-config.compute_test_value = 'raise'
+#config.compute_test_value = 'raise'
 from theano.tensor.shared_randomstreams import RandomStreams
 
 def broadcast(mat, shape_0):
@@ -280,7 +281,103 @@ class TestWithFiniteSamples:
 
         print M
 
+
+    def test_expected_log_prob_v_given_hs(self):
+
+        "tests that the analytical expression for the expected energy of v,h, and s matches a finite sample approximation to it "
+
+        model = self.model
+        e_step = model.e_step
+        V = self.X
+        rng = np.random.RandomState([1.,2.,3.])
+
+        H = np.cast[config.floatX](rng.uniform(0.0,1.0,(self.m,self.N)))
+
+        Mu1 = np.cast[config.floatX](rng.uniform(-5.0,5.0,(self.m,self.N)))
+
+        H_var = T.matrix(name='H_var')
+        H_var.tag.test_value = H
+
+        Mu1_var = T.matrix(name='Mu1')
+        Mu1_var.tag.test_value = Mu1
+
+        sigma0 = 1. / model.alpha
+        Sigma1 = e_step.mean_field_Sigma1()
+
+        mu0 = T.zeros_like(self.model.mu)
+
+        stats = SufficientStatistics.from_observations(
+                needed_stats = S3C.expected_log_prob_v_given_hs_needed_stats(), X = V,
+                H = H_var, mu0 = mu0, Mu1 = Mu1, sigma0 = sigma0, Sigma1 = Sigma1)
+
+        analytical = model.expected_log_prob_v_given_hs(stats)
+
+        theano_rng = RandomStreams(rng.randint(2**30))
+
+        H_sample = theano_rng.binomial( size = H_var.shape, n = 1, p =  H_var)
+
+        pos_sample = theano_rng.normal( size = H_var.shape, avg = Mu1, std = T.sqrt(Sigma1) )
+        neg_sample = theano_rng.normal( size = H_var.shape, avg = 0.0, std = T.sqrt(1./model.alpha) )
+
+        final_sample = H_sample * pos_sample + (1.-H_sample)*neg_sample
+
+        sample_value = model.log_prob_v_given_hs(V = V, H = H_sample, Mu1 = final_sample).mean()
+
+        sample_func = function([H_var,Mu1_var],sample_value)
+
+        analytical = function([H_var,Mu1_var],analytical)(H,Mu1)
+
+        print 'analytical ',analytical
+
+        two = 2
+        thousand = 1000
+        million = thousand * thousand
+
+        num_samples = 2 * thousand * thousand
+
+        approx = 0.
+
+        write_freq = 100
+
+        diffs = np.zeros(num_samples/write_freq)
+        x = np.zeros(num_samples/write_freq)
+
+        record = np.zeros(num_samples/write_freq)
+
+        for i in xrange(num_samples):
+            sample = sample_func(H, Mu1)
+            approx += (sample - approx) / float(i+1)
+
+            if i % write_freq == 0:
+                x[i/write_freq] = i
+                diffs[i/write_freq] = np.abs(approx - analytical)
+                record[i/write_freq] = approx
+
+
+            if i % 10000 == 0:
+                print i
+                print 'diff: ', (approx - analytical)
+                print 'diff std: ',np.abs(approx - analytical)
+
+        np.save('H.npy',H)
+        np.save('Mu1.npy',Mu1)
+        np.save('analytical.npy',analytical)
+        np.save('record.npy', record)
+        np.save('x.npy', x)
+        np.save('diffs.npy',diffs)
+        np.save('final_diffs.npy', np.abs(approx - analytical) )
+
+        import matplotlib.pyplot as plt
+        plt.plot(x,diffs)
+        plt.show()
+
+        M = np.zeros((self.m,2))
+        M[:,0] = analytical
+        M[:,1] = approx
+
+        print M
+
 if __name__ == '__main__':
     obj = TestWithFiniteSamples()
 
-    obj.test_expected_energy_vhs()
+    obj.test_expected_log_prob_v_given_hs()

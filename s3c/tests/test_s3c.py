@@ -86,7 +86,7 @@ class TestS3C_VHS:
         self.new_params = model.get_param_values()
 
 
-        self.prob = self.model.log_likelihood_vhs( self.stats )
+        self.prob = self.model.expected_log_prob_vhs( self.stats )
 
 
     def test_grad_vsh_solve_M_step(self):
@@ -262,10 +262,10 @@ class TestS3C_VHS:
         B = self.model.B
         W = self.model.W
         mean_hsv = self.stats.d['mean_hsv']
-        cov_hs = self.stats.d['cov_hs']
+        second_hs = self.stats.d['second_hs']
 
         term1 = (B * mean_hsv).T
-        term2 = - B.dimshuffle(0,'x') * T.dot(W, cov_hs)
+        term2 = - B.dimshuffle(0,'x') * T.dot(W, second_hs)
 
         analytical = term1 + term2
 
