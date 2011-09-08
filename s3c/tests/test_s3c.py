@@ -26,14 +26,14 @@ class TestS3C_VHS:
 
         self.tol = 1e-5
 
-        dataset = serial.load('/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl')
+        dataset = serial.load('/data/lisatmp/goodfeli/cifar10_preprocessed_train_1K.pkl')
 
         X = dataset.get_batch_design(1000)
-        X = X[:,0:5]
-        X -= X.mean()
-        X /= X.std()
+        #X = X[:,0:5]
+        #X -= X.mean()
+        #X /= X.std()
         m, D = X.shape
-        N = 5
+        N = 300
 
         self.model = S3C(nvis = D,
                          nhid = N,
