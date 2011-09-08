@@ -409,7 +409,7 @@ class S3C(Model):
             needed_stats = set(self.monitor_stats)
 
             if self.monitor_functional:
-                needed_stats = needed_stats.union(S3C.log_likelihood_vhs_needed_stats())
+                needed_stats = needed_stats.union(S3C.expected_log_prob_vhs_needed_stats())
 
             stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
                                                             X = V, ** obs )
@@ -1328,7 +1328,7 @@ class VHS_E_Step(E_step):
     def em_functional(self, V, model, obs):
         """ Return value is a scalar """
 
-        needed_stats = S3C.log_likelihood_vhs_needed_stats()
+        needed_stats = S3C.expected_log_prob_vhs_needed_stats()
 
         stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
                                                         X = V, ** obs )
@@ -1338,7 +1338,7 @@ class VHS_E_Step(E_step):
         Sigma1 = obs['Sigma1']
 
         entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
-        likelihood_term = model.log_likelihood_vhs(stats)
+        likelihood_term = model.expected_log_prob_vhs(stats)
 
         em_functional = entropy_term + likelihood_term
 
@@ -1749,12 +1749,12 @@ class VHS_M_Step(M_Step):
 
         hid_observations = model.e_step.mean_field(V)
 
-        stats = SufficientStatistics.from_observations(needed_stats = S3C.log_likelihood_vhs_needed_stats(),
+        stats = SufficientStatistics.from_observations(needed_stats = S3C.expected_log_prob_vhs_needed_stats(),
                 X = V, **hid_observations)
 
-        obj = model.log_likelihood_vhs(stats)
+        obj = model.expected_log_prob_vhs(stats)
 
-        return { 'log_likelihood_vhs' : obj }
+        return { 'expected_log_prob_vhs' : obj }
 
 class VHSU_M_Step(M_Step):
     """ An M-step based on learning using the distribution over
@@ -1852,7 +1852,7 @@ class VHS_Grad_M_Step(VHS_M_Step):
 
         params = model.get_params()
 
-        obj = model.log_likelihood_vhs(stats)
+        obj = model.expected_log_prob_vhs(stats)
 
         grads = T.grad(obj, params, consider_constant = stats.d.values())
 
@@ -1864,7 +1864,7 @@ class VHS_Grad_M_Step(VHS_M_Step):
         return updates
 
     def needed_stats(self):
-        return S3C.log_likelihood_vhs_needed_stats()
+        return S3C.expected_log_prob_vhs_needed_stats()
 
 class VHSU_Grad_M_Step(VHSU_M_Step):
 
