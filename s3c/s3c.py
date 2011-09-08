@@ -24,7 +24,7 @@ class SufficientStatisticsHolder:
                     "mean_hs"               :   sharedX(np.zeros(nhid), "mean_hs" ),
                     "mean_sq_hs"            :   sharedX(np.zeros(nhid), "mean_sq_hs" ),
                     #"mean_D_sq_mean_Q_hs"   :   sharedX(np.zeros(nhid), "mean_D_sq_mean_Q_hs"),
-                    "cov_hs"                :   sharedX(np.zeros((nhid,nhid)), 'cov_hs'),
+                    "second_hs"                :   sharedX(np.zeros((nhid,nhid)), 'second_hs'),
                     "mean_hsv"              :   sharedX(np.zeros((nhid,nvis)), 'mean_hsv'),
                     "u_stat_1"              :   sharedX(np.zeros((nhid,nvis)), 'u_stat_1'),
                     "u_stat_2"              :   sharedX(np.zeros((nvis,)),'u_stat_2')
@@ -115,13 +115,13 @@ class SufficientStatistics:
         mean_sq_hs = T.mean(mean_sq_HS, axis=0)
         mean_sq_hs.name = 'mean_sq_hs(%s,%s)' % (H_name, Mu1_name)
 
-        #cov_hs
+        #second_hs
         outer_prod = T.dot(mean_HS.T,mean_HS)
         outer_prod.name = 'outer_prod<from_observations>'
         outer = outer_prod/m
         mask = T.identity_like(outer)
-        cov_hs = (1.-mask) * outer + alloc_diag(mean_sq_hs)
-        cov_hs.name = 'exp_outer_hs(%s,%s)' % (H_name, Mu1_name)
+        second_hs = (1.-mask) * outer + alloc_diag(mean_sq_hs)
+        second_hs.name = 'exp_outer_hs(%s,%s)' % (H_name, Mu1_name)
 
         #mean_hsv
         sum_hsv = T.dot(mean_HS.T,X)
@@ -165,8 +165,7 @@ class SufficientStatistics:
                     "mean_sq_s"             :   mean_sq_s,
                     "mean_hs"               :   mean_hs,
                     "mean_sq_hs"            :   mean_sq_hs,
-                    #"mean_D_sq_mean_Q_hs"   :   mean_D_sq_mean_Q_hs,
-                    "cov_hs"                :   cov_hs,
+                    "second_hs"             :   second_hs,
                     "mean_hsv"              :   mean_hsv,
                     "u_stat_1"              :   u_stat_1,
                     "u_stat_2"              :   u_stat_2
@@ -425,7 +424,7 @@ class S3C(Model):
 
     @classmethod
     def solve_vhs_needed_stats(cls):
-        return set([ 'cov_hs',
+        return set([ 'second_hs',
                  'mean_hsv',
                  'mean_v',
                  'mean_sq_v',
@@ -441,15 +440,15 @@ class S3C(Model):
          W is a matrix used to predict v from h*s
 
 
-        cov_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
+        second_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
         """
 
-        cov_hs = stats.d['cov_hs']
-        assert cov_hs.dtype == config.floatX
+        second_hs = stats.d['second_hs']
+        assert second_hs.dtype == config.floatX
         #mean_hsv[i,j] = E_D,Q h_i s_i v_j
         mean_hsv = stats.d['mean_hsv']
 
-        regularized = cov_hs + alloc_diag(T.ones_like(self.mu) * self.W_eps)
+        regularized = second_hs + alloc_diag(T.ones_like(self.mu) * self.W_eps)
         assert regularized.dtype == config.floatX
 
 
@@ -468,10 +467,10 @@ class S3C(Model):
         two = as_floatX(2.)
 
         denom1 = mean_sq_v
-        denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
-        denom3 = (cov_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,1,'x')).sum(axis=(1,2))
 
-        denom = T.clip(denom1 + denom2 + denom3, 1e-10, 1e8)
+        denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
+        denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,1,'x')).sum(axis=(1,2))
+
 
         new_B = one / denom
 
@@ -986,14 +985,14 @@ class S3C(Model):
         NH = np.cast[config.floatX](self.nhid)
 
         mean_sq_hs = stats.d['mean_sq_hs']
-        cov_hs = stats.d['cov_hs']
+        second_hs = stats.d['second_hs']
         mean_D_sq_mean_Q_hs = stats.d['mean_D_sq_mean_Q_hs']
 
         term1 = 0.5 * T.sqr(NH) * T.sum(T.log(self.B))
         #term1 = Print('term1')(term1)
         term2 = 0.5 * (NH + 1) * T.dot(self.B,T.dot(self.W,mean_sq_hs))
         #term2 = Print('term2')(term2)
-        term3 = - (self.B *  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+        term3 = - (self.B *  ( second_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
                         self.W.dimshuffle(0,'x',1)).sum(axis=(1,2))).sum()
         #term3 = Print('term3')(term3)
         a = T.dot(T.sqr(self.W), mean_D_sq_mean_Q_hs)
@@ -1006,7 +1005,7 @@ class S3C(Model):
 
     @classmethod
     def log_likelihood_v_given_hs_needed_stats(cls):
-        return set(['mean_sq_v','mean_hsv','cov_hs'])
+        return set(['mean_sq_v','mean_hsv','second_hs'])
 
     def log_likelihood_v_given_hs(self, stats):
 
@@ -1024,13 +1023,13 @@ class S3C(Model):
 
         mean_sq_v = stats.d['mean_sq_v']
         mean_hsv  = stats.d['mean_hsv']
-        cov_hs = stats.d['cov_hs']
+        second_hs = stats.d['second_hs']
 
         term1 = half * T.sum(T.log(self.B))
         term2 = - half * N * T.log(two * pi)
         term3 = - half * T.dot(self.B, mean_sq_v)
         term4 = T.dot(self.B , (self.W * mean_hsv.T).sum(axis=1))
-        term5 = - half * T.dot(self.B,  ( cov_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+        term5 = - half * T.dot(self.B,  ( second_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
                         self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
 
         rval = term1 + term2 + term3 + term4 + term5
