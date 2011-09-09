@@ -1256,8 +1256,6 @@ class S3C(Model):
 
     def learn_mini_batch(self, X):
 
-        warnings.warn('cropping X')
-        X = X[:,0:self.nvis]
 
         if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
