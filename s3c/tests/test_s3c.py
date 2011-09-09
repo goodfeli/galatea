@@ -19,7 +19,11 @@ from matplotlib import pyplot as plt
 
 class TestS3C_VHS:
 
-    def wtf(self, X):
+    def trace_out_B(self, X):
+        """ this function was used for debugging the M step B update but is no longer used in the tests
+        this function should be called AFTER calls to learn_minibatch or it won't be using the same parameters as the other tests
+        """
+
         model = self.model
         mf_obs = model.e_step.mean_field(X)
 
@@ -66,8 +70,8 @@ class TestS3C_VHS:
 
         print 'optimal B',B[obj==obj.max()]
 
-        #plt.plot(B,obj)
-        #plt.show()
+        plt.plot(B,obj)
+        plt.show()
 
         model.B_driver.set_value(orig_B)
 
@@ -82,25 +86,27 @@ class TestS3C_VHS:
         dataset = serial.load('/data/lisatmp/goodfeli/cifar10_preprocessed_train_1K.pkl')
 
         X = dataset.get_batch_design(1000)
-        #X = X[:,0:5]
-        #X -= X.mean()
-        #X /= X.std()
         m, D = X.shape
         N = 300
 
-        self.model = S3C(nvis = D,
+        self.model = S3C(nvis = 192,
                          nhid = N,
                          irange = .5,
                          init_bias_hid = 0.,
                          init_B = 3.,
                          min_B = 1e-8,
-                         max_B = 1000.,
-                         init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
-                         init_mu = 1., e_step = VHS_E_Step(h_new_coeff_schedule = [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ]),
+                         max_B = 1e8,
+                         tied_B = 1,
+                         e_step = VHS_E_Step(
+                             h_new_coeff_schedule = [ .01 ]
+                         ),
+                         init_alpha = 1.,
+                         min_alpha = 1e-8, max_alpha = 1e8,
+                         init_mu = 1.,
                          new_stat_coeff = 1.,
                          m_step = VHS_Solve_M_Step( new_coeff = 1.0 ),
-                         W_eps = 0., mu_eps = 1e-8,
-                         min_bias_hid = -1e30, max_bias_hid = 1e30,
+                         W_eps = 0., mu_eps = 0.,
+                         b_eps = 0.,
                         learn_after = None)
 
         self.orig_params = self.model.get_param_values()
@@ -110,7 +116,7 @@ class TestS3C_VHS:
 
         stats = SufficientStatistics.from_observations(needed_stats =
                 model.m_step.needed_stats(), X =X,
-                N = model.nhid, B = model.B.get_value(),
+                N = model.nhid, B = model.get_B_value(),
                 W = model.W.get_value(), ** mf_obs)
 
         holder = SufficientStatisticsHolder(
@@ -159,10 +165,11 @@ class TestS3C_VHS:
         for g, param in zip(g,params):
             max_g = np.abs(g).max()
 
-            #Since B isn't jumping to the right location, it won't have the right gradient,
-            #and we don't test it. (See the B_jump test below)
-            if max_g > self.tol and param != self.model.B:
-                failing_grads[param.name] = max_g
+            if max_g > self.tol:
+                if len(g.shape) == 0:
+                    failing_grads[param.name] = g
+                else:
+                    failing_grads[param.name] = g[np.abs(g) == max_g]
 
         if len(failing_grads.keys()) > 0:
             raise Exception('gradients of log likelihood with respect to parameters should all be 0,'+\
@@ -177,7 +184,7 @@ class TestS3C_VHS:
 
         stats = self.stats
 
-        cov_hs = stats.d['cov_hs']
+        cov_hs = stats.d['second_hs']
         assert cov_hs.dtype == config.floatX
         #mean_hsv[i,j] = E_D,Q h_i s_i v_j
         mean_hsv = stats.d['mean_hsv']
@@ -714,4 +721,5 @@ class TestS3C_VHSU:
 
 if __name__ == '__main__':
     obj = TestS3C_VHS()
-    obj.test_alpha_jump()
+    obj.test_grad_vsh_solve_M_step()
+    #obj.test_likelihood_vsh_solve_M_step()
