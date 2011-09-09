@@ -10,7 +10,7 @@ from theano.printing import Print
 from pylearn2.utils import make_name, sharedX, as_floatX
 from pylearn2.monitor import Monitor
 #import copy
-config.compute_test_value = 'raise'
+#config.compute_test_value = 'raise'
 
 class SufficientStatisticsHolder:
     def __init__(self, nvis, nhid, needed_stats):
@@ -393,6 +393,7 @@ class S3C(Model):
         return em_functional
 
     def get_monitoring_channels(self, V):
+
 
         rval = self.m_step.get_monitoring_channels(V, self)
 
