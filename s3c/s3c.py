@@ -504,9 +504,8 @@ class S3C(Model):
         denom1 = mean_sq_v
 
         denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
-        denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,1,'x')).sum(axis=(1,2))
+        denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,'x',1)).sum(axis=(1,2))
 
-        #warnings.warn('zeroing out B denom terms')
         denom = denom1 + denom2 + denom3
 
         #denom = T.clip(denom1 + denom2 + denom3, 1e-10, 1e8)
