@@ -1216,6 +1216,7 @@ class S3C(Model):
 
         X = T.matrix(name='V')
         X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
+        print 'made X test value with shape ',X.tag.test_value.shape
 
         if self.learn_after is not None:
             self.learn_func = self.make_learn_func(X, learn = True )
