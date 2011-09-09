@@ -1108,7 +1108,6 @@ class S3C(Model):
         = 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + v B W[v,:] (h*s) - 0.5 B sum_i,j W[v,i] W[v,j] cov(h_i s_i, h_j s_j)
         """
 
-        warnings.warn('This function has NOT been verified by the finite sample method')
 
         half = as_floatX(0.5)
         two = as_floatX(2.)
