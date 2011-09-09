@@ -17,7 +17,7 @@
                "init_bias_hid" : -1.5,
                "min_bias_hid" : -1.5,
                "max_bias_hid" : -1.5,
-               "irange"  : .02,
+               "irange"  : .0,
                "init_B"  : 3.,
                "min_B"   : 1e-8,
                "max_B"   : 1e8,
