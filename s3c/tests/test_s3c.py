@@ -1,3 +1,4 @@
+import warnings
 from galatea.s3c.s3c import S3C
 from galatea.s3c.s3c import SufficientStatistics
 from galatea.s3c.s3c import SufficientStatisticsHolder
@@ -5,7 +6,6 @@ from galatea.s3c.s3c import VHSU_E_Step
 from galatea.s3c.s3c import VHS_E_Step
 from galatea.s3c.s3c import VHSU_Solve_M_Step
 from galatea.s3c.s3c import VHS_Solve_M_Step
-from pylearn2.datasets.cifar10 import CIFAR10
 from pylearn2.utils import as_floatX
 from theano import function
 import numpy as np
@@ -15,9 +15,62 @@ from theano.printing import Print
 from theano import config
 from pylearn2.utils import serial
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
-
+from matplotlib import pyplot as plt
 
 class TestS3C_VHS:
+
+    def wtf(self, X):
+        model = self.model
+        mf_obs = model.e_step.mean_field(X)
+
+        stats = SufficientStatistics.from_observations(needed_stats =
+                model.m_step.needed_stats(), X =X,
+                N = model.nhid, B = model.get_B_value(),
+                W = model.W.get_value(), ** mf_obs)
+
+        holder = SufficientStatisticsHolder(
+                needed_stats = model.m_step.needed_stats(),
+                nvis = model.nvis, nhid = model.nhid)
+
+        keys = copy.copy(stats.d.keys())
+
+        outputs = [ stats.d[key] for key in keys ]
+
+        f = function([], outputs)
+
+        vals = f()
+
+        for key, val in zip(keys, vals):
+            holder.d[key].set_value(val)
+
+        print '------wtf stats----------------------'
+        for key in holder.d:
+            print key,': ',holder.d[key].get_value()
+        print '------------------------------------'
+
+        stats = SufficientStatistics.from_holder(holder)
+
+        orig_B = model.B_driver.get_value()
+
+        delta = .0001
+        B = np.arange(.3,.6,delta)
+
+        obj = np.zeros(B.shape)
+
+        f = function([], model.expected_log_prob_vhs(stats))
+
+        for i in xrange(B.shape[0]):
+            #print i
+            model.B_driver.set_value(np.cast[config.floatX](B[i]))
+            obj[i] = f()
+
+        print 'optimal B',B[obj==obj.max()]
+
+        #plt.plot(B,obj)
+        #plt.show()
+
+        model.B_driver.set_value(orig_B)
+
     def __init__(self):
         """ gets a small batch of data
             sets up an S3C model and learns on the data
