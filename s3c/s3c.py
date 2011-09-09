@@ -1230,6 +1230,9 @@ class S3C(Model):
 
         self.make_B_and_w()
 
+        self.get_B_value = function([], self.B)
+
+
         X = T.matrix(name='V')
         X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
         print 'made X test value with shape ',X.tag.test_value.shape
