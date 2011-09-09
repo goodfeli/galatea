@@ -1422,6 +1422,10 @@ class VHS_E_Step(E_step):
 
     def mean_field_A(self, V, H, Mu1):
 
+        if config.compute_test_value != 'off':
+            assert V.tag.test_value.shape[1] == self.model.nvis
+
+
         mu = self.model.mu
         alpha = self.model.alpha
         W = self.model.W
