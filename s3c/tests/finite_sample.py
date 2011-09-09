@@ -241,7 +241,7 @@ class TestWithFiniteSamples:
 
         approx_energy = np.zeros(analytical_energy.shape, dtype=analytical_energy.dtype)
 
-        write_freq = 100
+        write_freq = 1000
 
         diffs = np.zeros(num_samples/write_freq)
         x = np.zeros(num_samples/write_freq)
