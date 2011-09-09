@@ -1,0 +1,4 @@
+If repo is getting very slow to use, try:
+git gc --aggressive
+I tried this once and it appears to try to flatten out commits or something.
+Not sure if it resolved my problem or not because it will take a while to see if slow things happen.
