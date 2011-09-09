@@ -455,6 +455,19 @@ class S3C(Model):
 
     def solve_vhs_from_stats(self, stats):
 
+        """
+            One thing that's complicated about debugging
+            this method is that some of the updates depend
+            on the other updates. For example, the new
+            value of B depends on the new value of W.
+            Because these updates are later passed to
+            censor_updates, some of the values computed
+            here may not be correct.
+            In here, we don't update W if disable_W_update
+            is set to True, but we haven't compensated for
+            other parameter dependencies.
+        """
+
         """Solve multiple linear regression problem where
          W is a matrix used to predict v from h*s
 
@@ -478,6 +491,9 @@ class S3C(Model):
         inv_prod.name = 'inv_prod'
         new_W = inv_prod.T
         assert new_W.dtype == config.floatX
+
+        if self.disable_W_update:
+            new_W = self.W
 
         #Solve for B by setting gradient of log likelihood to 0
         mean_sq_v = stats.d['mean_sq_v']
