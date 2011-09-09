@@ -367,7 +367,7 @@ class S3C(Model):
             self.prev_H = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_H")
             self.prev_Mu1 = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_Mu1")
 
-        self.debug_m_step = True
+        self.debug_m_step = False
         if self.debug_m_step:
             self.em_functional_diff = sharedX(0.)
 
@@ -1284,10 +1284,11 @@ class S3C(Model):
             W = self.W.get_value(borrow=True)
             assert not np.any(np.isnan(W))
             print 'W: ',(W.min(),W.mean(),W.max())
-        if self.em_functional_diff.get_value() < 0.0:
-            print "FAIL!"
-            print self.em_functional_diff.get_value()
-            quit(-1)
+        if self.debug_m_step:
+            if self.em_functional_diff.get_value() < 0.0:
+                print "m step decreased the em functional"
+                print self.em_functional_diff.get_value()
+                quit(-1)
     #
 
     def get_weights_format(self):
