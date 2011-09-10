@@ -361,7 +361,7 @@ class S3C(Model):
             self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid,
                     needed_stats = self.m_step.needed_stats() )
 
-        self.test_batch_size = 5
+        self.test_batch_size = 2
 
         if self.recycle_q:
             self.prev_H = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_H")
@@ -374,9 +374,6 @@ class S3C(Model):
         self.redo_theano()
 
 
-        if self.recycle_q:
-            self.prev_H.set_value( np.cast[self.prev_H.dtype]( np.zeros((self.recycle_q, self.nhid)) + 1./(1.+np.exp(-self.bias_hid.get_value()))))
-            self.prev_Mu1.set_value( np.cast[self.prev_Mu1.dtype]( np.zeros((self.recycle_q, self.nhid)) + self.mu.get_value() ) )
 
     def em_functional(self, H, sigma0, Sigma1, stats):
         """ Returns the em_functional for a single batch of data
@@ -435,6 +432,11 @@ class S3C(Model):
                     rval[stat+'_min'] = T.min(stat_val)
                     rval[stat+'_mean'] = T.mean(stat_val)
                     rval[stat+'_max'] = T.max(stat_val)
+
+        if self.recycle_q:
+            warnings.warn('THIS IS ASKING TO BE SHOT IN THE FOOT: reycle_q depends on shared variables being initialized with batch_size rows, but we also want to compile with the same number of rows as the monitor uses for testing. If we compile with batch_size rows, then the interactive debugger breaks while compiling the monitoring updates. Thus we initialize the recycling variables in ***get_monitoring_channels*** which no reasonable person would ever expect. We have to do that because if we initialize them in redo_everything they will be initialized before the monitoring channels are compiled, and if we initialize them in learn_mini_batch they will still have the testing size when the first monitoring call is made right before learning starts. This is a really bad position to be in because the code is getting so spaghettified and basically just depends on me memorizing everything to make it work. FML')
+            self.prev_H.set_value( np.cast[self.prev_H.dtype]( np.zeros((self.recycle_q, self.nhid)) + 1./(1.+np.exp(-self.bias_hid.get_value()))))
+            self.prev_Mu1.set_value( np.cast[self.prev_Mu1.dtype]( np.zeros((self.recycle_q, self.nhid)) + self.mu.get_value() ) )
 
         return rval
 
