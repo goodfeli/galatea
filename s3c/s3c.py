@@ -1423,7 +1423,8 @@ class VHS_E_Step(E_step):
     def mean_field_A(self, V, H, Mu1):
 
         if config.compute_test_value != 'off':
-            assert V.tag.test_value.shape[1] == self.model.nvis
+            if V.tag.test_value.shape != (self.model.test_batch_size,self.model.nvis):
+                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nviz))+' but the monitor gave us something of shape '+V.tag.test_value.shape+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
 
 
         mu = self.model.mu
@@ -1445,7 +1446,8 @@ class VHS_E_Step(E_step):
 
         interaction_term = iterm_part_1 + iterm_part_2
 
-        A = mean_term + data_term + interaction_term
+        debug_interm = mean_term + data_term
+        A = debug_interm + interaction_term
 
         V_name = make_name(V, 'anon_V')
         H_name = make_name(H, 'anon_H')
