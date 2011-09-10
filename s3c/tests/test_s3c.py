@@ -88,7 +88,7 @@ class TestS3C_VHS:
 
         dataset = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_train_1K.pkl')
 
-        X = dataset.get_batch_design(1)
+        X = dataset.get_batch_design(1000)
         #X = X[:,0:2]
         #warnings.warn('hack')
         #X[0,0] = 1.
