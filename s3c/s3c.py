@@ -1422,10 +1422,17 @@ class VHS_E_Step(E_step):
     def init_mf_H(self, V):
         if self.model.recycle_q:
             rval = self.model.prev_H
+
+            if config.compute_test_value != 'off':
+                if rval.get_value().shape[0] != V.tag.test_value.shape[0]:
+                    raise Exception(' god damn it', rval.get_value().shape, V.tag.test_value.shape)
         else:
             #just use the prior
             value =  T.nnet.sigmoid(self.model.bias_hid)
             rval = T.alloc(value, V.shape[0], value.shape[0])
+
+            if config.compute_test_value != 'off':
+                assert rval.tag.test_value.shape[0] == V.tag.test_value.shape[0]
 
         return rval
 
@@ -1446,8 +1453,14 @@ class VHS_E_Step(E_step):
     def mean_field_A(self, V, H, Mu1):
 
         if config.compute_test_value != 'off':
-            if V.tag.test_value.shape != (self.model.test_batch_size,self.model.nvis):
-                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nviz))+' but the monitor gave us something of shape '+V.tag.test_value.shape+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
+            Vv = V.tag.test_value
+            from theano.gof import PureOp
+            Hv = PureOp._get_test_value(H)
+            if Vv.shape != (self.model.test_batch_size,self.model.nvis):
+                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(V.tag.test_value.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
+
+            assert Vv.shape[0] == Hv.shape[0]
+            assert Hv.shape[1] == self.model.nhid
 
 
         mu = self.model.mu
@@ -1468,6 +1481,9 @@ class VHS_E_Step(E_step):
         iterm_part_2 = w * HS
 
         interaction_term = iterm_part_1 + iterm_part_2
+
+        if config.compute_test_value != 'off':
+            assert iterm_part_1.tag.test_value.shape[0] == V.tag.test_value.shape[0]
 
         debug_interm = mean_term + data_term
         A = debug_interm + interaction_term
@@ -1573,6 +1589,17 @@ class VHS_E_Step(E_step):
         H   =    self.init_mf_H(V)
         Mu1 =    self.init_mf_Mu1(V)
 
+        def check_H(my_H, my_V):
+            if config.compute_test_value != 'off':
+                from theano.gof.op import PureOp
+                Hv = PureOp._get_test_value(my_H)
+
+                Vv = my_V.tag.test_value
+
+                assert Hv.shape[0] == Vv.shape[0]
+
+        check_H(H,V)
+
         def make_dict():
 
             return {
@@ -1593,6 +1620,8 @@ class VHS_E_Step(E_step):
 
             H = self.damp_H(H = H, new_H = new_H, new_coeff = new_coeff)
             Mu1 = self.damp_Mu1(Mu1 = Mu1, new_Mu1 = new_Mu1)
+
+            check_H(H,V)
 
             history.append(make_dict())
 
