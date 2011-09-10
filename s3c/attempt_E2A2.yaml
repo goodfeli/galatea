@@ -2,7 +2,7 @@
 #like E2A but with recycle_q
 !obj:pylearn2.scripts.train.Train {
     "save_path": "attempt_E2A2.pkl",
-    "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_1K.pkl",
+    "dataset": !pkl: "${GOODFELI_TMP}/cifar10_preprocessed_train_1K.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 192,
                "nhid" : 300,
@@ -15,7 +15,7 @@
                "min_alpha" : 1.,
                "max_alpha" : 1000.,
                "init_mu" : 1.,
-               "recycle_q" : 1,
+               "recycle_q" : 1000,
                "monitor_functional" : 1,
                "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
                         "h_new_coeff_schedule" : [ 1., 0., 0., .7, .7, .7, .7, .7, .7, .7 ]
@@ -33,7 +33,7 @@
                "batch_size" : 1000,
                "batches_per_iter" : 1,
                "monitoring_batches" : 1,
-               "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_1K.pkl",
+               "monitoring_dataset" : !pkl: "${GOODFELI_TMP}/cifar10_preprocessed_train_1K.pkl",
         },
 }
 
