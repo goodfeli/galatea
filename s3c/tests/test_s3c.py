@@ -19,7 +19,7 @@ from matplotlib import pyplot as plt
 
 class TestS3C_VHS:
 
-    def trace_out_B(self, X):
+    def trace_out_B(self, X, holder):
         """ this function was used for debugging the M step B update but is no longer used in the tests
         this function should be called AFTER calls to learn_minibatch or it won't be using the same parameters as the other tests
         """
@@ -27,7 +27,7 @@ class TestS3C_VHS:
         model = self.model
         mf_obs = model.e_step.mean_field(X)
 
-        stats = SufficientStatistics.from_observations(needed_stats =
+        """stats = SufficientStatistics.from_observations(needed_stats =
                 model.m_step.needed_stats(), X =X,
                 N = model.nhid, B = model.get_B_value(),
                 W = model.W.get_value(), ** mf_obs)
@@ -35,6 +35,7 @@ class TestS3C_VHS:
         holder = SufficientStatisticsHolder(
                 needed_stats = model.m_step.needed_stats(),
                 nvis = model.nvis, nhid = model.nhid)
+
 
         keys = copy.copy(stats.d.keys())
 
@@ -47,6 +48,8 @@ class TestS3C_VHS:
         for key, val in zip(keys, vals):
             holder.d[key].set_value(val)
 
+        """
+
         print '------wtf stats----------------------'
         for key in holder.d:
             print key,': ',holder.d[key].get_value()
@@ -56,8 +59,8 @@ class TestS3C_VHS:
 
         orig_B = model.B_driver.get_value()
 
-        delta = .0001
-        B = np.arange(.3,.6,delta)
+        delta = .001
+        B = np.arange(delta,5.,delta)
 
         obj = np.zeros(B.shape)
 
@@ -83,21 +86,27 @@ class TestS3C_VHS:
 
         self.tol = 1e-5
 
-        dataset = serial.load('/data/lisatmp/goodfeli/cifar10_preprocessed_train_1K.pkl')
+        dataset = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_train_1K.pkl')
 
-        X = dataset.get_batch_design(1000)
+        X = dataset.get_batch_design(1)
+        #X = X[:,0:2]
+        #warnings.warn('hack')
+        #X[0,0] = 1.
+        #X[0,1] = -1.
         m, D = X.shape
         N = 300
 
-        self.model = S3C(nvis = 192,
+        self.model = S3C(nvis = D,
+                #disable_W_update = 1,
                          nhid = N,
                          irange = .5,
                          init_bias_hid = 0.,
-                         init_B = 3.,
+                         init_B = 1.,
                          min_B = 1e-8,
                          max_B = 1e8,
                          tied_B = 1,
                          e_step = VHS_E_Step(
+                             #h_new_coeff_schedule = [ ],
                              h_new_coeff_schedule = [ .01 ]
                          ),
                          init_alpha = 1.,
@@ -108,6 +117,12 @@ class TestS3C_VHS:
                          W_eps = 0., mu_eps = 0.,
                          b_eps = 0.,
                         learn_after = None)
+
+        #warnings.warn('hack')
+        #W = self.model.W.get_value()
+        #W[0,0] = 1.
+        #W[1,0] = 1.
+        #self.model.W.set_value(W)
 
         self.orig_params = self.model.get_param_values()
 
@@ -134,13 +149,13 @@ class TestS3C_VHS:
         for key, val in zip(keys, vals):
             holder.d[key].set_value(val)
 
-        #print 'mean u_stat_2 in holder: '+str(holder.d['u_stat_2'].get_value().mean())
 
         self.stats = SufficientStatistics.from_holder(holder)
 
 
         self.model.learn_mini_batch(X)
 
+        #self.trace_out_B(X, holder)
 
         self.new_params = model.get_param_values()
 
