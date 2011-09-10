@@ -7,7 +7,7 @@
 #      decrease the EM functional starting from the value of q on the
 #      previous iteration.
 !obj:pylearn2.scripts.train.Train {
-    "save_path": "attempt_E2A1.pkl",
+    "save_path": "attempt_E2A1A.pkl",
     "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_1K.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 192,
