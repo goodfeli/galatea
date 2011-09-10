@@ -503,19 +503,39 @@ class S3C(Model):
         one = as_floatX(1.)
         two = as_floatX(2.)
 
+        #mean_sq_v = Print('mean_sq_v')(mean_sq_v)
+        #mean_hsv = Print('mean_hsv')(mean_hsv)
+        #second_hs = Print('second_hs')(second_hs)
+
         denom1 = mean_sq_v
 
         denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
         denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,'x',1)).sum(axis=(1,2))
 
+        #denom1 = Print('denom1')(denom1)
+        #denom2 = Print('denom2')(denom2)
+        #denom3 = Print('denom3')(denom3)
+
         denom = denom1 + denom2 + denom3
+
+        #denom = Print('denom')(denom)
 
         #denom = T.clip(denom1 + denom2 + denom3, 1e-10, 1e8)
 
+        if self.tied_B:
+            #it's important to average the denominator, rather than averaging after taking the reciprocal
+            denom = denom.mean()
+
+            #denom = Print('denom (averaged)')(denom)
+
         new_B = one / denom
 
-        if self.tied_B:
-            new_B = new_B.mean()
+        #new_B = Print('new_B')(new_B)
+
+        #if self.tied_B:
+        #    new_B = new_B.mean()
+
+        #new_B = Print('new_B (averaged)')(new_B)
 
         mean_hs = stats.d['mean_hs']
 
@@ -1257,6 +1277,7 @@ class S3C(Model):
 
 
     def learn_mini_batch(self, X):
+
 
 
         if self.learn_after is not None:
