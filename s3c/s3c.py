@@ -464,139 +464,7 @@ class S3C(Model):
     def get_params(self):
         return [self.W, self.bias_hid, self.alpha, self.mu, self.B_driver ]
 
-    @classmethod
-    def solve_vhs_needed_stats(cls):
-        return set([ 'second_hs',
-                 'mean_hsv',
-                 'mean_v',
-                 'mean_sq_v',
-                 'mean_sq_s',
-                 'mean_sq_hs',
-                 'mean_hs',
-                 'mean_h'
-                ])
 
-    def solve_vhs_from_stats(self, stats):
-
-        """
-            One thing that's complicated about debugging
-            this method is that some of the updates depend
-            on the other updates. For example, the new
-            value of B depends on the new value of W.
-            Because these updates are later passed to
-            censor_updates, some of the values computed
-            here may not be correct.
-            In here, we don't update W if disable_W_update
-            is set to True, but we haven't compensated for
-            other parameter dependencies.
-        """
-
-        """Solve multiple linear regression problem where
-         W is a matrix used to predict v from h*s
-
-
-        second_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
-        """
-
-        second_hs = stats.d['second_hs']
-        assert second_hs.dtype == config.floatX
-        #mean_hsv[i,j] = E_D,Q h_i s_i v_j
-        mean_hsv = stats.d['mean_hsv']
-
-        regularized = second_hs + alloc_diag(T.ones_like(self.mu) * self.W_eps)
-        assert regularized.dtype == config.floatX
-
-
-        inv = matrix_inverse(regularized)
-        assert inv.dtype == config.floatX
-
-        inv_prod = T.dot(inv,mean_hsv)
-        inv_prod.name = 'inv_prod'
-        new_W = inv_prod.T
-        assert new_W.dtype == config.floatX
-
-        if self.disable_W_update:
-            new_W = self.W
-
-        #Solve for B by setting gradient of log likelihood to 0
-        mean_sq_v = stats.d['mean_sq_v']
-
-        one = as_floatX(1.)
-        two = as_floatX(2.)
-
-        #mean_sq_v = Print('mean_sq_v')(mean_sq_v)
-        #mean_hsv = Print('mean_hsv')(mean_hsv)
-        #second_hs = Print('second_hs')(second_hs)
-
-        denom1 = mean_sq_v
-
-        denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
-        denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,'x',1)).sum(axis=(1,2))
-
-        #denom1 = Print('denom1')(denom1)
-        #denom2 = Print('denom2')(denom2)
-        #denom3 = Print('denom3')(denom3)
-
-        denom = denom1 + denom2 + denom3
-
-        #denom = Print('denom')(denom)
-
-        #denom = T.clip(denom1 + denom2 + denom3, 1e-10, 1e8)
-
-        if self.tied_B:
-            #it's important to average the denominator, rather than averaging after taking the reciprocal
-            denom = denom.mean()
-
-            #denom = Print('denom (averaged)')(denom)
-
-        new_B = one / denom
-
-        #new_B = Print('new_B')(new_B)
-
-        #if self.tied_B:
-        #    new_B = new_B.mean()
-
-        #new_B = Print('new_B (averaged)')(new_B)
-
-        mean_hs = stats.d['mean_hs']
-
-        # Now a linear regression problem where mu_i is used to predict
-        # s_i from h_i
-
-        # mu_i = ( h^T h + reg)^-1 h^T s_i
-
-        mean_h = stats.d['mean_h']
-        assert mean_h.dtype == config.floatX
-        reg = self.mu_eps
-        new_mu = mean_hs/(mean_h+reg)
-
-
-        mean_sq_s = stats.d['mean_sq_s']
-        mean_sq_hs = stats.d['mean_h']
-
-        s_denom1 = mean_sq_s
-        s_denom2 = - two * new_mu * mean_hs
-        s_denom3 = T.sqr(new_mu) * mean_h
-
-
-        s_denom = s_denom1 + s_denom2 + s_denom3
-
-        new_alpha = one / s_denom
-
-
-        #probability of hiddens just comes from sample counting
-        #to put it back in bias_hid space apply sigmoid inverse
-
-        p = T.clip(mean_h,np.cast[config.floatX](1e-8),np.cast[config.floatX](1.-1e-8))
-        p.name = 'mean_h_clipped'
-
-        assert p.dtype == config.floatX
-
-        bias_hid = T.log( - p / (p-1.+self.b_eps) )
-
-        assert bias_hid.dtype == config.floatX
-
-        return new_W, bias_hid, new_alpha, new_mu, new_B
 
     def energy_vhs(self, V, H, S, debug_energy = None):
         " H MUST be binary "
@@ -1085,10 +953,8 @@ class S3C(Model):
 
             self.get_B_value = function([], self.B)
 
-
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
-            print 'made X test value with shape ',X.tag.test_value.shape
 
             if self.learn_after is not None:
                 self.learn_func = self.make_learn_func(X, learn = True )
@@ -1111,8 +977,6 @@ class S3C(Model):
 
     def learn_mini_batch(self, X):
 
-
-
         if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
                 self.learn_func(X)
@@ -1122,7 +986,6 @@ class S3C(Model):
             self.learn_func(X)
 
         if self.monitor.examples_seen % self.print_interval == 0:
-
             print ""
             b = self.bias_hid.get_value(borrow=True)
             assert not np.any(np.isnan(b))
@@ -1140,6 +1003,7 @@ class S3C(Model):
             W = self.W.get_value(borrow=True)
             assert not np.any(np.isnan(W))
             print 'W: ',(W.min(),W.mean(),W.max())
+
         if self.debug_m_step:
             if self.em_functional_diff.get_value() < 0.0:
                 print "m step decreased the em functional"
@@ -1522,49 +1386,167 @@ class VHS_M_Step(M_Step):
 
         return { 'expected_log_prob_vhs' : obj }
 
-
-def take_step(model, W, bias_hid, alpha, mu, B, new_coeff):
-    """
-    Returns a dictionary of learning updates of the form
-        model.param := new_coeff * param + (1-new_coeff) * model.param
-    """
-
-    new_coeff = np.cast[config.floatX](new_coeff)
-
-    def step(old, new):
-        if new_coeff == 1.0:
-            return new
-        else:
-            rval =  new_coeff * new + (np.cast[config.floatX](1.)-new_coeff) * old
-
-        assert rval.dtype == config.floatX
-
-        return rval
-
-    learning_updates = \
-        {
-            model.W: step(model.W, W),
-            model.bias_hid: step(model.bias_hid,bias_hid),
-            model.alpha: step(model.alpha, alpha),
-            model.mu: step(model.mu, mu),
-            model.B_driver: step(model.B_driver, B)
-        }
-
-    return learning_updates
-
 class VHS_Solve_M_Step(VHS_M_Step):
 
     def __init__(self, new_coeff):
         self.new_coeff = np.cast[config.floatX](float(new_coeff))
 
     def needed_stats(self):
-        return S3C.solve_vhs_needed_stats()
+        return set([ 'second_hs',
+                 'mean_hsv',
+                 'mean_v',
+                 'mean_sq_v',
+                 'mean_sq_s',
+                 'mean_sq_hs',
+                 'mean_hs',
+                 'mean_h'
+                ])
 
     def get_updates(self, model, stats):
+        """ Solves for the optimal model parameters given stats.
+            The step for each parameter is scaled based on self.new_coeff """
 
-        W, bias_hid, alpha, mu, B = model.solve_vhs_from_stats(stats)
+        """
+            One thing that's complicated about debugging
+            this method is that some of the updates depend
+            on the other updates. For example, the new
+            value of B depends on the new value of W.
+            Because these updates are later passed to
+            censor_updates, some of the values computed
+            here may not be correct.
 
-        learning_updates = take_step(model, W, bias_hid, alpha, mu, B, self.new_coeff)
+            Thus it's important that all step lengths, update
+            censor, etc. is applied inside of this function,
+            when each new parameter value is computed
+        """
+
+        """Solve multiple linear regression problem where
+         W is a matrix used to predict v from h*s
+
+
+        second_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
+        """
+
+        new_coeff = as_floatX(self.new_coeff)
+        one = as_floatX(1.)
+
+        second_hs = stats.d['second_hs']
+        assert second_hs.dtype == config.floatX
+        #mean_hsv[i,j] = E_D,Q h_i s_i v_j
+        mean_hsv = stats.d['mean_hsv']
+
+        W = model.W
+        mu = model.mu
+        W_eps = model.W_eps
+
+        regularized = second_hs + alloc_diag(T.ones_like(mu) * W_eps)
+        assert regularized.dtype == config.floatX
+
+
+        inv = matrix_inverse(regularized)
+        assert inv.dtype == config.floatX
+
+        inv_prod = T.dot(inv,mean_hsv)
+        inv_prod.name = 'inv_prod'
+        new_W = inv_prod.T
+        assert new_W.dtype == config.floatX
+
+        #handle all step-size mangling on W   BEFORE COMPUTING B
+        new_W = new_coeff * new_W + (one - new_coeff) * model.W
+        dummy = { model.W :  new_W }
+        model.censor_updates(dummy)
+        new_W = dummy[model.W]
+
+
+        #Solve for B by setting gradient of log likelihood to 0
+        mean_sq_v = stats.d['mean_sq_v']
+
+        two = as_floatX(2.)
+
+
+        denom1 = mean_sq_v
+
+        denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
+        denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,'x',1)).sum(axis=(1,2))
+
+
+        denom = denom1 + denom2 + denom3
+
+
+        #denom = T.clip(denom1 + denom2 + denom3, 1e-10, 1e8)
+
+        if model.tied_B:
+            #it's important to average the denominator, rather than averaging after taking the reciprocal
+            denom = denom.mean()
+
+
+        new_B = one / denom
+
+        new_B = new_coeff * new_B + (one-new_coeff) * model.B_driver
+
+        assert len(new_B.type().broadcastable) == len(model.B_driver.type().broadcastable)
+
+        mean_hs = stats.d['mean_hs']
+
+        # Now a linear regression problem where mu_i is used to predict
+        # s_i from h_i
+
+        # mu_i = ( h^T h + reg)^-1 h^T s_i
+
+        mean_h = stats.d['mean_h']
+        assert mean_h.dtype == config.floatX
+        reg = model.mu_eps
+        new_mu = mean_hs/(mean_h+reg)
+
+        new_mu = new_coeff * new_mu + (one - new_coeff)* model.mu
+        dummy = { model.mu : new_mu }
+        model.censor_updates(dummy)
+        new_mu = dummy[model.mu]
+
+
+        mean_sq_s = stats.d['mean_sq_s']
+        mean_sq_hs = stats.d['mean_h']
+
+        s_denom1 = mean_sq_s
+        s_denom2 = - two * new_mu * mean_hs
+        s_denom3 = T.sqr(new_mu) * mean_h
+
+
+        s_denom = s_denom1 + s_denom2 + s_denom3
+
+        new_alpha = one / s_denom
+
+        assert len(new_alpha.type().broadcastable) == 1
+
+        new_alpha = new_alpha * new_coeff + (one - new_coeff ) * model.alpha
+        assert len(new_alpha.type().broadcastable) == 1
+
+        #probability of hiddens just comes from sample counting
+        #to put it back in bias_hid space apply sigmoid inverse
+        #note: can't do 1e-8, 1.-1e-8 rounds to 1.0 in float32
+        p = T.clip(mean_h,np.cast[config.floatX](1e-7),np.cast[config.floatX](1.-1e-7))
+        p.name = 'mean_h_clipped'
+
+
+        assert p.dtype == config.floatX
+
+        arg_to_log = -p / (p-1.)
+
+
+        new_bias_hid = T.log( arg_to_log )
+
+        new_bias_hid = new_bias_hid * new_coeff + (1. - new_coeff) * model.bias_hid
+
+        assert new_bias_hid.dtype == config.floatX
+
+        learning_updates = {
+                    model.W : new_W,
+                    model.B_driver : new_B,
+                    model.mu : new_mu,
+                    model.alpha : new_alpha,
+                    model.bias_hid : new_bias_hid
+                }
+
 
         return learning_updates
 

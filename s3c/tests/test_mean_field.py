@@ -2,9 +2,7 @@ import os
 from galatea.s3c.s3c import S3C
 from galatea.s3c.s3c import SufficientStatistics
 from galatea.s3c.s3c import SufficientStatisticsHolder
-from galatea.s3c.s3c import VHSU_E_Step
 from galatea.s3c.s3c import VHS_E_Step
-from galatea.s3c.s3c import VHSU_Solve_M_Step
 from galatea.s3c.s3c import VHS_Solve_M_Step
 from pylearn2.datasets.cifar10 import CIFAR10
 from pylearn2.utils import as_floatX
