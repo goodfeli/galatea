@@ -12,6 +12,10 @@ from pylearn2.monitor import Monitor
 #import copy
 #config.compute_test_value = 'raise'
 
+warnings.warn('s3c changing the recursion limit')
+import sys
+sys.setrecursionlimit(50000)
+
 class SufficientStatisticsHolder:
     def __init__(self, nvis, nhid, needed_stats):
         d = {
@@ -246,7 +250,8 @@ class S3C(Model):
                        monitor_functional = False,
                        recycle_q = 0,
                        seed = None,
-                       disable_W_update = False):
+                       disable_W_update = False,
+                       print_interval = 10000):
         """"
         nvis: # of visible units
         nhid: # of hidden units
@@ -290,6 +295,8 @@ class S3C(Model):
             self.monitor_stats = [ elem for elem in monitor_stats ]
 
         self.seed = seed
+
+        self.print_interval = print_interval
 
         self.disable_W_update = disable_W_update
         self.monitor_functional = monitor_functional
@@ -369,6 +376,7 @@ class S3C(Model):
 
         self.debug_m_step = False
         if self.debug_m_step:
+            warnings.warn('M step debugging activated-- this is only valid for certain settings, and causes a performance slowdown.')
             self.em_functional_diff = sharedX(0.)
 
         self.redo_theano()
@@ -1288,7 +1296,7 @@ class S3C(Model):
         else:
             self.learn_func(X)
 
-        if True:#self.monitor.examples_seen % 10000 == 0:
+        if self.monitor.examples_seen % 10000 == self.print_interval:
 
             print ""
             b = self.bias_hid.get_value(borrow=True)
@@ -1404,15 +1412,30 @@ class VHS_E_Step(E_step):
         return rval
 
 
-    def __init__(self, h_new_coeff_schedule, monitor_kl = False, monitor_em_functional = False):
+    def __init__(self, h_new_coeff_schedule, s_new_coeff_schedule = None, clip_reflections = False, monitor_kl = False, monitor_em_functional = False):
         """Parameters
         --------------
         h_new_coeff_schedule:
             list of coefficients to put on the new value of h on each damped mean field step
                     (coefficients on s are driven by a special formula)
             length of this list determines the number of mean field steps
+        s_new_coeff_schedule:
+            list of coefficients to put on the new value of s on each damped mean field step
+                These are applied AFTER the reflection clipping, which can be seen as a form of
+                per-unit damping
+                s_new_coeff_schedule must have same length as h_new_coeff_schedule
+                if now s_new_coeff_schedule is not provided, it will be filled in with all ones,
+                    i.e. it will default to no damping beyond the reflection clipping
         """
 
+        if s_new_coeff_schedule is None:
+            s_new_coeff_schedule = [ 1.0 for rho in h_new_coeff_schedule ]
+        else:
+            assert len(s_new_coeff_schedule) == len(h_new_coeff_schedule)
+
+        self.s_new_coeff_schedule = s_new_coeff_schedule
+
+        self.clip_reflections = clip_reflections
         self.h_new_coeff_schedule = h_new_coeff_schedule
         self.monitor_kl = monitor_kl
         self.monitor_em_functional = monitor_em_functional
@@ -1549,10 +1572,10 @@ class VHS_E_Step(E_step):
 
         return H
 
-    def damp_H(self, H, new_H, new_coeff):
-        return new_coeff * new_H + (1. - new_coeff) * H
+    def damp(self, old, new, new_coeff):
+        return new_coeff * new + (1. - new_coeff) * old
 
-    def damp_Mu1(self, Mu1, new_Mu1):
+    def reflection_clip(self, Mu1, new_Mu1):
         rho = 0.5
         ceiling = 1000.
 
@@ -1612,14 +1635,18 @@ class VHS_E_Step(E_step):
 
         history = [ make_dict() ]
 
-        for new_coeff in self.h_new_coeff_schedule:
+        for new_H_coeff, new_S_coeff in zip(self.h_new_coeff_schedule, self.s_new_coeff_schedule):
 
             A = self.mean_field_A(V = V, H = H, Mu1 = Mu1)
             new_Mu1 = self.mean_field_Mu1(A = A)
             new_H = self.mean_field_H(A = A)
 
-            H = self.damp_H(H = H, new_H = new_H, new_coeff = new_coeff)
-            Mu1 = self.damp_Mu1(Mu1 = Mu1, new_Mu1 = new_Mu1)
+            H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
+            if self.clip_reflections:
+                clipped_Mu1 = self.reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
+            else:
+                clipped_Mu1 = new_Mu1
+            Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
 
             check_H(H,V)
 

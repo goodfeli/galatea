@@ -1,5 +1,5 @@
 #early attempt at using an E-step based on mean field in the original model
-#like E2A but with recycle_q
+#like E2A2Q8 but with gradient based M step
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: "${GOODFELI_TMP}/cifar10_preprocessed_train_1K.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
@@ -17,14 +17,15 @@
                "recycle_q" : 1000,
                "monitor_functional" : 1,
                "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
-                        "h_new_coeff_schedule" : [ 1., 0., 0., .7, .7, .7, .7, .7, .7, .7 ],
+                        "h_new_coeff_schedule" : [ .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7 ],
+                        "s_new_coeff_schedule" : [ .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7 ],
                         "monitor_em_functional" : 1
                },
                "new_stat_coeff" : 1.,
                #"learn_after" : 1000,
-               "m_step"     : !obj:galatea.s3c.s3c.VHS_Solve_M_Step {
-                        "new_coeff" : 1.
-                        #"learning_rate" : 1e-3
+               "m_step"     : !obj:galatea.s3c.s3c.VHS_Grad_M_Step {
+                        #"new_coeff" : 1.
+                        "learning_rate" : 1e-3
                },
                "mu_eps" : 0.,
                "b_eps"  : 1e-3

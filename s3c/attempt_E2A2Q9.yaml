@@ -1,5 +1,5 @@
 #early attempt at using an E-step based on mean field in the original model
-#like E2A but with recycle_q
+#like E2A2Q but with more aggressive mean field
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: "${GOODFELI_TMP}/cifar10_preprocessed_train_1K.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
@@ -17,7 +17,8 @@
                "recycle_q" : 1000,
                "monitor_functional" : 1,
                "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
-                        "h_new_coeff_schedule" : [ 1., 0., 0., .7, .7, .7, .7, .7, .7, .7 ],
+                        "h_new_coeff_schedule" : [  .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7 ],
+                        "s_new_coeff_schedule" : [  .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7 ],
                         "monitor_em_functional" : 1
                },
                "new_stat_coeff" : 1.,
