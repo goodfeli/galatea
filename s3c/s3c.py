@@ -371,8 +371,8 @@ class S3C(Model):
         self.test_batch_size = 2
 
         if self.recycle_q:
-            self.prev_H = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_H")
-            self.prev_Mu1 = sharedX(np.zeros((self.test_batch_size,self.nhid)), name="prev_Mu1")
+            self.prev_H = sharedX(np.zeros((self.recycle_q,self.nhid)), name="prev_H")
+            self.prev_Mu1 = sharedX(np.zeros((self.recycle_q,self.nhid)), name="prev_Mu1")
 
         self.debug_m_step = False
         if self.debug_m_step:
@@ -398,55 +398,73 @@ class S3C(Model):
         return em_functional
 
     def get_monitoring_channels(self, V):
+            try:
+                self.compile_mode()
+
+                rval = self.m_step.get_monitoring_channels(V, self)
+
+                from_e_step = self.e_step.get_monitoring_channels(V, self)
+
+                rval.update(from_e_step)
+
+                monitor_stats = len(self.monitor_stats) > 0
+
+                if monitor_stats or self.monitor_functional:
+
+                    obs = self.e_step.mean_field(V)
+
+                    needed_stats = set(self.monitor_stats)
+
+                    if self.monitor_functional:
+                        needed_stats = needed_stats.union(S3C.expected_log_prob_vhs_needed_stats())
+
+                    stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
+                                                                X = V, ** obs )
+
+                    H = obs['H']
+                    sigma0 = obs['sigma0']
+                    Sigma1 = obs['Sigma1']
+
+                    if self.monitor_functional:
+                        em_functional = self.em_functional(H = H, sigma0 = sigma0, Sigma1 = Sigma1, stats = stats)
+
+                        rval['em_functional'] = em_functional
 
 
-        rval = self.m_step.get_monitoring_channels(V, self)
+                    if monitor_stats:
+                        for stat in self.monitor_stats:
+                            stat_val = stats.d[stat]
 
-        from_e_step = self.e_step.get_monitoring_channels(V, self)
+                            rval[stat+'_min'] = T.min(stat_val)
+                            rval[stat+'_mean'] = T.mean(stat_val)
+                            rval[stat+'_max'] = T.max(stat_val)
+                        #end for stat
+                    #end if monitor_stats
+                #end if monitor_stats or monitor_functional
 
-        rval.update(from_e_step)
-
-        monitor_stats = len(self.monitor_stats) > 0
-
-        if monitor_stats or self.monitor_functional:
-
-            obs = self.e_step.mean_field(V)
-
-            needed_stats = set(self.monitor_stats)
-
-            if self.monitor_functional:
-                needed_stats = needed_stats.union(S3C.expected_log_prob_vhs_needed_stats())
-
-            stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
-                                                            X = V, ** obs )
-
-            H = obs['H']
-            sigma0 = obs['sigma0']
-            Sigma1 = obs['Sigma1']
-
-            if self.monitor_functional:
-                em_functional = self.em_functional(H = H, sigma0 = sigma0, Sigma1 = Sigma1, stats = stats)
-
-                rval['em_functional'] = em_functional
+                return rval
+            finally:
+                self.deploy_mode()
 
 
-            if monitor_stats:
-
-
-
-                for stat in self.monitor_stats:
-                    stat_val = stats.d[stat]
-
-                    rval[stat+'_min'] = T.min(stat_val)
-                    rval[stat+'_mean'] = T.mean(stat_val)
-                    rval[stat+'_max'] = T.max(stat_val)
-
+    def compile_mode(self):
+        """ If any shared variables need to have batch-size dependent sizes,
+        sets them all to the sizes used for interactive debugging during graph construction """
         if self.recycle_q:
-            warnings.warn('THIS IS ASKING TO BE SHOT IN THE FOOT: reycle_q depends on shared variables being initialized with batch_size rows, but we also want to compile with the same number of rows as the monitor uses for testing. If we compile with batch_size rows, then the interactive debugger breaks while compiling the monitoring updates. Thus we initialize the recycling variables in ***get_monitoring_channels*** which no reasonable person would ever expect. We have to do that because if we initialize them in redo_everything they will be initialized before the monitoring channels are compiled, and if we initialize them in learn_mini_batch they will still have the testing size when the first monitoring call is made right before learning starts. This is a really bad position to be in because the code is getting so spaghettified and basically just depends on me memorizing everything to make it work. FML')
+            self.prev_H.set_value(
+                    np.cast[self.prev_H.dtype](
+                        np.zeros((self.test_batch_size, self.nhid)) \
+                                + 1./(1.+np.exp(-self.bias_hid.get_value()))))
+            self.prev_Mu1.set_value(
+                    np.cast[self.prev_Mu1.dtype](
+                        np.zeros((self.test_batch_size, self.nhid)) + self.mu.get_value() ) )
+
+
+    def deploy_mode(self):
+        """ If any shared variables need to have batch-size dependent sizes, sets them all to their runtime sizes """
+        if self.recycle_q:
             self.prev_H.set_value( np.cast[self.prev_H.dtype]( np.zeros((self.recycle_q, self.nhid)) + 1./(1.+np.exp(-self.bias_hid.get_value()))))
             self.prev_Mu1.set_value( np.cast[self.prev_Mu1.dtype]( np.zeros((self.recycle_q, self.nhid)) + self.mu.get_value() ) )
-
-        return rval
 
     def get_params(self):
         return [self.W, self.bias_hid, self.alpha, self.mu, self.B_driver ]
@@ -1256,27 +1274,31 @@ class S3C(Model):
         self.w = T.dot(self.B, T.sqr(self.W))
 
     def redo_theano(self):
-        init_names = dir(self)
+        try:
+            self.compile_mode()
+            init_names = dir(self)
 
-        self.make_B_and_w()
+            self.make_B_and_w()
 
-        self.get_B_value = function([], self.B)
+            self.get_B_value = function([], self.B)
 
 
-        X = T.matrix(name='V')
-        X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
-        print 'made X test value with shape ',X.tag.test_value.shape
+            X = T.matrix(name='V')
+            X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
+            print 'made X test value with shape ',X.tag.test_value.shape
 
-        if self.learn_after is not None:
-            self.learn_func = self.make_learn_func(X, learn = True )
-            self.accum_func = self.make_learn_func(X, learn = False )
-        else:
-            self.learn_func = self.make_learn_func(X)
-        #
+            if self.learn_after is not None:
+                self.learn_func = self.make_learn_func(X, learn = True )
+                self.accum_func = self.make_learn_func(X, learn = False )
+            else:
+                self.learn_func = self.make_learn_func(X)
+            #
 
-        final_names = dir(self)
+            final_names = dir(self)
 
-        self.register_names_to_del([name for name in final_names if name not in init_names])
+            self.register_names_to_del([name for name in final_names if name not in init_names])
+        finally:
+            self.deploy_mode()
     #
 
     def learn(self, dataset, batch_size):
