@@ -212,7 +212,6 @@ class SufficientStatistics:
 
         return SufficientStatistics(rval_d)
 
-
 class DebugEnergy:
     def __init__(self,
                     h_term = True,
@@ -231,7 +230,6 @@ class DebugEnergy:
                 print "HACK: some terms of energy / expected energy zeroed out"
                 break
 
-
 class S3C(Model):
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
@@ -239,7 +237,7 @@ class S3C(Model):
                        new_stat_coeff,
                        e_step,
                        m_step,
-                       W_eps = 1e-6, mu_eps = 1e-8, b_eps = 0.,
+                       W_eps = 1e-6, mu_eps = 1e-8,
                         min_bias_hid = -1e30,
                         max_bias_hid = 1e30,
                         min_mu = -1e30,
@@ -268,7 +266,6 @@ class S3C(Model):
         m_step:      An M_Step object that determines what kind of M-step to do
         W_eps:       L2 regularization parameter for linear regression problem for W
         mu_eps:      L2 regularization parameter for linear regression problem for mu
-        b_eps:       L2 regularization parameter for linear regression problem for b
         learn_after: only applicable when new_stat_coeff < 1.0
                         begins learning parameters and decaying sufficient statistics
                         after seeing learn_after examples
@@ -302,7 +299,6 @@ class S3C(Model):
         self.monitor_functional = monitor_functional
         self.W_eps = np.cast[config.floatX](float(W_eps))
         self.mu_eps = np.cast[config.floatX](float(mu_eps))
-        self.b_eps = np.cast[config.floatX](float(b_eps))
         self.nvis = nvis
         self.nhid = nhid
         self.irange = irange
@@ -385,8 +381,6 @@ class S3C(Model):
 
         self.redo_theano()
 
-
-
     def em_functional(self, H, sigma0, Sigma1, stats):
         """ Returns the em_functional for a single batch of data
             stats is assumed to be computed from and only from
@@ -434,7 +428,6 @@ class S3C(Model):
 
                         rval['em_functional'] = em_functional
 
-
                     if monitor_stats:
                         for stat in self.monitor_stats:
                             stat_val = stats.d[stat]
@@ -450,7 +443,6 @@ class S3C(Model):
             finally:
                 self.deploy_mode()
 
-
     def compile_mode(self):
         """ If any shared variables need to have batch-size dependent sizes,
         sets them all to the sizes used for interactive debugging during graph construction """
@@ -462,7 +454,6 @@ class S3C(Model):
             self.prev_Mu1.set_value(
                     np.cast[self.prev_Mu1.dtype](
                         np.zeros((self.test_batch_size, self.nhid)) + self.mu.get_value() ) )
-
 
     def deploy_mode(self):
         """ If any shared variables need to have batch-size dependent sizes, sets them all to their runtime sizes """
