@@ -379,6 +379,10 @@ class S3C(Model):
             warnings.warn('M step debugging activated-- this is only valid for certain settings, and causes a performance slowdown.')
             self.em_functional_diff = sharedX(0.)
 
+        self.censored_updates = {}
+        for param in self.get_params():
+            self.censored_updates[param] = set([])
+
         self.redo_theano()
 
 
@@ -974,24 +978,34 @@ class S3C(Model):
 
     def censor_updates(self, updates):
 
-        if self.disable_W_update and self.W in updates:
-            del updates[self.W]
+        def should_censor(param):
+            return param in updates and updates[param] not in self.censored_updates[param]
 
-        if self.alpha in updates:
+        if should_censor(self.W):
+            if self.disable_W_update:
+                del updates[self.W]
+
+        if should_censor(self.alpha):
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)
 
-        if self.mu in updates:
+        if should_censor(self.mu):
             updates[self.mu] = T.clip(updates[self.mu],self.min_mu,self.max_mu)
 
-        if self.B_driver in updates:
+        if should_censor(self.B_driver):
             updates[self.B_driver] = T.clip(updates[self.B_driver],self.min_B,self.max_B)
 
-        if self.bias_hid in updates:
+        if should_censor(self.bias_hid):
             updates[self.bias_hid] = T.clip(updates[self.bias_hid],self.min_bias_hid,self.max_bias_hid)
 
         if self.hard_max_step is not None:
             for param in updates:
-                updates[param] = T.clip(updates[param],param-self.hard_max_step,param+self.hard_max_step)
+                if should_censor(param):
+                    updates[param] = T.clip(updates[param],param-self.hard_max_step,param+self.hard_max_step)
+
+        model_params = self.get_params()
+        for param in updates:
+            if param in model_params:
+                self.censored_updates[param] = self.censored_updates[param].union(set([updates[param]]))
 
 
     @classmethod
