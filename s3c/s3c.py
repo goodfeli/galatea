@@ -1332,7 +1332,7 @@ class S3C(Model):
         else:
             self.learn_func(X)
 
-        if self.monitor.examples_seen % 10000 == self.print_interval:
+        if self.monitor.examples_seen % self.print_interval == 0:
 
             print ""
             b = self.bias_hid.get_value(borrow=True)
