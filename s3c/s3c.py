@@ -356,7 +356,14 @@ class S3C(Model):
             self.rng = np.random.RandomState(self.seed)
 
     def redo_everything(self):
-        self.W = sharedX(self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid)), name = 'W')
+
+        W = self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid))
+
+        if self.constrain_W_norm is not None:
+            norms = np.sqrt(1e-8+np.square(W).sum(axis=0))
+            W /= norms
+
+        self.W = sharedX(W, name = 'W')
         self.bias_hid = sharedX(np.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
         self.alpha = sharedX(np.zeros(self.nhid)+self.init_alpha, name = 'alpha')
         self.mu = sharedX(np.zeros(self.nhid)+self.init_mu, name='mu')
@@ -1462,6 +1469,9 @@ class VHS_Solve_M_Step(VHS_M_Step):
         assert new_W.dtype == config.floatX
 
         #handle all step-size mangling on W   BEFORE COMPUTING B
+        if model.constrain_W_norm:
+            norms = T.sqrt(1e-8+T.sqr(W).sum(axis=0))
+            new_W = new_W / norms.dimshuffle('x',0)
         new_W = new_coeff * new_W + (one - new_coeff) * model.W
         dummy = { model.W :  new_W }
         model.censor_updates(dummy)
