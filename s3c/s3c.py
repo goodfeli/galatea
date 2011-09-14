@@ -7,6 +7,7 @@ from theano.sandbox.linalg.ops import alloc_diag
 from theano.sandbox.linalg.ops import matrix_inverse
 import warnings
 from theano.printing import Print
+from theano import map
 from pylearn2.utils import make_name, sharedX, as_floatX
 from pylearn2.monitor import Monitor
 #import copy
@@ -1487,7 +1488,19 @@ class VHS_Solve_M_Step(VHS_M_Step):
         denom1 = mean_sq_v
 
         denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
-        denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,'x',1)).sum(axis=(1,2))
+        #denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,'x',1)).sum(axis=(1,2))
+
+        def inner_func(new_W_row, second_hs):
+            val = T.dot(new_W_row, T.dot(second_hs, new_W_row))
+            return val
+
+        rvector, updates= map(inner_func, \
+                    new_W, \
+                    non_sequences=[second_hs])
+
+        assert len(updates) == 0
+
+        denom3 = rvector
 
 
         denom = denom1 + denom2 + denom3
