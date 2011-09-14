@@ -381,6 +381,7 @@ class S3C(Model):
             self.em_functional_diff = sharedX(0.)
 
         self.censored_updates = {}
+        self.register_names_to_del(['censored_updates'])
         for param in self.get_params():
             self.censored_updates[param] = set([])
 
