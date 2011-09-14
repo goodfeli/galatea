@@ -38,7 +38,7 @@
         },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 50,
-               "batches_per_iter" : 200,
+               "batches_per_iter" : 5,
                "monitoring_batches" : 20,
                "monitoring_dataset" : !pkl: "${GOODFELI_TMP}/cifar10_preprocessed_train_2M.pkl",
         },

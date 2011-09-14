@@ -332,6 +332,7 @@ class S3C(Model):
 
 
 
+
         #this class always needs a monitor, since it is used to implement the learn_after feature
         Monitor.get_monitor(self)
 
