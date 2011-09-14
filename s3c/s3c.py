@@ -231,6 +231,7 @@ class DebugEnergy:
                 break
 
 class S3C(Model):
+
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
                        init_alpha, min_alpha, max_alpha, init_mu,
@@ -249,6 +250,7 @@ class S3C(Model):
                        recycle_q = 0,
                        seed = None,
                        disable_W_update = False,
+                       constrain_W_norm = None,
                        print_interval = 10000):
         """"
         nvis: # of visible units
@@ -295,6 +297,9 @@ class S3C(Model):
 
         self.print_interval = print_interval
 
+        self.constrain_W_norm = constrain_W_norm
+        if self.constrain_W_norm is not None:
+            self.constrain_W_norm = as_floatX(self.constrain_W_norm)
         self.disable_W_update = disable_W_update
         self.monitor_functional = monitor_functional
         self.W_eps = np.cast[config.floatX](float(W_eps))
@@ -749,6 +754,9 @@ class S3C(Model):
         if should_censor(self.W):
             if self.disable_W_update:
                 del updates[self.W]
+            elif self.constrain_W_norm is not None:
+                norms = T.sqrt(1e-8+T.sqr(updates[self.W]).sum(axis=0))
+                updates[self.W] /= norms.dimshuffle('x',0)
 
         if should_censor(self.alpha):
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)
