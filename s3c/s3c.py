@@ -875,8 +875,21 @@ class S3C(Model):
         term2 = - half * N * T.log(two * pi)
         term3 = - half * T.dot(self.B, mean_sq_v)
         term4 = T.dot(self.B , (self.W * mean_hsv.T).sum(axis=1))
-        term5 = - half * T.dot(self.B,  ( second_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
-                        self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
+
+
+        def inner_func(new_W_row, second_hs):
+            val = T.dot(new_W_row, T.dot(second_hs, new_W_row))
+            return val
+
+        rvector, updates= map(inner_func, \
+                    self.W, \
+                    non_sequences=[second_hs])
+
+        assert len(updates) == 0
+
+        term5 = - half * T.dot(self.B,  rvector)
+        #term5 = - half * T.dot(self.B,  ( second_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+        #                self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
 
         rval = term1 + term2 + term3 + term4 + term5
 
