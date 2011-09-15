@@ -17,6 +17,12 @@ warnings.warn('s3c changing the recursion limit')
 import sys
 sys.setrecursionlimit(50000)
 
+def full_min(var):
+    return var.min(axis=range(0,len(var.type.broadcastable)))
+
+def full_max(var):
+    return var.max(axis=range(0,len(var.type.broadcastable)))
+
 class SufficientStatisticsHolder:
     def __init__(self, nvis, nhid, needed_stats):
         d = {
@@ -247,11 +253,13 @@ class S3C(Model):
                         tied_B = False,
                        learn_after = None, hard_max_step = None,
                        monitor_stats = None,
+                       monitor_params = None,
                        monitor_functional = False,
                        recycle_q = 0,
                        seed = None,
                        disable_W_update = False,
                        constrain_W_norm = None,
+                       monitor_norms = False,
                        print_interval = 10000):
         """"
         nvis: # of visible units
@@ -280,6 +288,7 @@ class S3C(Model):
         tied_B:         if True, use a scalar times identity for the precision on visible units.
                         otherwise use a diagonal matrix for the precision on visible units
         monitor_stats:  a list of sufficient statistics to monitor on the monitoring dataset
+        monitor_params: a list of parameters to monitor TODO: push this into Model base class
         monitor_functional: if true, monitors the EM functional on the monitoring dataset
         recycle_q: if nonzero, initializes the e-step with the output of the previous iteration's
                     e-step. obviously this should only be used if you are using the same data
@@ -294,6 +303,12 @@ class S3C(Model):
         else:
             self.monitor_stats = [ elem for elem in monitor_stats ]
 
+        if monitor_params is None:
+            self.monitor_params = []
+        else:
+            self.monitor_params = [ elem for elem in monitor_params ]
+
+
         self.seed = seed
 
         self.print_interval = print_interval
@@ -301,6 +316,8 @@ class S3C(Model):
         self.constrain_W_norm = constrain_W_norm
         if self.constrain_W_norm is not None:
             self.constrain_W_norm = as_floatX(self.constrain_W_norm)
+
+        self.monitor_norms = monitor_norms
         self.disable_W_update = disable_W_update
         self.monitor_functional = monitor_functional
         self.W_eps = np.cast[config.floatX](float(W_eps))
@@ -394,6 +411,9 @@ class S3C(Model):
         for param in self.get_params():
             self.censored_updates[param] = set([])
 
+        if self.monitor_norms:
+            self.debug_norms = sharedX(np.zeros(self.nhid))
+
         self.redo_theano()
 
     def em_functional(self, H, sigma0, Sigma1, stats):
@@ -453,6 +473,20 @@ class S3C(Model):
                         #end for stat
                     #end if monitor_stats
                 #end if monitor_stats or monitor_functional
+
+                if len(self.monitor_params) > 0:
+                    for param in self.monitor_params:
+                        param_val = getattr(self, param)
+                        rval[param+'_min'] = full_min(param_val)
+                        rval[param+'_mean'] = T.mean(param_val)
+                        mx = full_max(param_val)
+                        assert len(mx.type.broadcastable) == 0
+                        rval[param+'_max'] = mx
+
+                if self.monitor_norms:
+                    rval['post_solve_norms_min'] = T.min(self.debug_norms)
+                    rval['post_solve_norms_max'] = T.max(self.debug_norms)
+                    rval['post_solve_norms_mean'] = T.mean(self.debug_norms)
 
                 return rval
             finally:
@@ -734,7 +768,7 @@ class S3C(Model):
             if self.W in learning_updates:
                 self.W = learning_updates[self.W]
             self.B_driver = learning_updates[self.B_driver]
-            self.make_B_and_w()
+            self.make_Bwp()
 
             try:
                 em_functional_after  = self.em_functional(H = hidden_obs['H'],
@@ -747,7 +781,7 @@ class S3C(Model):
                 self.alpha = tmp_alpha
                 self.W = tmp_W
                 self.B_driver = tmp_B_driver
-                self.make_B_and_w()
+                self.make_Bwp()
 
             em_functional_diff = em_functional_after - em_functional_before
 
@@ -965,7 +999,7 @@ class S3C(Model):
         return rval
 
 
-    def make_B_and_w(self):
+    def make_Bwp(self):
         if self.tied_B:
             #can't just use a dimshuffle; dot products involving B won't work
             #and because doing it this way makes the partition function multiply by nvis automatically
@@ -975,12 +1009,14 @@ class S3C(Model):
 
         self.w = T.dot(self.B, T.sqr(self.W))
 
+        self.p = T.nnet.sigmoid(self.bias_hid)
+
     def redo_theano(self):
         try:
             self.compile_mode()
             init_names = dir(self)
 
-            self.make_B_and_w()
+            self.make_Bwp()
 
             self.get_B_value = function([], self.B)
 
@@ -1458,6 +1494,8 @@ class VHS_Solve_M_Step(VHS_M_Step):
         second_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
         """
 
+        learning_updates = {}
+
         new_coeff = as_floatX(self.new_coeff)
         one = as_floatX(1.)
 
@@ -1485,6 +1523,7 @@ class VHS_Solve_M_Step(VHS_M_Step):
         #handle all step-size mangling on W   BEFORE COMPUTING B
         if model.constrain_W_norm:
             norms = T.sqrt(1e-8+T.sqr(W).sum(axis=0))
+            learning_updates[model.debug_norms] = norms
             new_W = new_W / norms.dimshuffle('x',0)
         new_W = new_coeff * new_W + (one - new_coeff) * model.W
         dummy = { model.W :  new_W }
@@ -1581,18 +1620,15 @@ class VHS_Solve_M_Step(VHS_M_Step):
 
         new_bias_hid = T.log( arg_to_log )
 
-        new_bias_hid = new_bias_hid * new_coeff + (1. - new_coeff) * model.bias_hid
+        new_bias_hid = new_bias_hid * new_coeff + (one - new_coeff) * model.bias_hid
 
         assert new_bias_hid.dtype == config.floatX
 
-        learning_updates = {
-                    model.W : new_W,
-                    model.B_driver : new_B,
-                    model.mu : new_mu,
-                    model.alpha : new_alpha,
-                    model.bias_hid : new_bias_hid
-                }
-
+        learning_updates[model.W] = new_W
+        learning_updates[model.B_driver] = new_B
+        learning_updates[model.mu] =  new_mu
+        learning_updates[model.alpha] = new_alpha
+        learning_updates[model.bias_hid] =  new_bias_hid
 
         return learning_updates
 
