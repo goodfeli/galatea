@@ -25,4 +25,4 @@ test.use_design_loc(goodfeli_tmp + '/cifar10_preprocessed_test_2M_design.npy')
 serial.save(goodfeli_tmp + '/cifar10_preprocessed_train_2M.pkl',train)
 serial.save(goodfeli_tmp + '/cifar10_preprocessed_test_2M.pkl',test)
 
-
+serial.save(goodfeli_tmp + '/cifar10_preprocessed_pipeline_2M.pkl',pipeline)
