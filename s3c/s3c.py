@@ -840,6 +840,9 @@ class S3C(Model):
 
         V_mean = T.dot(final_hs_sample, self.W.T)
 
+        warnings.warn('showing conditional means on visible units rather than true samples')
+        return V_mean
+
         V_sample = theano_rng.normal( size = V_mean.shape, avg = V_mean, std = self.B)
 
         return V_sample
