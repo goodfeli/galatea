@@ -1523,7 +1523,8 @@ class VHS_Solve_M_Step(VHS_M_Step):
         #handle all step-size mangling on W   BEFORE COMPUTING B
         if model.constrain_W_norm:
             norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
-            learning_updates[model.debug_norms] = norms
+            if model.monitor_norms:
+                learning_updates[model.debug_norms] = norms
             new_W = new_W / norms.dimshuffle('x',0)
         new_W = new_coeff * new_W + (one - new_coeff) * model.W
         dummy = { model.W :  new_W }

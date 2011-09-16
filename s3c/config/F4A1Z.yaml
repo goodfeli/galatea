@@ -22,6 +22,7 @@
                #"recycle_q" : 1000,
                "print_interval" : 1,
                "monitor_functional" : 1,
+               "monitor_norms" : 1,
                #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
                "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
                         "h_new_coeff_schedule" : [ .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7, .7 ],
