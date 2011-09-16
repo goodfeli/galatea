@@ -825,6 +825,26 @@ class S3C(Model):
                 self.censored_updates[param] = self.censored_updates[param].union(set([updates[param]]))
 
 
+    def random_design_matrix(self, batch_size, theano_rng):
+
+        if not hasattr(self,'p'):
+            self.make_Bwp()
+
+        hid_shape = (batch_size, self.nhid)
+
+        H_sample = theano_rng.binomial( size = hid_shape, n = 1, p = self.p)
+
+        pos_s_sample = theano_rng.normal( size = hid_shape, avg = self.mu, std = T.sqrt(1./self.alpha) )
+
+        final_hs_sample = H_sample * pos_s_sample
+
+        V_mean = T.dot(final_hs_sample, self.W.T)
+
+        V_sample = theano_rng.normal( size = V_mean.shape, avg = V_mean, std = self.B)
+
+        return V_sample
+
+
     @classmethod
     def expected_log_prob_vhs_needed_stats(cls):
         h = S3C.log_likelihood_h_needed_stats()
