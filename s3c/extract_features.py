@@ -8,7 +8,6 @@ from pylearn2.datasets.preprocessing import ExtractPatches, ExtractGridPatches, 
 from pylearn2.gui.patch_viewer import make_viewer
 from pylearn2.utils import serial
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultViewConverter
-from pylearn2.gui.patch_viewer import PatchViewer
 
 
 batch_start = 0
@@ -80,50 +79,26 @@ print 'making topological view'
 topo_feat = feat_dataset.get_topological_view()
 assert topo_feat.shape[0] == X.shape[0]
 
-print 'assembling visualizer'
 
-n = np.ceil(np.sqrt(model.nhid))
+topo_feat_var = T.TensorType(broadcastable = (False,False,False,False), dtype=topo_feat.dtype)()
+region_features = function([topo_feat_var],
+        topo_feat_var.mean(axis=(1,2)) )
 
-pv3 = PatchViewer(grid_shape = (X.shape[0], k), patch_shape=(ns,ns), is_color= False)
-pv4 = PatchViewer(grid_shape = (n,n), patch_shape = (size,size), is_color = True, pad = (7,7))
+print "average pooling 2x2"
+def average_pool( stride ):
+    def point( p ):
+        return p * ns / stride
 
-idx = sorted(range(model.nhid), key = lambda l : -topo_feat[:,:,:,l].std() )
+    rval = np.zeros( (topo_feat.shape[0], stride, stride, topo_feat.shape[3] ) , dtype = X.dtype)
 
-W = model.W.get_value()
+    for i in xrange(stride):
+        for j in xrange(stride):
+            rval[:,i,j,:] = region_features( topo_feat[:,point(i):point(i+1), point(j):point(j+1),:] )
 
-weights_view = dataset.get_weights_view( W.T )
+    return rval
 
-p_act = 1. / (1. + np.exp(- model.bias_hid.get_value()))
-p_act /= p_act.max()
 
-mu_act = np.abs(model.mu.get_value())
-mu_act /= mu_act.max()
-mu_act += 0.5
+assert average_pool(2).shape == (X.shape[0], 2,2, model.nhid)
 
-alpha_act = model.alpha.get_value()
-alpha_act /= alpha_act.max()
-
-for j in xrange(model.nhid):
-    cur_idx = idx[j]
-
-    cur_p_act = p_act[cur_idx]
-    cur_mu_act = mu_act[cur_idx]
-    cur_alpha_act = alpha_act[cur_idx]
-
-    activation = (cur_p_act, cur_mu_act, cur_alpha_act)
-
-    pv4.add_patch(weights_view[cur_idx,:], rescale = True,
-            activation = activation)
-
-for i in xrange(X.shape[0]):
-    #indices of channels sorted in order of descending standard deviation on this example
-    #plot the k most interesting channels
-    for j in xrange(k):
-        pv3.add_patch(topo_feat[i,:,:,idx[j]], rescale = True, activation = 0.)
-
-pv1.show()
-pv3.show()
-pv4.show()
-
-#pv2 = make_viewer(X2, is_color = True)
-#pv2.show()
+print "average pooling 3x3"
+assert average_pool(3).shape == (X.shape[0], 3,3, model.nhid)
