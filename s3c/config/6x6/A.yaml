@@ -5,8 +5,8 @@
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 108,
                "nhid" : 1600,
-               "init_bias_hid" : -3.,
-               "max_bias_hid" : -3.,
+               "init_bias_hid" : -4.,
+               "max_bias_hid" : -4.,
                "irange"  : .02,
                "constrain_W_norm" : 1.,
                "init_B"  : 3.,
@@ -25,8 +25,8 @@
                "monitor_norms" : 1,
                #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
                "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
-                        "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .7, .7, .7, .7, .7, .7, .7, .7, .7 ],
-                        "s_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .7, .7, .7, .7, .7, .7, .7, .7, .7 ],
+                        "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .1, .1, .2, .2, .2, .3, .3, .3, .4 ],
+                        "s_new_coeff_schedule" : [  .7, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1 ],
                         "clip_reflections" : 1,
                         "monitor_em_functional" : 1
                },
