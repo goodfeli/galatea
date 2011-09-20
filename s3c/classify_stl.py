@@ -21,7 +21,7 @@ from scikits.learn.svm import LinearSVC, SVC
 
 from pylearn2.utils import serial
 
-def classify(fold_indices,model, train_X, train_y, X,y,  one_against_many=False ):
+def classify(fold_indices, train_X, train_y, X,y,  one_against_many=False ):
     """
     :param type: one of 'linear' or 'rbf'
     """
@@ -95,7 +95,7 @@ def classify(fold_indices,model, train_X, train_y, X,y,  one_against_many=False 
     print "Accuracy ",(y == y_pred).mean()
 #
 
-def main(model_path,
+def main(
         data_path,
         **kwargs):
 
@@ -105,10 +105,6 @@ def main(model_path,
 
     fold_indices = stl10.fold_indices
     del stl10
-
-
-    print 'loading model'
-    model = serial.load(model_path)
 
     print 'loading data'
     topo_view = serial.load(data_path)
@@ -120,7 +116,7 @@ def main(model_path,
 
     warnings.warn('evaluating on train set')
 
-    classify(fold_indices, model, train_X, train_y,  X = train_X, y = train_y,  **kwargs)
+    classify(fold_indices, train_X, train_y,  X = train_X, y = train_y,  **kwargs)
 
 
 """
