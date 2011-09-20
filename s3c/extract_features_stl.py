@@ -131,4 +131,4 @@ for i in xrange(0,5000-batch_size+1,batch_size):
 
 #serial.save('out4.pkl',out4)
 #serial.save('out9.pkl',out9)
-serial.save('out16.pkl',out16)
+np.save('out16.npy',out16)
