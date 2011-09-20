@@ -13,7 +13,7 @@ from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultView
 
 config.floatX = 'float32'
 
-batch_size = 10
+batch_size = 5
 
 import sys
 model_path = sys.argv[1]
@@ -23,7 +23,7 @@ model = serial.load(model_path)
 model.set_dtype('float32')
 
 print 'loading dataset'
-dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10_32x32/train.pkl')
+dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/train.pkl')
 full_X = dataset.get_design_matrix()
 dataset.X = None
 dataset.design_loc = None
@@ -34,7 +34,7 @@ size = np.sqrt(model.nvis/3)
 patchifier = ExtractGridPatches( patch_shape = (size,size), patch_stride = (1,1) )
 
 if size ==6:
-    pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10_patches/preprocessor.pkl')
+    pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/preprocessor.pkl')
 else:
     print size
     assert False
@@ -77,15 +77,16 @@ def average_pool( stride ):
     return rval
 assert full_X.shape[0] == 5000
 
-out4 = np.zeros((5000,2,2,model.nhid),dtype='float32')
-out9 = np.zeros((5000,3,3,model.nhid),dtype='float32')
+#out4 = np.zeros((5000,2,2,model.nhid),dtype='float32')
+#out9 = np.zeros((5000,3,3,model.nhid),dtype='float32')
+out16 = np.zeros((5000,4,4,model.nhid),dtype='float32')
 
 fd = DenseDesignMatrix(X = np.zeros((1,1),dtype='float32'), view_converter = DefaultViewConverter([1, 1, model.nhid] ) )
 
 ns = 32 - size + 1
 depatchifier = ReassembleGridPatches( orig_shape  = (ns, ns), patch_shape=(1,1) )
 
-for i in xrange(0,50000,batch_size):
+for i in xrange(0,5000-batch_size+1,batch_size):
     print i
     t1 = time.time()
 
@@ -120,12 +121,14 @@ for i in xrange(0,50000,batch_size):
     t5 = time.time()
 
     #print '\taverage pooling 2x2'
-    out4[i:i+batch_size,...] =  average_pool(2)
-    out9[i:i+batch_size,...] =  average_pool(3)
+    #out4[i:i+batch_size,...] =  average_pool(2)
+    #out9[i:i+batch_size,...] =  average_pool(3)
+    out16[i:i+batch_size,...] =  average_pool(4)
 
     t6 = time.time()
 
     print (t6-t1, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5)
 
-serial.save('out4.pkl',out4)
-serial.save('out9.pkl',out9)
+#serial.save('out4.pkl',out4)
+#serial.save('out9.pkl',out9)
+serial.save('out16.pkl',out16)
