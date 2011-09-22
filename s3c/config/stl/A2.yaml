@@ -1,5 +1,5 @@
-#like F4A1
-#but on 6x6 patches and 1600 hidden units
+#A was a great success, beat the state of the art
+#here I see what happens if I go for a covariance-based model
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
@@ -17,8 +17,8 @@
                "min_alpha" : 1e-8,
                "max_alpha" : 1000.,
                "init_mu" : 0.,
-               #"min_mu"  : -1.,
-               #"max_mu"  : 1.,
+               "min_mu"  : 0.,
+               "max_mu"  : 0.,
                #"recycle_q" : 1000,
                "print_interval" : 1,
                "monitor_functional" : 1,
