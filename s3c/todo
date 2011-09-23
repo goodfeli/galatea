@@ -1,0 +1,17 @@
+classification:
+	make it work for cifar10
+	make it store a report
+	make it save the model
+	better search for value of C
+gui for viewing classification
+get some numbers on cifar10
+	status:
+		random weights running
+		need to update classification script to support cifar10
+instrument E step for individual examples
+random patches
+solve the mystery of the differing datasets
+set up gpu on gryphon0
+make feature viewer support different kinds of features
+letterbox free version of stl-10
+try running learning with all but one param fixed. see which params exhibit the weird behavior of learning going up slightly, then dropping abruptly and never recovering
