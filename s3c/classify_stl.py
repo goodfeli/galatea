@@ -137,7 +137,7 @@ def get_test_labels():
     stl10 = serial.load("${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/test.pkl")
     return stl10.y
 
-def get_features(path):
+def get_features(path, split):
     if path.endswith('.npy'):
         topo_view = np.load(path)
     else:
@@ -148,16 +148,21 @@ def get_features(path):
     print 'converting data'
     X = view_converter.topo_view_to_design_mat(topo_view)
 
+    if split:
+        X = np.concatenate( (np.abs(X),np.abs(-X)), axis=1)
+
     return X
 
 def main(train_path,
         test_path,
+        split,
         **kwargs):
 
     train_y, fold_indices = get_labels_and_fold_indices()
 
     print 'loading training features'
-    train_X = get_features(train_path)
+    train_X = get_features(train_path, split)
+    assert train_X.shape[0] == 5000
 
     model = train(fold_indices, train_X, train_y, **kwargs)
 
@@ -165,7 +170,8 @@ def main(train_path,
     del train_y
 
     y = get_test_labels()
-    X = get_features(test_path)
+    X = get_features(test_path, split)
+    assert X.shape[0] == 8000
 
     test(model,X,y)
 
@@ -183,6 +189,7 @@ if __name__ == '__main__':
                 action="store", type="string", dest="test")
     parser.add_option("--one-against-one", action="store_false", dest="one_against_many", default=True,
                       help="use a one-against-one classifier rather than a one-against-many classifier")
+    parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
 
 
     (options, args) = parser.parse_args()
@@ -190,4 +197,5 @@ if __name__ == '__main__':
     main(train_path=options.train,
          test_path=options.test,
          one_against_many = options.one_against_many,
+         split = options.split
     )
