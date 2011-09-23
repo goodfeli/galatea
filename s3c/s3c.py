@@ -336,8 +336,8 @@ class S3C(Model):
         self.e_step.register_model(self)
         self.m_step = m_step
         self.init_mu = init_mu
-        self.min_mu = min_mu
-        self.max_mu = max_mu
+        self.min_mu = np.cast[config.floatX](float(min_mu))
+        self.max_mu = np.cast[config.floatX](float(max_mu))
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
         self.recycle_q = recycle_q
