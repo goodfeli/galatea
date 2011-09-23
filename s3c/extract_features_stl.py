@@ -82,6 +82,8 @@ class FeatureExtractor:
             feat = (H > 0.5) * Mu1
         elif self.feature_type == 'exp_hs':
             feat = H * Mu1
+        elif self.feature_type == 'exp_h':
+            feat = H
         else:
             raise NotImplementedError()
 
