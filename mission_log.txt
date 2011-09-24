@@ -85,6 +85,42 @@ IV. CAE
 	manifold. I sent Yoshua and Salah the formula for the non-varying
 	subspace of directions. Can this be used to improve visualization or
 	classification?
+V. General theory of mutual information between v and h being useful for
+classification
+	It seems like many algorithms that work well for classification are
+	loosely based on generative pretraining but are modified in some way
+	to be biased toward having more mutual information between the visible
+	units and the hidden units.
+		-CAE: the CAE is essentially an RBM with two modifications:
+			1. The contractive penalty is REDUCED. In score
+			matching, the contractive penalty scales like
+			h(1-h) while in the CAE it scales like (h(1-h))^2,
+			which is strictly lesser. Also, in the CAE this term
+			has a cross-validated coefficient, which Yann observes
+			to usually come out at around .1, in other words, much
+			smaller than the coefficient of 1 imposed by score
+			matching.
+			2. The use of binary cross entropy as a reconstruction
+			penalty rather than mean squared error
+		-autoencoders: autoencoders with binary cross entropy loss are
+			often found to be very effective for classification,
+			even though binary cross entropy is not a criterion
+			based on a binary pmf. Rather it is a criterion that 
+			encourages mean field passes in both directions to
+			preserve information.
+		-sparse coding beats rbms for a lot of classification tasks,
+		even though sparse coding is a very poor generative model. It
+		is however a model that seems designed to have a lot of mutual
+		information between v and h, especially relative to rbms,
+		especially when applied to real valued data.
+		-(not mentioned to Yoshua yet) For GRBMs, the maximum
+		information can be increased without bound by adding more
+		hidden units. I'm not sure if the likelihood would or not,
+		though improving likelihood and MI at the same time is still
+		beneficial. 
+
+	see e-mail to Yoshua, "idea regarding feature learning", for two ideas
+	about how to test this
 bilinear rbm
 	figure out conditions needed for learning to do anything useful
 	Aaron's approach with noise variables in the middle
@@ -116,6 +152,12 @@ Making hidden units do more work
 	that make RBM's do more of the modeling work with the hidden units
 	(i.e., make a GRBM or ssRBM try not to rely too much on the visible
 	unit variance parameter)
+Activation function idea
+	Based on the success of OMP-10, would it be possible to make an
+	activation function that generalizes softmax to a distribution
+	where k units are always on instead of just 1?
+	It's possible this would make a better prior on S3C than the current
+	factorial bernoulli distribution does
 
 
 Dead ends:
