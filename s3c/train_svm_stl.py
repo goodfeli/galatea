@@ -37,7 +37,7 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
 
     return rval
 
-def train(fold_indices, train_X, train_y, report, one_against_many=False ):
+def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False ):
     """
     :param type: one of 'linear' or 'rbf'
     """
@@ -47,13 +47,7 @@ def train(fold_indices, train_X, train_y, report, one_against_many=False ):
     # Train a SVM classification model
     print "Finding the best C"
 
-    param_grid = { 'C': [.01, .02, .1, .2, 1, 5, 10, 50, 100], 'gamma': [0.] }
-
-
-    warnings.warn("""
-    scikits GridSearchCV seemed to fail for bilinear rbm project so here we just
-    use our own code (should we really trust scikits svm when they can't even implement grid search right? )
-    """)
+    param_grid = { 'C': C_list, 'gamma': [0.] }
 
     best_acc = -1
     for C in param_grid['C']:
@@ -110,7 +104,7 @@ class Report:
         f.write('Training features: '+self.train_path+'\n')
         f.write('Splitting enabled: '+str(self.split)+'\n')
 
-        best_acc = max(self.desc_to_acc)
+        best_acc = max(self.desc_to_acc.values())
 
         f.write('Validation set accuracy: '+str(best_acc)+'\n')
 
@@ -151,12 +145,15 @@ if __name__ == '__main__':
     parser.add_option("--one-against-one", action="store_false", dest="one_against_many", default=True,
                       help="use a one-against-one classifier rather than a one-against-many classifier")
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
-
+    parser.add_option('-C', type='string', dest='C_list', action='store', default= '.01,.02,.1,.2,1,5,10,50,100')
 
     (options, args) = parser.parse_args()
+
+    C_list = [ float(chunk) for chunk in options.C_list.split(',') ]
 
     main(train_path=options.train,
          out_path = options.out,
          one_against_many = options.one_against_many,
-         split = options.split
+         split = options.split,
+         C_list = C_list
     )

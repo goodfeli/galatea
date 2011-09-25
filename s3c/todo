@@ -2,7 +2,6 @@ a lot of my current experiments are using only 1000 examples per batch to train 
     a larger batch size and see if that fixes things
 classification:
 	make it work for cifar10
-	make it store a report
 	better search for value of C
 get some numbers on cifar10
 	status:
