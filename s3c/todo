@@ -9,7 +9,6 @@ get some numbers on cifar10
 		random weights extracted
 		need to update classification script to support cifar10
 instrument E step for individual examples
-solve the mystery of the differing datasets
 set up gpu on gryphon0
 letterbox free version of stl-10
 try running learning with all but one param fixed. see which params exhibit the weird behavior of learning going up slightly, then dropping abruptly and never recovering
