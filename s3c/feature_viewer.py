@@ -14,13 +14,38 @@ if config.floatX != 'float32':
     warnings.warn('setting floatX to float32 to mimic feature extractor')
 config.floatX = 'float32'
 
-if __name__ == 'main':
-    batch_start = 0
-    batch_size = 15
-    k = 15
+if __name__ == '__main__':
+    parser = OptionParser()
+    parser.add_option("-m", "--model",
+                action="store", type="string", dest="model")
+    parser.add_option("-s","--batch-start", action="store", dest="batch_start", type="int", default=0,
+                      help="the index of the start of the batch of examples to use")
+    parser.add_option("-b","--batch-size", action="store", dest="batch_size", type="int", default=15,
+                      help="")
+    parser.add_option("-f","--filter-start", action="store", dest="filter_start", type="int", default=0,
+                      help="the index of the start of the range of fitlers to display")
+    parser.add_option("-n","--num-filters", action="store", dest="num_filters", type="int", default=15,
+                      help="how many filters to show")
+    parser.add_option("-t","--feature-type", action="store", dest="feature_type", type="string", default='exp_hs',
+            help="""exp_hs (default): expectation of hs
+exp_h: expectation of h
+map_hs: h*s, computed from joint MAP estimation under q
+""")
 
-    import sys
-    model_path = sys.argv[1]
+    (options, args) = parser.parse_args()
+
+    if options.model is None:
+        raise ValueError('The -m/--model flag is required')
+
+    batch_start = options.batch_start
+    batch_size = options.batch_size
+    filter_start = options.filter_start
+    num_filters = options.num_filters
+    feature_type = options.feature_type
+
+    assert feature_type in ['exp_hs','exp_h','map_hs']
+
+    model_path = options.model
 
     print 'loading model'
     model = serial.load(model_path)
@@ -76,8 +101,6 @@ if __name__ == 'main':
 
     X2 = dataset.get_design_matrix()
 
-
-
     print 'defining features'
     V = T.matrix()
     model.make_Bwp()
@@ -86,7 +109,14 @@ if __name__ == 'main':
     H = d['H']
     Mu1 = d['Mu1']
 
-    feat = H * Mu1
+    if feature_type == 'exp_hs':
+        feat = H * Mu1
+    elif feature_type == 'exp_h':
+        feat = H
+    elif feature_type == 'map_hs':
+        feat = ( H > 0.5) * Mu1
+    else:
+        assert False
 
     print 'compiling theano function'
     f = function([V],feat)
@@ -109,8 +139,9 @@ if __name__ == 'main':
 
     n = np.ceil(np.sqrt(model.nhid))
 
-    pv3 = PatchViewer(grid_shape = (X.shape[0], k), patch_shape=(ns,ns), is_color= False)
+    pv3 = PatchViewer(grid_shape = (X.shape[0], num_filters), patch_shape=(ns,ns), is_color= False)
     pv4 = PatchViewer(grid_shape = (n,n), patch_shape = (size,size), is_color = True, pad = (7,7))
+    pv5 = PatchViewer(grid_shape = (1,num_filters), patch_shape = (size,size), is_color = True, pad = (7,7))
 
     idx = sorted(range(model.nhid), key = lambda l : -topo_feat[:,:,:,l].std() )
 
@@ -140,13 +171,18 @@ if __name__ == 'main':
         pv4.add_patch(weights_view[cur_idx,:], rescale = True,
                 activation = activation)
 
+        if j >= filter_start and j < filter_start + num_filters:
+            pv5.add_patch(weights_view[cur_idx,:], rescale = True,
+                activation = activation)
+
+
     for i in xrange(X.shape[0]):
         #indices of channels sorted in order of descending standard deviation on this example
         #plot the k most interesting channels
-        for j in xrange(k):
+        for j in xrange(filter_start, filter_start+num_filters):
             pv3.add_patch(topo_feat[i,:,:,idx[j]], rescale = True, activation = 0.)
 
     pv1.show()
     pv3.show()
     pv4.show()
-
+    pv5.show()
