@@ -10,7 +10,6 @@ get some numbers on cifar10
 		random weights extracted
 		need to update classification script to support cifar10
 instrument E step for individual examples
-random patches
 solve the mystery of the differing datasets
 set up gpu on gryphon0
 letterbox free version of stl-10
