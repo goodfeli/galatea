@@ -6,7 +6,7 @@
                "nvis" : 108,
                "nhid" : 1600,
                "init_bias_hid" : -4.,
-               "max_bias_hid" : -4.,
+               "max_bias_hid" : 0.,
                "irange"  : .02,
                "constrain_W_norm" : 1.,
                "init_B"  : 3.,

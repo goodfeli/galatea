@@ -1,0 +1,7 @@
+!obj:galatea.s3c.extract_features_stl.FeatureExtractor {
+        "batch_size" : 5,
+        "model_path" : "${GALATEA_PATH}/s3c/config/stl/random_weights.pkl",         "pooling_region_counts": [2,3],
+        "save_paths" : [ "${FEATURE_EXTRACTOR_YAML_PATH}_2.npy",  "${FEATURE_EXTRACTOR_YAML_PATH}_3.npy" ], 
+        "feature_type" : "exp_hs", 
+        "which_set" : "train"
+}       

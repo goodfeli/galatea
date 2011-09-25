@@ -4,7 +4,7 @@
     "dataset": !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 108,
-               "nhid" : 1600,
+               "nhid" : 4000,
                "init_bias_hid" : -4.,
                "max_bias_hid" : -4.,
                "irange"  : .02,
@@ -16,7 +16,7 @@
                "init_alpha" : 1.,
                "min_alpha" : 1e-8,
                "max_alpha" : 1000.,
-               "init_mu" : 0.,
+               "init_mu" : 1.,
                #"min_mu"  : -1.,
                #"max_mu"  : 1.,
                #"recycle_q" : 1000,
@@ -33,14 +33,14 @@
                "new_stat_coeff" : 1.,
                #"learn_after" : 1000,
                "m_step"     : !obj:galatea.s3c.s3c.VHS_Solve_M_Step {
-                        "new_coeff" : .1
+                        "new_coeff" : 0.
                         #"learning_rate" : 1e-3
                },
                "mu_eps" : 0.,
         },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 1000,
-               "batches_per_iter" : 10,
+               "batches_per_iter" : 1,
                "monitoring_batches" : 1,
                "monitoring_dataset" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
         },

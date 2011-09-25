@@ -1,0 +1,30 @@
+classification:
+	make it work for cifar10
+	make it store a report
+	make it save the model
+	better search for value of C
+gui for viewing classification
+get some numbers on cifar10
+	status:
+		random weights running
+		need to update classification script to support cifar10
+instrument E step for individual examples
+random patches
+solve the mystery of the differing datasets
+set up gpu on gryphon0
+make feature viewer support different kinds of features
+letterbox free version of stl-10
+try running learning with all but one param fixed. see which params exhibit the weird behavior of learning going up slightly, then dropping abruptly and never recovering
+get it working on other datasets
+	MNIST: the problems so far may be due to centering by mean making the filters look funny
+	Yoshua suggested: UTL, Shapeset 2x3, CIFAR-100
+make unit test verifying that extract and assemble are inverses
+benchmark the uses of scan. it seems like the runtime is not deterministic in some cases, ie sometimes I ran it and got a runtime of 30s/epoch and other times ran it and got 80s/epoch. maybe theano optimizations are chosen randomly and it gets dramatically different runtimes depending on which it chooses?
+conjugate gradient E step
+gradient based learning slows down over time on both cpu and gpu.
+	is this the ndarray/cudandarray chaining issue?
+	if so, big fix is modifying numpy and cudandarray. small fix is inserting a dummy op at the end that breaks the view chain.
+	David thought cudandarray is already fixed
+gradient based learning is not producing good filters. figure out why. was gradient based learning without norm constraint driving the norm to 0?
+figure out if there's a faster way to calculate the M step gradient based on Aaron's idea
+make something that shows activation boxes around the filters plotting p versus mean_h

@@ -1,12 +1,15 @@
-#like F4A1
-#but on 6x6 patches and 1600 hidden units
+#A4 was to try out the non-sparse regime, but its E step wasn't converging
+#A4M was the same but with a better E step
+#both of them ended up having trouble learning too many letterbox filters. I didn't see this happen with sparse models.
+#Also curious to test hypothesis that having around 10 units at a time on is the best. Thus sparsity set so that
+#around 10 filters should be on, on average
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 108,
                "nhid" : 1600,
-               "init_bias_hid" : -4.,
-               "max_bias_hid" : -4.,
+               "init_bias_hid" : -5.,
+               "max_bias_hid" : -5.,
                "irange"  : .02,
                "constrain_W_norm" : 1.,
                "init_B"  : 3.,
@@ -25,8 +28,8 @@
                "monitor_norms" : 1,
                #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
                "e_step" : !obj:galatea.s3c.s3c.VHS_E_Step {
-                        "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .1, .1, .2, .2, .2, .3, .3, .3, .4 ],
-                        "s_new_coeff_schedule" : [  .7, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1 ],
+                        "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .1, .1, .2, .2, .2, .3, .3, .3, .4, .4, .4, .4, .4, .4 ],
+                        "s_new_coeff_schedule" : [  .7, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1 ],
                         "clip_reflections" : 1,
                         "monitor_em_functional" : 1
                },

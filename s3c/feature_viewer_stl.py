@@ -23,7 +23,7 @@ print 'loading model'
 model = serial.load(model_path)
 
 print 'loading dataset'
-dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10_32x32/train.pkl')
+dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/train.pkl')
 X = dataset.get_design_matrix()[batch_start:batch_start + batch_size,:]
 
 size = np.sqrt(model.nvis/3)
@@ -36,7 +36,7 @@ patchifier = ExtractGridPatches( patch_shape = (size,size), patch_stride = (1,1)
 
 
 if size ==6:
-    pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10_patches/preprocessor.pkl')
+    pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/preprocessor.pkl')
 else:
     print size
     assert False
