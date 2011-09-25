@@ -1,8 +1,6 @@
 a lot of my current experiments are using only 1000 examples per batch to train 1600 examples. try using
     a larger batch size and see if that fixes things
-classification:
-	make it work for cifar10
-	better search for value of C
+classification: make it work for cifar10
 get some numbers on cifar10
 	status:
 		random weights extracted
