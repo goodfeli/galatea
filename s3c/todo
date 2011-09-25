@@ -10,6 +10,8 @@ get some numbers on cifar10
 		need to update classification script to support cifar10
 instrument E step for individual examples
 solve the mystery of the differing datasets
+	md5sum matches for train.npy and unlabeled.npy
+	loading train.npy results in exactly the same mean on both platforms
 set up gpu on gryphon0
 letterbox free version of stl-10
 try running learning with all but one param fixed. see which params exhibit the weird behavior of learning going up slightly, then dropping abruptly and never recovering
