@@ -37,7 +37,7 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
 
     return rval
 
-def train(fold_indices, train_X, train_y,  one_against_many=False ):
+def train(fold_indices, train_X, train_y, report, one_against_many=False ):
     """
     :param type: one of 'linear' or 'rbf'
     """
@@ -69,6 +69,8 @@ def train(fold_indices, train_X, train_y,  one_against_many=False ):
             acc += this_fold_acc / float(fold_indices.shape[0])
         print '  accuracy this C: %f' % (acc,)
 
+        report.add_validation_result('C='+str(C),acc)
+
         if acc > best_acc:
             print '   best so far!'
             best_acc = acc
@@ -90,6 +92,33 @@ def get_labels_and_fold_indices():
 
     return train_y, fold_indices
 
+
+class Report:
+    def __init__(self, train_path, split):
+        self.train_path = train_path
+        self.split = split
+        self.desc_to_acc = {}
+
+    def add_validation_result(self, hparam_desc, acc):
+        self.desc_to_acc[hparam_desc] = acc
+
+    def write(self, out_path):
+
+        f = open(out_path,'w')
+
+        f.write('STL-10 SVM Cross Validation report'+'\n')
+        f.write('Training features: '+self.train_path+'\n')
+        f.write('Splitting enabled: '+str(self.split)+'\n')
+
+        best_acc = max(self.desc_to_acc)
+
+        f.write('Validation set accuracy: '+str(best_acc)+'\n')
+
+        for desc in self.desc_to_acc:
+            f.write(desc+': '+str(self.desc_to_acc[desc])+'\n')
+
+        f.close()
+
 def main(train_path,
         out_path,
         split,
@@ -101,9 +130,12 @@ def main(train_path,
     train_X = get_features(train_path, split)
     assert train_X.shape[0] == 5000
 
-    model = train(fold_indices, train_X, train_y, **kwargs)
+    report = Report(train_path, split)
+
+    model = train(fold_indices, train_X, train_y, report, **kwargs)
 
     serial.save(out_path+'.model.pkl', model)
+    report.write(out_path+'.validation_report.txt')
 
 if __name__ == '__main__':
     """
