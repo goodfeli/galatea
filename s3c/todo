@@ -1,12 +1,11 @@
 classification:
 	make it work for cifar10
 	make it store a report
-	make it save the model
 	better search for value of C
 gui for viewing classification
 get some numbers on cifar10
 	status:
-		random weights running
+		random weights extracted
 		need to update classification script to support cifar10
 instrument E step for individual examples
 random patches
