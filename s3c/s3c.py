@@ -260,6 +260,7 @@ class S3C(Model):
                        disable_W_update = False,
                        constrain_W_norm = None,
                        monitor_norms = False,
+                       random_patches_hack = False,
                        print_interval = 10000):
         """"
         nvis: # of visible units
@@ -294,6 +295,10 @@ class S3C(Model):
                     e-step. obviously this should only be used if you are using the same data
                     in each batch. when recycle_q is nonzero, it should be set to the batch size.
         disable_W_update: if true, doesn't update W (for debugging)
+        random_patches_hack: if true, first call to learn_minibatch will set W to projection of the batch onto
+                            the unit sphere (called a hack since it means that the initial call
+                            to monitor will use random weights, so the learning curve will look
+                            messed up)
         """
 
         super(S3C,self).__init__()
@@ -341,7 +346,7 @@ class S3C(Model):
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
         self.recycle_q = recycle_q
-
+        self.random_patches_hack = random_patches_hack
         self.tied_B = tied_B
 
         self.hard_max_step = hard_max_step
@@ -1073,6 +1078,14 @@ class S3C(Model):
 
 
     def learn_mini_batch(self, X):
+
+        if self.random_patches_hack and self.monitor.examples_seen == 0:
+            assert X.shape[0] == self.nhid
+            W = X
+            norms = np.sqrt(np.square(W).sum(axis=1))
+            W = W.T
+            W /= norms
+            self.W.set_value(W)
 
         if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
