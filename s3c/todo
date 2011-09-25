@@ -13,7 +13,6 @@ instrument E step for individual examples
 random patches
 solve the mystery of the differing datasets
 set up gpu on gryphon0
-make feature viewer support different kinds of features
 letterbox free version of stl-10
 try running learning with all but one param fixed. see which params exhibit the weird behavior of learning going up slightly, then dropping abruptly and never recovering
 get it working on other datasets
