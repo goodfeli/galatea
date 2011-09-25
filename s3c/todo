@@ -27,3 +27,4 @@ gradient based learning slows down over time on both cpu and gpu.
 gradient based learning is not producing good filters. figure out why. was gradient based learning without norm constraint driving the norm to 0?
 figure out if there's a faster way to calculate the M step gradient based on Aaron's idea
 make something that shows activation boxes around the filters plotting p versus mean_h
+maybe try training by initializing with random patches
