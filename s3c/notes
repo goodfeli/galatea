@@ -1,0 +1,52 @@
+suppose that on average k units are active, and that each unit has the same probability of activation.
+working from the pmf of the binomial distribution, this means that each units has probabilty
+p=k/n_h
+of being active.
+The probability of all of them being off is
+(1-p)^n_h = (1-k/n_h)^n_h
+The limit of this as it approaches infinit is 1/(e^k)
+So, very sparse models, with k=1, are doomed to spend 1/e of the time with no units on!
+Fortunately, as k grows, the amount of time that the model spends generating nothing but white noise
+drops.
+However, the amount of time that it spends with k units on drops as well.
+From a similar analysis we find that it spends
+k^k / (e^k * k!) of the time with k units on
+in other words, it spends k^k/k! more time with k units on than with 0 units on
+k^k/k! grows very fast, but slower than 1/e^k shrinks, so as k gets too large you
+eventually end up with way too many units being on all the time.
+There is a sweet spot around k=10 where the probability of no units being on is effectively
+0 but the probability of k units being on is still around 12.5%.
+
+
+
+pretty sure that neither s3c nor rbms are universal approximators of distributions
+on R^n.
+in order to argue that s3c is a better feature learner or greedy pretrainer:
+	-can we argue that max likelihood tends to learn representations with higher
+	I(v;h) for s3c than for rbms?
+	-can we argue that I(v;h) grows faster with # hu for s3c than for RBMs?
+		for RBMs, I(v;h) is unbounded as #hu grows
+		but for a specific number of hu, if you require the temperature to be 0,
+		then the number of hu configurations the rbm ever uses is limited by the
+		number of regions that #hu hyperplanes of dimension n-1 can divide R^n into
+
+		note: when h is deterministic in v
+		I(v;h) = H(h)
+		so I(v;h) can actually exceed H(v)
+
+M step:
+the correct M step is complicated. it is no longer D separate regression problems that
+can all be solved by inverting the same matrix. it is one problem with D targets and N
+constraints.
+
+
+Aaron says Daphne's book (sec. 11.5.2.2) talks about sequential versus parallel mean field updates
+
+
+there's a problem where if alpha gets too large, mu quits learning, because everything is divided 
+into an E step and an M step. I think a similar problem is behind the weights wanting to shrink. is
+there a way to avoid having a separate E and M step?
+I'm thinking maybe on each new batch, we want to do the E step to catch Q up to its current optimal
+value, then do something like an implicit differentiation gradient step, or backprop through the E
+step, or backprop through a one-round approximation of the E step using the converged values like they
+were initial values, etc.

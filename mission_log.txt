@@ -135,6 +135,7 @@ SFA
 Contractive Sparse Coding
 	Differentiable sparse coding is written up but slow. Haven't added the
 	contractive terms.
+	May want to put contraction penalty on LCC as well as SC
 Turn PSD into an EBM and sample from it
 PMIL
 	Rejected from UAI.
