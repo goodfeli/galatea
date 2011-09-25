@@ -4,7 +4,6 @@ classification:
 	make it work for cifar10
 	make it store a report
 	better search for value of C
-gui for viewing classification
 get some numbers on cifar10
 	status:
 		random weights extracted

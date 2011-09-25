@@ -24,16 +24,19 @@ def main(model_path,
     size = 100
     for start in xrange(0,X.shape[0]-size,size):
         raw_X = raw_dataset.X[start:start+size,:]
-        pv = make_viewer(raw_dataset.X / 127.5, rescale = False)
+        pv = make_viewer(raw_X / 127.5, rescale = False, is_color = True)
         pv.show()
 
         y = raw_dataset.y[start:start+size]
         pred_y = model.predict(X[start:start+size,:])
+        right = 0
         for i in xrange(y.shape[0]):
             if y[i] == pred_y[i]:
-                print str(start+i)+': correct ('+raw_dataset.class_names[y[i]]+')'
+                right += 1
+                print str(start+i)+': correct ('+raw_dataset.class_names[y[i]-1]+')'
             else:
-                print str(start+i)+': mistook '+raw_dataset.class_names[y[i]]+' for '+raw_dataset.class_names[pred_y[i]]
+                print str(start+i)+': mistook '+raw_dataset.class_names[y[i]-1]+' for '+raw_dataset.class_names[pred_y[i]-1]
+        print 'accuracy this batch : ',float(right)/float(size)
         x = raw_input()
         if x == 'q':
             break
@@ -53,8 +56,7 @@ if __name__ == '__main__':
 
 
     (options, args) = parser.parse_args()
-
     main(model_path=options.model_path,
-         data_path=options.test,
+         data_path=options.data,
          split = options.split
     )
