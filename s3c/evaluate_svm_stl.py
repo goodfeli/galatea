@@ -4,15 +4,23 @@ from scikits.learn.metrics import confusion_matrix
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 
-def test(model, X, y):
+def test(model, X, y, output_path):
     print "Evaluating svm"
     y_pred = model.predict(X)
     try:
-        print "Accuracy ",(y == y_pred).mean()
-        print classification_report(y, y_pred)#, labels=selected_target,
+        acc = (y == y_pred).mean()
+        print "Accuracy ",acc
+        cr =  classification_report(y, y_pred)#, labels=selected_target,
                                 #class_names=category_names[selected_target])
 
-        print confusion_matrix(y, y_pred)#, labels=selected_target)
+        cm =  confusion_matrix(y, y_pred)#, labels=selected_target)
+        print cr
+        print cm
+        f = open(output_path,'w')
+        f.write('Accuracy: '+str(acc)+'\n')
+        f.write(str(cr))
+        f.write(str(cm))
+        f.close()
     except:
         print "something went wrong"
         print 'y:'
@@ -26,6 +34,7 @@ def test(model, X, y):
         print y_pred.dtype
         print y.shape
         print y_pred.shape
+        raise
 #
 
 
@@ -37,6 +46,7 @@ def get_test_labels():
 
 def main(model_path,
         test_path,
+        output_path,
         split,
         **kwargs):
 
@@ -46,7 +56,7 @@ def main(model_path,
     X = get_features(test_path, split)
     assert X.shape[0] == 8000
 
-    test(model,X,y)
+    test(model,X,y,output_path)
 
 
 if __name__ == '__main__':
@@ -61,11 +71,14 @@ if __name__ == '__main__':
     parser.add_option("-t", "--test",
                 action="store", type="string", dest="test")
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
-
+    parser.add_option("-o", action="store", dest="output", default = None, help="path to write the report to")
 
     (options, args) = parser.parse_args()
 
+    assert options.output
+
     main(model_path=options.model_path,
          test_path=options.test,
+         output_path = options.output,
          split = options.split
     )
