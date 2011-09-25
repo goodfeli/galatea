@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 from pylearn2.datasets.cifar10 import CIFAR10
 from theano import config
@@ -59,7 +60,8 @@ d = model.e_step.mean_field(V = V)
 H = d['H']
 Mu1 = d['Mu1']
 
-feat = H * Mu1
+warnings.warn('using MAP')
+feat = (H > 0.5) * Mu1
 
 print 'compiling theano function'
 f = function([V],feat)
