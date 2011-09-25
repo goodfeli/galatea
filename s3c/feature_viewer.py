@@ -9,7 +9,10 @@ from pylearn2.gui.patch_viewer import make_viewer
 from pylearn2.utils import serial
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultViewConverter
 from pylearn2.gui.patch_viewer import PatchViewer
-
+import warnings
+if config.floatX != 'float32':
+    warnings.warn('setting floatX to float32 to mimic feature extractor')
+config.floatX = 'float32'
 
 batch_start = 0
 batch_size = 15
@@ -21,23 +24,44 @@ model_path = sys.argv[1]
 print 'loading model'
 model = serial.load(model_path)
 
+stl10 = False
+cifar10 = False
+stl10 = model.dataset_yaml_src.find('stl10') != -1
+cifar10 = model.dataset_yaml_src.find('cifar10') != -1
+assert stl10 or cifar10
+assert not (stl10 and cifar10)
+
 print 'loading dataset'
-dataset = CIFAR10(which_set = "train")
+if cifar10:
+    print 'CIFAR10 detected'
+    dataset = CIFAR10(which_set = "train")
+elif stl10:
+    print 'STL10 detected'
+    dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/train.pkl')
 X = dataset.get_design_matrix()[batch_start:batch_start + batch_size,:]
 
 size = np.sqrt(model.nvis/3)
 
+if cifar10:
+    pv1 = make_viewer( (X-127.5)/127.5, is_color = True, rescale = False)
+elif stl10:
+    pv1 = make_viewer( X/127.5, is_color = True, rescale = False)
 
-pv1 = make_viewer( (X-127.5)/127.5, is_color = True, rescale = False)
 dataset.set_design_matrix(X)
 
 patchifier = ExtractGridPatches( patch_shape = (size,size), patch_stride = (1,1) )
 
 
 if size == 8:
-    pipeline = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M.pkl')
+    if cifar10:
+        pipeline = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M.pkl')
+    elif stl10:
+        assert False
 elif size ==6:
-    pipeline = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M_6x6.pkl')
+    if cifar10:
+        pipeline = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M_6x6.pkl')
+    elif stl10:
+        pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/preprocessor.pkl')
 else:
     print size
     assert False
@@ -125,5 +149,3 @@ pv1.show()
 pv3.show()
 pv4.show()
 
-#pv2 = make_viewer(X2, is_color = True)
-#pv2.show()

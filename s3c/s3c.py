@@ -1412,7 +1412,9 @@ class VHS_E_Step(E_step):
         Mu1 =    self.init_mf_Mu1(V)
 
         def check_H(my_H, my_V):
-            assert my_H.dtype == config.floatX
+            if my_H.dtype != config.floatX:
+                raise AssertionError('my_H.dtype should be config.floatX, but they are '
+                        ' %s and %s, respectively' % (my_H.dtype, config.floatX))
             assert my_V.dtype == config.floatX
             if config.compute_test_value != 'off':
                 from theano.gof.op import PureOp
