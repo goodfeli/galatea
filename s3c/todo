@@ -1,5 +1,3 @@
-a lot of my current experiments are using only 1000 examples per batch to train 1600 examples. try using
-    a larger batch size and see if that fixes things
 classification: make it work for cifar10
 get some numbers on cifar10
 	status:
@@ -21,3 +19,7 @@ gradient based learning is not producing good filters. figure out why. was gradi
 figure out if there's a faster way to calculate the M step gradient based on Aaron's idea
 make something that shows activation boxes around the filters plotting p versus mean_h
 maybe try training by initializing with random patches
+
+a lot of my current experiments are using only 1000 examples per batch to train 1600 examples. try using
+    a larger batch size and see if that fixes things
+    	-> STL A5 training on barney
