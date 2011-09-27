@@ -1933,8 +1933,10 @@ class VHS_Solve_M_Step(VHS_M_Step):
         new_W = new_coeff * new_W + (one - new_coeff) * model.W
         dummy = { model.W :  new_W }
         model.censor_updates(dummy)
-        new_W = dummy[model.W]
-
+        if model.W in dummy:
+            new_W = dummy[model.W]
+        else:
+            new_W = model.W
 
         #Solve for B by setting gradient of log likelihood to 0
         mean_sq_v = stats.d['mean_sq_v']
