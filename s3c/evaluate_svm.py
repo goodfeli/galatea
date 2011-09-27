@@ -3,6 +3,8 @@ from scikits.learn.metrics import classification_report
 from scikits.learn.metrics import confusion_matrix
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
+from pylearn2.datasets.cifar10 import CIFAR10
+import numpy as np
 
 def test(model, X, y, output_path):
     print "Evaluating svm"
@@ -38,23 +40,41 @@ def test(model, X, y, output_path):
 #
 
 
-def get_test_labels():
-    print 'loading entire stl-10 test set just to get the labels'
-    stl10 = serial.load("${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/test.pkl")
-    return stl10.y
+def get_test_labels(cifar10, stl10):
+    assert cifar10 or stl10
+    assert not (cifar10 and stl10)
+
+    if stl10:
+        print 'loading entire stl-10 test set just to get the labels'
+        stl10 = serial.load("${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/test.pkl")
+        return stl10.y
+    if cifar10:
+        print 'loading entire cifar10 test set just to get the labels'
+        cifar10 = CIFAR10(which_set = 'test')
+        return np.asarray(cifar10.y)
 
 
 def main(model_path,
         test_path,
         output_path,
+        dataset,
         split,
         **kwargs):
 
     model =  serial.load(model_path)
 
-    y = get_test_labels()
+    cifar10 = dataset == 'cifar10'
+    stl10 = dataset == 'stl10'
+    assert cifar10 or stl10
+
+    y = get_test_labels(cifar10, stl10)
     X = get_features(test_path, split)
-    assert X.shape[0] == 8000
+    if stl10:
+        num_examples = 8000
+    if cifar10:
+        num_examples = 10000
+    assert X.shape[0] == num_examples
+    assert y.shape[0] == num_examples
 
     test(model,X,y,output_path)
 
@@ -72,6 +92,7 @@ if __name__ == '__main__':
                 action="store", type="string", dest="test")
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
     parser.add_option("-o", action="store", dest="output", default = None, help="path to write the report to")
+    parser.add_option('--dataset', type='string', dest = 'dataset', action='store', default = None)
 
     (options, args) = parser.parse_args()
 
@@ -80,5 +101,6 @@ if __name__ == '__main__':
     main(model_path=options.model_path,
          test_path=options.test,
          output_path = options.output,
+         dataset = options.dataset,
          split = options.split
     )
