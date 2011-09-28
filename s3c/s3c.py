@@ -1137,20 +1137,31 @@ class E_step(object):
     def mean_field(self, V):
         raise NotImplementedError()
 
+#TODO: refactor this to be Damped_E_Step
 class VHS_E_Step(E_step):
-    """ A variational E_step that works by running damped mean field
-        on the original  model
+    """ A variational E_step that works by running damped fixed point
+        updates on a structured variation approximation to
+        P(v,h,s) (i.e., we do not use any auxiliary variable).
+
+        The structured variational approximation is:
+
+            P(v,h,s) = \Pi_i Q_i (h_i, s_i)
 
         All variables are updated simultaneously, in parallel. The
-        spike variables are updated with a fixed damping. The slab
-        variables are updated with a unit-specific damping designed
-        to ensure stability.
+        spike variables are updated with a damping coefficient that is the same
+        for all units but changes each time step, specified by the yaml file. The slab
+        variables are updated with:
+            optionally: a unit-specific damping designed to ensure stability
+                        by preventing reflections from going too far away
+                        from the origin.
+            optionally: additional damping that is the same for all units but
+                        changes each time step, specified by the yaml file
 
         The update equations were derived based on updating h_i and
         s_i simultaneously, but not updating all units simultaneously.
 
         The updates are not valid for updating h_i without also updating
-        h_i (i.e., doing this could increase the KL divergence).
+        s_i (i.e., doing this could increase the KL divergence).
 
         They are also not valid for updating all units simultaneously,
         but we do this anyway.
@@ -1247,7 +1258,7 @@ class VHS_E_Step(E_step):
 
             if config.compute_test_value != 'off':
                 if rval.get_value().shape[0] != V.tag.test_value.shape[0]:
-                    raise Exception(' god damn it', rval.get_value().shape, V.tag.test_value.shape)
+                    raise Exception('E step given wrong test batch size', rval.get_value().shape, V.tag.test_value.shape)
         else:
             #just use the prior
             value =  T.nnet.sigmoid(self.model.bias_hid)
@@ -1461,6 +1472,352 @@ class VHS_E_Step(E_step):
             return history[-1]
 
 
+class Split_E_Step(E_step):
+    """ A variational E_step that works by running damped fixed point
+        updates on a structured variation approximation to
+        P(v,h,s) (i.e., we do not use any auxiliary variable).
+
+        The structured variational approximation is:
+
+            P(v,h,s) = \Pi_i Q_i (h_i, s_i)
+
+        We alternate between updating the Q parameters over s in parallel and
+        updating the q parameters over h in parallel.
+
+        The h parameters are updated with a damping coefficient that is the same
+        for all units but changes each time step, specified by the yaml file. The slab
+        variables are updated with:
+            optionally: a unit-specific damping designed to ensure stability
+                        by preventing reflections from going too far away
+                        from the origin.
+            optionally: additional damping that is the same for all units but
+                        changes each time step, specified by the yaml file
+
+        The update equations were derived based on updating h_i independently,
+        then updating s_i independently, even though it is possible to solve for
+        a simultaneous update to h_i and s_I.
+
+        This is because the damping is necessary for parallel updates to be reasonable,
+        but damping the solution to s_i from the joint update makes the solution to h_i
+        from the joint update no longer optimal.
+
+        """
+
+    def truncated_KL(self, V, model, obs):
+        """ KL divergence between variation and true posterior, dropping terms that don't
+            depend on the mean field parameters """
+
+        #TODO: refactor so that this is shared between E-steps
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+        Mu1 = obs['Mu1']
+        mu0 = obs['mu0']
+
+        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
+        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
+
+        KL = entropy_term + energy_term
+
+        return KL
+
+    def em_functional(self, V, model, obs):
+        """ Return value is a scalar """
+        #TODO: refactor so that this is shared between E-steps
+
+        needed_stats = S3C.expected_log_prob_vhs_needed_stats()
+
+        stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
+                                                        X = V, ** obs )
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+
+        entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+        likelihood_term = model.expected_log_prob_vhs(stats)
+
+        em_functional = entropy_term + likelihood_term
+
+        return em_functional
+
+
+    def get_monitoring_channels(self, V, model):
+
+        #TODO: update this to show updates to h_i and s_i in correct sequence
+
+        rval = {}
+
+        if self.monitor_kl or self.monitor_em_functional:
+            obs_history = self.mean_field(V, return_history = True)
+
+            for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
+                obs = obs_history[i-1]
+                if self.monitor_kl:
+                    rval['trunc_KL_'+str(i)] = self.truncated_KL(V, model, obs).mean()
+                if self.monitor_em_functional:
+                    rval['em_functional_'+str(i)] = self.em_functional(V, model, obs).mean()
+
+        return rval
+
+
+    def __init__(self, h_new_coeff_schedule, s_new_coeff_schedule = None, clip_reflections = False, monitor_kl = False, monitor_em_functional = False):
+        """Parameters
+        --------------
+        h_new_coeff_schedule:
+            list of coefficients to put on the new value of h on each damped mean field step
+                    (coefficients on s are driven by a special formula)
+            length of this list determines the number of mean field steps
+        s_new_coeff_schedule:
+            list of coefficients to put on the new value of s on each damped mean field step
+                These are applied AFTER the reflection clipping, which can be seen as a form of
+                per-unit damping
+                s_new_coeff_schedule must have same length as h_new_coeff_schedule
+                if now s_new_coeff_schedule is not provided, it will be filled in with all ones,
+                    i.e. it will default to no damping beyond the reflection clipping
+        """
+
+        if s_new_coeff_schedule is None:
+            s_new_coeff_schedule = [ 1.0 for rho in h_new_coeff_schedule ]
+        else:
+            assert len(s_new_coeff_schedule) == len(h_new_coeff_schedule)
+
+        self.s_new_coeff_schedule = s_new_coeff_schedule
+
+        self.clip_reflections = clip_reflections
+        self.h_new_coeff_schedule = h_new_coeff_schedule
+        self.monitor_kl = monitor_kl
+        self.monitor_em_functional = monitor_em_functional
+
+        super(VHS_E_Step, self).__init__()
+
+    def init_mf_H(self, V):
+
+        if self.model.recycle_q:
+            rval = self.model.prev_H
+
+            if config.compute_test_value != 'off':
+                if rval.get_value().shape[0] != V.tag.test_value.shape[0]:
+                    raise Exception('E step given wrong test batch size', rval.get_value().shape, V.tag.test_value.shape)
+        else:
+            #just use the prior
+            value =  T.nnet.sigmoid(self.model.bias_hid)
+            rval = T.alloc(value, V.shape[0], value.shape[0])
+
+            if config.compute_test_value != 'off':
+                assert rval.tag.test_value.shape[0] == V.tag.test_value.shape[0]
+
+        return rval
+
+    def init_mf_Mu1(self, V):
+        if self.model.recycle_q:
+            rval = self.model.prev_Mu1
+        else:
+            #just use the prior
+            value = self.model.mu
+            if config.compute_test_value != 'off':
+                assert value.tag.test_value != None
+            rval = T.alloc(value, V.shape[0], value.shape[0])
+
+        return rval
+
+    def mean_field_A(self, V, H, Mu1):
+
+        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
+
+        if config.compute_test_value != 'off':
+            Vv = V.tag.test_value
+            from theano.gof import PureOp
+            Hv = PureOp._get_test_value(H)
+            if Vv.shape != (self.model.test_batch_size,self.model.nvis):
+                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(V.tag.test_value.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
+
+            assert Vv.shape[0] == Hv.shape[0]
+            assert Hv.shape[1] == self.model.nhid
+
+
+        mu = self.model.mu
+        alpha = self.model.alpha
+        W = self.model.W
+        B = self.model.B
+        w = self.model.w
+
+        BW = B.dimshuffle(0,'x') * W
+
+        HS = H * Mu1
+
+        mean_term = mu * alpha
+
+        data_term = T.dot(V, BW)
+
+        iterm_part_1 = - T.dot(T.dot(HS, W.T), BW)
+        iterm_part_2 = w * HS
+
+        interaction_term = iterm_part_1 + iterm_part_2
+
+        if config.compute_test_value != 'off':
+            assert iterm_part_1.tag.test_value.shape[0] == V.tag.test_value.shape[0]
+
+        debug_interm = mean_term + data_term
+        A = debug_interm + interaction_term
+
+        V_name = make_name(V, 'anon_V')
+        H_name = make_name(H, 'anon_H')
+        Mu1_name = make_name(Mu1, 'anon_Mu1')
+
+        A.name = 'mean_field_A( %s, %s, %s ) ' % ( V_name, H_name, Mu1_name)
+
+        return A
+
+    def mean_field_Mu1(self, A):
+        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
+
+        alpha = self.model.alpha
+        w = self.model.w
+
+        denom = alpha + w
+
+        Mu1 =  A / denom
+
+        A_name = make_name(A, 'anon_A')
+
+        Mu1.name = 'mean_field_Mu1(%s)'%A_name
+
+        return Mu1
+
+    def mean_field_Sigma1(self):
+        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
+        """TODO: this is a bad name, since in the univariate case we would
+         call this sigma^2
+        I think what I was going for was covariance matrix Sigma constrained to be diagonal
+         but it is still confusing """
+
+        rval =  1./ (self.model.alpha + self.model.w )
+
+        rval.name = 'mean_field_Sigma1'
+
+        return rval
+
+    def mean_field_H(self, A):
+        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
+
+        half = as_floatX(.5)
+        alpha = self.model.alpha
+        w = self.model.w
+
+        term1 = half * T.sqr(A) / (alpha + w)
+
+        term2 = self.model.bias_hid
+
+        term3 = - half * T.sqr(self.model.mu) * self.model.alpha
+
+        term4 = -half * T.log(self.model.alpha + self.model.w)
+
+        term5 = half * T.log(self.model.alpha)
+
+        arg_to_sigmoid = term1 + term2 + term3 + term4 + term5
+
+        H = T.nnet.sigmoid(arg_to_sigmoid)
+
+        A_name = make_name(A, 'anon_A')
+
+        H.name = 'mean_field_H('+A_name+')'
+
+        return H
+
+    def damp(self, old, new, new_coeff):
+        return new_coeff * new + (1. - new_coeff) * old
+
+    def reflection_clip(self, Mu1, new_Mu1):
+        rho = 0.5
+        ceiling = 1000.
+
+        positives = Mu1 > 0
+        non_positives = 1. - positives
+        negatives = Mu1 < 0
+        non_negatives = 1. - negatives
+
+        rval = T.clip(new_Mu1, - rho * positives * Mu1 - non_positives * ceiling, non_negatives * ceiling - rho * negatives * Mu1 )
+
+        return rval
+
+    def mean_field(self, V, return_history = False):
+        """
+
+            return_history: if True:
+                                returns a list of dictionaries with
+                                showing the history of the mean field
+                                parameters
+                                throughout fixed point updates
+                            if False:
+                                returns a dictionary containing the final
+                                mean field parameters
+        """
+
+
+        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
+
+
+        alpha = self.model.alpha
+
+
+        sigma0 = 1. / alpha
+        Sigma1 = self.mean_field_Sigma1()
+        mu0 = T.zeros_like(sigma0)
+
+
+        H   =    self.init_mf_H(V)
+        Mu1 =    self.init_mf_Mu1(V)
+
+        def check_H(my_H, my_V):
+            if my_H.dtype != config.floatX:
+                raise AssertionError('my_H.dtype should be config.floatX, but they are '
+                        ' %s and %s, respectively' % (my_H.dtype, config.floatX))
+            assert my_V.dtype == config.floatX
+            if config.compute_test_value != 'off':
+                from theano.gof.op import PureOp
+                Hv = PureOp._get_test_value(my_H)
+
+                Vv = my_V.tag.test_value
+
+                assert Hv.shape[0] == Vv.shape[0]
+
+        check_H(H,V)
+
+        def make_dict():
+
+            return {
+                    'H' : H,
+                    'mu0' : mu0,
+                    'Mu1' : Mu1,
+                    'sigma0' : sigma0,
+                    'Sigma1': Sigma1,
+                    }
+
+        history = [ make_dict() ]
+
+        for new_H_coeff, new_S_coeff in zip(self.h_new_coeff_schedule, self.s_new_coeff_schedule):
+
+            A = self.mean_field_A(V = V, H = H, Mu1 = Mu1)
+            new_Mu1 = self.mean_field_Mu1(A = A)
+            new_H = self.mean_field_H(A = A)
+
+            H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
+            if self.clip_reflections:
+                clipped_Mu1 = self.reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
+            else:
+                clipped_Mu1 = new_Mu1
+            Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
+
+            check_H(H,V)
+
+            history.append(make_dict())
+
+        if return_history:
+            return history
+        else:
+            return history[-1]
 
 
 class M_Step(object):
@@ -1576,8 +1933,10 @@ class VHS_Solve_M_Step(VHS_M_Step):
         new_W = new_coeff * new_W + (one - new_coeff) * model.W
         dummy = { model.W :  new_W }
         model.censor_updates(dummy)
-        new_W = dummy[model.W]
-
+        if model.W in dummy:
+            new_W = dummy[model.W]
+        else:
+            new_W = model.W
 
         #Solve for B by setting gradient of log likelihood to 0
         mean_sq_v = stats.d['mean_sq_v']
@@ -1683,8 +2042,9 @@ class VHS_Solve_M_Step(VHS_M_Step):
 
 class VHS_Grad_M_Step(VHS_M_Step):
 
-    def __init__(self, learning_rate):
+    def __init__(self, learning_rate, B_learning_rate_scale  = 1,):
         self.learning_rate = np.cast[config.floatX](float(learning_rate))
+        self.B_learning_rate_scale = np.cast[config.floatX](float(learning_rate))
 
     def get_updates(self, model, stats):
 
@@ -1697,7 +2057,10 @@ class VHS_Grad_M_Step(VHS_M_Step):
         updates = {}
 
         for param, grad in zip(params, grads):
-            updates[param] = param + self.learning_rate * grad
+            learning_rate = self.learning_rate
+            if param is model.B:
+                learning_rate *= self.B_learning_rate_scale
+            updates[param] = param + learning_rate * grad
 
         return updates
 

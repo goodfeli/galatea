@@ -6,6 +6,7 @@ from optparse import OptionParser
 from scikits.learn.svm import LinearSVC, SVC
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
+from pylearn2.datasets.cifar10 import CIFAR10
 
 def get_svm_type(C, one_against_many):
     if one_against_many:
@@ -20,7 +21,7 @@ def subtrain(fold_train_X, fold_train_y, C, one_against_many):
     return svm
 
 def validate(train_X, train_y, fold_indices, C, one_against_many):
-    train_mask = np.zeros((5000,),dtype='uint8')
+    train_mask = np.zeros((train_X.shape[0],),dtype='uint8')
     #Yes, Adam's site really does say to use the 1000 indices as the train,
     #not the validation set
     #The -1 is to convert from matlab indices
@@ -77,20 +78,42 @@ def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False
 
     return final_svm
 
-def get_labels_and_fold_indices():
-    print 'loading entire stl-10 train set just to get the labels and folds'
-    stl10 = serial.load("${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/train.pkl")
-    train_y = stl10.y
+def get_labels_and_fold_indices(cifar10, stl10):
+    assert stl10 or cifar10
+    assert not (stl10 and cifar10)
+    if stl10:
+        print 'loading entire stl-10 train set just to get the labels and folds'
+        stl10 = serial.load("${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/train.pkl")
+        train_y = stl10.y
 
-    fold_indices = stl10.fold_indices
+        fold_indices = stl10.fold_indices
+    elif cifar10:
+        print 'loading entire cifar10 train set just to get the labels'
+        cifar10 = CIFAR10(which_set = 'train')
+        train_y = cifar10.y
+        assert train_y is not None
+
+        fold_indices = np.zeros((5,40000),dtype='uint16')
+        idx_list = np.cast['uint16'](np.arange(1,50001)) #mimic matlab format of stl10
+        for i in xrange(5):
+            mask = idx_list < i * 10000 + 1
+            mask += idx_list >= (i+1) * 10000 + 1
+            fold_indices[i,:] = idx_list[mask]
+        assert fold_indices.min() == 1
+        assert fold_indices.max() == 50000
+
 
     return train_y, fold_indices
 
 
 class Report:
-    def __init__(self, train_path, split):
+    def __init__(self, train_path, split, stl10, cifar10):
         self.train_path = train_path
         self.split = split
+        assert stl10 or cifar10
+        assert not (stl10 and cifar10)
+        self.stl10 = stl10
+        self.cifar10 = cifar10
         self.desc_to_acc = {}
 
     def add_validation_result(self, hparam_desc, acc):
@@ -100,7 +123,10 @@ class Report:
 
         f = open(out_path,'w')
 
-        f.write('STL-10 SVM Cross Validation report'+'\n')
+        if self.stl10:
+            f.write('STL-10 SVM Cross Validation report\n')
+        elif self.cifar10:
+            f.write('CIFAR10 SVM Cross Validation report\n')
         f.write('Training features: '+self.train_path+'\n')
         f.write('Splitting enabled: '+str(self.split)+'\n')
 
@@ -116,15 +142,25 @@ class Report:
 def main(train_path,
         out_path,
         split,
+        dataset,
         **kwargs):
 
-    train_y, fold_indices = get_labels_and_fold_indices()
+    stl10 = dataset == 'stl10'
+    cifar10 = dataset == 'cifar10'
+    assert stl10 or cifar10
+
+    train_y, fold_indices = get_labels_and_fold_indices(cifar10, stl10)
+    assert train_y is not None
 
     print 'loading training features'
     train_X = get_features(train_path, split)
-    assert train_X.shape[0] == 5000
+    if stl10:
+        assert train_X.shape[0] == 5000
+    if cifar10:
+        assert train_X.shape[0] == 50000
+        assert train_y.shape == (50000,)
 
-    report = Report(train_path, split)
+    report = Report(train_path, split, stl10, cifar10)
 
     model = train(fold_indices, train_X, train_y, report, **kwargs)
 
@@ -146,14 +182,17 @@ if __name__ == '__main__':
                       help="use a one-against-one classifier rather than a one-against-many classifier")
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
     parser.add_option('-C', type='string', dest='C_list', action='store', default= '.01,.02,.1,.2,1,5,10,50,100')
+    parser.add_option('--dataset', type='string', dest = 'dataset', action='store', default = None)
 
     (options, args) = parser.parse_args()
 
+    assert options.dataset
     C_list = [ float(chunk) for chunk in options.C_list.split(',') ]
 
     main(train_path=options.train,
          out_path = options.out,
          one_against_many = options.one_against_many,
          split = options.split,
-         C_list = C_list
+         C_list = C_list,
+         dataset = options.dataset
     )

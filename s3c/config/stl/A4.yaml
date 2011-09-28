@@ -1,5 +1,4 @@
-#like F4A1
-#but on 6x6 patches and 1600 hidden units
+#a considerably less sparse version of A
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
     "model": !obj:galatea.s3c.s3c.S3C {
