@@ -2044,7 +2044,7 @@ class VHS_Grad_M_Step(VHS_M_Step):
 
     def __init__(self, learning_rate, B_learning_rate_scale  = 1,):
         self.learning_rate = np.cast[config.floatX](float(learning_rate))
-        self.B_learning_rate_scale = np.cast[config.floatX](float(learning_rate))
+        self.B_learning_rate_scale = np.cast[config.floatX](float(B_learning_rate_scale))
 
     def get_updates(self, model, stats):
 
@@ -2058,9 +2058,21 @@ class VHS_Grad_M_Step(VHS_M_Step):
 
         for param, grad in zip(params, grads):
             learning_rate = self.learning_rate
-            if param is model.B:
-                learning_rate *= self.B_learning_rate_scale
-            updates[param] = param + learning_rate * grad
+            if param is model.B_driver:
+                #can't use *= since this is a numpy ndarray now
+                learning_rate = learning_rate * self.B_learning_rate_scale
+
+            pparam = param
+
+            inc = learning_rate * grad
+
+            #if param is model.B_driver:
+                #pparam = Print('B')(pparam)
+                #inc = Print('B_inc')(inc)
+
+            updated_param = pparam + inc
+
+            updates[param] = updated_param
 
         return updates
 
