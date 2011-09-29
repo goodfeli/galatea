@@ -258,9 +258,10 @@ class S3C(Model):
                        recycle_q = 0,
                        seed = None,
                        disable_W_update = False,
-                       constrain_W_norm = None,
+                       constrain_W_norm = False,
                        monitor_norms = False,
                        random_patches_hack = False,
+                       init_unit_W = False,
                        print_interval = 10000):
         """"
         nvis: # of visible units
@@ -299,6 +300,7 @@ class S3C(Model):
                             the unit sphere (called a hack since it means that the initial call
                             to monitor will use random weights, so the learning curve will look
                             messed up)
+        init_unit_W:   if True, initializes weights with unit norm
         """
 
         super(S3C,self).__init__()
@@ -313,14 +315,13 @@ class S3C(Model):
         else:
             self.monitor_params = [ elem for elem in monitor_params ]
 
+        self.init_unit_W = init_unit_W
 
         self.seed = seed
 
         self.print_interval = print_interval
 
         self.constrain_W_norm = constrain_W_norm
-        if self.constrain_W_norm is not None:
-            self.constrain_W_norm = as_floatX(self.constrain_W_norm)
 
         self.monitor_norms = monitor_norms
         self.disable_W_update = disable_W_update
@@ -389,7 +390,7 @@ class S3C(Model):
 
         W = self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid))
 
-        if self.constrain_W_norm is not None:
+        if self.constrain_W_norm or self.init_unit_W:
             norms = np.sqrt(1e-8+np.square(W).sum(axis=0))
             W /= norms
 
@@ -494,6 +495,12 @@ class S3C(Model):
                         mx = full_max(param_val)
                         assert len(mx.type.broadcastable) == 0
                         rval[param+'_max'] = mx
+
+                        if param == 'W':
+                            norms = T.sqrt(1e-8+T.sqr(self.W).sum(axis=0))
+                            rval['W_norm_min'] = full_min(norms)
+                            rval['W_norm_mean'] = T.mean(norms)
+                            rval['W_norm_max'] = T.max(norms)
 
                 if self.monitor_norms:
                     rval['post_solve_norms_min'] = T.min(self.debug_norms)
@@ -810,7 +817,7 @@ class S3C(Model):
         if should_censor(self.W):
             if self.disable_W_update:
                 del updates[self.W]
-            elif self.constrain_W_norm is not None:
+            elif self.constrain_W_norm:
                 norms = T.sqrt(1e-8+T.sqr(updates[self.W]).sum(axis=0))
                 updates[self.W] /= norms.dimshuffle('x',0)
 
