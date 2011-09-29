@@ -17,7 +17,6 @@ experiment with keeping old sufficient statistics around on the solve M step
 a lot of my current experiments are using only 1000 examples per batch to train 1600 examples. try using
     a larger batch size and see if that fixes things
     	-> STL A5 training on barney
-set up gpu on gryphon0
 
 if we freeze all but one parameter, we see that only W has the property of EM functional going up then tanking. resolve whether this is due to increased correlation in W making the E step fail, due to the M step normalization decreasing the EM functional, or some other problem.
 	in /6x6/A5M9E1, the E step seems to converge. WHY DOES EM_FUNCTIONAL_1 STAY ABSOLUTELY FLAT THROUGHOUT LEARNING? In A5M9E1C we see that em_functional_1 stays flat throughout learning even when there is only one hidden unit and one mean field iteration.
