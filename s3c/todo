@@ -1,10 +1,13 @@
+lots of results have good reconstructions, so maybe not having enough sparsity?
+
 run feature extraction and classification for cifar A5M
+run feature extraction and classification for a high likelihood gradient descent-based model, even though the filters are ugly
+
 letterbox free version of stl-10
 get it working on other datasets
 	MNIST: the problems so far may be due to centering by mean making the filters look funny
 	Yoshua suggested: UTL, Shapeset 2x3, CIFAR-100
 conjugate gradient E step
-slowdown bug. note: extracting stl A5M slowed down over time on sencha and oolong but not on bart7
 gradient based learning is not producing good filters. figure out why.
 	gradient based learning does NOT drive W to zero... at least not all W
 	one thing worth experimenting with is keeping old sufficient statistics around
@@ -19,6 +22,9 @@ a lot of my current experiments are using only 1000 examples per batch to train 
     	-> STL A5 training on barney
 
 if we freeze all but one parameter, we see that only W has the property of EM functional going up then tanking. resolve whether this is due to increased correlation in W making the E step fail, due to the M step normalization decreasing the EM functional, or some other problem.
-	in /6x6/A5M9E1, the E step seems to converge. WHY DOES EM_FUNCTIONAL_1 STAY ABSOLUTELY FLAT THROUGHOUT LEARNING? In A5M9E1C we see that em_functional_1 stays flat throughout learning even when there is only one hidden unit and one mean field iteration.
 	
 benchmark the uses of scan. it seems like the runtime is not deterministic in some cases, ie sometimes I ran it and got a runtime of 30s/epoch and other times ran it and got 80s/epoch. maybe theano optimizations are chosen randomly and it gets dramatically different runtimes depending on which it chooses?
+
+
+mystery of prior staying flat when some params are frozen: if mu is fixed to 0, weights have no effect on prior
+slowdown bug. note: extracting stl A5M slowed down over time on sencha and oolong but not on bart7
