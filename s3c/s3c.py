@@ -1161,6 +1161,23 @@ class E_step(object):
     def mean_field(self, V):
         raise NotImplementedError()
 
+    def truncated_KL(self, V, model, obs):
+        """ KL divergence between variation and true posterior, dropping terms that don't
+            depend on the mean field parameters """
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+        Mu1 = obs['Mu1']
+        mu0 = obs['mu0']
+
+        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
+        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
+
+        KL = entropy_term + energy_term
+
+        return KL
+
 #TODO: refactor this to be Damped_E_Step
 class VHS_E_Step(E_step):
     """ A variational E_step that works by running damped fixed point
@@ -1192,22 +1209,6 @@ class VHS_E_Step(E_step):
 
         """
 
-    def truncated_KL(self, V, model, obs):
-        """ KL divergence between variation and true posterior, dropping terms that don't
-            depend on the mean field parameters """
-
-        H = obs['H']
-        sigma0 = obs['sigma0']
-        Sigma1 = obs['Sigma1']
-        Mu1 = obs['Mu1']
-        mu0 = obs['mu0']
-
-        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
-        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
-
-        KL = entropy_term + energy_term
-
-        return KL
 
     def em_functional(self, V, model, obs):
         """ Return value is a scalar """
@@ -1526,25 +1527,6 @@ class Split_E_Step(E_step):
         from the joint update no longer optimal.
 
         """
-
-    def truncated_KL(self, V, model, obs):
-        """ KL divergence between variation and true posterior, dropping terms that don't
-            depend on the mean field parameters """
-
-        #TODO: refactor so that this is shared between E-steps
-
-        H = obs['H']
-        sigma0 = obs['sigma0']
-        Sigma1 = obs['Sigma1']
-        Mu1 = obs['Mu1']
-        mu0 = obs['mu0']
-
-        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
-        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
-
-        KL = entropy_term + energy_term
-
-        return KL
 
     def em_functional(self, V, model, obs):
         """ Return value is a scalar """
