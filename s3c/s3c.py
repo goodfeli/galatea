@@ -1,3 +1,4 @@
+import time
 from pylearn2.models.model import Model
 from theano import config, function, shared
 import theano.tensor as T
@@ -806,7 +807,14 @@ class S3C(Model):
 
             learning_updates[self.em_functional_diff] = em_functional_diff
 
-        return function([X], updates = learning_updates)
+        print "compiling function..."
+        t1 = time.time()
+        rval = function([X], updates = learning_updates)
+        t2 = time.time()
+        print "... compilation took "+str(t2-t1)+" seconds"
+        print "graph size: ",len(rval.maker.env.toposort())
+
+        return rval
     #
 
     def censor_updates(self, updates):
@@ -915,6 +923,7 @@ class S3C(Model):
         recons = T.dot(H*Mu1, self.W.T)
         residuals = V - recons
 
+
         term3 = - half * T.dot(T.sqr(residuals), self.B)
 
         rval = term1 + term2 + term3
@@ -951,7 +960,6 @@ class S3C(Model):
         term2 = - half * N * T.log(two * pi)
         term3 = - half * T.dot(self.B, mean_sq_v)
         term4 = T.dot(self.B , (self.W * mean_hsv.T).sum(axis=1))
-
 
         def inner_func(new_W_row, second_hs):
             val = T.dot(new_W_row, T.dot(second_hs, new_W_row))
