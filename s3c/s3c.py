@@ -1092,19 +1092,23 @@ class S3C(Model):
     #
 
     def learn(self, dataset, batch_size):
+        if self.random_patches_hack and self.monitor.examples_seen == 0:
+            W = dataset.get_batch_design(self.nhid)
+            norms = np.sqrt(np.square(W).sum(axis=1))
+            W = W.T
+            W /= norms
+            if W.shape != self.W.get_value(borrow=True).shape:
+                raise ValueError('W has shape '+str(W.shape)+' but should have '+str(self.W.get_value(borrow=True).shape))
+            self.W.set_value(W)
+            self.random_patches_loaded = True
+
         self.learn_mini_batch(dataset.get_batch_design(batch_size))
     #
 
 
     def learn_mini_batch(self, X):
-
-        if self.random_patches_hack and self.monitor.examples_seen == 0:
-            assert X.shape[0] == self.nhid
-            W = X
-            norms = np.sqrt(np.square(W).sum(axis=1))
-            W = W.T
-            W /= norms
-            self.W.set_value(W)
+        if self.random_patches_hack:
+            assert self.random_patches_loaded
 
         if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
