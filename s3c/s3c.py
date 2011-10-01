@@ -435,7 +435,11 @@ class S3C(Model):
             stats is assumed to be computed from and only from
             the same data points that yielded H """
 
-        assert self.new_stat_coeff == 1.0
+        if self.new_stat_coeff != 1.0:
+            warnings.warn(""" used to have this assert here: self.new_stat_coeff == 1.0
+                            but I think it's possible for stats to be valid and self.new_stat_coeff to
+                            1-- stats just has to come from the monitoring set. TODO: give stats enough
+                            metatdata to be able to do the correct assert""")
 
         entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
         likelihood_term = self.expected_log_prob_vhs(stats)
