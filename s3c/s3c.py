@@ -2081,21 +2081,40 @@ class VHS_Grad_M_Step(VHS_M_Step):
 
         for param, grad in zip(params, grads):
             learning_rate = self.learning_rate
+
             if param is model.B_driver:
                 #can't use *= since this is a numpy ndarray now
                 learning_rate = learning_rate * self.B_learning_rate_scale
 
-            pparam = param
+            if param is model.W and model.constrain_W_norm:
+                #project the gradient into the tangent space of the unit hypersphere
+                #see "On Gradient Adaptation With Unit Norm Constraints"
+                #this is the "true gradient" method on a sphere
+                #it computes the gradient, projects the gradient into the tangent space of the sphere,
+                #then moves a certain distance along a geodesic in that direction
 
-            inc = learning_rate * grad
+                g_k = learning_rate * grad
 
-            #if param is model.B_driver:
-                #pparam = Print('B')(pparam)
-                #inc = Print('B_inc')(inc)
+                h_k = g_k -  (g_k*model.W).sum(axis=0) * model.W
 
-            updated_param = pparam + inc
+                theta_k = T.sqrt(1e-8+T.sqr(h_k).sum(axis=0))
 
-            updates[param] = updated_param
+                u_k = h_k / theta_k
+
+                updates[model.W] = T.cos(theta_k) * model.W + T.sin(theta_k) * u_k
+
+            else:
+                pparam = param
+
+                inc = learning_rate * grad
+
+                #if param is model.B_driver:
+                    #pparam = Print('B')(pparam)
+                    #inc = Print('B_inc')(inc)
+
+                updated_param = pparam + inc
+
+                updates[param] = updated_param
 
         return updates
 
