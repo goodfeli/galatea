@@ -1,6 +1,7 @@
 import os
 from galatea.s3c.s3c import S3C
 from galatea.s3c.s3c import VHS_E_Step
+from galatea.s3c.s3c import Split_E_Step
 from galatea.s3c.s3c import VHS_Solve_M_Step
 from theano import function
 import numpy as np
@@ -31,8 +32,7 @@ class TestMeanField_VHS:
 
         self.tol = 1e-5
 
-        goodfeli_tmp = os.environ['GOODFELI_TMP']
-        dataset = serial.load(goodfeli_tmp + '/cifar10_preprocessed_train_2M.pkl')
+        dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl')
 
         X = dataset.get_batch_design(1000)
         X = X[:,0:5]
@@ -400,8 +400,7 @@ class TestMeanField_Split:
 
         self.tol = 1e-5
 
-        goodfeli_tmp = os.environ['GOODFELI_TMP']
-        dataset = serial.load(goodfeli_tmp + '/cifar10_preprocessed_train_2M.pkl')
+        dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl')
 
         X = dataset.get_batch_design(1000)
         X = X[:,0:5]
@@ -418,7 +417,7 @@ class TestMeanField_Split:
                          min_B = 1e-8,
                          max_B = 1000.,
                          init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
-                         init_mu = 1., e_step = VHS_E_Step(h_new_coeff_schedule = [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ]),
+                         init_mu = 1., e_step = Split_E_Step(h_new_coeff_schedule = [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ]),
                          new_stat_coeff = 1.,
                          m_step = VHS_Solve_M_Step( new_coeff = 1.0 ),
                          W_eps = 0., mu_eps = 1e-8,
@@ -443,6 +442,8 @@ class TestMeanField_Split:
 
         assert X.shape[0] == self.m
 
+        model.test_batch_size = X.shape[0]
+
         init_H = e_step.init_mf_H(V = X)
         init_Mu1 = e_step.init_mf_Mu1(V = X)
 
@@ -466,9 +467,8 @@ class TestMeanField_Split:
         idx = T.iscalar()
         idx.tag.test_value = 0
 
-        A = e_step.mean_field_A(V = X, H = H_var, Mu1 = Mu1_var)
 
-        S = e_step.mean_field_Mu1(A = A)
+        S = e_step.mean_field_Mu1(V = X, H = H_var, Mu1 = Mu1_var)
 
         s_idx = S[:,idx]
 
@@ -534,9 +534,7 @@ class TestMeanField_Split:
         idx = T.iscalar()
         idx.tag.test_value = 0
 
-        A = e_step.mean_field_A(V = X, H = H_var, Mu1 = Mu1_var)
-
-        S = e_step.mean_field_Mu1(A = A)
+        S = e_step.mean_field_Mu1( V = X, H = H_var, Mu1 = Mu1_var)
 
         s_idx = S[:,idx]
 
@@ -601,17 +599,14 @@ class TestMeanField_Split:
         idx = T.iscalar()
         idx.tag.test_value = 0
 
-        A = e_step.mean_field_A(V = X, H = H_var, Mu1 = Mu1_var)
 
-        new_H = e_step.mean_field_H(A = A)
+        new_H = e_step.mean_field_H(V = X, H = H_var, Mu1 = Mu1_var, Sigma1 = model.e_step.mean_field_Sigma1())
         h_idx = new_H[:,idx]
 
         h_idx = T.clip(h_idx, 0., 1.)
 
-        new_Mu1 = e_step.mean_field_Mu1(A=A)
-        s_idx = new_Mu1[:,idx]
 
-        updates_func = function([H_var,Mu1_var,idx],outputs=[h_idx, s_idx])
+        updates_func = function([H_var,Mu1_var,idx], h_idx)
 
         sigma0 = 1. / model.alpha
         Sigma1 = e_step.mean_field_Sigma1()
@@ -638,7 +633,8 @@ class TestMeanField_Split:
         failed = False
 
         for i in xrange(self.N):
-            H[:,i], Mu1[:,i] = updates_func(H, Mu1, i)
+            rval = updates_func(H, Mu1, i)
+            H[:,i] = rval
 
             g = grad_func(H,Mu1)[:,i]
 
@@ -656,16 +652,26 @@ class TestMeanField_Split:
 
                 print 'iteration ',i
                 #print 'max value of new H: ',H[:,i].max()
-                print 'H for failing g: '
+                #print 'H for failing g: '
                 failing_h = H[np.abs(g) > self.tol, i]
-                print failing_h
+                #print failing_h
 
                 #from matplotlib import pyplot as plt
                 #plt.scatter(H[:,i],g)
                 #plt.show()
 
                 #ignore failures extremely close to h=1
-                if failing_h.min() < .996:
+
+                high_mask = failing_h > .001
+                low_mask = failing_h < .999
+
+                mask = high_mask * low_mask
+
+                print 'masked failures: ',mask.shape[0],' err ',g_abs_max
+
+                if mask.sum() > 0:
+                    print 'failing h passing the range mask'
+                    print failing_h[ mask.as_type(bool) ]
                     raise Exception('after mean field step, gradient of kl divergence wrt frehsly updated mean field parameter should be 0, but here the max magnitude of a gradient element is '+str(g_abs_max)+' after updating h_'+str(i))
 
 
@@ -704,19 +710,13 @@ class TestMeanField_Split:
         idx = T.iscalar()
         idx.tag.test_value = 0
 
-        A = e_step.mean_field_A(V = X, H = H_var, Mu1 = Mu1_var)
+        newH = e_step.mean_field_H(V = X, H = H_var, Mu1 = Mu1_var, Sigma1 = e_step.mean_field_Sigma1())
 
-        newH = e_step.mean_field_H(A = A)
-
-        newMu1 = e_step.mean_field_Mu1(A=A)
 
         h_idx = newH[:,idx]
 
-        Mu1_idx = newMu1[:,idx]
 
         h_i_func = function([H_var,Mu1_var,idx],h_idx)
-
-        Mu1_i_func = function([H_var, Mu1_var, idx], Mu1_idx)
 
         sigma0 = 1. / model.alpha
         Sigma1 = e_step.mean_field_Sigma1()
@@ -733,9 +733,7 @@ class TestMeanField_Split:
             prev_kl = trunc_kl_func(H,Mu1)
 
             H[:,i] = h_i_func(H, Mu1, i)
-
-            Mu1[:,i] = Mu1_i_func(H, Mu1, i)
-
+            #we don't update mu, the whole point of the split e step is we don't have to
 
             new_kl = trunc_kl_func(H,Mu1)
 
@@ -761,7 +759,9 @@ class TestMeanField_Split:
                 raise Exception('after mean field step in h, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating h_'+str(i))
 
 if __name__ == '__main__':
-    obj = TestMeanField_VHS()
+    obj = TestMeanField_Split()
 
-    #obj.test_grad_h()
+    obj.test_grad_h()
+    obj.test_grad_s()
+    obj.test_value_s()
     obj.test_value_h()

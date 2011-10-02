@@ -1597,7 +1597,7 @@ class Split_E_Step(E_step):
         self.monitor_kl = monitor_kl
         self.monitor_em_functional = monitor_em_functional
 
-        super(VHS_E_Step, self).__init__()
+        super(Split_E_Step, self).__init__()
 
     def init_mf_H(self, V):
 
@@ -1657,38 +1657,22 @@ class Split_E_Step(E_step):
 
         interaction_term = iterm_part_1 + iterm_part_2
 
-        if config.compute_test_value != 'off':
-            assert iterm_part_1.tag.test_value.shape[0] == V.tag.test_value.shape[0]
+        for i1v, Vv in get_debug_values(iterm_part_1, V):
+            assert i1v.shape[0] == Vv.shape[0]
 
         debug_interm = mean_term + data_term
-        A = debug_interm + interaction_term
-
-        V_name = make_name(V, 'anon_V')
-        H_name = make_name(H, 'anon_H')
-        Mu1_name = make_name(Mu1, 'anon_Mu1')
-
-        A.name = 'mean_field_A( %s, %s, %s ) ' % ( V_name, H_name, Mu1_name)
-
-        return A
-
-    def mean_field_Mu1(self, A):
-        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
+        numer = debug_interm + interaction_term
 
         alpha = self.model.alpha
         w = self.model.w
 
         denom = alpha + w
 
-        Mu1 =  A / denom
-
-        A_name = make_name(A, 'anon_A')
-
-        Mu1.name = 'mean_field_Mu1(%s)'%A_name
+        Mu1 =  numer / denom
 
         return Mu1
 
     def mean_field_Sigma1(self):
-        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
         """TODO: this is a bad name, since in the univariate case we would
          call this sigma^2
         I think what I was going for was covariance matrix Sigma constrained to be diagonal
@@ -1700,30 +1684,48 @@ class Split_E_Step(E_step):
 
         return rval
 
-    def mean_field_H(self, A):
-        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
+    def mean_field_H(self, V, H, Mu1, Sigma1):
 
         half = as_floatX(.5)
         alpha = self.model.alpha
         w = self.model.w
+        mu = self.model.mu
+        W = self.model.W
+        B = self.model.B
+        BW = B.dimshuffle(0,'x') * W
 
-        term1 = half * T.sqr(A) / (alpha + w)
+        HS = H * Mu1
 
-        term2 = self.model.bias_hid
+        t1f1t1 = V
 
-        term3 = - half * T.sqr(self.model.mu) * self.model.alpha
+        t1f1t2 = -T.dot(HS,W.T)
+        iterm_corrective = w * H *T.sqr(Mu1)
 
-        term4 = -half * T.log(self.model.alpha + self.model.w)
+        t1f1t3_effect = - half * w * T.sqr(Mu1)
 
-        term5 = half * T.log(self.model.alpha)
+        term_1_factor_1 = t1f1t1 + t1f1t2
 
-        arg_to_sigmoid = term1 + term2 + term3 + term4 + term5
+        term_1 = T.dot(term_1_factor_1, BW) * Mu1 + iterm_corrective + t1f1t3_effect
+
+        term_2_subterm_1 = - half * alpha * T.sqr(Mu1)
+
+        term_2_subterm_2 = alpha * Mu1 * mu
+
+        term_2_subterm_3 = - half * alpha * T.sqr(mu)
+
+        term_2 = term_2_subterm_1 + term_2_subterm_2 + term_2_subterm_3
+
+
+        term_3 = self.model.bias_hid
+
+        warnings.warn("in scratch6, I got the sign of these next two terms wrong. figure out why.")
+        term_4 = -half * T.log(alpha + self.model.w)
+        term_5 = half * T.log(alpha)
+
+
+        arg_to_sigmoid = term_1 + term_2 + term_3 + term_4 + term_5
 
         H = T.nnet.sigmoid(arg_to_sigmoid)
-
-        A_name = make_name(A, 'anon_A')
-
-        H.name = 'mean_field_H('+A_name+')'
 
         return H
 
@@ -1755,10 +1757,6 @@ class Split_E_Step(E_step):
                                 returns a dictionary containing the final
                                 mean field parameters
         """
-
-
-        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
-
 
         alpha = self.model.alpha
 
@@ -1800,16 +1798,16 @@ class Split_E_Step(E_step):
 
         for new_H_coeff, new_S_coeff in zip(self.h_new_coeff_schedule, self.s_new_coeff_schedule):
 
-            A = self.mean_field_A(V = V, H = H, Mu1 = Mu1)
-            new_Mu1 = self.mean_field_Mu1(A = A)
-            new_H = self.mean_field_H(A = A)
+            new_Mu1 = self.mean_field_Mu1(V, H, Mu1)
 
-            H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
             if self.clip_reflections:
                 clipped_Mu1 = self.reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
             else:
                 clipped_Mu1 = new_Mu1
             Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
+            new_H = self.mean_field_H(V, H, Mu1, Sigma1)
+
+            H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
 
             check_H(H,V)
 
