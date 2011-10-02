@@ -10,6 +10,7 @@ from theano.sandbox.linalg.ops import matrix_inverse
 import warnings
 from theano.printing import Print
 from theano import map
+from theano.gof.op import get_debug_values, debug_error_message
 from pylearn2.utils import make_name, sharedX, as_floatX
 from pylearn2.monitor import Monitor
 #import copy
@@ -1315,7 +1316,7 @@ class VHS_E_Step(E_step):
             from theano.gof import PureOp
             Hv = PureOp._get_test_value(H)
             if Vv.shape != (self.model.test_batch_size,self.model.nvis):
-                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(V.tag.test_value.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
+                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(Vv.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
 
             assert Vv.shape[0] == Hv.shape[0]
             assert Hv.shape[1] == self.model.nhid
@@ -1611,8 +1612,9 @@ class Split_E_Step(E_step):
             value =  T.nnet.sigmoid(self.model.bias_hid)
             rval = T.alloc(value, V.shape[0], value.shape[0])
 
-            if config.compute_test_value != 'off':
-                assert rval.tag.test_value.shape[0] == V.tag.test_value.shape[0]
+            for rval_value, V_value in get_debug_values(rval, V):
+                if rval_value.shape[0] != V_value.shape[0]:
+                    debug_error_message("rval.shape = %s, V.shape = %s, element 0 should match but doesn't", str(rval_value.shape), str(V_value.shape))
 
         return rval
 
@@ -1622,22 +1624,15 @@ class Split_E_Step(E_step):
         else:
             #just use the prior
             value = self.model.mu
-            if config.compute_test_value != 'off':
-                assert value.tag.test_value != None
             rval = T.alloc(value, V.shape[0], value.shape[0])
 
         return rval
 
-    def mean_field_A(self, V, H, Mu1):
+    def mean_field_Mu1(self, V, H, Mu1):
 
-        raise NotImplementedError("This hasn't been updated for the Split_E_Step yet.")
-
-        if config.compute_test_value != 'off':
-            Vv = V.tag.test_value
-            from theano.gof import PureOp
-            Hv = PureOp._get_test_value(H)
+        for Vv, Hv in get_debug_values(V, H):
             if Vv.shape != (self.model.test_batch_size,self.model.nvis):
-                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(V.tag.test_value.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
+                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(Vv.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
 
             assert Vv.shape[0] == Hv.shape[0]
             assert Hv.shape[1] == self.model.nhid
