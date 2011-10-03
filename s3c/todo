@@ -1,3 +1,5 @@
+difference between datasets-- could it be due to using float64 on gryphon and float32 in the lab?
+
 some files, at least for gradient descent, show alpha increasing forever, and since the other parameters seem converged, this seems to be the only thing making the likelihood go down. should we do something about this?
 
 extract features for random_patches_learned_prior, and for stl/C
