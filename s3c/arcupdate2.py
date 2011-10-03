@@ -1,9 +1,9 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-theta = np.pi / 3.
+theta = np.arange(0.,np.pi/2.,.01)
 
-alpha = np.arange(0.,1.,0.01)
+alpha = .1
 
 o_theta = alpha * theta
 
