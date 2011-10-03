@@ -40,7 +40,8 @@ can all be solved by inverting the same matrix. it is one problem with D targets
 constraints.
 
 
-Aaron says Daphne's book (sec. 11.5.2.2) talks about sequential versus parallel mean field updates
+Daphne's book (sec. 11.5.2.2) talks about sequential versus parallel mean field updates, basically
+says it's OK in practice to use parallel
 
 
 there's a problem where if alpha gets too large, mu quits learning, because everything is divided 
