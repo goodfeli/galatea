@@ -49,6 +49,7 @@ map_hs: h*s, computed from joint MAP estimation under q
 
     print 'loading model'
     model = serial.load(model_path)
+    model.set_dtype('float32')
 
     stl10 = False
     cifar10 = False
@@ -176,11 +177,21 @@ map_hs: h*s, computed from joint MAP estimation under q
                 activation = activation)
 
 
+    if feature_type == 'exp_h':
+        print 'features are not rescaled; showing expectation of h without adjustment'
+        topo_feat *= 2.
+        topo_feat -= 1.
+    else:
+        print "features are contrast normalized so that each column uses 0.5 grey " \
+                "for 0 and its maximal absolute value is at the edge of the dynamic range"
+        for i in xrange(filter_start, filter_start + num_filters):
+            topo_feat[:,:,:,idx[i]] /= np.abs(topo_feat[:,:,:,idx[i]]).max()
+
     for i in xrange(X.shape[0]):
         #indices of channels sorted in order of descending standard deviation on this example
         #plot the k most interesting channels
         for j in xrange(filter_start, filter_start+num_filters):
-            pv3.add_patch(topo_feat[i,:,:,idx[j]], rescale = True, activation = 0.)
+            pv3.add_patch(topo_feat[i,:,:,idx[j]], rescale = False, activation = 0.)
 
     pv1.show()
     pv3.show()
