@@ -20,6 +20,37 @@ warnings.warn('s3c changing the recursion limit')
 import sys
 sys.setrecursionlimit(50000)
 
+def rotate_towards(old_W, new_W, new_coeff):
+    """
+        old_W: every column is a unit vector
+
+        for each column, rotates old_w toward
+            new_w by new_coeff * theta where
+            theta is the angle between them
+    """
+
+    norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
+
+    #update, scaled back onto unit sphere
+    scal_points = new_W / norms.dimshuffle('x',0)
+
+    #dot product between scaled update and current W
+    dot_update = (old_W * scal_points).sum(axis=0)
+
+    theta = T.arccos(dot_update)
+
+    rot_amt = new_coeff * theta
+
+    new_basis_dir = scal_points - dot_update * old_W
+
+    new_basis_norms = T.sqrt(1e-8+T.sqr(new_basis_dir).sum(axis=0))
+
+    new_basis = new_basis_dir / new_basis_norms
+
+    rval = T.cos(rot_amt) * old_W + T.sin(rot_amt) * new_basis
+
+    return rval
+
 def full_min(var):
     return var.min(axis=range(0,len(var.type.broadcastable)))
 
@@ -1864,8 +1895,9 @@ class VHS_M_Step(M_Step):
 
 class VHS_Solve_M_Step(VHS_M_Step):
 
-    def __init__(self, new_coeff):
+    def __init__(self, new_coeff, geodesic_updates = False):
         self.new_coeff = np.cast[config.floatX](float(new_coeff))
+        self.geodesic_updates = geodesic_updates
 
     def needed_stats(self):
         return set([ 'second_hs',
@@ -1877,6 +1909,34 @@ class VHS_Solve_M_Step(VHS_M_Step):
                  'mean_hs',
                  'mean_h'
                 ])
+
+
+    def mangle(self, model, new_W):
+        """  do any censorship / norm adjustment to a raw W update
+            required by the M-step or the model
+
+            model may map update to unit norm
+            M-step may step toward the update along a geodesic
+        """
+
+        one = as_floatX(1.)
+        new_coeff = as_floatX(self.new_coeff)
+
+        if self.geodesic_updates:
+            assert model.constrain_W_norm
+
+            new_W = rotate_towards(model.W, new_W, new_coeff)
+        else:
+            if model.constrain_W_norm:
+                norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
+                new_W = new_W / norms.dimshuffle('x',0)
+            new_W = new_coeff * new_W + (one - new_coeff) * model.W
+        dummy = { model.W :  new_W }
+        model.censor_updates(dummy)
+        if model.W in dummy:
+            new_W = dummy[model.W]
+        else:
+            new_W = model.W
 
     def get_updates(self, model, stats):
         """ Solves for the optimal model parameters given stats.
@@ -1929,19 +1989,13 @@ class VHS_Solve_M_Step(VHS_M_Step):
         new_W = inv_prod.T
         assert new_W.dtype == config.floatX
 
-        #handle all step-size mangling on W   BEFORE COMPUTING B
-        if model.constrain_W_norm:
+        if model.monitor_norms:
             norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
-            if model.monitor_norms:
-                learning_updates[model.debug_norms] = norms
-            new_W = new_W / norms.dimshuffle('x',0)
-        new_W = new_coeff * new_W + (one - new_coeff) * model.W
-        dummy = { model.W :  new_W }
-        model.censor_updates(dummy)
-        if model.W in dummy:
-            new_W = dummy[model.W]
-        else:
-            new_W = model.W
+            learning_updates[model.debug_norms] = norms
+
+        #handle all step-size mangling on W   BEFORE COMPUTING B
+        new_W = self.mangle(model, new_W)
+
 
         #Solve for B by setting gradient of log likelihood to 0
         mean_sq_v = stats.d['mean_sq_v']
