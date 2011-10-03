@@ -503,6 +503,12 @@ class S3C(Model):
                         assert len(mx.type.broadcastable) == 0
                         rval[param+'_max'] = mx
 
+                        if param == 'mu':
+                            abs_mu = abs(self.mu)
+                            rval['mu_abs_min'] = full_min(abs_mu)
+                            rval['mu_abs_mean'] = T.mean(abs_mu)
+                            rval['mu_abs_max'] = full_max(abs_mu)
+
                         if param == 'W':
                             norms = T.sqrt(1e-8+T.sqr(self.W).sum(axis=0))
                             rval['W_norm_min'] = full_min(norms)
