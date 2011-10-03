@@ -20,6 +20,41 @@ warnings.warn('s3c changing the recursion limit')
 import sys
 sys.setrecursionlimit(50000)
 
+
+def numpy_norm_clip(W, norm_min, norm_max):
+    assert hasattr(W, '__array__')
+
+    norms = np.sqrt(1e-8+np.square(W).sum(axis=0))
+
+    scale = np.ones(norms.shape, norms.dtype)
+
+    scale[norms < norm_min] = norm_min / norms[norms < norm_min ]
+
+    scale[norms > norm_max] = norm_max / norms[norms > norm_max ]
+
+    rval = W * scale
+
+    return rval
+
+def theano_norm_clip(W, norm_min, norm_max):
+    norms = T.sqrt(as_floatX(1e-8) + T.sqr(W).sum(axis=0))
+
+    no_scale = T.ones_like(norms)
+
+    scale_up = norm_min / norms
+    scale_up_mask = norms < norm_min
+
+    scale_down = norm_max / norms
+    scale_down_mask = norms > norm_max
+
+    scale = no_scale * (no_scale + scale_up_mask * scale_up + scale_down_mask * scale_down)
+
+    rval = W * scale
+
+    assert rval.dtype == W.dtype
+
+    return rval
+
 def rotate_towards(old_W, new_W, new_coeff):
     """
         old_W: every column is a unit vector
@@ -293,6 +328,8 @@ class S3C(Model):
                        seed = None,
                        disable_W_update = False,
                        constrain_W_norm = False,
+                       clip_W_norm_min = None,
+                       clip_W_norm_max = None,
                        monitor_norms = False,
                        random_patches_hack = False,
                        init_unit_W = False,
@@ -355,7 +392,17 @@ class S3C(Model):
 
         self.print_interval = print_interval
 
+        assert (clip_W_norm_min is None) == (clip_W_norm_max is None)
+        assert not ((clip_W_norm_min is not None) and constrain_W_norm)
+
         self.constrain_W_norm = constrain_W_norm
+
+        self.clip_W_norm_min = clip_W_norm_min
+        self.clip_W_norm_max = clip_W_norm_max
+
+        if self.clip_W_norm_min is not None:
+            self.clip_W_norm_min = as_floatX(self.clip_W_norm_min)
+            self.clip_W_norm_max = as_floatX(self.clip_W_norm_max)
 
         self.monitor_norms = monitor_norms
         self.disable_W_update = disable_W_update
@@ -427,6 +474,8 @@ class S3C(Model):
         if self.constrain_W_norm or self.init_unit_W:
             norms = np.sqrt(1e-8+np.square(W).sum(axis=0))
             W /= norms
+        if self.clip_W_norm_min is not None:
+            W = numpy_norm_clip(W, self.clip_W_norm_min, self.clip_W_norm_max)
 
         self.W = sharedX(W, name = 'W')
         self.bias_hid = sharedX(np.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
@@ -871,6 +920,8 @@ class S3C(Model):
             elif self.constrain_W_norm:
                 norms = T.sqrt(1e-8+T.sqr(updates[self.W]).sum(axis=0))
                 updates[self.W] /= norms.dimshuffle('x',0)
+            elif self.clip_W_norm_min is not None:
+                updates[self.W] = theano_norm_clip(updates[self.W], self.clip_W_norm_min, self.clip_W_norm_max)
 
         if should_censor(self.alpha):
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)
@@ -1930,6 +1981,8 @@ class VHS_Solve_M_Step(VHS_M_Step):
             if model.constrain_W_norm:
                 norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
                 new_W = new_W / norms.dimshuffle('x',0)
+            elif model.clip_W_norm_min is not None:
+                new_W = theano_norm_clip(new_W, model.clip_W_norm_min, model.clip_W_norm_max)
             new_W = new_coeff * new_W + (one - new_coeff) * model.W
         dummy = { model.W :  new_W }
         model.censor_updates(dummy)
@@ -1937,6 +1990,8 @@ class VHS_Solve_M_Step(VHS_M_Step):
             new_W = dummy[model.W]
         else:
             new_W = model.W
+
+        return new_W
 
     def get_updates(self, model, stats):
         """ Solves for the optimal model parameters given stats.
