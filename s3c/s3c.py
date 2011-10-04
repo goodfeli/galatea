@@ -20,11 +20,17 @@ warnings.warn('s3c changing the recursion limit')
 import sys
 sys.setrecursionlimit(50000)
 
+def numpy_norms(W):
+    return np.sqrt(1e-8+np.square(W).sum(axis=0))
+
+def theano_norms(W):
+    return T.sqrt(as_floatX(1e-8)+T.sqr(W).sum(axis=0))
+
 
 def numpy_norm_clip(W, norm_min, norm_max):
     assert hasattr(W, '__array__')
 
-    norms = np.sqrt(1e-8+np.square(W).sum(axis=0))
+    norms = numpy_norms(W)
 
     scale = np.ones(norms.shape, norms.dtype)
 
@@ -37,12 +43,10 @@ def numpy_norm_clip(W, norm_min, norm_max):
     return rval
 
 def theano_norm_clip(W, norm_min, norm_max, norm_print_name = None):
-    norms = T.sqrt(as_floatX(1e-8) + T.sqr(W).sum(axis=0))
+    norms = theano_norms(W)
 
     if norm_print_name is not None:
         norms = Print(norm_print_name, attrs=['min','mean','max'])(norms)
-
-    no_scale = T.ones_like(norms)
 
     scale_up = norm_min / norms
     scale_up_mask = norms < norm_min
@@ -50,7 +54,9 @@ def theano_norm_clip(W, norm_min, norm_max, norm_print_name = None):
     scale_down = norm_max / norms
     scale_down_mask = norms > norm_max
 
-    scale = no_scale * (no_scale + scale_up_mask * scale_up + scale_down_mask * scale_down)
+    scale = scale_up_mask * scale_up + scale_down_mask * scale_down + \
+            (T.ones_like(norms)-scale_down_mask-scale_up_mask)
+
 
     rval = W * scale
 
@@ -67,7 +73,7 @@ def rotate_towards(old_W, new_W, new_coeff):
             theta is the angle between them
     """
 
-    norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
+    norms = theano_norms(new_W)
 
     #update, scaled back onto unit sphere
     scal_points = new_W / norms.dimshuffle('x',0)
@@ -81,7 +87,7 @@ def rotate_towards(old_W, new_W, new_coeff):
 
     new_basis_dir = scal_points - dot_update * old_W
 
-    new_basis_norms = T.sqrt(1e-8+T.sqr(new_basis_dir).sum(axis=0))
+    new_basis_norms = theano_norms(new_basis_dir)
 
     new_basis = new_basis_dir / new_basis_norms
 
@@ -475,7 +481,7 @@ class S3C(Model):
         W = self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid))
 
         if self.constrain_W_norm or self.init_unit_W:
-            norms = np.sqrt(1e-8+np.square(W).sum(axis=0))
+            norms = numpy_norms(W)
             W /= norms
         if self.clip_W_norm_min is not None:
             W = numpy_norm_clip(W, self.clip_W_norm_min, self.clip_W_norm_max)
@@ -593,7 +599,7 @@ class S3C(Model):
                             rval['mu_abs_max'] = full_max(abs_mu)
 
                         if param == 'W':
-                            norms = T.sqrt(1e-8+T.sqr(self.W).sum(axis=0))
+                            norms = theano_norms(self.W)
                             rval['W_norm_min'] = full_min(norms)
                             rval['W_norm_mean'] = T.mean(norms)
                             rval['W_norm_max'] = T.max(norms)
@@ -767,15 +773,11 @@ class S3C(Model):
         #note: can't do 1e-8, 1.-1e-8 rounds to 1.0 in float32
         H = T.clip(H, 1e-7, 1.-1e-7)
 
-        #H = Print('entropy_h',attrs=['min','max'])(H)
 
         logH = T.log(H)
 
-        #logH = Print('logH',attrs=['min','max'])(logH)
 
         logOneMinusH = T.log(1.-H)
-
-        #logOneMinusH = Print('logOneMinusH',attrs=['min','max'])(logOneMinusH)
 
         term1 = - T.sum( H * logH , axis=1)
         assert len(term1.type.broadcastable) == 1
@@ -921,7 +923,7 @@ class S3C(Model):
             if self.disable_W_update:
                 del updates[self.W]
             elif self.constrain_W_norm:
-                norms = T.sqrt(1e-8+T.sqr(updates[self.W]).sum(axis=0))
+                norms = theano_norms(updates[self.W])
                 updates[self.W] /= norms.dimshuffle('x',0)
             elif self.clip_W_norm_min is not None:
                 updates[self.W] = theano_norm_clip(updates[self.W], self.clip_W_norm_min, self.clip_W_norm_max)
@@ -986,11 +988,8 @@ class S3C(Model):
     def expected_log_prob_vhs(self, stats):
 
         expected_log_prob_v_given_hs = self.expected_log_prob_v_given_hs(stats)
-        #log_likelihood_v_given_hs = Print('log_likelihood_v_given_hs')(log_likelihood_v_given_hs)
         log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
-        #log_likelihood_s_given_h = Print('log_likelihood_s_given_h')(log_likelihood_s_given_h)
         log_likelihood_h          = self.log_likelihood_h(stats)
-        #log_likelihood_h = Print('log_likelihood_h')(log_likelihood_h)
 
         rval = expected_log_prob_v_given_hs + log_likelihood_s_given_h + log_likelihood_h
 
@@ -1187,7 +1186,7 @@ class S3C(Model):
     def learn(self, dataset, batch_size):
         if self.random_patches_hack and self.monitor.examples_seen == 0:
             W = dataset.get_batch_design(self.nhid)
-            norms = np.sqrt(np.square(W).sum(axis=1))
+            norms = numpy_norms(W)
             W = W.T
             W /= norms
             if W.shape != self.W.get_value(borrow=True).shape:
@@ -1229,6 +1228,11 @@ class S3C(Model):
             W = self.W.get_value(borrow=True)
             assert not np.any(np.isnan(W))
             print 'W: ',(W.min(),W.mean(),W.max())
+            norms = numpy_norms(W)
+            print 'W norms:',(norms.min(),norms.mean(),norms.max())
+            if self.clip_W_norm_min is not None:
+                assert norms.min() >= .999 * self.clip_W_norm_min
+                assert norms.max() <= 1.001 * self.clip_W_norm_max
 
         if self.debug_m_step:
             if self.em_functional_diff.get_value() < 0.0:
@@ -1982,7 +1986,7 @@ class VHS_Solve_M_Step(VHS_M_Step):
             new_W = rotate_towards(model.W, new_W, new_coeff)
         else:
             if model.constrain_W_norm:
-                norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
+                norms = theano_norms(new_W)
                 new_W = new_W / norms.dimshuffle('x',0)
             elif model.clip_W_norm_min is not None:
                 new_W = theano_norm_clip(new_W, model.clip_W_norm_min, model.clip_W_norm_max)
@@ -2048,7 +2052,7 @@ class VHS_Solve_M_Step(VHS_M_Step):
         assert new_W.dtype == config.floatX
 
         if model.monitor_norms:
-            norms = T.sqrt(1e-8+T.sqr(new_W).sum(axis=0))
+            norms = theano_norms(new_W)
             learning_updates[model.debug_norms] = norms
 
         #handle all step-size mangling on W   BEFORE COMPUTING B
@@ -2201,10 +2205,6 @@ class VHS_Grad_M_Step(VHS_M_Step):
                 pparam = param
 
                 inc = learning_rate * grad
-
-                #if param is model.B_driver:
-                    #pparam = Print('B')(pparam)
-                    #inc = Print('B_inc')(inc)
 
                 updated_param = pparam + inc
 
