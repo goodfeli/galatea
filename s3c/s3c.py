@@ -36,8 +36,11 @@ def numpy_norm_clip(W, norm_min, norm_max):
 
     return rval
 
-def theano_norm_clip(W, norm_min, norm_max):
+def theano_norm_clip(W, norm_min, norm_max, norm_print_name = None):
     norms = T.sqrt(as_floatX(1e-8) + T.sqr(W).sum(axis=0))
+
+    if norm_print_name is not None:
+        norms = Print(norm_print_name, attrs=['min','mean','max'])(norms)
 
     no_scale = T.ones_like(norms)
 
