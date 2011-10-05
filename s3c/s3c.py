@@ -1198,8 +1198,8 @@ class S3C(Model):
     def learn(self, dataset, batch_size):
         if self.random_patches_hack and self.monitor.examples_seen == 0:
             W = dataset.get_batch_design(self.nhid)
-            norms = numpy_norms(W)
             W = W.T
+            norms = numpy_norms(W)
             W /= norms
             if W.shape != self.W.get_value(borrow=True).shape:
                 raise ValueError('W has shape '+str(W.shape)+' but should have '+str(self.W.get_value(borrow=True).shape))
@@ -1747,6 +1747,11 @@ class Split_E_Step(E_step):
         return rval
 
     def mean_field_Mu1(self, V, H, Mu1):
+
+
+        #patch files made before rho field
+        if not hasattr(self,'rho'):
+            self.rho = as_floatX(0.5)
 
         for Vv, Hv in get_debug_values(V, H):
             if Vv.shape != (self.model.test_batch_size,self.model.nvis):
