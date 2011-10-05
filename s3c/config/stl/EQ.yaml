@@ -26,8 +26,8 @@
                "e_step" : !obj:galatea.s3c.s3c.Split_E_Step {
                         "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .1, .1, .2, .2, .2, .3, .3, .3, .4, .4, .4, .4, .4 ],
                         "s_new_coeff_schedule" : [  .7, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1 ],
-                        "clip_reflections" : 1,
-                        "monitor_em_functional" : 1
+                        "clip_reflections" : 1
+                        #"monitor_em_functional" : 1
                },
                "new_stat_coeff" : 1.,
                #"learn_after" : 1000,
