@@ -4,12 +4,11 @@ difference between datasets-- could it be due to using float64 on gryphon and fl
 
 some files, at least for gradient descent, show alpha increasing forever, and since the other parameters seem converged, this seems to be the only thing making the likelihood go down. should we do something about this?
 
-extract features for random_patches_learned_prior, and for stl/C
+I1 versus I-- geodesic updating helped in terms of energy functional, especially early in learning. probably worth running feature extraction for I1. definitely worth trying geodesic on other models. I0, testing effect of not clipping reflections, is doign well too though. probably best thing to do is see if I0 ends up doing well. if it does, try running a new model with geodesic updates and no clipping, then run that on classification. if it doesn't beat I, then backtrack and try I0 and I1 to see if either update individually can beat I.
 
 lots of results have good reconstructions, so maybe not having enough sparsity?
 
-run feature extraction and classification for cifar A5M
-run feature extraction and classification for a high likelihood gradient descent-based model, even though the filters are ugly
+run feature extraction and classification for a high likelihood gradient descent-based model, even though the filters are ugly. a good candidate is config/stl/A5M2C1DF.pkl . might also be a good idea to re-run this with split e step
 
 letterbox free version of stl-10 and run it on D
 get it working on other datasets
@@ -25,14 +24,14 @@ make something that shows activation boxes around the filters plotting p versus 
 maybe try training by initializing with random patches
 experiment with keeping old sufficient statistics around on the solve M step
 
-a lot of my current experiments are using only 1000 examples per batch to train 1600 examples. try using
-    a larger batch size and see if that fixes things
-    	-> STL A5 training on barney
-
-if we freeze all but one parameter, we see that only W has the property of EM functional going up then tanking. resolve whether this is due to increased correlation in W making the E step fail, due to the M step normalization decreasing the EM functional, or some other problem.
+make code for accumulating on several batches and then doing M step. large batch sizes seem very helpful and we'll need this if we want to do 6000 units anyway
 	
 benchmark the uses of scan. it seems like the runtime is not deterministic in some cases, ie sometimes I ran it and got a runtime of 30s/epoch and other times ran it and got 80s/epoch. maybe theano optimizations are chosen randomly and it gets dramatically different runtimes depending on which it chooses?
 
 
 mystery of prior staying flat when some params are frozen: if mu is fixed to 0, weights have no effect on prior
 slowdown bug. note: extracting stl A5M slowed down over time on sencha and oolong but not on bart7
+
+ideas that may need to be updated given the invention of split E step:
+extract features for random_patches_learned_prior, and for stl/C
+run feature extraction and classification for cifar A5M
