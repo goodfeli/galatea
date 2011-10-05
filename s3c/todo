@@ -1,5 +1,3 @@
-in stl/G1, why do monitored norms not match monitored post-solve norms?
-
 try out geodesic updates, haven't actually used them yet
 
 difference between datasets-- could it be due to using float64 on gryphon and float32 in the lab?

@@ -369,9 +369,20 @@ class S3C(Model):
                         introduced to prevent explosion in gradient descent.
         tied_B:         if True, use a scalar times identity for the precision on visible units.
                         otherwise use a diagonal matrix for the precision on visible units
+        constrain_W_norm: if true, norm of each column of W must be 1 at all times
+        init_unit_W:      if true, each column of W is initialized to have unit norm
+        clip_W_norm_min: if not None, then the norms of W will be clipped to lie between this
+                            value and clip_W_norm_max. This flag should not be used in conjunction
+                            wtih constrain_W_norm, which forces W to lie on the unit sphere.
         monitor_stats:  a list of sufficient statistics to monitor on the monitoring dataset
         monitor_params: a list of parameters to monitor TODO: push this into Model base class
         monitor_functional: if true, monitors the EM functional on the monitoring dataset
+        monitor_norms: if true, monitors the norm of W at the end of each solve step, but before
+                        blending with old W by new_coeff
+                        This lets us see how much distortion is introduced by norm clipping
+                        Note that unless new_coeff = 1, the post-solve norm monitored by this
+                        flag will not be equal to the norm of the final parameter value, even
+                        if no norm clipping is activated.
         recycle_q: if nonzero, initializes the e-step with the output of the previous iteration's
                     e-step. obviously this should only be used if you are using the same data
                     in each batch. when recycle_q is nonzero, it should be set to the batch size.
