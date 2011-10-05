@@ -353,6 +353,7 @@ class S3C(Model):
         init_alpha: initial value of alpha (scalar or vector)
         min_alpha, max_alpha: (scalar) learning updates to alpha are clipped to [min_alpha, max_alpha]
         init_mu: initial value of mu (scalar or vector)
+        min_mu/max_mu: clip mu updates to this range.
         new_stat_coeff: Exponential decay steps on a variable eta take the form
                         eta:=  new_stat_coeff * new_observation + (1-new_stat_coeff) * eta
         e_step:      An E_Step object that determines what kind of E-step to do

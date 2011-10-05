@@ -22,6 +22,7 @@ for key in monitor.channels:
 
 vals = np.zeros(len(em_functional_channels.keys()))
 
+
 for key in em_functional_channels:
     pieces = key.split('_')
     assert len(pieces) == 3
@@ -30,6 +31,10 @@ for key in em_functional_channels:
     val = em_functional_channels[key].val_record[tidx]
 
     vals[idx] = val
+
+if len(vals) == 0:
+    print 'this model did not use monitoring of the em functional across the e step'
+    quit(-1)
 
 from matplotlib import pyplot as plt
 
