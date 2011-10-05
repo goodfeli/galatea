@@ -353,6 +353,7 @@ class S3C(Model):
         init_alpha: initial value of alpha (scalar or vector)
         min_alpha, max_alpha: (scalar) learning updates to alpha are clipped to [min_alpha, max_alpha]
         init_mu: initial value of mu (scalar or vector)
+        min_mu/max_mu: clip mu updates to this range.
         new_stat_coeff: Exponential decay steps on a variable eta take the form
                         eta:=  new_stat_coeff * new_observation + (1-new_stat_coeff) * eta
         e_step:      An E_Step object that determines what kind of E-step to do
@@ -1285,8 +1286,7 @@ class E_step(object):
 
         return KL
 
-def reflection_clip(Mu1, new_Mu1, rho = 0.5):
-    ceiling = 1000.
+def reflection_clip(Mu1, new_Mu1, rho = 0.5, ceiling = 1000.):
 
     positives = Mu1 > 0
     non_positives = 1. - positives
@@ -1675,7 +1675,12 @@ class Split_E_Step(E_step):
         return rval
 
 
-    def __init__(self, h_new_coeff_schedule, s_new_coeff_schedule = None, clip_reflections = False, monitor_kl = False, monitor_em_functional = False):
+    def __init__(self, h_new_coeff_schedule,
+                       s_new_coeff_schedule = None,
+                       clip_reflections = False,
+                       monitor_kl = False,
+                       monitor_em_functional = False,
+                       rho = 0.5):
         """Parameters
         --------------
         h_new_coeff_schedule:
@@ -1687,8 +1692,10 @@ class Split_E_Step(E_step):
                 These are applied AFTER the reflection clipping, which can be seen as a form of
                 per-unit damping
                 s_new_coeff_schedule must have same length as h_new_coeff_schedule
-                if now s_new_coeff_schedule is not provided, it will be filled in with all ones,
+                if s_new_coeff_schedule is not provided, it will be filled in with all ones,
                     i.e. it will default to no damping beyond the reflection clipping
+        clip_reflections, rho : if clip_reflections is true, the update to Mu1[i,j] is
+            bounded on one side by - rho * Mu1[i,j] and unbounded on the other side
         """
 
         if s_new_coeff_schedule is None:
@@ -1702,6 +1709,8 @@ class Split_E_Step(E_step):
         self.h_new_coeff_schedule = h_new_coeff_schedule
         self.monitor_kl = monitor_kl
         self.monitor_em_functional = monitor_em_functional
+
+        self.rho = as_floatX(rho)
 
         super(Split_E_Step, self).__init__()
 
@@ -1895,7 +1904,7 @@ class Split_E_Step(E_step):
             new_Mu1 = self.mean_field_Mu1(V, H, Mu1)
 
             if self.clip_reflections:
-                clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
+                clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1, rho = self.rho)
             else:
                 clipped_Mu1 = new_Mu1
             Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
