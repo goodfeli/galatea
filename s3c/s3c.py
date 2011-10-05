@@ -1197,8 +1197,8 @@ class S3C(Model):
     def learn(self, dataset, batch_size):
         if self.random_patches_hack and self.monitor.examples_seen == 0:
             W = dataset.get_batch_design(self.nhid)
-            norms = numpy_norms(W)
             W = W.T
+            norms = numpy_norms(W)
             W /= norms
             if W.shape != self.W.get_value(borrow=True).shape:
                 raise ValueError('W has shape '+str(W.shape)+' but should have '+str(self.W.get_value(borrow=True).shape))
