@@ -1,10 +1,9 @@
-try out geodesic updates, haven't actually used them yet
-
 difference between datasets-- could it be due to using float64 on gryphon and float32 in the lab?
 
-some files, at least for gradient descent, show alpha increasing forever, and since the other parameters seem converged, this seems to be the only thing making the likelihood go down. should we do something about this?
+I1 versus I-- geodesic updating helped in terms of energy functional, especially early in learning. probably worth running feature extraction for I1. definitely worth trying geodesic on other models. 
 
-I1 versus I-- geodesic updating helped in terms of energy functional, especially early in learning. probably worth running feature extraction for I1. definitely worth trying geodesic on other models. I0, testing effect of not clipping reflections, is doign well too though. probably best thing to do is see if I0 ends up doing well. if it does, try running a new model with geodesic updates and no clipping, then run that on classification. if it doesn't beat I, then backtrack and try I0 and I1 to see if either update individually can beat I.
+
+IO versus I: this tested the effect of not clipping reflections. from I0B it looks like this still becomes unstable, though the other I0s demonstrated that you can mask the instability with a large batch size. this seems to indicate that it's worth playing with values of rho
 
 lots of results have good reconstructions, so maybe not having enough sparsity?
 
@@ -19,6 +18,7 @@ gradient based learning is not producing good filters. figure out why.
 	gradient based learning does NOT drive W to zero... at least not all W
 	one thing worth experimenting with is keeping old sufficient statistics around
 	another is initializing W small
+
 figure out if there's a faster way to calculate the M step gradient based on Aaron's idea
 make something that shows activation boxes around the filters plotting p versus mean_h
 maybe try training by initializing with random patches
@@ -28,8 +28,10 @@ make code for accumulating on several batches and then doing M step. large batch
 	
 benchmark the uses of scan. it seems like the runtime is not deterministic in some cases, ie sometimes I ran it and got a runtime of 30s/epoch and other times ran it and got 80s/epoch. maybe theano optimizations are chosen randomly and it gets dramatically different runtimes depending on which it chooses?
 
+some files, at least for gradient descent, show alpha increasing forever, and since the other parameters seem converged, this seems to be the only thing making the likelihood go down. should we do something about this?
 
-mystery of prior staying flat when some params are frozen: if mu is fixed to 0, weights have no effect on prior
+why does fixing mu to 0 make the first step of mean field stay flat throughout learning? I understand this means the mean of s is always 0 but there is still variance on s even in the mean field distribution and the weights should be able to affect the likelihood of the input by steering that variance
+
 slowdown bug. note: extracting stl A5M slowed down over time on sencha and oolong but not on bart7
 
 ideas that may need to be updated given the invention of split E step:
