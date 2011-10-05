@@ -1274,6 +1274,18 @@ class E_step(object):
 
         return KL
 
+def reflection_clip(Mu1, new_Mu1, rho = 0.5):
+    ceiling = 1000.
+
+    positives = Mu1 > 0
+    non_positives = 1. - positives
+    negatives = Mu1 < 0
+    non_negatives = 1. - negatives
+
+    rval = T.clip(new_Mu1, - rho * positives * Mu1 - non_positives * ceiling, non_negatives * ceiling - rho * negatives * Mu1 )
+
+    return rval
+
 #TODO: refactor this to be Damped_E_Step
 class VHS_E_Step(E_step):
     """ A variational E_step that works by running damped fixed point
@@ -1506,18 +1518,6 @@ class VHS_E_Step(E_step):
     def damp(self, old, new, new_coeff):
         return new_coeff * new + (1. - new_coeff) * old
 
-    def reflection_clip(self, Mu1, new_Mu1):
-        rho = 0.5
-        ceiling = 1000.
-
-        positives = Mu1 > 0
-        non_positives = 1. - positives
-        negatives = Mu1 < 0
-        non_negatives = 1. - negatives
-
-        rval = T.clip(new_Mu1, - rho * positives * Mu1 - non_positives * ceiling, non_negatives * ceiling - rho * negatives * Mu1 )
-
-        return rval
 
     def mean_field(self, V, return_history = False):
         """
@@ -1578,7 +1578,7 @@ class VHS_E_Step(E_step):
 
             H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
             if self.clip_reflections:
-                clipped_Mu1 = self.reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
+                clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
             else:
                 clipped_Mu1 = new_Mu1
             Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
@@ -1827,18 +1827,6 @@ class Split_E_Step(E_step):
     def damp(self, old, new, new_coeff):
         return new_coeff * new + (1. - new_coeff) * old
 
-    def reflection_clip(self, Mu1, new_Mu1):
-        rho = 0.5
-        ceiling = 1000.
-
-        positives = Mu1 > 0
-        non_positives = 1. - positives
-        negatives = Mu1 < 0
-        non_negatives = 1. - negatives
-
-        rval = T.clip(new_Mu1, - rho * positives * Mu1 - non_positives * ceiling, non_negatives * ceiling - rho * negatives * Mu1 )
-
-        return rval
 
     def mean_field(self, V, return_history = False):
         """
@@ -1896,7 +1884,7 @@ class Split_E_Step(E_step):
             new_Mu1 = self.mean_field_Mu1(V, H, Mu1)
 
             if self.clip_reflections:
-                clipped_Mu1 = self.reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
+                clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
             else:
                 clipped_Mu1 = new_Mu1
             Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
