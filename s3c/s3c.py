@@ -1745,6 +1745,11 @@ class Split_E_Step(E_step):
 
     def mean_field_Mu1(self, V, H, Mu1):
 
+
+        #patch files made before rho field
+        if not hasattr(self,'rho'):
+            self.rho = as_floatX(0.5)
+
         for Vv, Hv in get_debug_values(V, H):
             if Vv.shape != (self.model.test_batch_size,self.model.nvis):
                 raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(Vv.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
