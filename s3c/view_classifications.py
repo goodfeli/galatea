@@ -23,12 +23,15 @@ def main(model_path,
 
     size = 100
     for start in xrange(0,X.shape[0]-size,size):
-        raw_X = raw_dataset.X[start:start+size,:]
-        pv = make_viewer(raw_X / 127.5, rescale = False, is_color = True)
-        pv.show()
-
         y = raw_dataset.y[start:start+size]
         pred_y = model.predict(X[start:start+size,:])
+
+        wrong_mask = y != pred_y
+
+        raw_X = raw_dataset.X[start:start+size,:]
+        pv = make_viewer(raw_X / 127.5, rescale = False, is_color = True, activation = wrong_mask )
+        pv.show()
+
         right = 0
         for i in xrange(y.shape[0]):
             if y[i] == pred_y[i]:
