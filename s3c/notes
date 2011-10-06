@@ -1,3 +1,6 @@
+one thing to hammer in the paper is that we're using "natural encoding"-- be sure to check which of Adam's results used the same lambda for learning and encoding
+
+
 suppose that on average k units are active, and that each unit has the same probability of activation.
 working from the pmf of the binomial distribution, this means that each units has probabilty
 p=k/n_h
