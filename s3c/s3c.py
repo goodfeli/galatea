@@ -1286,7 +1286,10 @@ class E_step(object):
 
         return KL
 
-def reflection_clip(Mu1, new_Mu1, rho = 0.5, ceiling = 1000.):
+
+def reflection_clip(Mu1, new_Mu1, rho = 0.5):
+
+    ceiling = full_max(abs(new_Mu1))
 
     positives = Mu1 > 0
     non_positives = 1. - positives
