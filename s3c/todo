@@ -1,13 +1,9 @@
 difference between datasets-- could it be due to using float64 on gryphon and float32 in the lab?
 
-I1 versus I-- geodesic updating helped in terms of energy functional, especially early in learning. probably worth running feature extraction for I1. definitely worth trying geodesic on other models. 
-
-
-IO versus I: this tested the effect of not clipping reflections. from I0B it looks like this still becomes unstable, though the other I0s demonstrated that you can mask the instability with a large batch size. this seems to indicate that it's worth playing with values of rho
+I1 versus I-- geodesic updating didn't change a lot
+I1A and IAB versus I1-- playing with rho didn't change a lot; maybe this would have an effect if using fewer E step iterations though
 
 lots of results have good reconstructions, so maybe not having enough sparsity?
-
-run feature extraction and classification for a high likelihood gradient descent-based model, even though the filters are ugly. a good candidate is config/stl/A5M2C1DF.pkl . might also be a good idea to re-run this with split e step
 
 letterbox free version of stl-10 and run it on D
 get it working on other datasets

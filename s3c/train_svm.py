@@ -181,7 +181,7 @@ if __name__ == '__main__':
     parser.add_option("--one-against-one", action="store_false", dest="one_against_many", default=True,
                       help="use a one-against-one classifier rather than a one-against-many classifier")
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
-    parser.add_option('-C', type='string', dest='C_list', action='store', default= '.01,.02,.1,.2,1,5,10,50,100')
+    parser.add_option('-C', type='string', dest='C_list', action='store', default= '.01,.02,.05,.1,.15,.2,.5,1,5,10')
     parser.add_option('--dataset', type='string', dest = 'dataset', action='store', default = None)
 
     (options, args) = parser.parse_args()
