@@ -342,6 +342,7 @@ class S3C(Model):
                        monitor_norms = False,
                        random_patches_hack = False,
                        init_unit_W = False,
+                       debug_m_step = False,
                        print_interval = 10000):
         """"
         nvis: # of visible units
@@ -396,6 +397,8 @@ class S3C(Model):
         """
 
         super(S3C,self).__init__()
+
+        self.debug_m_step = debug_M_step
 
         if monitor_stats is None:
             self.monitor_stats = []
@@ -518,7 +521,6 @@ class S3C(Model):
             self.prev_H = sharedX(np.zeros((self.recycle_q,self.nhid)), name="prev_H")
             self.prev_Mu1 = sharedX(np.zeros((self.recycle_q,self.nhid)), name="prev_Mu1")
 
-        self.debug_m_step = False
         if self.debug_m_step:
             warnings.warn('M step debugging activated-- this is only valid for certain settings, and causes a performance slowdown.')
             self.em_functional_diff = sharedX(0.)
@@ -560,6 +562,9 @@ class S3C(Model):
                 from_e_step = self.e_step.get_monitoring_channels(V, self)
 
                 rval.update(from_e_step)
+
+                if self.debug_m_step:
+                    rval['m_step_diff'] = self.em_functional_diff
 
                 monitor_stats = len(self.monitor_stats) > 0
 
