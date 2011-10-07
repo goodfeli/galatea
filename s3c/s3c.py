@@ -398,7 +398,7 @@ class S3C(Model):
 
         super(S3C,self).__init__()
 
-        self.debug_m_step = debug_M_step
+        self.debug_m_step = debug_m_step
 
         if monitor_stats is None:
             self.monitor_stats = []
