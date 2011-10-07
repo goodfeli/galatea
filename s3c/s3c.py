@@ -340,7 +340,7 @@ class S3C(Model):
                        clip_W_norm_min = None,
                        clip_W_norm_max = None,
                        monitor_norms = False,
-                       random_patches_hack = False,
+                       random_patches_src = None,
                        init_unit_W = False,
                        debug_m_step = False,
                        print_interval = 10000):
@@ -389,16 +389,20 @@ class S3C(Model):
                     e-step. obviously this should only be used if you are using the same data
                     in each batch. when recycle_q is nonzero, it should be set to the batch size.
         disable_W_update: if true, doesn't update W (for debugging)
-        random_patches_hack: if true, first call to learn_minibatch will set W to projection of the batch onto
-                            the unit sphere (called a hack since it means that the initial call
-                            to monitor will use random weights, so the learning curve will look
-                            messed up)
+        random_patches_src: if not None, should be a dataset
+                            will set W to a batch
         init_unit_W:   if True, initializes weights with unit norm
         """
 
         super(S3C,self).__init__()
 
         self.debug_m_step = debug_m_step
+
+
+        if random_patches_src is not None:
+            self.init_W = random_patches_src.get_batch_design(self.nhid).T
+        else:
+            self.init_W = None
 
         if monitor_stats is None:
             self.monitor_stats = []
@@ -452,7 +456,6 @@ class S3C(Model):
         self.min_bias_hid = min_bias_hid
         self.max_bias_hid = max_bias_hid
         self.recycle_q = recycle_q
-        self.random_patches_hack = random_patches_hack
         self.tied_B = tied_B
 
         self.hard_max_step = hard_max_step
@@ -493,7 +496,10 @@ class S3C(Model):
 
     def redo_everything(self):
 
-        W = self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid))
+        if self.init_W is not None:
+            W = self.init_W.copy()
+        else:
+            W = self.rng.uniform(-self.irange, self.irange, (self.nvis, self.nhid))
 
         if self.constrain_W_norm or self.init_unit_W:
             norms = numpy_norms(W)
@@ -1203,23 +1209,11 @@ class S3C(Model):
     #
 
     def learn(self, dataset, batch_size):
-        if self.random_patches_hack and self.monitor.examples_seen == 0:
-            W = dataset.get_batch_design(self.nhid)
-            W = W.T
-            norms = numpy_norms(W)
-            W /= norms
-            if W.shape != self.W.get_value(borrow=True).shape:
-                raise ValueError('W has shape '+str(W.shape)+' but should have '+str(self.W.get_value(borrow=True).shape))
-            self.W.set_value(W)
-            self.random_patches_loaded = True
-
         self.learn_mini_batch(dataset.get_batch_design(batch_size))
     #
 
 
     def learn_mini_batch(self, X):
-        if self.random_patches_hack:
-            assert self.random_patches_loaded
 
         if self.learn_after is not None:
             if self.monitor.examples_seen >= self.learn_after:
