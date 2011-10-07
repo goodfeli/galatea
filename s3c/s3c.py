@@ -916,6 +916,8 @@ class S3C(Model):
 
             learning_updates[self.em_functional_diff] = em_functional_diff
 
+
+
         print "compiling function..."
         t1 = time.time()
         rval = function([X], updates = learning_updates)
@@ -1343,6 +1345,8 @@ class VHS_E_Step(E_step):
         H = obs['H']
         sigma0 = obs['sigma0']
         Sigma1 = obs['Sigma1']
+
+        #TODO: why do I calculate the em functional manually here rather than using S3C.em_functional?
 
         entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
         likelihood_term = model.expected_log_prob_vhs(stats)
