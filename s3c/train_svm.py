@@ -38,7 +38,7 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
 
     return rval
 
-def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False ):
+def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False, skip_cv = False ):
     """
     :param type: one of 'linear' or 'rbf'
     """
@@ -46,32 +46,37 @@ def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False
     n_train = train_X.shape[0]
 
     # Train a SVM classification model
-    print "Finding the best C"
 
-    param_grid = { 'C': C_list, 'gamma': [0.] }
+    if skip_cv:
+        best_C ,= C_list
+        report.add_validation_result('C='+str(best_C),-1.)
+    else:
+        print "Finding the best C"
 
-    best_acc = -1
-    for C in param_grid['C']:
-        print ' C=%f' % (C,)
+        param_grid = { 'C': C_list, 'gamma': [0.] }
 
-        acc = 0.0
-        for i in xrange(fold_indices.shape[0]):
-            print '  fold ',i
+        best_acc = -1
+        for C in param_grid['C']:
+            print ' C=%f' % (C,)
 
-            this_fold_acc = validate(train_X, train_y, fold_indices[i,:], C, one_against_many)
+            acc = 0.0
+            for i in xrange(fold_indices.shape[0]):
+                print '  fold ',i
 
-            print '   fold accuracy: %f' % (this_fold_acc,)
-            acc += this_fold_acc / float(fold_indices.shape[0])
-        print '  accuracy this C: %f' % (acc,)
+                this_fold_acc = validate(train_X, train_y, fold_indices[i,:], C, one_against_many)
 
-        report.add_validation_result('C='+str(C),acc)
+                print '   fold accuracy: %f' % (this_fold_acc,)
+                acc += this_fold_acc / float(fold_indices.shape[0])
+            print '  accuracy this C: %f' % (acc,)
 
-        if acc > best_acc:
-            print '   best so far!'
-            best_acc = acc
-            best_C = C
+            report.add_validation_result('C='+str(C),acc)
 
-    print "Validation set accuracy: ",best_acc
+            if acc > best_acc:
+                print '   best so far!'
+                best_acc = acc
+                best_C = C
+
+        print "Validation set accuracy: ",best_acc
 
     print "Training final svm"
     final_svm = get_svm_type(best_C, one_against_many).fit(train_X, train_y)
@@ -183,6 +188,7 @@ if __name__ == '__main__':
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
     parser.add_option('-C', type='string', dest='C_list', action='store', default= '.01,.02,.05,.1,.15,.2,.5,1,5,10')
     parser.add_option('--dataset', type='string', dest = 'dataset', action='store', default = None)
+    parser.add_option('--skip-cv', action="store_true", dest="skip_cv", default=False, help="don't cross validate, just use first value in C list")
 
     (options, args) = parser.parse_args()
 
@@ -194,5 +200,6 @@ if __name__ == '__main__':
          one_against_many = options.one_against_many,
          split = options.split,
          C_list = C_list,
-         dataset = options.dataset
+         dataset = options.dataset,
+         skip_cv = options.skip_cv
     )
