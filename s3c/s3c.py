@@ -400,7 +400,7 @@ class S3C(Model):
 
 
         if random_patches_src is not None:
-            self.init_W = random_patches_src.get_batch_design(self.nhid).T
+            self.init_W = random_patches_src.get_batch_design(nhid).T
         else:
             self.init_W = None
 
