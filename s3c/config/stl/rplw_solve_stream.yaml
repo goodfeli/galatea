@@ -20,7 +20,7 @@
                "random_patches_src" : *src,
                "min_mu"  : 1.,
                "max_mu"  : 1.,
-               "debug_m_step" : 'raise',
+               "debug_m_step" : 'warn',
                #"recycle_q" : 1000,
                "print_interval" : 1,
                "monitor_functional" : 1,
@@ -34,19 +34,19 @@
                },
                "new_stat_coeff" : 1.,
                #"learn_after" : 1000,
-               "m_step"     : !obj:galatea.s3c.s3c.VHS_Grad_M_Step {
-                        #"new_coeff" : .1
-                        "learning_rate" : 1e-3,
-                        "B_learning_rate_scale" : 0.01,
-                        "W_learning_rate_scale" : 10.
+               "m_step"     : !obj:galatea.s3c.s3c.VHS_Solve_M_Step {
+                        "new_coeff" : .1
+                        #"learning_rate" : 1e-3,
+                        #"B_learning_rate_scale" : 0.01,
+                        #"W_learning_rate_scale" : 10.
                },
                "mu_eps" : 0.,
         },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
-               "batch_size" : 100,
+               "batch_size" : 2000,
                "batches_per_iter" : 1,
                "monitoring_batches" : 1,
-               "monitoring_dataset" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl"
+               "monitoring_dataset" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
         },
     "save_path": "${PYLEARN2_TRAIN_FILE_NAME}.pkl"
 }

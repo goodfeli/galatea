@@ -23,7 +23,7 @@
                "random_patches_src" : *src,
                "min_mu"  : 1.,
                "max_mu"  : 1.,
-               "debug_m_step" : 'warn',
+               "debug_m_step" : 'raise',
                #"recycle_q" : 1000,
                "print_interval" : 1,
                "monitor_functional" : 1,
