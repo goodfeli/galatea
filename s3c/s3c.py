@@ -1249,9 +1249,10 @@ class S3C(Model):
 
         if self.debug_m_step:
             if self.em_functional_diff.get_value() < 0.0:
-                print "m step decreased the em functional"
-                print self.em_functional_diff.get_value()
-                quit(-1)
+                warnings.warn( "m step decreased the em functional" )
+                if self.debug_m_step != 'warn':
+                    quit(-1)
+
     #
 
     def get_weights_format(self):
