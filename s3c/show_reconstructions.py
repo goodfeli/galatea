@@ -1,3 +1,5 @@
+import numpy as np
+
 import sys
 model_path = sys.argv[1]
 
@@ -39,6 +41,8 @@ dataset.get_batch_design(model.nhid)
 
 X = dataset.get_batch_design(50)
 R = f(X)
+
+print 'mean squared error: ',np.square(X-R).mean()
 
 Xt = dataset.get_topological_view(X)
 Rt = dataset.get_topological_view(R)

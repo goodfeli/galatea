@@ -1,5 +1,11 @@
 one thing to hammer in the paper is that we're using "natural encoding"-- be sure to check which of Adam's results used the same lambda for learning and encoding
 
+reconstruciton error
+1600 J mean squared error:  0.0611776789912    (weights look like crap)
+625 JS2 mean squared error:  0.0629119420935   (weights look good)
+256 JS1 mean squared error:  0.108722681116
+16   JS 0.40709721318
+
 
 suppose that on average k units are active, and that each unit has the same probability of activation.
 working from the pmf of the binomial distribution, this means that each units has probabilty

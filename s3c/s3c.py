@@ -342,6 +342,7 @@ class S3C(Model):
                        monitor_norms = False,
                        random_patches_hack = False,
                        init_unit_W = False,
+                       debug_m_step = False,
                        print_interval = 10000):
         """"
         nvis: # of visible units
@@ -396,6 +397,8 @@ class S3C(Model):
         """
 
         super(S3C,self).__init__()
+
+        self.debug_m_step = debug_m_step
 
         if monitor_stats is None:
             self.monitor_stats = []
@@ -518,7 +521,6 @@ class S3C(Model):
             self.prev_H = sharedX(np.zeros((self.recycle_q,self.nhid)), name="prev_H")
             self.prev_Mu1 = sharedX(np.zeros((self.recycle_q,self.nhid)), name="prev_Mu1")
 
-        self.debug_m_step = False
         if self.debug_m_step:
             warnings.warn('M step debugging activated-- this is only valid for certain settings, and causes a performance slowdown.')
             self.em_functional_diff = sharedX(0.)
@@ -560,6 +562,9 @@ class S3C(Model):
                 from_e_step = self.e_step.get_monitoring_channels(V, self)
 
                 rval.update(from_e_step)
+
+                if self.debug_m_step:
+                    rval['m_step_diff'] = self.em_functional_diff
 
                 monitor_stats = len(self.monitor_stats) > 0
 
@@ -915,6 +920,8 @@ class S3C(Model):
             em_functional_diff = em_functional_after - em_functional_before
 
             learning_updates[self.em_functional_diff] = em_functional_diff
+
+
 
         print "compiling function..."
         t1 = time.time()
@@ -1343,6 +1350,8 @@ class VHS_E_Step(E_step):
         H = obs['H']
         sigma0 = obs['sigma0']
         Sigma1 = obs['Sigma1']
+
+        #TODO: why do I calculate the em functional manually here rather than using S3C.em_functional?
 
         entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
         likelihood_term = model.expected_log_prob_vhs(stats)
@@ -2179,9 +2188,12 @@ class VHS_Solve_M_Step(VHS_M_Step):
 
 class VHS_Grad_M_Step(VHS_M_Step):
 
-    def __init__(self, learning_rate, B_learning_rate_scale  = 1,):
+    def __init__(self, learning_rate, B_learning_rate_scale  = 1,
+            W_learning_rate_scale = 1):
         self.learning_rate = np.cast[config.floatX](float(learning_rate))
+
         self.B_learning_rate_scale = np.cast[config.floatX](float(B_learning_rate_scale))
+        self.W_learning_rate_scale = np.cast[config.floatX](float(W_learning_rate_scale))
 
     def get_updates(self, model, stats):
 
@@ -2195,6 +2207,9 @@ class VHS_Grad_M_Step(VHS_M_Step):
 
         for param, grad in zip(params, grads):
             learning_rate = self.learning_rate
+
+            if param is model.W:
+                learning_rate = learning_rate * self.W_learning_rate_scale
 
             if param is model.B_driver:
                 #can't use *= since this is a numpy ndarray now
