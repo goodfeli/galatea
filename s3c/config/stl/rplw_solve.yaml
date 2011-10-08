@@ -37,11 +37,11 @@
                },
                "new_stat_coeff" : 1.,
                #"learn_after" : 1000,
-               "m_step"     : !obj:galatea.s3c.s3c.VHS_Grad_M_Step {
-                        #"new_coeff" : .1
-                        "learning_rate" : 1e-3,
-                        "B_learning_rate_scale" : 0.01,
-                        "W_learning_rate_scale" : 1.
+               "m_step"     : !obj:galatea.s3c.s3c.VHS_Solve_M_Step {
+                        "new_coeff" : .1
+                        #"learning_rate" : 1e-3,
+                        #"B_learning_rate_scale" : 0.01,
+                        #"W_learning_rate_scale" : 10.
                },
                "mu_eps" : 0.,
         },

@@ -41,7 +41,7 @@
                         #"new_coeff" : .1
                         "learning_rate" : 1e-3,
                         "B_learning_rate_scale" : 0.01,
-                        "W_learning_rate_scale" : 1.
+                        "W_learning_rate_scale" : 20.
                },
                "mu_eps" : 0.,
         },
