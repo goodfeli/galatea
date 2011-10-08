@@ -1,6 +1,15 @@
 from optparse import OptionParser
-from scikits.learn.metrics import classification_report
-from scikits.learn.metrics import confusion_matrix
+import warnings
+try:
+    from scikits.learn.metrics import classification_report
+except ImportError:
+    classification_report = None
+    warnings.warn("couldn't find scikits.learn.metrics.classification_report")
+try:
+    from scikits.learn.metrics import confusion_matrix
+except ImportError:
+    confusion_matrix = None
+    warnings.warn("couldn't find scikts.learn.metrics.confusion_matrix")
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 from pylearn2.datasets.cifar10 import CIFAR10
@@ -9,21 +18,23 @@ import numpy as np
 def test(model, X, y, output_path):
     print "Evaluating svm"
     y_pred = model.predict(X)
-    try:
+    #try:
+    if True:
         acc = (y == y_pred).mean()
         print "Accuracy ",acc
-        cr =  classification_report(y, y_pred)#, labels=selected_target,
-                                #class_names=category_names[selected_target])
-
-        cm =  confusion_matrix(y, y_pred)#, labels=selected_target)
-        print cr
-        print cm
         f = open(output_path,'w')
         f.write('Accuracy: '+str(acc)+'\n')
-        f.write(str(cr))
-        f.write(str(cm))
+        if classification_report:
+            cr =  classification_report(y, y_pred)#, labels=selected_target,
+                                #class_names=category_names[selected_target])
+            print cr
+            f.write(str(cr))
+        if confusion_matrix:
+            cm =  confusion_matrix(y, y_pred)#, labels=selected_target)
+            print cm
+            f.write(str(cm))
         f.close()
-    except:
+    """except:
         print "something went wrong"
         print 'y:'
         print y
@@ -37,6 +48,7 @@ def test(model, X, y, output_path):
         print y.shape
         print y_pred.shape
         raise
+"""
 #
 
 

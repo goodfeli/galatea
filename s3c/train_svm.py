@@ -1,5 +1,8 @@
 #TODO: support concatenating multiple datasets
 
+from ia3n.util.mem import MemoryMonitor
+mem = MemoryMonitor()
+print 'memory usage on launch: '+str(mem.usage())
 import numpy as np
 import warnings
 from optparse import OptionParser
@@ -7,6 +10,9 @@ from scikits.learn.svm import LinearSVC, SVC
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 from pylearn2.datasets.cifar10 import CIFAR10
+import gc
+gc.collect()
+print 'memory usage after imports'+str(mem.usage())
 
 def get_svm_type(C, one_against_many):
     if one_against_many:
@@ -17,7 +23,14 @@ def get_svm_type(C, one_against_many):
 
 
 def subtrain(fold_train_X, fold_train_y, C, one_against_many):
+    assert str(fold_train_X.dtype) == 'float32'
+
+    assert fold_train_X.flags.c_contiguous
+
+    print 'mem usage before calling fit: '+str(mem.usage())
     svm = get_svm_type(C, one_against_many).fit(fold_train_X, fold_train_y)
+    gc.collect()
+    print 'mem usage after calling fit: '+str(mem.usage())
     return svm
 
 def validate(train_X, train_y, fold_indices, C, one_against_many):
@@ -27,8 +40,12 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
     #The -1 is to convert from matlab indices
     train_mask[fold_indices-1] = 1
 
+    print 'mem usage before calling subtrain: '+str(mem.usage())
     svm = subtrain( train_X[train_mask.astype(bool),:], train_y[train_mask.astype(bool)], \
             C = C, one_against_many = one_against_many)
+    gc.collect()
+    print 'mem usage after calling subtrain: '+str(mem.usage())
+
 
     this_fold_valid_X = train_X[(1-train_mask).astype(bool),:]
     y_pred = svm.predict(this_fold_valid_X)
@@ -63,7 +80,10 @@ def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False
             for i in xrange(fold_indices.shape[0]):
                 print '  fold ',i
 
+                print 'mem usage before calling validate:'+str(mem.usage())
                 this_fold_acc = validate(train_X, train_y, fold_indices[i,:], C, one_against_many)
+                gc.collect()
+                print 'mem usage after calling validate:'+str(mem.usage())
 
                 print '   fold accuracy: %f' % (this_fold_acc,)
                 acc += this_fold_acc / float(fold_indices.shape[0])
@@ -154,11 +174,22 @@ def main(train_path,
     cifar10 = dataset == 'cifar10'
     assert stl10 or cifar10
 
+    print 'mem usage before getting labels and folds '+str(mem.usage())
     train_y, fold_indices = get_labels_and_fold_indices(cifar10, stl10)
+    print 'mem usage after getting labels and folds '+str(mem.usage())
+    gc.collect()
     assert train_y is not None
 
     print 'loading training features'
+
+    print 'mem usage before getting features '+str(mem.usage())
     train_X = get_features(train_path, split)
+    assert train_X.flags.c_contiguous
+    gc.collect()
+    print 'mem usage after getting features '+str(mem.usage())
+
+
+    assert str(train_X.dtype) == 'float32'
     if stl10:
         assert train_X.shape[0] == 5000
     if cifar10:
@@ -167,7 +198,11 @@ def main(train_path,
 
     report = Report(train_path, split, stl10, cifar10)
 
+    gc.collect()
+
+    print 'mem usage before calling train: '+str(mem.usage())
     model = train(fold_indices, train_X, train_y, report, **kwargs)
+
 
     serial.save(out_path+'.model.pkl', model)
     report.write(out_path+'.validation_report.txt')
