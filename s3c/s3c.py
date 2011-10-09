@@ -609,8 +609,11 @@ class S3C(Model):
                 if len(self.monitor_params) > 0:
                     for param in self.monitor_params:
                         param_val = getattr(self, param)
+
+
                         rval[param+'_min'] = full_min(param_val)
                         rval[param+'_mean'] = T.mean(param_val)
+
                         mx = full_max(param_val)
                         assert len(mx.type.broadcastable) == 0
                         rval[param+'_max'] = mx
