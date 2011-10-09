@@ -25,7 +25,7 @@ def get_svm_type(C, one_against_many):
 def subtrain(fold_train_X, fold_train_y, C, one_against_many):
     assert str(fold_train_X.dtype) == 'float32'
 
-    assert fold_train_X.flags.c_contiguous
+    #assert fold_train_X.flags.c_contiguous
 
     print 'mem usage before calling fit: '+str(mem.usage())
     svm = get_svm_type(C, one_against_many).fit(fold_train_X, fold_train_y)
@@ -184,7 +184,7 @@ def main(train_path,
 
     print 'mem usage before getting features '+str(mem.usage())
     train_X = get_features(train_path, split)
-    assert train_X.flags.c_contiguous
+    #assert train_X.flags.c_contiguous
     gc.collect()
     print 'mem usage after getting features '+str(mem.usage())
 
