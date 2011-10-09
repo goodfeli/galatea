@@ -2187,17 +2187,21 @@ class VHS_Solve_M_Step(VHS_M_Step):
 class VHS_Grad_M_Step(VHS_M_Step):
 
     def __init__(self, learning_rate, B_learning_rate_scale  = 1,
-            W_learning_rate_scale = 1):
+            W_learning_rate_scale = 1, p_penalty = 0.0, B_penalty = 0.0, alpha_penalty = 0.0):
         self.learning_rate = np.cast[config.floatX](float(learning_rate))
 
         self.B_learning_rate_scale = np.cast[config.floatX](float(B_learning_rate_scale))
         self.W_learning_rate_scale = np.cast[config.floatX](float(W_learning_rate_scale))
+        self.p_penalty = as_floatX(p_penalty)
+        self.B_penalty = as_floatX(B_penalty)
+        self.alpha_penalty = as_floatX(alpha_penalty)
 
     def get_updates(self, model, stats):
 
         params = model.get_params()
 
-        obj = model.expected_log_prob_vhs(stats)
+        obj = model.expected_log_prob_vhs(stats) - T.mean(model.p) * self.p_penalty - T.mean(model.B)*self.B_penalty-T.mean(model.alpha)*self.alpha_penalty
+
 
         grads = T.grad(obj, params, consider_constant = stats.d.values())
 
