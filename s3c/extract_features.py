@@ -16,9 +16,10 @@ config.floatX = 'float32'
 
 class FeatureExtractor:
     def __init__(self, batch_size, model_path, pooling_region_counts,
-           save_paths, feature_type, dataset_name, which_set):
+           save_paths, feature_type, dataset_name, which_set, restrict = None):
         self.batch_size = batch_size
         self.model_path = model_path
+        self.restrict = restrict
 
         assert len(pooling_region_counts) == len(save_paths)
 
@@ -55,8 +56,17 @@ class FeatureExtractor:
             train_size = 50000
             test_size  = 10000
 
+
         full_X = dataset.get_design_matrix()
         num_examples = full_X.shape[0]
+
+        if self.restrict is not None:
+            print 'restricting to examples ',self.restrict[0],' through ',self.restrict[1],' exclusive'
+            full_X = full_X[self.restrict[0]:self.restrict[1],:]
+
+
+
+
 
         if self.which_set == 'train':
                 assert num_examples == train_size
@@ -65,6 +75,9 @@ class FeatureExtractor:
 
         else:
             assert False
+
+        #update for after restriction
+        num_examples = full_X.shape[0]
 
         dataset.X = None
         dataset.design_loc = None
