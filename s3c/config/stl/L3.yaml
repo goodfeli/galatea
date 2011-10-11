@@ -1,0 +1,60 @@
+#penalize p to encourage sparsity
+#penalize B to slow down the sharpening of the distribution
+#penalize alpha so that unused weights will get very low alpha and then become easier to become usable
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: &src "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
+    "model": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 108,
+               "nhid" : 4000,
+               "init_bias_hid" : -7.,
+               "max_bias_hid" : 0.,
+               "min_bias_hid" : -9.,
+               "irange"  : .02,
+               "constrain_W_norm" : 1,
+               "init_B"  : 1.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  1,
+               "init_alpha" : 1.,
+               "min_alpha" : 1e-3,
+               "max_alpha" : 1e6,
+               "init_mu" : 0.,
+               #"random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               #"recycle_q" : 1000,
+               "print_interval" : 1,
+               "monitor_functional" : 1,
+               "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
+               "e_step" : !obj:galatea.s3c.s3c.Split_E_Step {
+                        "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .1, .1, .2, .2, .2, .3, .3, .3, .4, .4, .4, .4, .4 ],
+                        "s_new_coeff_schedule" : [  .7, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1 ],
+                        "clip_reflections" : 1,
+                        #"monitor_em_functional" : 1
+               },
+               "new_stat_coeff" : 1.,
+               #"learn_after" : 1000,
+               "m_step"     : !obj:galatea.s3c.s3c.VHS_Grad_M_Step {
+                        #"new_coeff" : .1
+                        "learning_rate" : 1e-2,
+                        "B_learning_rate_scale" : 0.01,
+                        "W_learning_rate_scale" : 10.,
+                        "p_penalty" : 20.,
+                        "B_penalty" : 20.,
+                        "alpha_penalty" : 20.
+               },
+               "mu_eps" : 0.,
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 10,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
+                        "num_examples" : 100
+                }
+        },
+    "save_path": "${PYLEARN2_TRAIN_FILE_NAME}.pkl"
+}
+
