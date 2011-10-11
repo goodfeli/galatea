@@ -6,7 +6,10 @@ print 'memory usage on launch: '+str(mem.usage())
 import numpy as np
 import warnings
 from optparse import OptionParser
-from scikits.learn.svm import LinearSVC, SVC
+try:
+    from sklearn.svm import LinearSVC, SVC
+except:
+    from scikits.learn.svm import LinearSVC, SVC
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 from pylearn2.datasets.cifar10 import CIFAR10
