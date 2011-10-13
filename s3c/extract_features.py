@@ -129,6 +129,8 @@ class FeatureExtractor:
 
         if self.feature_type == 'map_hs':
             feat = (H > 0.5) * Mu1
+        elif self.feature_type == 'map_h':
+            feat = T.cast(H > 0.5, dtype='float32')
         elif self.feature_type == 'exp_hs':
             feat = H * Mu1
         elif self.feature_type == 'exp_h':

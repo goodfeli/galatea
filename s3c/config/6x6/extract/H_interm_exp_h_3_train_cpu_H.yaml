@@ -1,0 +1,9 @@
+!obj:galatea.s3c.extract_features.FeatureExtractor {
+        "batch_size" : 1,
+        "model_path" : "${GALATEA_PATH}/s3c/config/6x6/H_interm_cpu.pkl",         "pooling_region_counts": [3],
+        "save_paths" : [ "${FEATURE_EXTRACTOR_YAML_PATH}.npy" ],
+        "feature_type" : "exp_h",
+        "dataset_name" : "cifar10",
+        "restrict" : [ 35000, 40000 ],
+        "which_set" : "train"
+}
