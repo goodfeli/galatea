@@ -14,6 +14,22 @@ from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultView
 import sys
 config.floatX = 'float32'
 
+class halver:
+    def __init__(self,f,nhid):
+        self.f = f
+        self.nhid = nhid
+
+    def __call__(self,X):
+        m = X.shape[0]
+        mid = m/2
+
+        rval = np.zeros((m,self.nhid),dtype='float32')
+        rval[0:mid,:] = self.f(X[0:mid,:])
+        rval[mid:,:] = self.f(X[mid:,:])
+
+        return rval
+
+
 class FeatureExtractor:
     def __init__(self, batch_size, model_path, pooling_region_counts,
            save_paths, feature_type, dataset_name, which_set, restrict = None):
@@ -123,6 +139,10 @@ class FeatureExtractor:
         assert feat.dtype == 'float32'
         print 'compiling theano function'
         f = function([V],feat)
+
+
+        if config.device.startswith('gpu') and model.nhid == 4000:
+            f = halver(f, model.nhid)
 
         topo_feat_var = T.TensorType(broadcastable = (False,False,False,False), dtype='float32')()
         region_features = function([topo_feat_var],
