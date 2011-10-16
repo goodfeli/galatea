@@ -27,7 +27,7 @@ plt.plot(train_size,s3c_acc, color="green", label="S3C")
 plt.plot(train_size,s3c_acc-s3c_confidence, color="green", linestyle="dashed")
 plt.plot(train_size,s3c_acc+s3c_confidence, color="green", linestyle="dashed")
 
-plt.xlabel('Labeled Training Examples')
+plt.xlabel('Labeled Training Examples Per Class')
 plt.ylabel('Test Set Accuracy')
 
 plt.title('CIFAR-10 Learning Curve')
