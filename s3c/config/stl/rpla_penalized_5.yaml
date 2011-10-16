@@ -1,3 +1,7 @@
+#This model, using 3x3 pooling grid and exp_h as features, obtained the best results on STL-10 for my AISTATS 2012 submission
+#I stopped the pretraining after 1,514,000 examples
+
+
 #initialize with random patches then learn only the weights
 #penalize p to encourage sparsity
 #penalize B to slow down the sharpening of the distribution

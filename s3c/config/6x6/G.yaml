@@ -1,3 +1,8 @@
+#This model obtained the best results on CIFAR10 for
+#my AISTATS 2012 submission
+#I stopped the pre-training after 862,000 examples
+#and used exp_h on a 3x3 pooling grid as features
+
 #penalize p to encourage sparsity
 #penalize B to slow down the sharpening of the distribution
 #penalize alpha so that unused weights will get very low alpha and then become easier to become usable
