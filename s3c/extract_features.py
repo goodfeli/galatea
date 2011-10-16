@@ -21,11 +21,14 @@ class halver:
 
     def __call__(self,X):
         m = X.shape[0]
-        mid = m/2
+        #mid = m/2
+        m1 = m/3
+        m2 = 2*m/3
 
         rval = np.zeros((m,self.nhid),dtype='float32')
-        rval[0:mid,:] = self.f(X[0:mid,:])
-        rval[mid:,:] = self.f(X[mid:,:])
+        rval[0:m1,:] = self.f(X[0:m1,:])
+        rval[m1:m2,:] = self.f(X[m1:m2,:])
+        rval[m2:,:] = self.f(X[m2:,:])
 
         return rval
 
@@ -77,9 +80,12 @@ class FeatureExtractor:
         num_examples = full_X.shape[0]
 
         if self.restrict is not None:
+            assert self.restrict[1]  <= full_X.shape[0]
+
             print 'restricting to examples ',self.restrict[0],' through ',self.restrict[1],' exclusive'
             full_X = full_X[self.restrict[0]:self.restrict[1],:]
 
+            assert self.restrict[1] > self.restrict[0]
 
 
 
@@ -94,6 +100,9 @@ class FeatureExtractor:
 
         #update for after restriction
         num_examples = full_X.shape[0]
+
+
+        assert num_examples > 0
 
         dataset.X = None
         dataset.design_loc = None
@@ -164,10 +173,16 @@ class FeatureExtractor:
 
         outputs = [ np.zeros((num_examples,count,count,model.nhid),dtype='float32') for count in pooling_region_counts ]
 
+        assert len(outputs) > 0
+
         fd = DenseDesignMatrix(X = np.zeros((1,1),dtype='float32'), view_converter = DefaultViewConverter([1, 1, model.nhid] ) )
 
         ns = 32 - size + 1
         depatchifier = ReassembleGridPatches( orig_shape  = (ns, ns), patch_shape=(1,1) )
+
+        if len(range(0,num_examples-batch_size+1,batch_size)) <= 0:
+            print num_examples
+            print batch_size
 
         for i in xrange(0,num_examples-batch_size+1,batch_size):
             print i
