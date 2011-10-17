@@ -1,0 +1,33 @@
+#partial E step, full (VHS) M-step
+#learns some gabors after 50,000 examples
+#basically just the minimum snapshot needed to make sure this learning scheme is at least partially sane
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+    "model": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 192,
+               "nhid" : 300,
+               "init_bias_hid" : -1.5,
+               "irange"  : .5,
+               "init_B"  : 3.,
+               "min_B"   : 3.,
+               "max_B"   : 10.,
+               "init_alpha" : 1.,
+               "min_alpha" : 1.,
+               "max_alpha" : 1000.,
+               "init_mu" : 5.,
+               "N_schedule" : [1.,2.,4.,8.,16.,32.,64.,128.,256.,300.],
+               "new_stat_coeff" : .01,
+               "learn_after" : 10000,
+               "m_step"     : !obj:galatea.s3c.s3c.VHS_Solve_M_Step {
+                        "new_coeff" : 1.0
+               }
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 50,
+               "batches_per_iter" : 1000,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+        },
+    "save_path": "snapshot_004.pkl"
+}
+

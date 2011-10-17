@@ -1,0 +1,35 @@
+#first attempt using the following fixes
+#   -changed coefficient on h in the energy function to match the directed model
+#   -used the correct full M step based on the joint energy function
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+    "model": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 192,
+               "nhid" : 300,
+               "init_bias_hid" : 0.,
+               "irange"  : .5,
+               "init_B"  : 3.,
+               "min_B"   : 1e-8,
+               "max_B"   : 10000,
+               "init_alpha" : 1.,
+               "min_alpha" : 1e-8,
+               "max_alpha" : 1000.,
+               "init_mu" : 0.,
+               "N_schedule" : [1.,1.,1.,2.,4.,8.,16.,32.,64.,128.,256.,300.],
+               "new_stat_coeff" : .005,
+               "learn_after" : 1000,
+               "m_step"     : !obj:galatea.s3c.s3c.VHSU_Solve_M_Step {
+                        "new_coeff" : 1.
+                        #"learning_rate" : 1e-3
+               },
+               "mu_eps" : 0.
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 5,
+               "batches_per_iter" : 1000,
+               "monitoring_batches" : 100,
+               "monitoring_dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+        },
+    "save_path": "attempt_007.pkl"
+}
+
