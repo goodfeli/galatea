@@ -31,4 +31,4 @@ train.use_design_loc(goodfeli_tmp + '/tl_challenge_patches_2M_6x6_design.npy')
 
 serial.save(goodfeli_tmp + '/tl_challenge_patches_2M_6x6.pkl',train)
 
-serial.save(goodfeli_tmp + '/tl_challenge_patches_2M_6x6.pkl',pipeline)
+serial.save(goodfeli_tmp + '/tl_challenge_patches_2M_6x6_prepro.pkl',pipeline)
