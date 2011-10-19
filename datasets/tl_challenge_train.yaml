@@ -1,0 +1,1 @@
+!obj:pylearn2.datasets.tl_challenge.TL_Challenge { "which_set" : "train", "center" : "True" }
