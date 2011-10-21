@@ -57,8 +57,11 @@ class FeatureExtractor:
 
         stl10 =  dataset_name == 'stl10'
         cifar10 = dataset_name == 'cifar10'
+        cifar100 = dataset_name == 'cifar100'
+        tl_challenge = dataset_name == 'tl_challenge'
 
-        assert stl10 or cifar10
+        nan = 0
+        assert stl10 or cifar10 or cifar100 or tl_challenge
 
         print 'loading model'
         model = serial.load(model_path)
@@ -74,10 +77,20 @@ class FeatureExtractor:
             dataset = CIFAR10(which_set = self.which_set)
             train_size = 50000
             test_size  = 10000
+        elif cifar100:
+            from pylearn2.datasets.cifar100 import CIFAR100
+            dataset = CIFAR100(which_set = self.which_set)
+            train_size = 50000
+            test_size = 10000
+        elif tl_challenge:
+            from pylearn2.datasets.tl_challenge import TL_Challenge
+            dataset = TL_Challenge(which_set = self.which_set)
+            train_size = 120
 
 
         full_X = dataset.get_design_matrix()
         num_examples = full_X.shape[0]
+
 
         if self.restrict is not None:
             assert self.restrict[1]  <= full_X.shape[0]
@@ -117,6 +130,9 @@ class FeatureExtractor:
                 pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/preprocessor.pkl')
             elif cifar10:
                 pipeline = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M_6x6.pkl')
+            elif cifar100 or tl_challenge:
+                warnings.warn('using TLC pipeline, not CIFAR100 pipeline')
+                pipeline = serial.load('${GOODFELI_TMP}/tl_challenge_patches_2M_6x6_prepro.pkl')
         else:
             print size
             assert False
@@ -207,6 +223,11 @@ class FeatureExtractor:
             assert feat.dtype == 'float32'
 
             feat_dataset = copy.copy(fd)
+
+            if np.any(np.isnan(feat)):
+                nan += np.isnan(feat).sum()
+                feat[np.isnan(feat)] = 0
+
             feat_dataset.set_design_matrix(feat)
 
             #print '\treassembling features'
@@ -228,6 +249,10 @@ class FeatureExtractor:
 
         for output, save_path in zip(outputs, self.save_paths):
             np.save(save_path,output)
+
+
+        if nan > 0:
+            warnings.warn(str(nan)+' features were nan')
 
 if __name__ == '__main__':
     assert len(sys.argv) == 2
