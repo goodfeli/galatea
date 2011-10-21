@@ -1,25 +1,12 @@
-I. analysis of GRBM
+I. Fisher Kernel for CIFAR/STL classification
+	make a global generative model (rather than patch based). this could
+	be convolutional S3C with probabilistic pooling, or it could be the
+	jellyfish
+	then use Fisher Kernel for classification, like in Rajat's ICML 07
+	paper
+II. analysis of GRBM
 	present at CIFAR if possible
 	try to prove that >2 collinear equiprobable modes are impossible
-
-II. auxiliary variable ss sparse coding
-	motivation in eventual paper
-		RBM prior says features should be correlated based on weight directions -> bad
-		end stopping
-		Coates' work implies there should be an emphasis on encoding
-	
-
-
-	side-direction: doing M-step with aux variables thrown out improves
-		lower bound on likelihood more than doing M-step with them
-		in--- this claim always holds for discrete aux variables,
-		sometimes holds for continuous aux variables.
-		if we can prove this M-step combined with the aux variable E
-		step make a convergent EM learning algorithm, this could be a
-		cool algorithm to propose for other models (ie, could make an
-		aux variable binary sparse coding model)
-
-
 III. estimation algorithms
 	1. KL theory
 		on binary data
@@ -185,3 +172,8 @@ Dead ends:
 
 		This is not yet proven to be a dead end for the case of
 		continous inputs.
+
+
+Completed missions:
+1. S3C
+
