@@ -13,6 +13,7 @@ except ImportError:
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 from pylearn2.datasets.cifar10 import CIFAR10
+from pylearn2.datasets.cifar100 import CIFAR100
 import numpy as np
 
 def test(model, X, y, output_path):
@@ -52,9 +53,8 @@ def test(model, X, y, output_path):
 #
 
 
-def get_test_labels(cifar10, stl10):
-    assert cifar10 or stl10
-    assert not (cifar10 and stl10)
+def get_test_labels(cifar10, cifar100, stl10):
+    assert cifar10 + cifar100 +  stl10 == 1
 
     if stl10:
         print 'loading entire stl-10 test set just to get the labels'
@@ -64,6 +64,11 @@ def get_test_labels(cifar10, stl10):
         print 'loading entire cifar10 test set just to get the labels'
         cifar10 = CIFAR10(which_set = 'test')
         return np.asarray(cifar10.y)
+    if cifar100:
+        print 'loading entire cifar100 test set just to get the fine labels'
+        cifar100 = CIFAR100(which_set = 'test')
+        return np.asarray(cifar100.y_fine)
+    assert False
 
 
 def main(model_path,
@@ -75,15 +80,16 @@ def main(model_path,
 
     model =  serial.load(model_path)
 
+    cifar100 = dataset == 'cifar100'
     cifar10 = dataset == 'cifar10'
     stl10 = dataset == 'stl10'
-    assert cifar10 or stl10
+    assert cifar10 + cifar100 + stl10 == 1
 
-    y = get_test_labels(cifar10, stl10)
+    y = get_test_labels(cifar10, cifar100, stl10)
     X = get_features(test_path, split)
     if stl10:
         num_examples = 8000
-    if cifar10:
+    if cifar10 or cifar100:
         num_examples = 10000
     assert X.shape[0] == num_examples
     assert y.shape[0] == num_examples

@@ -13,10 +13,9 @@ try:
     from sklearn.svm import LinearSVC, SVC
 except ImportError:
     from scikits.learn.svm import LinearSVC, SVC
+from pylearn2.datasets.tl_challenge import TL_Challenge
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
-from pylearn2.datasets.cifar10 import CIFAR10
-from pylearn2.datasets.cifar100 import CIFAR100
 import gc
 gc.collect()
 if mem:
@@ -67,7 +66,7 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
 
     return rval
 
-def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False, skip_cv = False , max_folds = None):
+def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False, skip_cv = False ):
     """
     :param type: one of 'linear' or 'rbf'
     """
@@ -84,16 +83,12 @@ def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False
 
         param_grid = { 'C': C_list, 'gamma': [0.] }
 
-        num_folds = fold_indices.shape[0]
-        if max_folds is not None and num_folds > max_folds:
-            num_folds = max_folds
-
         best_acc = -1
         for C in param_grid['C']:
             print ' C=%f' % (C,)
 
             acc = 0.0
-            for i in xrange(num_folds):
+            for i in xrange(fold_indices.shape[0]):
                 print '  fold ',i
 
                 if mem:
@@ -104,7 +99,7 @@ def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False
                     print 'mem usage after calling validate:'+str(mem.usage())
 
                 print '   fold accuracy: %f' % (this_fold_acc,)
-                acc += this_fold_acc / float(num_folds)
+                acc += this_fold_acc / float(fold_indices.shape[0])
             print '  accuracy this C: %f' % (acc,)
 
             report.add_validation_result('C='+str(C),acc)
@@ -121,50 +116,40 @@ def train(fold_indices, train_X, train_y, report, C_list, one_against_many=False
 
     return final_svm
 
-def get_labels_and_fold_indices(cifar10, cifar100, stl10):
-    assert stl10 or cifar10 or cifar100
-    assert stl10+cifar10+cifar100 == 1
+def get_training_subset(train_X, name):
 
-    if stl10:
-        print 'loading entire stl-10 train set just to get the labels and folds'
-        stl10 = serial.load("${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/train.pkl")
-        train_y = stl10.y
+    if name == 'omnivore':
+        coarse_class  = 11
+        num_ex = 40
+    else:
+        coarse_class = 4
+        num_ex = 25
 
-        fold_indices = stl10.fold_indices
-    elif cifar10 or cifar100:
-        if cifar10:
-            print 'loading entire cifar10 train set just to get the labels'
-            cifar = CIFAR10(which_set = 'train')
-        else:
-            assert cifar100
-            print 'loading entire cifar100 train set just to get the labels'
-            cifar = CIFAR100(which_set = 'train')
-            cifar.y = cifar.y_fine
-        train_y = cifar.y
-        assert train_y is not None
+    tlc = TL_Challenge(which_set = 'train')
 
-        fold_indices = np.zeros((5,40000),dtype='uint16')
-        idx_list = np.cast['uint16'](np.arange(1,50001)) #mimic matlab format of stl10
-        for i in xrange(5):
-            mask = idx_list < i * 10000 + 1
-            mask += idx_list >= (i+1) * 10000 + 1
-            fold_indices[i,:] = idx_list[mask]
-        assert fold_indices.min() == 1
-        assert fold_indices.max() == 50000
+    mask = tlc.y_coarse == coarse_class
 
+    sub_X = train_X[mask,:]
+    sub_y = tlc.y_fine[mask]
 
-    return train_y, fold_indices
+    assert sub_X.shape[0] == num_ex
+    assert sub_y.shape == (num_ex,)
 
+    fold_indices = np.zeros((num_ex,num_ex -1),dtype='uint16')
+    idx_list = np.cast['uint16'](np.arange(1,num_ex+1)) #mimic matlab format of stl10
+    for i in xrange(num_ex):
+        mask = idx_list < i  + 1
+        mask += idx_list >= (i+1)  + 1
+        fold_indices[i,:] = idx_list[mask]
+    assert fold_indices.min() == 1
+    assert fold_indices.max() == num_ex
+
+    return sub_X, sub_y, fold_indices
 
 class Report:
-    def __init__(self, train_path, split, stl10, cifar10, cifar100):
+    def __init__(self, train_path, split):
         self.train_path = train_path
         self.split = split
-        assert stl10 or cifar10 or cifar100
-        assert stl10 + cifar10 + cifar100 == 1
-        self.stl10 = stl10
-        self.cifar10 = cifar10
-        self.cifar100 = cifar100
         self.desc_to_acc = {}
 
     def add_validation_result(self, hparam_desc, acc):
@@ -174,12 +159,6 @@ class Report:
 
         f = open(out_path,'w')
 
-        if self.stl10:
-            f.write('STL-10 SVM Cross Validation report\n')
-        elif self.cifar10:
-            f.write('CIFAR10 SVM Cross Validation report\n')
-        elif self.cifar100:
-            f.write('CIFAR100-fine SVM Cross Validation report\n')
         f.write('Training features: '+self.train_path+'\n')
         f.write('Splitting enabled: '+str(self.split)+'\n')
 
@@ -195,51 +174,38 @@ class Report:
 def main(train_path,
         out_path,
         split,
-        dataset,
         **kwargs):
 
-    stl10 = dataset == 'stl10'
-    cifar10 = dataset == 'cifar10'
-    cifar100 = dataset == 'cifar100'
-    assert stl10 + cifar10 + cifar100 == 1
 
-    if mem:
-        print 'mem usage before getting labels and folds '+str(mem.usage())
-    train_y, fold_indices = get_labels_and_fold_indices(cifar10, cifar100, stl10)
-    if mem:
-        print 'mem usage after getting labels and folds '+str(mem.usage())
-    gc.collect()
-    assert train_y is not None
 
     print 'loading training features'
 
-    if mem:
-        print 'mem usage before getting features '+str(mem.usage())
     train_X = get_features(train_path, split)
     #assert train_X.flags.c_contiguous
     gc.collect()
-    if mem:
-        print 'mem usage after getting features '+str(mem.usage())
 
 
     assert str(train_X.dtype) == 'float32'
-    if stl10:
-        assert train_X.shape[0] == 5000
-    if cifar10 or cifar100:
-        assert train_X.shape[0] == 50000
-        assert train_y.shape == (50000,)
+    assert train_X.shape[0] == 120
 
-    report = Report(train_path, split, stl10, cifar10, cifar100)
+    report = Report(train_path, split)
 
-    gc.collect()
+    train_X_omnivore, train_y, fold_indices = get_training_subset(train_X, 'omnivore')
 
-    if mem:
-        print 'mem usage before calling train: '+str(mem.usage())
-    model = train(fold_indices, train_X, train_y, report, **kwargs)
+    model = train(fold_indices, train_X_omnivore, train_y, report, **kwargs)
+
+    serial.save(out_path+'.omnivore.model.pkl', model)
+    report.write(out_path+'.omnivore.validation_report.txt')
 
 
-    serial.save(out_path+'.model.pkl', model)
-    report.write(out_path+'.validation_report.txt')
+    report = Report(train_path, split)
+
+    train_X_fruit, train_y, fold_indices = get_training_subset(train_X, 'fruit')
+
+    model = train(fold_indices, train_X_fruit, train_y, report, **kwargs)
+
+    serial.save(out_path+'.fruit.model.pkl', model)
+    report.write(out_path+'.fruit.validation_report.txt')
 
 if __name__ == '__main__':
     """
@@ -248,29 +214,20 @@ if __name__ == '__main__':
     """
 
     parser = OptionParser()
-    parser.add_option("-d", "--train",
-                action="store", type="string", dest="train")
-    parser.add_option("-o", "--out",
-                action="store", type="string", dest="out")
     parser.add_option("--one-against-one", action="store_false", dest="one_against_many", default=True,
                       help="use a one-against-one classifier rather than a one-against-many classifier")
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
-    parser.add_option('-C', type='string', dest='C_list', action='store', default= '.01,.02,.05,.1,.15,.2,.5,1,5,10')
-    parser.add_option('--dataset', type='string', dest = 'dataset', action='store', default = None)
+    parser.add_option('-C', type='string', dest='C_list', action='store', default= '.1,1,5,10,15,20,25,50,100')
     parser.add_option('--skip-cv', action="store_true", dest="skip_cv", default=False, help="don't cross validate, just use first value in C list")
-    parser.add_option('--max-folds',action="store_true", dest="max_folds", default=None)
 
     (options, args) = parser.parse_args()
 
-    assert options.dataset
     C_list = [ float(chunk) for chunk in options.C_list.split(',') ]
 
-    main(train_path=options.train,
-         out_path = options.out,
+    main(train_path='/u/goodfeli/galatea/s3c/config/TLC/extract/A_exp_h_3_aux.npy',
+         out_path = 'tlcloo_sub',
          one_against_many = options.one_against_many,
          split = options.split,
          C_list = C_list,
-         dataset = options.dataset,
-         skip_cv = options.skip_cv,
-         max_folds = options.max_folds
+         skip_cv = options.skip_cv
     )
