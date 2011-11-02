@@ -1,12 +1,16 @@
+what happens if you run S3C on data that hasn't been shelled? whitened?
+
 I. Fisher Kernel for CIFAR/STL classification
 	make a global generative model (rather than patch based). this could
 	be convolutional S3C with probabilistic pooling, or it could be the
 	jellyfish
 	then use Fisher Kernel for classification, like in Rajat's ICML 07
 	paper
-II. analysis of GRBM
-	present at CIFAR if possible
-	try to prove that >2 collinear equiprobable modes are impossible
+II. analysis of various models
+	GRBM: prove that >2 collinear equiprobable modes are impossible
+	GRBM: prove that not a universal approximator on R^n
+	prove that linear factorial models are not universal approximators
+	(should include S3C)
 III. estimation algorithms
 	1. KL theory
 		on binary data
@@ -180,6 +184,15 @@ Learning Transformations for Transformation Equivariant Models
 		template, put them in a directed model so they compete, and
 		then each copy will hopefully explain a different instance
 		of the feature described by the template
+Work on PASCAL VOC to get street cred with the hacky vision crowd?
+Stuff Aaron is interested in:
+	S3C on S3C
+	linear CG with R op for inference of s variables in S3C
+	S3C with binary or multinomial units
+Stuff I don't mind farming out:
+	temporal S3C
+	convolutional S3C
+	some of the stuff Aaron is interested in
 
 Dead ends:
 	Reconstruction SRBM:
