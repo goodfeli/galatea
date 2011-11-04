@@ -5,10 +5,8 @@
 
         "nvis" : 192,
         "num_templates" : 1,
-        "compositions_per_transform" : [10,10,10],
+        "num_compositions" : [3,3,5],
         "irange" : 0.05,
-
-        
 
         "energy_function_class" : !obj:pylearn2.energy_functions.rbm_energy.grbm_type_1 {},
 
