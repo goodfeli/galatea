@@ -1,0 +1,196 @@
+#LyX 1.6.2 created this file. For more info see http://www.lyx.org/
+\lyxformat 345
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\language english
+\inputencoding auto
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\author "" 
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+The basic idea is to try to learn a set of transformations 
+\begin_inset Formula $\left\{ t_{1}(w),t_{2}(w),\dots t_{N_{T}}(w)\right\} $
+\end_inset
+
+ such that if 
+\begin_inset Formula $W_{i}$
+\end_inset
+
+ is a useful weight vector, then 
+\begin_inset Formula $t_{j}(W_{i})$
+\end_inset
+
+ or something similar to it is probably also a useful weight vector.
+\end_layout
+
+\begin_layout Standard
+There are a few advantages of this:
+\end_layout
+
+\begin_layout Itemize
+If two weight vectors are known to be related by some tranformations, then
+ they can share statistical strength
+\end_layout
+
+\begin_layout Itemize
+Learning might possible be accelerated, because once we know a few tranformation
+s and a few weight vectors this can start proposing new weight vectors,
+ rather than waiting for gradient descent to blindly find all of them
+\end_layout
+
+\begin_layout Itemize
+Knowing how weight vectors are related by transformations can inform a pooling
+ strategy
+\end_layout
+
+\begin_layout Standard
+There are two different basic ways to employ this strategy that I can think
+ of off the top of my head:
+\end_layout
+
+\begin_layout Itemize
+Parameterize the weight matrix 
+\begin_inset Formula $W$
+\end_inset
+
+ such that some of its columns are specified as being transformed versions
+ of its other columns
+\end_layout
+
+\begin_layout Itemize
+Put a prior on 
+\begin_inset Formula $W$
+\end_inset
+
+ such that it columns are more likely to be transformed versions of each
+ other
+\end_layout
+
+\begin_layout Standard
+Currently I lean toward the second strategy.
+ The first strategy requires that all of 
+\begin_inset Formula $W$
+\end_inset
+
+ be recomputed after each learning update.
+ In the second, the prior will be very expensive to compute, but we can
+ stochastically apply just a subset of its terms during each gradient step.
+\end_layout
+
+\begin_layout Standard
+There are two ways of getting good statistical strength out of this approach:
+\end_layout
+
+\begin_layout Itemize
+Share the transformations across several base templates.
+ This way the transformation must be useful in many contexts.
+\end_layout
+
+\begin_layout Itemize
+Repeatedly compose the transformation.
+ For example, have one feature be 
+\begin_inset Formula $w$
+\end_inset
+
+, another 
+\begin_inset Formula $t(w)$
+\end_inset
+
+, another 
+\begin_inset Formula $t(t(w))$
+\end_inset
+
+, etc.
+ This is because many transformations like translation, in-plane rotation,
+ etc.
+ have the property that tranforming by amount 
+\begin_inset Formula $\alpha$
+\end_inset
+
+ is the same as tranforming by amount 
+\begin_inset Formula $\alpha/2$
+\end_inset
+
+ twice.
+ We can exploit that property to get a really good model of a small amount
+ of transformation rather than trying to learn each amount of transformation
+ separately.
+\end_layout
+
+\begin_layout Standard
+Things remaining to be resolved:
+\end_layout
+
+\begin_layout Itemize
+Should the prior be directed or undirected?
+\end_layout
+
+\begin_layout Itemize
+It would probably be better rather than having 
+\begin_inset Formula $w_{i}$
+\end_inset
+
+ be directly a transformed version of 
+\begin_inset Formula $w_{j}$
+\end_inset
+
+, to have some underlying feature description 
+\begin_inset Formula $f_{i}$
+\end_inset
+
+and 
+\begin_inset Formula $f_{j}$
+\end_inset
+
+ which are transformed versions of each other, then have 
+\begin_inset Formula $w_{i}$
+\end_inset
+
+and 
+\begin_inset Formula $w_{j}$
+\end_inset
+
+ be renderings of these descriptions.
+ This allows you to implement things like rotations/translations of underlying
+ images that are larger than the image being modeled.
+\end_layout
+
+\begin_layout Itemize
+Work out the actual math for the stochastic prior updates
+\end_layout
+
+\end_body
+\end_document
