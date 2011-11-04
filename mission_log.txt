@@ -193,6 +193,53 @@ Stuff I don't mind farming out:
 	temporal S3C
 	convolutional S3C
 	some of the stuff Aaron is interested in
+	
+Forward looking stuff:
+	General strategies for learning to learn:
+		should be able to learn that if a weight vector w_i is useful,
+		then f(w_i) is too    (i.e., discover that some layer of the
+		representation  should be equivariant to in-plane transformations)
+
+		if two features vectors are related by some transformation,
+		then share statistical power between them. ie, the bias or the
+		mean/precision term on a hidden unit is a function of both the
+		identity of the feature and of its transformation coordinates
+
+		should be able to learn that h_i and h_j are synonymous for
+		the purpose of classification (even if not for generation).
+		could probably do this with a pooling layer-- remember
+		Yoshua's idea for learning the pooling from 2011?
+
+		should be able to learn that if h_i and h_j are synonyms
+		and h_k = f(h_i) and h_l = f(h_j) then h_k and h_l are
+		synonyms
+
+
+
+
+	More advanced tasks to consider:
+		highlight an object, ie per pixel labeling. this shows how
+		much the model really understands
+			also, should be able to do this without the full
+			pixel labeling. ie, learn to label objects per-pixel
+			after just being given centroid labels of the objects.
+			to do this model will need to figure out which things
+			it can explain with existing things it knows about
+			and which are part of the new object
+
+		one shot learning
+
+		recognize formations of objects (ie, a square of 7s and a
+		square of cars are both squares, and can be discriminated
+		from a triangle of 6s, etc.)
+
+		object counting (especially for overlapping objects, where
+		you need to figure out which eye belongs to which person,
+		etc)
+
+		dealing with extreme occlusion, ie Guillaume's bubbling idea
+
+
 
 Dead ends:
 	Reconstruction SRBM:
