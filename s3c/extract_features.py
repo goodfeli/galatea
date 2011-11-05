@@ -11,6 +11,9 @@ from theano import function
 from pylearn2.datasets.preprocessing import ExtractPatches, ExtractGridPatches, ReassembleGridPatches
 from pylearn2.utils import serial
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultViewConverter
+from pylearn2.datasets.cifar10 import CIFAR10
+from pylearn2.datasets.cifar100 import CIFAR100
+from pylearn2.datasets.tl_challenge import TL_Challenge
 import sys
 config.floatX = 'float32'
 
@@ -33,9 +36,81 @@ class halver:
         return rval
 
 
+class FeaturesDataset:
+    def __init__(self, dataset_maker, num_examples, pipeline_path):
+        """
+            dataset_maker: A callable that returns a Dataset
+            num_examples: the number of examples we expect the dataset to have
+                          (just for error checking purposes)
+        """
+        self.dataset_maker = dataset_maker
+        self.num_examples = num_examples
+        self.pipeline_path = pipeline_path
+
+
+stl10 = {}
+stl10_no_shelling = {}
+stl10_size = { 'train' : 5000, 'test' : 8000 }
+
+cifar10 = {}
+cifar10_size = { 'train' : 50000, 'test' : 10000 }
+
+cifar100 = {}
+cifar100_size = { 'train' : 50000, 'test' : 10000 }
+
+tl_challenge = {}
+tl_challenge_size = { 'train' : 120, 'test' : 0 }
+
+class dataset_loader:
+    def __init__(self, path):
+        self.path = path
+
+    def __call__(self):
+        return serial.load(self.path)
+
+class dataset_constructor:
+    def __init__(self, cls, which_set):
+        self.cls = cls
+        self.which_set = which_set
+
+    def __call__(self):
+        return self.cls(self.which_set)
+
+
+for which_set in ['train', 'test']:
+    stl10[which_set] = {}
+    stl10_no_shelling[which_set] = {}
+    cifar10[which_set] = {}
+    cifar100[which_set] = {}
+    tl_challenge[which_set] = {}
+
+    #this is for patch size, not datset size
+    for size in [6]:
+        stl10[which_set][size] = FeaturesDataset( dataset_maker = dataset_loader( '${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/'+which_set+'.pkl'),
+                                            num_examples = stl10_size[which_set],
+                                            pipeline_path = '${PYLEARN2_DATA_PATH}/stl10/stl10_patches/preprocessor.pkl')
+
+        stl10_no_shelling[which_set][size] = FeaturesDataset( dataset_maker = dataset_loader( '${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/'+which_set+'.pkl'),
+                                            num_examples = stl10_size[which_set],
+                                            pipeline_path = '${GOODFELI_TMP}/stl10/stl10_patches_no_shelling/preprocessor.pkl')
+
+        cifar10[which_set][size] = FeaturesDataset( dataset_maker = dataset_constructor( CIFAR10, which_set),
+                                                num_examples = cifar10_size[which_set],
+                                                pipeline_path = '${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M_6x6.pkl')
+
+        cifar100[which_set][size] = FeaturesDataset( dataset_maker = dataset_constructor( CIFAR100, which_set),
+                                                num_examples = cifar100_size[which_set],
+                                                pipeline_path = '${GOODFELI_TMP}/tl_challenge_patches_2M_6x6_prepro.pkl')
+        warnings.warn('using TLC pipeline for CIFAR100')
+
+        cifar100[which_set][size] = FeaturesDataset( dataset_maker = dataset_constructor( TL_Challenge, which_set),
+                                                num_examples = tl_challenge_size[which_set],
+                                                pipeline_path = '${GOODFELI_TMP}/tl_challenge_patches_2M_6x6_prepro.pkl')
+
+
 class FeatureExtractor:
     def __init__(self, batch_size, model_path, pooling_region_counts,
-           save_paths, feature_type, dataset_name, which_set, restrict = None):
+           save_paths, feature_type, dataset_family, which_set, restrict = None):
         self.batch_size = batch_size
         self.model_path = model_path
         self.restrict = restrict
@@ -46,19 +121,15 @@ class FeatureExtractor:
         self.save_paths = save_paths
         self.feature_type = feature_type
         self.which_set = which_set
-        self.dataset_name = dataset_name
+        self.dataset_family = dataset_family
 
     def __call__(self):
         model_path = self.model_path
         batch_size = self.batch_size
         feature_type = self.feature_type
         pooling_region_counts = self.pooling_region_counts
-        dataset_name = self.dataset_name
-
-        stl10 =  dataset_name == 'stl10'
-        cifar10 = dataset_name == 'cifar10'
-        cifar100 = dataset_name == 'cifar100'
-        tl_challenge = dataset_name == 'tl_challenge'
+        dataset_family = self.dataset_family
+        which_set = self.which_set
 
         nan = 0
         assert stl10 or cifar10 or cifar100 or tl_challenge
@@ -66,31 +137,16 @@ class FeatureExtractor:
         print 'loading model'
         model = serial.load(model_path)
         model.set_dtype('float32')
+        size = np.sqrt(model.nvis/3)
 
-        print 'loading dataset'
-        if stl10:
-            dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/'+self.which_set+'.pkl')
-            train_size = 5000
-            test_size  = 8000
-        elif cifar10:
-            from pylearn2.datasets.cifar10 import CIFAR10
-            dataset = CIFAR10(which_set = self.which_set)
-            train_size = 50000
-            test_size  = 10000
-        elif cifar100:
-            from pylearn2.datasets.cifar100 import CIFAR100
-            dataset = CIFAR100(which_set = self.which_set)
-            train_size = 50000
-            test_size = 10000
-        elif tl_challenge:
-            from pylearn2.datasets.tl_challenge import TL_Challenge
-            dataset = TL_Challenge(which_set = self.which_set)
-            train_size = 120
+        dataset_descriptor = dataset_family[which_set][size]
 
+        dataset = dataset_descriptor.dataset_maker()
+        expected_num_examples = dataset_descriptor.num_examples
 
         full_X = dataset.get_design_matrix()
         num_examples = full_X.shape[0]
-
+        assert num_examples == expected_num_examples
 
         if self.restrict is not None:
             assert self.restrict[1]  <= full_X.shape[0]
@@ -99,17 +155,6 @@ class FeatureExtractor:
             full_X = full_X[self.restrict[0]:self.restrict[1],:]
 
             assert self.restrict[1] > self.restrict[0]
-
-
-
-
-        if self.which_set == 'train':
-                assert num_examples == train_size
-        elif self.which_set == 'test':
-            assert num_examples == test_size
-
-        else:
-            assert False
 
         #update for after restriction
         num_examples = full_X.shape[0]
@@ -121,7 +166,6 @@ class FeatureExtractor:
         dataset.design_loc = None
         dataset.compress = False
 
-        size = np.sqrt(model.nvis/3)
 
         patchifier = ExtractGridPatches( patch_shape = (size,size), patch_stride = (1,1) )
 
