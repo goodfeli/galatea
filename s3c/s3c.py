@@ -384,7 +384,7 @@ class S3C(Model):
 
                 if monitor_stats or self.monitor_functional:
 
-                    obs = self.e_step.mean_field(V)
+                    obs = self.e_step.variational_inference(V)
 
                     needed_stats = set(self.monitor_stats)
 
@@ -1085,7 +1085,7 @@ class E_Step:
         rval = {}
 
         if self.monitor_kl or self.monitor_em_functional:
-            obs_history = self.mean_field(V, return_history = True)
+            obs_history = self.variational_inference(V, return_history = True)
 
             for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
                 obs = obs_history[i-1]
@@ -1178,7 +1178,7 @@ class E_Step:
 
         return KL
 
-    def init_mf_H(self, V):
+    def init_H_hat(self, V):
 
         if self.model.recycle_q:
             rval = self.model.prev_H
@@ -1197,7 +1197,7 @@ class E_Step:
 
         return rval
 
-    def init_mf_Mu1(self, V):
+    def init_S_hat(self, V):
         if self.model.recycle_q:
             rval = self.model.prev_Mu1
         else:
@@ -1207,12 +1207,10 @@ class E_Step:
 
         return rval
 
-    def mean_field_Mu1(self, V, H, Mu1):
+    def infer_S_hat(self, V, H_hat, S_hat):
 
-
-        #patch files made before rho field
-        if not hasattr(self,'rho'):
-            self.rho = as_floatX(0.5)
+        H = H_hat
+        Mu1 = S_hat
 
         for Vv, Hv in get_debug_values(V, H):
             if Vv.shape != (self.model.test_batch_size,self.model.nvis):
@@ -1267,7 +1265,11 @@ class E_Step:
 
         return rval
 
-    def mean_field_H(self, V, H, Mu1, Sigma1):
+    def infer_H_hat(self, V, H_hat, S_hat, var_s1):
+
+        H = H_hat
+        Mu1 = S_hat
+        Sigma1 = var_s1
 
         half = as_floatX(.5)
         alpha = self.model.alpha
@@ -1301,7 +1303,6 @@ class E_Step:
 
         term_3 = self.model.bias_hid
 
-        warnings.warn("in scratch6, I got the sign of these next two terms wrong. figure out why.")
         term_4 = -half * T.log(alpha + self.model.w)
         term_5 = half * T.log(alpha)
 
@@ -1315,8 +1316,7 @@ class E_Step:
     def damp(self, old, new, new_coeff):
         return new_coeff * new + (1. - new_coeff) * old
 
-
-    def variation_inference(self, V, return_history = False):
+    def variational_inference(self, V, return_history = False):
         """
 
             return_history: if True:
@@ -1336,8 +1336,8 @@ class E_Step:
         var_s1 = self.var_s1()
 
 
-        H   =    self.init_mf_H(V)
-        Mu1 =    self.init_mf_Mu1(V)
+        H   =    self.init_H_hat(V)
+        Mu1 =    self.init_S_hat(V)
 
         def check_H(my_H, my_V):
             if my_H.dtype != config.floatX:
@@ -1367,14 +1367,14 @@ class E_Step:
 
         for new_H_coeff, new_S_coeff in zip(self.h_new_coeff_schedule, self.s_new_coeff_schedule):
 
-            new_Mu1 = self.mean_field_Mu1(V, H, Mu1)
+            new_Mu1 = self.infer_S_hat(V, H, Mu1)
 
             if self.clip_reflections:
                 clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1, rho = self.rho)
             else:
                 clipped_Mu1 = new_Mu1
             Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
-            new_H = self.mean_field_H(V, H, Mu1, Sigma1)
+            new_H = self.infer_H_hat(V, H, Mu1, var_s1)
 
             H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
 
