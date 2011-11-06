@@ -651,13 +651,9 @@ class S3C(Model):
         return rval
 
 
-    def make_learn_func(self, X, learn = None):
+    def make_learn_func(self, X):
         """
         X: a symbolic design matrix
-        learn:
-            must be None unless using sufficient statistics decay
-            False: accumulate sufficient statistics
-            True: exponentially decay sufficient statistics, accumulate new ones, and learn new params
         """
 
         #E step
@@ -665,35 +661,10 @@ class S3C(Model):
 
         m = T.cast(X.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
-        new_stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
+        stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
                 X = X, N = N, B = self.B, W = self.W, **hidden_obs)
 
-
-        if self.new_stat_coeff == 1.0:
-            assert learn is None
-            updated_stats = new_stats
-            do_learn_updates = True
-            do_stats_updates = False
-        else:
-            do_stats_updates = True
-            do_learn_updates = learn
-
-            old_stats = SufficientStatistics.from_holder(self.suff_stat_holder)
-
-            if learn:
-                updated_stats = old_stats.decay(1.0-self.new_stat_coeff)
-                updated_stats = updated_stats.accum(new_stat_coeff = self.new_stat_coeff, new_stats = new_stats)
-            else:
-                updated_stats = old_stats.accum(new_stat_coeff = m / self.learn_after, new_stats = new_stats)
-            #
-
-        if do_learn_updates:
-            learning_updates = self.m_step.get_updates(self, updated_stats)
-        else:
-            learning_updates = {}
-
-        if do_stats_updates:
-            self.suff_stat_holder.update(learning_updates, updated_stats)
+        learning_updates = self.m_step.get_updates(self, stats)
 
         if self.recycle_q:
             learning_updates[self.prev_H] = hidden_obs['H']
@@ -705,7 +676,7 @@ class S3C(Model):
             em_functional_before = self.em_functional(H = hidden_obs['H'],
                                                       sigma0 = hidden_obs['sigma0'],
                                                       Sigma1 = hidden_obs['Sigma1'],
-                                                      stats = updated_stats)
+                                                      stats = stats)
 
             tmp_bias_hid = self.bias_hid
             tmp_mu = self.mu
@@ -725,7 +696,7 @@ class S3C(Model):
                 em_functional_after  = self.em_functional(H = hidden_obs['H'],
                                                           sigma0 = hidden_obs['sigma0'],
                                                           Sigma1 = hidden_obs['Sigma1'],
-                                                          stats = updated_stats)
+                                                          stats = stats)
             finally:
                 self.bias_hid = tmp_bias_hid
                 self.mu = tmp_mu
@@ -748,7 +719,6 @@ class S3C(Model):
         print "graph size: ",len(rval.maker.env.toposort())
 
         return rval
-    #
 
     def censor_updates(self, updates):
 
@@ -1005,12 +975,7 @@ class S3C(Model):
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
-            if self.learn_after is not None:
-                self.learn_func = self.make_learn_func(X, learn = True )
-                self.accum_func = self.make_learn_func(X, learn = False )
-            else:
-                self.learn_func = self.make_learn_func(X)
-            #
+            self.learn_func = self.make_learn_func(X)
 
             final_names = dir(self)
 
