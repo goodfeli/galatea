@@ -268,10 +268,6 @@ class S3C(Model):
 
         self.constrain_W_norm = constrain_W_norm
 
-        if self.clip_W_norm_min is not None:
-            self.clip_W_norm_min = as_floatX(self.clip_W_norm_min)
-            self.clip_W_norm_max = as_floatX(self.clip_W_norm_max)
-
         self.monitor_norms = monitor_norms
         self.disable_W_update = disable_W_update
         self.monitor_functional = monitor_functional
@@ -323,8 +319,6 @@ class S3C(Model):
         if self.constrain_W_norm or self.init_unit_W:
             norms = numpy_norms(W)
             W /= norms
-        if self.clip_W_norm_min is not None:
-            W = numpy_norm_clip(W, self.clip_W_norm_min, self.clip_W_norm_max)
 
         self.W = sharedX(W, name = 'W')
         self.bias_hid = sharedX(np.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
@@ -334,11 +328,6 @@ class S3C(Model):
             self.B_driver = sharedX(0.0+self.init_B, name='B')
         else:
             self.B_driver = sharedX(np.zeros(self.nvis)+self.init_B, name='B')
-
-
-        if self.new_stat_coeff < 1.0:
-            self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid,
-                    needed_stats = self.m_step.needed_stats() )
 
         self.test_batch_size = 2
 
@@ -1093,7 +1082,7 @@ def reflection_clip(Mu1, new_Mu1, rho = 0.5):
 
     return rval
 
-class E_step:
+class E_Step:
     """ A variational E_step that works by running damped fixed point
         updates on a structured variation approximation to
         P(v,h,s) (i.e., we do not use any auxiliary variable).
