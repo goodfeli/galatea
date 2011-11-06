@@ -4,9 +4,6 @@ from pylearn2.models.model import Model
 from theano import config, function, shared
 import theano.tensor as T
 import numpy as np
-from theano.sandbox.linalg.ops import alloc_diag
-#from theano.sandbox.linalg.ops import extract_diag
-from theano.sandbox.linalg.ops import matrix_inverse
 import warnings
 from theano.printing import Print
 from theano import map
@@ -80,6 +77,8 @@ class SufficientStatistics:
         statistics of a minibatch of examples / mean field parameters.
         This is mostly for convenience since several expressions are
         easy to express in terms of these same sufficient statistics.
+        Also, re-using the same expression for the sufficient statistics
+        in multiple code locations can reduce theano compilation time.
         The current version of the S3C code no longer supports features
         like decaying sufficient statistics since these were not found
         to be particularly beneficial relative to the burden of computing
@@ -1475,45 +1474,13 @@ class E_step:
             return history[-1]
 
 
-class M_Step(object):
 
-    def needed_stats(self):
-        """ Return a set of string names of the sufficient statistics that will be needed
-            TODO: do this automatically instead of requiring it to be hard-coded """
-        raise NotImplementedError()
 
-    def get_updates(self, model, stats):
-        raise NotImplementedError()
-
-    def get_monitoring_channels(self, V, model):
-        return {}
-
-class VHS_M_Step(M_Step):
-    """ An M-step based on learning using the distribution
-        over V,H, and S.
-
-        In conjunction with VHS_E_Step this does variational
-        EM in the original model. (Haven't run this yet as of
-        time of writing this comment)
-
-        In conjunction with VHSU_E_Step: we have no theoretical
-        justification for this. In experiments on CIFAR it learns
-        a mixture of gabors and dead filters.
+class Grad_M_Step:
+    """ A partial M-step based on gradient ascent.
+        More aggressive M-steps are possible but didn't work particularly well in practice
+        on STL-10/CIFAR-10
     """
-
-    def get_monitoring_channels(self, V, model):
-
-        hid_observations = model.e_step.mean_field(V)
-
-        stats = SufficientStatistics.from_observations(needed_stats = S3C.expected_log_prob_vhs_needed_stats(),
-                X = V, **hid_observations)
-
-        obj = model.expected_log_prob_vhs(stats)
-
-        return { 'expected_log_prob_vhs' : obj }
-
-
-class VHS_Grad_M_Step(VHS_M_Step):
 
     def __init__(self, learning_rate, B_learning_rate_scale  = 1,
             W_learning_rate_scale = 1, p_penalty = 0.0, B_penalty = 0.0, alpha_penalty = 0.0):
@@ -1577,4 +1544,14 @@ class VHS_Grad_M_Step(VHS_M_Step):
     def needed_stats(self):
         return S3C.expected_log_prob_vhs_needed_stats()
 
+    def get_monitoring_channels(self, V, model):
+
+        hid_observations = model.e_step.mean_field(V)
+
+        stats = SufficientStatistics.from_observations(needed_stats = S3C.expected_log_prob_vhs_needed_stats(),
+                X = V, **hid_observations)
+
+        obj = model.expected_log_prob_vhs(stats)
+
+        return { 'expected_log_prob_vhs' : obj }
 
