@@ -1,5 +1,3 @@
-what happens if you run S3C on data that hasn't been shelled? whitened?
-
 I. Fisher Kernel for CIFAR/STL classification
 	make a global generative model (rather than patch based). this could
 	be convolutional S3C with probabilistic pooling, or it could be the
