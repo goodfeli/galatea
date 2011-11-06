@@ -651,18 +651,18 @@ class S3C(Model):
         return rval
 
 
-    def make_learn_func(self, X):
+    def make_learn_func(self, V):
         """
-        X: a symbolic design matrix
+        V: a symbolic design matrix
         """
 
         #E step
-        hidden_obs = self.e_step.mean_field(X)
+        hidden_obs = self.e_step.variational_inference(V)
 
         m = T.cast(X.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
         stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
-                X = X, N = N, B = self.B, W = self.W, **hidden_obs)
+                X = X, N = N, **hidden_obs)
 
         learning_updates = self.m_step.get_updates(self, stats)
 
@@ -1256,15 +1256,14 @@ class E_Step:
 
         return Mu1
 
-    def mean_field_Sigma1(self):
-        """TODO: this is a bad name, since in the univariate case we would
-         call this sigma^2
-        I think what I was going for was covariance matrix Sigma constrained to be diagonal
-         but it is still confusing """
+    def var_s1(self):
+        """Returns the variational parameter for the variance of s given h=1
+            This is data-independent so its just a vector of size (nhid,) and
+            doesn't take any arguments """
 
         rval =  1./ (self.model.alpha + self.model.w )
 
-        rval.name = 'mean_field_Sigma1'
+        rval.name = 'var_s1'
 
         return rval
 
@@ -1317,7 +1316,7 @@ class E_Step:
         return new_coeff * new + (1. - new_coeff) * old
 
 
-    def mean_field(self, V, return_history = False):
+    def variation_inference(self, V, return_history = False):
         """
 
             return_history: if True:
@@ -1333,9 +1332,8 @@ class E_Step:
         alpha = self.model.alpha
 
 
-        sigma0 = 1. / alpha
-        Sigma1 = self.mean_field_Sigma1()
-        mu0 = T.zeros_like(sigma0)
+        var_s0 = 1. / alpha
+        var_s1 = self.var_s1()
 
 
         H   =    self.init_mf_H(V)
@@ -1359,11 +1357,10 @@ class E_Step:
         def make_dict():
 
             return {
-                    'H' : H,
-                    'mu0' : mu0,
-                    'Mu1' : Mu1,
-                    'sigma0' : sigma0,
-                    'Sigma1': Sigma1,
+                    'H_hat' : H,
+                    'S_hat' : Mu1,
+                    'var_s0' : var_s0,
+                    'var_s1': var_s1,
                     }
 
         history = [ make_dict() ]
