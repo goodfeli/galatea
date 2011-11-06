@@ -1254,7 +1254,7 @@ class E_Step:
 
         return Mu1
 
-    def var_s1(self):
+    def var_s1_hat(self):
         """Returns the variational parameter for the variance of s given h=1
             This is data-independent so its just a vector of size (nhid,) and
             doesn't take any arguments """
@@ -1332,8 +1332,8 @@ class E_Step:
         alpha = self.model.alpha
 
 
-        var_s0 = 1. / alpha
-        var_s1 = self.var_s1()
+        var_s0_hat = 1. / alpha
+        var_s1_hat = self.var_s1_hat()
 
 
         H   =    self.init_H_hat(V)
@@ -1359,8 +1359,8 @@ class E_Step:
             return {
                     'H_hat' : H,
                     'S_hat' : Mu1,
-                    'var_s0' : var_s0,
-                    'var_s1': var_s1,
+                    'var_s0_hat' : var_s0,
+                    'var_s1_hat': var_s1,
                     }
 
         history = [ make_dict() ]
