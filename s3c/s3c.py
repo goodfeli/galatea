@@ -97,7 +97,7 @@ class SufficientStatistics:
             self.d[key] = d[key]
 
     @classmethod
-    def from_observations(self, needed_stats, V, H_hat, s0, S_hat, var_s0_hat, var_s1_hat):
+    def from_observations(self, needed_stats, V, H_hat, S_hat, var_s0_hat, var_s1_hat):
         """
             returns a SufficientStatistics
 
@@ -133,6 +133,12 @@ class SufficientStatistics:
 
         #mean_s1
         mean_s1 = T.mean(S_hat,axis=0)
+
+
+        Sigma1 = var_s1_hat
+        Mu1 = S_hat
+        H = H_hat
+        X = V
 
         #mean_sq_s
         mean_sq_S = H_hat * (Sigma1 + T.sqr(Mu1)) + (1. - H_hat)*(var_s0_hat)
