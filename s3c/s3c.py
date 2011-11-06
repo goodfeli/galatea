@@ -659,10 +659,10 @@ class S3C(Model):
         #E step
         hidden_obs = self.e_step.variational_inference(V)
 
-        m = T.cast(X.shape[0],dtype = config.floatX)
+        m = T.cast(V.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
         stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
-                X = X, N = N, **hidden_obs)
+                V = V, N = N, **hidden_obs)
 
         learning_updates = self.m_step.get_updates(self, stats)
 
