@@ -1359,8 +1359,8 @@ class E_Step:
             return {
                     'H_hat' : H,
                     'S_hat' : Mu1,
-                    'var_s0_hat' : var_s0,
-                    'var_s1_hat': var_s1,
+                    'var_s0_hat' : var_s0_hat,
+                    'var_s1_hat': var_s1_hat,
                     }
 
         history = [ make_dict() ]
