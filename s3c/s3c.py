@@ -21,9 +21,15 @@ import sys
 sys.setrecursionlimit(50000)
 
 def numpy_norms(W):
+    """ returns a vector containing the L2 norm of each
+    column of W, where W and the return value are
+    numpy ndarrays """
     return np.sqrt(1e-8+np.square(W).sum(axis=0))
 
 def theano_norms(W):
+    """ returns a vector containing the L2 norm of each
+    column of W, where W and the return value are symbolic
+    theano variables """
     return T.sqrt(as_floatX(1e-8)+T.sqr(W).sum(axis=0))
 
 def rotate_towards(old_W, new_W, new_coeff):
@@ -58,27 +64,42 @@ def rotate_towards(old_W, new_W, new_coeff):
     return rval
 
 def full_min(var):
+    """ returns a symbolic expression for the value of the minimal
+    element of symbolic tensor. T.min does something else as of
+    the time of this writing. """
     return var.min(axis=range(0,len(var.type.broadcastable)))
 
 def full_max(var):
+    """ returns a symbolic expression for the value of the maximal
+        element of a symbolic tensor. T.max does something else as of the
+        time of this writing. """
     return var.max(axis=range(0,len(var.type.broadcastable)))
 
 class SufficientStatistics:
+    """ The SufficientStatistics class computes several sufficient
+        statistics of a minibatch of examples / mean field parameters.
+        This is mostly for convenience since several expressions are
+        easy to express in terms of these same sufficient statistics.
+        The current version of the S3C code no longer supports features
+        like decaying sufficient statistics since these were not found
+        to be particularly beneficial relative to the burden of computing
+        the O(nhid^2) second moment matrix. The current version of the code
+        merely computes the sufficient statistics apart from the second
+        moment matrix as a notational convenience. Expressions that most
+        naturally are expressed in terms of the second moment matrix
+        are now written with a different order of operations that
+        avoids O(nhid^2) operations but whose dependence on the dataset
+        cannot be expressed in terms only of sufficient statistics."""
+
+
     def __init__(self, d):
         self. d = {}
         for key in d:
             self.d[key] = d[key]
-        #
-    #
-
-    @classmethod
-    def from_holder(self, holder):
-        return SufficientStatistics(holder.d)
-
 
     @classmethod
     def from_observations(self, needed_stats, X, H, mu0, Mu1, sigma0, Sigma1, \
-            U = None, N = None, B = None, W = None):
+        B = None, W = None):
 
         m = T.cast(X.shape[0],config.floatX)
 
@@ -120,45 +141,10 @@ class SufficientStatistics:
         mean_sq_hs = T.mean(mean_sq_HS, axis=0)
         mean_sq_hs.name = 'mean_sq_hs(%s,%s)' % (H_name, Mu1_name)
 
-        #second_hs
-        outer_prod = T.dot(mean_HS.T,mean_HS)
-        outer_prod.name = 'outer_prod<from_observations>'
-        outer = outer_prod/m
-        mask = T.identity_like(outer)
-        second_hs = (1.-mask) * outer + alloc_diag(mean_sq_hs)
-        second_hs.name = 'exp_outer_hs(%s,%s)' % (H_name, Mu1_name)
-
         #mean_hsv
         sum_hsv = T.dot(mean_HS.T,X)
         sum_hsv.name = 'sum_hsv<from_observations>'
         mean_hsv = sum_hsv / m
-
-        u_stat_1 = None
-        u_stat_2 = None
-        if U is not None:
-            N = as_floatX(N)
-            #u_stat_1
-            two = np.cast[config.floatX](2.)
-            u_stat_1 = - two * T.mean( T.as_tensor_variable(mean_HS).dimshuffle(0,1,'x') * U, axis=0)
-
-            #u_stat_2
-            #B = Print('B',attrs=['mean'])(B)
-            #N = Print('N')(N)
-            coeff = two * T.sqr(N)
-            #coeff = Print('coeff')(coeff)
-            term1 = coeff/B
-            #term1 = Print('us2 term1',attrs=['mean'])(term1)
-            dotA = T.dot(T.sqr(mean_HS),T.sqr(W.T))
-            dotA.name = 'dotA'
-            term2 = two * N * dotA
-            #term2 = Print('us2 term2',attrs=['mean'])(term2)
-            dotB = T.dot(mean_HS, W.T)
-            dotB.name = 'dotB'
-            term3 = - two * T.sqr( dotB )
-            #term3 = Print('us2 term3',attrs=['mean'])(term3)
-
-            u_stat_2 = (term1+term2+term3).mean(axis=0)
-
 
 
         d = {
@@ -170,10 +156,7 @@ class SufficientStatistics:
                     "mean_sq_s"             :   mean_sq_s,
                     "mean_hs"               :   mean_hs,
                     "mean_sq_hs"            :   mean_sq_hs,
-                    "second_hs"             :   second_hs,
                     "mean_hsv"              :   mean_hsv,
-                    "u_stat_1"              :   u_stat_1,
-                    "u_stat_2"              :   u_stat_2
                 }
 
 
@@ -185,33 +168,6 @@ class SufficientStatistics:
 
         return SufficientStatistics(final_d)
 
-    def decay(self, coeff):
-        rval_d = {}
-
-        coeff = np.cast[config.floatX](coeff)
-
-        for key in self.d:
-            rval_d[key] = self.d[key] * coeff
-            rval_d[key].name = 'decayed_'+self.d[key].name
-        #
-
-        return SufficientStatistics(rval_d)
-
-    def accum(self, new_stat_coeff, new_stats):
-
-        if hasattr(new_stat_coeff,'dtype'):
-            assert new_stat_coeff.dtype == config.floatX
-        else:
-            assert isinstance(new_stat_coeff,float)
-            new_stat_coeff = np.cast[config.floatX](new_stat_coeff)
-
-        rval_d = {}
-
-        for key in self.d:
-            rval_d[key] = self.d[key] + new_stat_coeff * new_stats.d[key]
-            rval_d[key].name = 'blend_'+self.d[key].name+'_'+new_stats.d[key].name
-
-        return SufficientStatistics(rval_d)
 
 class S3C(Model):
 
