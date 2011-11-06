@@ -74,7 +74,7 @@ def full_max(var):
 
 class SufficientStatistics:
     """ The SufficientStatistics class computes several sufficient
-        statistics of a minibatch of examples / mean field parameters.
+        statistics of a minibatch of examples / variational parameters.
         This is mostly for convenience since several expressions are
         easy to express in terms of these same sufficient statistics.
         Also, re-using the same expression for the sufficient statistics
@@ -97,42 +97,52 @@ class SufficientStatistics:
             self.d[key] = d[key]
 
     @classmethod
-    def from_observations(self, needed_stats, X, H, mu0, Mu1, sigma0, Sigma1, \
-        B = None, W = None):
+    def from_observations(self, needed_stats, V, H_hat, s0, S_hat, var_s0_hat, var_s1_hat):
+        """
+            returns a SufficientStatistics
 
-        m = T.cast(X.shape[0],config.floatX)
+            needed_stats: a set of string names of the statistics to include
 
-        H_name = make_name(H, 'anon_H')
-        Mu1_name = make_name(Mu1, 'anon_Mu1')
+            V: a num_examples x nvis matrix of input examples
+            H_hat: a num_examples x nhid matrix of \hat{h} variational parameters
+            S_hat: variational parameters for expectation of s given h=1
+            var_s0_hat: variational parameters for variance of s given h=0
+                        (only a vector of length nhid, since this is the same for
+                        all inputs)
+            var_s1_hat: variational parameters for variance of s given h=1
+                        (again, a vector of length nhid)
+        """
+
+        m = T.cast(V.shape[0],config.floatX)
+
+        H_name = make_name(H_hat, 'anon_H_hat')
+        Mu1_name = make_name(S_hat, 'anon_S_hat')
 
         #mean_h
-        assert H.dtype == config.floatX
-        mean_h = T.mean(H, axis=0)
-        assert H.dtype == mean_h.dtype
+        assert H_hat.dtype == config.floatX
+        mean_h = T.mean(H_hat, axis=0)
+        assert H_hat.dtype == mean_h.dtype
         assert mean_h.dtype == config.floatX
         mean_h.name = 'mean_h('+H_name+')'
 
         #mean_v
-        mean_v = T.mean(X,axis=0)
+        mean_v = T.mean(V,axis=0)
 
         #mean_sq_v
-        mean_sq_v = T.mean(T.sqr(X),axis=0)
-
-        #mean_s
-        mean_S = H * Mu1 + (1.-H)*mu0
-        mean_s = T.mean(mean_S,axis=0)
+        mean_sq_v = T.mean(T.sqr(V),axis=0)
 
         #mean_s1
-        mean_s1 = T.mean(Mu1,axis=0)
+        mean_s1 = T.mean(S_hat,axis=0)
 
         #mean_sq_s
-        mean_sq_S = H * (Sigma1 + T.sqr(Mu1)) + (1. - H)*(sigma0+T.sqr(mu0))
+        mean_sq_S = H_hat * (Sigma1 + T.sqr(Mu1)) + (1. - H_hat)*(var_s0_hat)
         mean_sq_s = T.mean(mean_sq_S,axis=0)
 
         #mean_hs
         mean_HS = H * Mu1
         mean_hs = T.mean(mean_HS,axis=0)
         mean_hs.name = 'mean_hs(%s,%s)' % (H_name, Mu1_name)
+        mean_s = mean_hs #this here refers to the expectation of the s variable, not s_hat
         mean_D_sq_mean_Q_hs = T.mean(T.sqr(mean_HS), axis=0)
 
         #mean_sq_hs
@@ -1142,11 +1152,11 @@ class E_step:
         """Parameters
         --------------
         h_new_coeff_schedule:
-            list of coefficients to put on the new value of h on each damped mean field step
+            list of coefficients to put on the new value of h on each damped fixed point step
                     (coefficients on s are driven by a special formula)
-            length of this list determines the number of mean field steps
+            length of this list determines the number of fixed point steps
         s_new_coeff_schedule:
-            list of coefficients to put on the new value of s on each damped mean field step
+            list of coefficients to put on the new value of s on each damped fixed point step
                 These are applied AFTER the reflection clipping, which can be seen as a form of
                 per-unit damping
                 s_new_coeff_schedule must have same length as h_new_coeff_schedule
@@ -1199,7 +1209,7 @@ class E_step:
 
     def truncated_KL(self, V, model, obs):
         """ KL divergence between variation and true posterior, dropping terms that don't
-            depend on the mean field parameters """
+            depend on the variational parameters """
 
         H = obs['H']
         sigma0 = obs['sigma0']
@@ -1358,12 +1368,12 @@ class E_step:
 
             return_history: if True:
                                 returns a list of dictionaries with
-                                showing the history of the mean field
+                                showing the history of the variational
                                 parameters
                                 throughout fixed point updates
                             if False:
                                 returns a dictionary containing the final
-                                mean field parameters
+                                variational parameters
         """
 
         alpha = self.model.alpha
@@ -1425,9 +1435,6 @@ class E_step:
             return history
         else:
             return history[-1]
-
-
-
 
 class Grad_M_Step:
     """ A partial M-step based on gradient ascent.
