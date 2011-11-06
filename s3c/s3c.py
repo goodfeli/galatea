@@ -662,7 +662,7 @@ class S3C(Model):
         m = T.cast(V.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
         stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
-                V = V, N = N, **hidden_obs)
+                V = V, **hidden_obs)
 
         learning_updates = self.m_step.get_updates(self, stats)
 
