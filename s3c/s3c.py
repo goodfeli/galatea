@@ -173,16 +173,13 @@ class S3C(Model):
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
                        init_alpha, min_alpha, max_alpha, init_mu,
-                       new_stat_coeff,
                        e_step,
                        m_step,
-                       W_eps = 1e-6, mu_eps = 1e-8,
                         min_bias_hid = -1e30,
                         max_bias_hid = 1e30,
                         min_mu = -1e30,
                         max_mu = 1e30,
                         tied_B = False,
-                       learn_after = None, hard_max_step = None,
                        monitor_stats = None,
                        monitor_params = None,
                        monitor_functional = False,
@@ -190,11 +187,9 @@ class S3C(Model):
                        seed = None,
                        disable_W_update = False,
                        constrain_W_norm = False,
-                       clip_W_norm_min = None,
-                       clip_W_norm_max = None,
                        monitor_norms = False,
                        random_patches_src = None,
-                       init_unit_W = False,
+                       init_unit_W = None,
                        debug_m_step = False,
                        print_interval = 10000):
         """"
@@ -208,27 +203,12 @@ class S3C(Model):
         min_alpha, max_alpha: (scalar) learning updates to alpha are clipped to [min_alpha, max_alpha]
         init_mu: initial value of mu (scalar or vector)
         min_mu/max_mu: clip mu updates to this range.
-        new_stat_coeff: Exponential decay steps on a variable eta take the form
-                        eta:=  new_stat_coeff * new_observation + (1-new_stat_coeff) * eta
         e_step:      An E_Step object that determines what kind of E-step to do
         m_step:      An M_Step object that determines what kind of M-step to do
-        W_eps:       L2 regularization parameter for linear regression problem for W
-        mu_eps:      L2 regularization parameter for linear regression problem for mu
-        learn_after: only applicable when new_stat_coeff < 1.0
-                        begins learning parameters and decaying sufficient statistics
-                        after seeing learn_after examples
-                        until this time, only accumulates sufficient statistics
-        hard_max_step:  if set to None, has no effect
-                        otherwise, every element of every parameter is not allowed to change
-                        by more than this amount on each M-step. This is basically a hack
-                        introduced to prevent explosion in gradient descent.
         tied_B:         if True, use a scalar times identity for the precision on visible units.
                         otherwise use a diagonal matrix for the precision on visible units
         constrain_W_norm: if true, norm of each column of W must be 1 at all times
         init_unit_W:      if true, each column of W is initialized to have unit norm
-        clip_W_norm_min: if not None, then the norms of W will be clipped to lie between this
-                            value and clip_W_norm_max. This flag should not be used in conjunction
-                            wtih constrain_W_norm, which forces W to lie on the unit sphere.
         monitor_stats:  a list of sufficient statistics to monitor on the monitoring dataset
         monitor_params: a list of parameters to monitor TODO: push this into Model base class
         monitor_functional: if true, monitors the EM functional on the monitoring dataset
@@ -241,7 +221,7 @@ class S3C(Model):
         recycle_q: if nonzero, initializes the e-step with the output of the previous iteration's
                     e-step. obviously this should only be used if you are using the same data
                     in each batch. when recycle_q is nonzero, it should be set to the batch size.
-        disable_W_update: if true, doesn't update W (for debugging)
+        disable_W_update: if true, doesn't update W (useful for experiments where you only learn the prior)
         random_patches_src: if not None, should be a dataset
                             will set W to a batch
         init_unit_W:   if True, initializes weights with unit norm
@@ -251,6 +231,9 @@ class S3C(Model):
 
         self.debug_m_step = debug_m_step
 
+
+        if init_unit_W is not None and not init_unit_W:
+            assert not constrain_W_norm
 
         if random_patches_src is not None:
             self.init_W = random_patches_src.get_batch_design(nhid).T
@@ -273,13 +256,7 @@ class S3C(Model):
 
         self.print_interval = print_interval
 
-        assert (clip_W_norm_min is None) == (clip_W_norm_max is None)
-        assert not ((clip_W_norm_min is not None) and constrain_W_norm)
-
         self.constrain_W_norm = constrain_W_norm
-
-        self.clip_W_norm_min = clip_W_norm_min
-        self.clip_W_norm_max = clip_W_norm_max
 
         if self.clip_W_norm_min is not None:
             self.clip_W_norm_min = as_floatX(self.clip_W_norm_min)
@@ -288,8 +265,6 @@ class S3C(Model):
         self.monitor_norms = monitor_norms
         self.disable_W_update = disable_W_update
         self.monitor_functional = monitor_functional
-        self.W_eps = np.cast[config.floatX](float(W_eps))
-        self.mu_eps = np.cast[config.floatX](float(mu_eps))
         self.nvis = nvis
         self.nhid = nhid
         self.irange = irange
@@ -310,25 +285,6 @@ class S3C(Model):
         self.max_bias_hid = max_bias_hid
         self.recycle_q = recycle_q
         self.tied_B = tied_B
-
-        self.hard_max_step = hard_max_step
-        if self.hard_max_step is not None:
-            self.hard_max_step = as_floatX(float(self.hard_max_step))
-
-
-
-
-        #this class always needs a monitor, since it is used to implement the learn_after feature
-        Monitor.get_monitor(self)
-
-        self.new_stat_coeff = np.cast[config.floatX](float(new_stat_coeff))
-        if self.new_stat_coeff < 1.0:
-            assert learn_after is not None
-        else:
-            assert learn_after is None
-        #
-
-        self.learn_after = learn_after
 
         self.reset_rng()
 
@@ -1113,9 +1069,6 @@ class S3C(Model):
 
     def get_weights_format(self):
         return ['v','h']
-
-
-
 
 def reflection_clip(Mu1, new_Mu1, rho = 0.5):
 
