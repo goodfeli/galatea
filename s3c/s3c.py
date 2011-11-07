@@ -16,8 +16,6 @@ from theano import map
 from theano.gof.op import get_debug_values, debug_error_message
 from pylearn2.utils import make_name, sharedX, as_floatX
 from pylearn2.monitor import Monitor
-#import copy
-#config.compute_test_value = 'raise'
 
 warnings.warn('s3c changing the recursion limit')
 import sys
@@ -140,25 +138,19 @@ class SufficientStatistics:
         #mean_s1
         mean_s1 = T.mean(S_hat,axis=0)
 
-
-        Sigma1 = var_s1_hat
-        Mu1 = S_hat
-        H = H_hat
-        X = V
-
         #mean_sq_s
-        mean_sq_S = H_hat * (Sigma1 + T.sqr(Mu1)) + (1. - H_hat)*(var_s0_hat)
+        mean_sq_S = H_hat * (var_s1_hat + T.sqr(S_hat)) + (1. - H_hat)*(var_s0_hat)
         mean_sq_s = T.mean(mean_sq_S,axis=0)
 
         #mean_hs
-        mean_HS = H * Mu1
+        mean_HS = H_hat * S_hat
         mean_hs = T.mean(mean_HS,axis=0)
         mean_hs.name = 'mean_hs(%s,%s)' % (H_name, Mu1_name)
         mean_s = mean_hs #this here refers to the expectation of the s variable, not s_hat
         mean_D_sq_mean_Q_hs = T.mean(T.sqr(mean_HS), axis=0)
 
         #mean_sq_hs
-        mean_sq_HS = H * (Sigma1 + T.sqr(Mu1))
+        mean_sq_HS = H_hat * (var_s1_hat + T.sqr(S_hat))
         mean_sq_hs = T.mean(mean_sq_HS, axis=0)
         mean_sq_hs.name = 'mean_sq_hs(%s,%s)' % (H_name, Mu1_name)
 
@@ -167,7 +159,7 @@ class SufficientStatistics:
         mean_sq_mean_hs.name = 'mean_sq_mean_hs(%s,%s)' % (H_name, Mu1_name)
 
         #mean_hsv
-        sum_hsv = T.dot(mean_HS.T,X)
+        sum_hsv = T.dot(mean_HS.T,V)
         sum_hsv.name = 'sum_hsv<from_observations>'
         mean_hsv = sum_hsv / m
 
@@ -371,12 +363,7 @@ class S3C(Model):
             stats is assumed to be computed from and only from
             the same data points that yielded H """
 
-
-        H = H_hat
-        sigma0 = var_s0_hat
-        Sigma1 = var_s1_hat
-
-        entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+        entropy_term = (self.entropy_hs(H_hat = H_hat, var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)).mean()
         likelihood_term = self.expected_log_prob_vhs(stats, H_hat = H_hat, S_hat = S_hat)
 
         em_functional = likelihood_term + entropy_term
@@ -486,8 +473,6 @@ class S3C(Model):
     def get_params(self):
         return [self.W, self.bias_hid, self.alpha, self.mu, self.B_driver ]
 
-
-
     def energy_vhs(self, V, H, S, debug_energy = None):
         " H MUST be binary "
 
@@ -542,22 +527,21 @@ class S3C(Model):
 
         return rval
 
+    def expected_energy_vhs(self, V, H_hat, S_hat, var_s0_hat, var_s1_hat):
+        """ This is not the same as negative expected log prob,
+        which includes the constant term for the log partition function """
 
-    def expected_energy_vhs(self, V, H, mu0, Mu1, sigma0, Sigma1):
-        """ This is not the same as negative expected log prob, which includes the constant term for the log partition function """
-
-        var_HS = H * Sigma1 + (1.-H) * sigma0
+        var_HS = H_hat * var_s1_hat + (1.-H_hat) * var_s0_hat
 
         half = as_floatX(.5)
 
-        HS = H * Mu1
+        HS = H_hat * S_hat
 
+        sq_HS = H_hat * ( var_s1_hat + T.sqr(S_hat))
 
-        sq_HS = H * ( Sigma1 + T.sqr(Mu1))
+        sq_S = sq_HS + (1.-H_hat)*(var_s0_hat)
 
-        sq_S = sq_HS + (1.-H)*(sigma0 + T.sqr(mu0))
-
-        presign = T.dot(H, self.bias_hid)
+        presign = T.dot(H_hat, self.bias_hid)
         presign.name = 'presign'
         h_term = - presign
         assert len(h_term.type.broadcastable) == 1
@@ -572,7 +556,7 @@ class S3C(Model):
         s_term_2 = - presign2
         assert len(s_term_2.type.broadcastable) == 1
 
-        s_term_3 = half * T.dot(H, T.sqr(self.mu) * self.alpha)
+        s_term_3 = half * T.dot(H_hat, T.sqr(self.mu) * self.alpha)
         assert len(s_term_3.type.broadcastable) == 1
 
         s_term = s_term_1 + s_term_2 + s_term_3
@@ -597,37 +581,31 @@ class S3C(Model):
 
         v_term = v_term_1 + v_term_2 + v_term_3
 
-        if not debug_energy.v_term:
-            v_term = 0.0
-
         rval = h_term + s_term + v_term
 
         return rval
 
-
-    def entropy_h(self, H):
+    def entropy_h(self, H_hat):
 
         #TODO: replace with actually evaluating 0 log 0 as 0
         #note: can't do 1e-8, 1.-1e-8 rounds to 1.0 in float32
-        H = T.clip(H, 1e-7, 1.-1e-7)
+        H_hat = T.clip(H_hat, 1e-7, 1.-1e-7)
 
+        logH = T.log(H_hat)
 
-        logH = T.log(H)
+        logOneMinusH = T.log(1.-H_hat)
 
-
-        logOneMinusH = T.log(1.-H)
-
-        term1 = - T.sum( H * logH , axis=1)
+        term1 = - T.sum( H_hat * logH , axis=1)
         assert len(term1.type.broadcastable) == 1
 
-        term2 = - T.sum( (1.-H) * logOneMinusH , axis =1 )
+        term2 = - T.sum( (1.-H_hat) * logOneMinusH , axis =1 )
         assert len(term2.type.broadcastable) == 1
 
         rval = term1 + term2
 
         return rval
 
-    def entropy_hs(self, H, sigma0, Sigma1):
+    def entropy_hs(self, H_hat, var_s0_hat, var_s1_hat):
 
         half = as_floatX(.5)
 
@@ -637,17 +615,13 @@ class S3C(Model):
 
         pi = as_floatX(np.pi)
 
-        term1_plus_term2 = self.entropy_h(H)
+        term1_plus_term2 = self.entropy_h(H_hat)
         assert len(term1_plus_term2.type.broadcastable) == 1
 
-        #TODO: change Sigma1 back into a vector
-        #TODO: pick new name for Sigma1; does capitalization mean it's a covariance matrix rather than a scalar
-        #                               or does it mean it's a minibatch rather than one example?
-        #
-        term3 = T.sum( H * ( half * (T.log(Sigma1) +  T.log(two*pi) + one )  ) , axis= 1)
+        term3 = T.sum( H_hat * ( half * (T.log(var_s1_hat) +  T.log(two*pi) + one )  ) , axis= 1)
         assert len(term3.type.broadcastable) == 1
 
-        term4 = T.dot( 1.-H, half * (T.log(sigma0) +  T.log(two*pi) + one ))
+        term4 = T.dot( 1.-H_hat, half * (T.log(var_s0_hat) +  T.log(two*pi) + one ))
         assert len(term4.type.broadcastable) == 1
 
         rval = term1_plus_term2 + term3 + term4
@@ -681,8 +655,8 @@ class S3C(Model):
 
         if self.debug_m_step:
             em_functional_before = self.em_functional(H = hidden_obs['H'],
-                                                      sigma0 = hidden_obs['sigma0'],
-                                                      Sigma1 = hidden_obs['Sigma1'],
+                                                      var_s0_hat = hidden_obs['var_s0_hat'],
+                                                      var_s1_hat = hidden_obs['var_s1_hat'],
                                                       stats = stats)
 
             tmp_bias_hid = self.bias_hid
@@ -700,9 +674,9 @@ class S3C(Model):
             self.make_Bwp()
 
             try:
-                em_functional_after  = self.em_functional(H = hidden_obs['H'],
-                                                          sigma0 = hidden_obs['sigma0'],
-                                                          Sigma1 = hidden_obs['Sigma1'],
+                em_functional_after  = self.em_functional(H_hat = hidden_obs['H_hat'],
+                                                          var_s0_hat = hidden_obs['var_s0_hat'],
+                                                          var_s1_hat = hidden_obs['var_s1_hat'],
                                                           stats = stats)
             finally:
                 self.bias_hid = tmp_bias_hid
@@ -915,8 +889,6 @@ class S3C(Model):
 
     def log_likelihood_s_given_h(self, stats):
 
-        warnings.warn('This function has NOT been verified by the finite sample method')
-
         """
         E_h,s\sim Q log P(s|h)
         = E_h,s\sim Q log sqrt( alpha / 2pi) exp(- 0.5 alpha (s-mu h)^2)
@@ -956,8 +928,6 @@ class S3C(Model):
             under the model when the data is drawn according to
             stats
         """
-
-        warnings.warn('This function has not been verified by the finite sample method')
 
         """
             E_h\sim Q log P(h)
@@ -1162,17 +1132,16 @@ class E_Step:
         stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
                                                         X = V, ** obs )
 
-        H = obs['H']
-        sigma0 = obs['sigma0']
-        Sigma1 = obs['Sigma1']
+        H_hat = obs['H_hat']
+        var_s0_hat = obs['var_s0_hat']
+        var_s1_hat = obs['var_s1_hat']
 
-        entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+        entropy_term = (model.entropy_hs(H_hat = H_hat, var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)).mean()
         likelihood_term = model.expected_log_prob_vhs(stats)
 
         em_functional = entropy_term + likelihood_term
 
         return em_functional
-
 
 
     def register_model(self, model):
@@ -1182,14 +1151,14 @@ class E_Step:
         """ KL divergence between variation and true posterior, dropping terms that don't
             depend on the variational parameters """
 
-        H = obs['H']
-        sigma0 = obs['sigma0']
-        Sigma1 = obs['Sigma1']
-        Mu1 = obs['Mu1']
-        mu0 = obs['mu0']
+        H_hat = obs['H_hat']
+        var_s0_hat = obs['var_s0_hat']
+        var_s1_hat = obs['var_s1_hat']
+        S_hat = obs['S_hat']
 
-        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
-        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
+        entropy_term = - model.entropy_hs(H_hat = H_hat, var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)
+        energy_term = model.expected_energy_vhs(V, H_hat = H_hat, S_hat = S_hat,
+                                        var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)
 
         KL = entropy_term + energy_term
 
@@ -1282,11 +1251,7 @@ class E_Step:
 
         return rval
 
-    def infer_H_hat(self, V, H_hat, S_hat, var_s1):
-
-        H = H_hat
-        Mu1 = S_hat
-        Sigma1 = var_s1
+    def infer_H_hat(self, V, H_hat, S_hat):
 
         half = as_floatX(.5)
         alpha = self.model.alpha
@@ -1296,33 +1261,32 @@ class E_Step:
         B = self.model.B
         BW = B.dimshuffle(0,'x') * W
 
-        HS = H * Mu1
+        HS = H_hat * S_hat
 
         t1f1t1 = V
 
         t1f1t2 = -T.dot(HS,W.T)
-        iterm_corrective = w * H *T.sqr(Mu1)
+        iterm_corrective = w * H_hat *T.sqr(S_hat)
 
-        t1f1t3_effect = - half * w * T.sqr(Mu1)
+        t1f1t3_effect = - half * w * T.sqr(S_hat)
 
         term_1_factor_1 = t1f1t1 + t1f1t2
 
-        term_1 = T.dot(term_1_factor_1, BW) * Mu1 + iterm_corrective + t1f1t3_effect
+        term_1 = T.dot(term_1_factor_1, BW) * S_hat + iterm_corrective + t1f1t3_effect
 
-        term_2_subterm_1 = - half * alpha * T.sqr(Mu1)
+        term_2_subterm_1 = - half * alpha * T.sqr(S_hat)
 
-        term_2_subterm_2 = alpha * Mu1 * mu
+        term_2_subterm_2 = alpha * S_hat * mu
 
         term_2_subterm_3 = - half * alpha * T.sqr(mu)
 
         term_2 = term_2_subterm_1 + term_2_subterm_2 + term_2_subterm_3
 
-
         term_3 = self.model.bias_hid
 
         term_4 = -half * T.log(alpha + self.model.w)
-        term_5 = half * T.log(alpha)
 
+        term_5 = half * T.log(alpha)
 
         arg_to_sigmoid = term_1 + term_2 + term_3 + term_4 + term_5
 

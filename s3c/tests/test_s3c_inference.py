@@ -239,8 +239,9 @@ class Test_S3C_Inference:
 
         #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
         # (they don't affect the outcome of this test and some of them are intractable )
-        trunc_kl = - model.entropy_hs(H = H_var, sigma0 = sigma0, Sigma1 = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H = H_var, Mu1 = Mu1_var, mu0 = mu0, sigma0 = sigma0, Sigma1 = Sigma1)
+        trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
+                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var,  var_s0_hat = sigma0,
+                             var_s1_hat = Sigma1)
 
         grad_H = T.grad(trunc_kl.sum(), H_var)
 
@@ -296,8 +297,11 @@ class Test_S3C_Inference:
 
                 if mask.sum() > 0:
                     print 'failing h passing the range mask'
-                    print failing_h[ mask.as_type(bool) ]
-                    raise Exception('after mean field step, gradient of kl divergence wrt frehsly updated mean field parameter should be 0, but here the max magnitude of a gradient element is '+str(g_abs_max)+' after updating h_'+str(i))
+                    print failing_h[ mask.astype(bool) ]
+                    raise Exception('after mean field step, gradient of kl divergence'
+                            ' wrt freshly updated variational parameter should be 0, '
+                            'but here the max magnitude of a gradient element is '
+                            +str(g_abs_max)+' after updating h_'+str(i))
 
 
         #assert not failed

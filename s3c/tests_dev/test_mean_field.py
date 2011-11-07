@@ -1,8 +1,8 @@
 import os
-from galatea.s3c.s3c import S3C
-from galatea.s3c.s3c import VHS_E_Step
-from galatea.s3c.s3c import Split_E_Step
-from galatea.s3c.s3c import VHS_Solve_M_Step
+from galatea.s3c.s3c_dev import S3C
+from galatea.s3c.s3c_dev import VHS_E_Step
+from galatea.s3c.s3c_dev import Split_E_Step
+from galatea.s3c.s3c_dev import VHS_Solve_M_Step
 from theano import function
 import numpy as np
 import theano.tensor as T
@@ -671,7 +671,7 @@ class TestMeanField_Split:
 
                 if mask.sum() > 0:
                     print 'failing h passing the range mask'
-                    print failing_h[ mask.as_type(bool) ]
+                    print failing_h[ mask.astype(bool) ]
                     raise Exception('after mean field step, gradient of kl divergence wrt frehsly updated mean field parameter should be 0, but here the max magnitude of a gradient element is '+str(g_abs_max)+' after updating h_'+str(i))
 
 
@@ -762,6 +762,6 @@ if __name__ == '__main__':
     obj = TestMeanField_Split()
 
     obj.test_grad_h()
-    obj.test_grad_s()
-    obj.test_value_s()
-    obj.test_value_h()
+    #obj.test_grad_s()
+    #obj.test_value_s()
+    #obj.test_value_h()
