@@ -8,7 +8,7 @@
 #penalize alpha so that unused weights will get very low alpha and then become easier to become usable
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: &src "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
-    "model": !obj:galatea.s3c.s3c.S3C {
+    "model": !obj:galatea.s3c.s3c_dev.S3C {
                "nvis" : 108,
                "nhid" : 1600,
                "init_bias_hid" : -4.,
@@ -32,7 +32,7 @@
                "monitor_functional" : 1,
                "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
                #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
-               "e_step" : !obj:galatea.s3c.s3c.Split_E_Step {
+               "e_step" : !obj:galatea.s3c.s3c_dev.Split_E_Step {
                         "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .1, .1, .2, .2, .2, .3, .3, .3, .4, .4, .4, .4, .4 ],
                         "s_new_coeff_schedule" : [  .7, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1 ],
                         "clip_reflections" : 1,
@@ -40,7 +40,7 @@
                },
                "new_stat_coeff" : 1.,
                #"learn_after" : 1000,
-               "m_step"     : !obj:galatea.s3c.s3c.VHS_Grad_M_Step {
+               "m_step"     : !obj:galatea.s3c.s3c_dev.VHS_Grad_M_Step {
                         #"new_coeff" : .1
                         "learning_rate" : 1e-2,
                         "B_learning_rate_scale" : 0.01,

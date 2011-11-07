@@ -1,16 +1,17 @@
+#this is the code for S3C at the time that I submitted to AISTATS / won the TL challenge
+#it supports a lot of features that were useful while this was still a high entropy research
+#project (solving based M step, decaying sufficient statistics, etc.)
+
+
 #TODO: why do I have both expected energy and expected log prob? aren't these just same thing with opposite sign
-__authors__ = "Ian Goodfellow"
-__copyright__ = "Copyright 2011, Universite de Montreal"
-__credits__ = ["Ian Goodfellow"]
-__license__ = "3-clause BSD"
-__maintainer__ = "Ian Goodfellow"
-
-
 import time
 from pylearn2.models.model import Model
 from theano import config, function, shared
 import theano.tensor as T
 import numpy as np
+from theano.sandbox.linalg.ops import alloc_diag
+#from theano.sandbox.linalg.ops import extract_diag
+from theano.sandbox.linalg.ops import matrix_inverse
 import warnings
 from theano.printing import Print
 from theano import map
@@ -25,16 +26,48 @@ import sys
 sys.setrecursionlimit(50000)
 
 def numpy_norms(W):
-    """ returns a vector containing the L2 norm of each
-    column of W, where W and the return value are
-    numpy ndarrays """
     return np.sqrt(1e-8+np.square(W).sum(axis=0))
 
 def theano_norms(W):
-    """ returns a vector containing the L2 norm of each
-    column of W, where W and the return value are symbolic
-    theano variables """
     return T.sqrt(as_floatX(1e-8)+T.sqr(W).sum(axis=0))
+
+
+def numpy_norm_clip(W, norm_min, norm_max):
+    assert hasattr(W, '__array__')
+
+    norms = numpy_norms(W)
+
+    scale = np.ones(norms.shape, norms.dtype)
+
+    scale[norms < norm_min] = norm_min / norms[norms < norm_min ]
+
+    scale[norms > norm_max] = norm_max / norms[norms > norm_max ]
+
+    rval = W * scale
+
+    return rval
+
+def theano_norm_clip(W, norm_min, norm_max, norm_print_name = None):
+    norms = theano_norms(W)
+
+    if norm_print_name is not None:
+        norms = Print(norm_print_name, attrs=['min','mean','max'])(norms)
+
+    scale_up = norm_min / norms
+    scale_up_mask = norms < norm_min
+
+    scale_down = norm_max / norms
+    scale_down_mask = norms > norm_max
+
+    scale = scale_up_mask * scale_up + scale_down_mask * scale_down + \
+            (T.ones_like(norms)-scale_down_mask-scale_up_mask)
+
+
+    rval = W * scale
+
+    assert rval.dtype == W.dtype
+
+    return rval
 
 def rotate_towards(old_W, new_W, new_coeff):
     """
@@ -68,94 +101,107 @@ def rotate_towards(old_W, new_W, new_coeff):
     return rval
 
 def full_min(var):
-    """ returns a symbolic expression for the value of the minimal
-    element of symbolic tensor. T.min does something else as of
-    the time of this writing. """
     return var.min(axis=range(0,len(var.type.broadcastable)))
 
 def full_max(var):
-    """ returns a symbolic expression for the value of the maximal
-        element of a symbolic tensor. T.max does something else as of the
-        time of this writing. """
     return var.max(axis=range(0,len(var.type.broadcastable)))
 
+class SufficientStatisticsHolder:
+    def __init__(self, nvis, nhid, needed_stats):
+        d = {
+                    "mean_h"                :   sharedX(np.zeros(nhid), "mean_h" ),
+                    "mean_v"                :   sharedX(np.zeros(nvis), "mean_v" ),
+                    "mean_sq_v"             :   sharedX(np.zeros(nvis), "mean_sq_v" ),
+                    "mean_s1"               :   sharedX(np.zeros(nhid), "mean_s1"),
+                    "mean_s"                :   sharedX(np.zeros(nhid), "mean_s" ),
+                    "mean_sq_s"             :   sharedX(np.zeros(nhid), "mean_sq_s" ),
+                    "mean_hs"               :   sharedX(np.zeros(nhid), "mean_hs" ),
+                    "mean_sq_hs"            :   sharedX(np.zeros(nhid), "mean_sq_hs" ),
+                    #"mean_D_sq_mean_Q_hs"   :   sharedX(np.zeros(nhid), "mean_D_sq_mean_Q_hs"),
+                    "second_hs"                :   sharedX(np.zeros((nhid,nhid)), 'second_hs'),
+                    "mean_hsv"              :   sharedX(np.zeros((nhid,nvis)), 'mean_hsv'),
+                    "u_stat_1"              :   sharedX(np.zeros((nhid,nvis)), 'u_stat_1'),
+                    "u_stat_2"              :   sharedX(np.zeros((nvis,)),'u_stat_2')
+                }
+
+        self.d = {}
+
+        for stat in needed_stats:
+            self.d[stat] = d[stat]
+
+
+    def __getstate__(self):
+        rval = {}
+
+        for name in self.d:
+            rval[name] = self.d[name].get_value(borrow=False)
+
+        return rval
+
+    def __setstate__(self,d):
+        self.d = {}
+
+        for name in d:
+            self.d[name] = shared(d[name])
+
+    def update(self, updates, updated_stats):
+        for key in updated_stats.d:
+            assert key in self.d
+        for key in self.d:
+            assert key in updated_stats.d
+            assert key not in updates
+            updates[self.d[key]] = updated_stats.d[key]
+
 class SufficientStatistics:
-    """ The SufficientStatistics class computes several sufficient
-        statistics of a minibatch of examples / variational parameters.
-        This is mostly for convenience since several expressions are
-        easy to express in terms of these same sufficient statistics.
-        Also, re-using the same expression for the sufficient statistics
-        in multiple code locations can reduce theano compilation time.
-        The current version of the S3C code no longer supports features
-        like decaying sufficient statistics since these were not found
-        to be particularly beneficial relative to the burden of computing
-        the O(nhid^2) second moment matrix. The current version of the code
-        merely computes the sufficient statistics apart from the second
-        moment matrix as a notational convenience. Expressions that most
-        naturally are expressed in terms of the second moment matrix
-        are now written with a different order of operations that
-        avoids O(nhid^2) operations but whose dependence on the dataset
-        cannot be expressed in terms only of sufficient statistics."""
-
-
     def __init__(self, d):
         self. d = {}
         for key in d:
             self.d[key] = d[key]
+        #
+    #
 
     @classmethod
-    def from_observations(self, needed_stats, V, H_hat, S_hat, var_s0_hat, var_s1_hat):
-        """
-            returns a SufficientStatistics
+    def from_holder(self, holder):
+        return SufficientStatistics(holder.d)
 
-            needed_stats: a set of string names of the statistics to include
 
-            V: a num_examples x nvis matrix of input examples
-            H_hat: a num_examples x nhid matrix of \hat{h} variational parameters
-            S_hat: variational parameters for expectation of s given h=1
-            var_s0_hat: variational parameters for variance of s given h=0
-                        (only a vector of length nhid, since this is the same for
-                        all inputs)
-            var_s1_hat: variational parameters for variance of s given h=1
-                        (again, a vector of length nhid)
-        """
+    @classmethod
+    def from_observations(self, needed_stats, X, H, mu0, Mu1, sigma0, Sigma1, \
+            U = None, N = None, B = None, W = None):
 
-        m = T.cast(V.shape[0],config.floatX)
+        m = T.cast(X.shape[0],config.floatX)
 
-        H_name = make_name(H_hat, 'anon_H_hat')
-        Mu1_name = make_name(S_hat, 'anon_S_hat')
+        H_name = make_name(H, 'anon_H')
+        Mu1_name = make_name(Mu1, 'anon_Mu1')
 
         #mean_h
-        assert H_hat.dtype == config.floatX
-        mean_h = T.mean(H_hat, axis=0)
-        assert H_hat.dtype == mean_h.dtype
+        assert H.dtype == config.floatX
+        mean_h = T.mean(H, axis=0)
+        assert H.dtype == mean_h.dtype
         assert mean_h.dtype == config.floatX
         mean_h.name = 'mean_h('+H_name+')'
 
         #mean_v
-        mean_v = T.mean(V,axis=0)
+        mean_v = T.mean(X,axis=0)
 
         #mean_sq_v
-        mean_sq_v = T.mean(T.sqr(V),axis=0)
+        mean_sq_v = T.mean(T.sqr(X),axis=0)
+
+        #mean_s
+        mean_S = H * Mu1 + (1.-H)*mu0
+        mean_s = T.mean(mean_S,axis=0)
 
         #mean_s1
-        mean_s1 = T.mean(S_hat,axis=0)
-
-
-        Sigma1 = var_s1_hat
-        Mu1 = S_hat
-        H = H_hat
-        X = V
+        mean_s1 = T.mean(Mu1,axis=0)
 
         #mean_sq_s
-        mean_sq_S = H_hat * (Sigma1 + T.sqr(Mu1)) + (1. - H_hat)*(var_s0_hat)
+        mean_sq_S = H * (Sigma1 + T.sqr(Mu1)) + (1. - H)*(sigma0+T.sqr(mu0))
         mean_sq_s = T.mean(mean_sq_S,axis=0)
 
         #mean_hs
         mean_HS = H * Mu1
         mean_hs = T.mean(mean_HS,axis=0)
         mean_hs.name = 'mean_hs(%s,%s)' % (H_name, Mu1_name)
-        mean_s = mean_hs #this here refers to the expectation of the s variable, not s_hat
         mean_D_sq_mean_Q_hs = T.mean(T.sqr(mean_HS), axis=0)
 
         #mean_sq_hs
@@ -163,14 +209,45 @@ class SufficientStatistics:
         mean_sq_hs = T.mean(mean_sq_HS, axis=0)
         mean_sq_hs.name = 'mean_sq_hs(%s,%s)' % (H_name, Mu1_name)
 
-        #mean_sq_mean_hs
-        mean_sq_mean_hs = T.mean(T.sqr(mean_HS), axis=0)
-        mean_sq_mean_hs.name = 'mean_sq_mean_hs(%s,%s)' % (H_name, Mu1_name)
+        #second_hs
+        outer_prod = T.dot(mean_HS.T,mean_HS)
+        outer_prod.name = 'outer_prod<from_observations>'
+        outer = outer_prod/m
+        mask = T.identity_like(outer)
+        second_hs = (1.-mask) * outer + alloc_diag(mean_sq_hs)
+        second_hs.name = 'exp_outer_hs(%s,%s)' % (H_name, Mu1_name)
 
         #mean_hsv
         sum_hsv = T.dot(mean_HS.T,X)
         sum_hsv.name = 'sum_hsv<from_observations>'
         mean_hsv = sum_hsv / m
+
+        u_stat_1 = None
+        u_stat_2 = None
+        if U is not None:
+            N = as_floatX(N)
+            #u_stat_1
+            two = np.cast[config.floatX](2.)
+            u_stat_1 = - two * T.mean( T.as_tensor_variable(mean_HS).dimshuffle(0,1,'x') * U, axis=0)
+
+            #u_stat_2
+            #B = Print('B',attrs=['mean'])(B)
+            #N = Print('N')(N)
+            coeff = two * T.sqr(N)
+            #coeff = Print('coeff')(coeff)
+            term1 = coeff/B
+            #term1 = Print('us2 term1',attrs=['mean'])(term1)
+            dotA = T.dot(T.sqr(mean_HS),T.sqr(W.T))
+            dotA.name = 'dotA'
+            term2 = two * N * dotA
+            #term2 = Print('us2 term2',attrs=['mean'])(term2)
+            dotB = T.dot(mean_HS, W.T)
+            dotB.name = 'dotB'
+            term3 = - two * T.sqr( dotB )
+            #term3 = Print('us2 term3',attrs=['mean'])(term3)
+
+            u_stat_2 = (term1+term2+term3).mean(axis=0)
+
 
 
         d = {
@@ -182,8 +259,10 @@ class SufficientStatistics:
                     "mean_sq_s"             :   mean_sq_s,
                     "mean_hs"               :   mean_hs,
                     "mean_sq_hs"            :   mean_sq_hs,
-                    "mean_sq_mean_hs"       :   mean_sq_mean_hs,
+                    "second_hs"             :   second_hs,
                     "mean_hsv"              :   mean_hsv,
+                    "u_stat_1"              :   u_stat_1,
+                    "u_stat_2"              :   u_stat_2
                 }
 
 
@@ -195,19 +274,67 @@ class SufficientStatistics:
 
         return SufficientStatistics(final_d)
 
+    def decay(self, coeff):
+        rval_d = {}
+
+        coeff = np.cast[config.floatX](coeff)
+
+        for key in self.d:
+            rval_d[key] = self.d[key] * coeff
+            rval_d[key].name = 'decayed_'+self.d[key].name
+        #
+
+        return SufficientStatistics(rval_d)
+
+    def accum(self, new_stat_coeff, new_stats):
+
+        if hasattr(new_stat_coeff,'dtype'):
+            assert new_stat_coeff.dtype == config.floatX
+        else:
+            assert isinstance(new_stat_coeff,float)
+            new_stat_coeff = np.cast[config.floatX](new_stat_coeff)
+
+        rval_d = {}
+
+        for key in self.d:
+            rval_d[key] = self.d[key] + new_stat_coeff * new_stats.d[key]
+            rval_d[key].name = 'blend_'+self.d[key].name+'_'+new_stats.d[key].name
+
+        return SufficientStatistics(rval_d)
+
+class DebugEnergy:
+    def __init__(self,
+                    h_term = True,
+                    s_term_1 = True,
+                    s_term_2 = True,
+                    s_term_3 = True,
+                    v_term = True):
+        self.h_term = h_term
+        self.s_term_1 = s_term_1
+        self.s_term_2 = s_term_2
+        self.s_term_3 = s_term_3
+        self.v_term = v_term
+
+        for field in dir(self):
+            if type(field) == type(True) and not field:
+                print "HACK: some terms of energy / expected energy zeroed out"
+                break
 
 class S3C(Model):
 
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
                        init_alpha, min_alpha, max_alpha, init_mu,
+                       new_stat_coeff,
                        e_step,
                        m_step,
+                       W_eps = 1e-6, mu_eps = 1e-8,
                         min_bias_hid = -1e30,
                         max_bias_hid = 1e30,
                         min_mu = -1e30,
                         max_mu = 1e30,
                         tied_B = False,
+                       learn_after = None, hard_max_step = None,
                        monitor_stats = None,
                        monitor_params = None,
                        monitor_functional = False,
@@ -215,9 +342,11 @@ class S3C(Model):
                        seed = None,
                        disable_W_update = False,
                        constrain_W_norm = False,
+                       clip_W_norm_min = None,
+                       clip_W_norm_max = None,
                        monitor_norms = False,
                        random_patches_src = None,
-                       init_unit_W = None,
+                       init_unit_W = False,
                        debug_m_step = False,
                        print_interval = 10000):
         """"
@@ -231,12 +360,27 @@ class S3C(Model):
         min_alpha, max_alpha: (scalar) learning updates to alpha are clipped to [min_alpha, max_alpha]
         init_mu: initial value of mu (scalar or vector)
         min_mu/max_mu: clip mu updates to this range.
+        new_stat_coeff: Exponential decay steps on a variable eta take the form
+                        eta:=  new_stat_coeff * new_observation + (1-new_stat_coeff) * eta
         e_step:      An E_Step object that determines what kind of E-step to do
         m_step:      An M_Step object that determines what kind of M-step to do
+        W_eps:       L2 regularization parameter for linear regression problem for W
+        mu_eps:      L2 regularization parameter for linear regression problem for mu
+        learn_after: only applicable when new_stat_coeff < 1.0
+                        begins learning parameters and decaying sufficient statistics
+                        after seeing learn_after examples
+                        until this time, only accumulates sufficient statistics
+        hard_max_step:  if set to None, has no effect
+                        otherwise, every element of every parameter is not allowed to change
+                        by more than this amount on each M-step. This is basically a hack
+                        introduced to prevent explosion in gradient descent.
         tied_B:         if True, use a scalar times identity for the precision on visible units.
                         otherwise use a diagonal matrix for the precision on visible units
         constrain_W_norm: if true, norm of each column of W must be 1 at all times
         init_unit_W:      if true, each column of W is initialized to have unit norm
+        clip_W_norm_min: if not None, then the norms of W will be clipped to lie between this
+                            value and clip_W_norm_max. This flag should not be used in conjunction
+                            wtih constrain_W_norm, which forces W to lie on the unit sphere.
         monitor_stats:  a list of sufficient statistics to monitor on the monitoring dataset
         monitor_params: a list of parameters to monitor TODO: push this into Model base class
         monitor_functional: if true, monitors the EM functional on the monitoring dataset
@@ -249,7 +393,7 @@ class S3C(Model):
         recycle_q: if nonzero, initializes the e-step with the output of the previous iteration's
                     e-step. obviously this should only be used if you are using the same data
                     in each batch. when recycle_q is nonzero, it should be set to the batch size.
-        disable_W_update: if true, doesn't update W (useful for experiments where you only learn the prior)
+        disable_W_update: if true, doesn't update W (for debugging)
         random_patches_src: if not None, should be a dataset
                             will set W to a batch
         init_unit_W:   if True, initializes weights with unit norm
@@ -259,9 +403,6 @@ class S3C(Model):
 
         self.debug_m_step = debug_m_step
 
-
-        if init_unit_W is not None and not init_unit_W:
-            assert not constrain_W_norm
 
         if random_patches_src is not None:
             self.init_W = random_patches_src.get_batch_design(nhid).T
@@ -284,11 +425,23 @@ class S3C(Model):
 
         self.print_interval = print_interval
 
+        assert (clip_W_norm_min is None) == (clip_W_norm_max is None)
+        assert not ((clip_W_norm_min is not None) and constrain_W_norm)
+
         self.constrain_W_norm = constrain_W_norm
+
+        self.clip_W_norm_min = clip_W_norm_min
+        self.clip_W_norm_max = clip_W_norm_max
+
+        if self.clip_W_norm_min is not None:
+            self.clip_W_norm_min = as_floatX(self.clip_W_norm_min)
+            self.clip_W_norm_max = as_floatX(self.clip_W_norm_max)
 
         self.monitor_norms = monitor_norms
         self.disable_W_update = disable_W_update
         self.monitor_functional = monitor_functional
+        self.W_eps = np.cast[config.floatX](float(W_eps))
+        self.mu_eps = np.cast[config.floatX](float(mu_eps))
         self.nvis = nvis
         self.nhid = nhid
         self.irange = irange
@@ -309,6 +462,25 @@ class S3C(Model):
         self.max_bias_hid = max_bias_hid
         self.recycle_q = recycle_q
         self.tied_B = tied_B
+
+        self.hard_max_step = hard_max_step
+        if self.hard_max_step is not None:
+            self.hard_max_step = as_floatX(float(self.hard_max_step))
+
+
+
+
+        #this class always needs a monitor, since it is used to implement the learn_after feature
+        Monitor.get_monitor(self)
+
+        self.new_stat_coeff = np.cast[config.floatX](float(new_stat_coeff))
+        if self.new_stat_coeff < 1.0:
+            assert learn_after is not None
+        else:
+            assert learn_after is None
+        #
+
+        self.learn_after = learn_after
 
         self.reset_rng()
 
@@ -337,6 +509,8 @@ class S3C(Model):
         if self.constrain_W_norm or self.init_unit_W:
             norms = numpy_norms(W)
             W /= norms
+        if self.clip_W_norm_min is not None:
+            W = numpy_norm_clip(W, self.clip_W_norm_min, self.clip_W_norm_max)
 
         self.W = sharedX(W, name = 'W')
         self.bias_hid = sharedX(np.zeros(self.nhid)+self.init_bias_hid, name='bias_hid')
@@ -346,6 +520,11 @@ class S3C(Model):
             self.B_driver = sharedX(0.0+self.init_B, name='B')
         else:
             self.B_driver = sharedX(np.zeros(self.nvis)+self.init_B, name='B')
+
+
+        if self.new_stat_coeff < 1.0:
+            self.suff_stat_holder = SufficientStatisticsHolder(nvis = self.nvis, nhid = self.nhid,
+                    needed_stats = self.m_step.needed_stats() )
 
         self.test_batch_size = 2
 
@@ -367,18 +546,19 @@ class S3C(Model):
 
         self.redo_theano()
 
-    def em_functional(self, H_hat, S_hat, var_s0_hat, var_s1_hat, stats):
+    def em_functional(self, H, sigma0, Sigma1, stats):
         """ Returns the em_functional for a single batch of data
             stats is assumed to be computed from and only from
             the same data points that yielded H """
 
-
-        H = H_hat
-        sigma0 = var_s0_hat
-        Sigma1 = var_s1_hat
+        if self.new_stat_coeff != 1.0:
+            warnings.warn(""" used to have this assert here: self.new_stat_coeff == 1.0
+                            but I think it's possible for stats to be valid and self.new_stat_coeff to
+                            1-- stats just has to come from the monitoring set. TODO: give stats enough
+                            metatdata to be able to do the correct assert""")
 
         entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
-        likelihood_term = self.expected_log_prob_vhs(stats, H_hat = H_hat, S_hat = S_hat)
+        likelihood_term = self.expected_log_prob_vhs(stats)
 
         em_functional = likelihood_term + entropy_term
 
@@ -401,7 +581,7 @@ class S3C(Model):
 
                 if monitor_stats or self.monitor_functional:
 
-                    obs = self.e_step.variational_inference(V)
+                    obs = self.e_step.mean_field(V)
 
                     needed_stats = set(self.monitor_stats)
 
@@ -409,16 +589,14 @@ class S3C(Model):
                         needed_stats = needed_stats.union(S3C.expected_log_prob_vhs_needed_stats())
 
                     stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
-                                                                V = V, ** obs )
+                                                                X = V, ** obs )
 
-                    H_hat = obs['H_hat']
-                    S_hat = obs['S_hat']
-                    var_s0_hat = obs['var_s0_hat']
-                    var_s1_hat = obs['var_s1_hat']
+                    H = obs['H']
+                    sigma0 = obs['sigma0']
+                    Sigma1 = obs['Sigma1']
 
                     if self.monitor_functional:
-                        em_functional = self.em_functional(H_hat = H_hat, S_hat = S_hat, var_s0_hat = var_s0_hat,
-                                var_s1_hat = var_s1_hat, stats = stats)
+                        em_functional = self.em_functional(H = H, sigma0 = sigma0, Sigma1 = Sigma1, stats = stats)
 
                         rval['em_functional'] = em_functional
 
@@ -670,27 +848,53 @@ class S3C(Model):
         return rval
 
 
-    def make_learn_func(self, V):
+    def make_learn_func(self, X, learn = None):
         """
-        V: a symbolic design matrix
+        X: a symbolic design matrix
+        learn:
+            must be None unless using sufficient statistics decay
+            False: accumulate sufficient statistics
+            True: exponentially decay sufficient statistics, accumulate new ones, and learn new params
         """
 
         #E step
-        hidden_obs = self.e_step.variational_inference(V)
+        hidden_obs = self.e_step.mean_field(X)
 
-        m = T.cast(V.shape[0],dtype = config.floatX)
+        m = T.cast(X.shape[0],dtype = config.floatX)
         N = np.cast[config.floatX](self.nhid)
-        stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
-                V = V, **hidden_obs)
+        new_stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
+                X = X, N = N, B = self.B, W = self.W, **hidden_obs)
 
-        H_hat = hidden_obs['H_hat']
-        S_hat = hidden_obs['S_hat']
 
-        learning_updates = self.m_step.get_updates(self, stats, H_hat, S_hat)
+        if self.new_stat_coeff == 1.0:
+            assert learn is None
+            updated_stats = new_stats
+            do_learn_updates = True
+            do_stats_updates = False
+        else:
+            do_stats_updates = True
+            do_learn_updates = learn
+
+            old_stats = SufficientStatistics.from_holder(self.suff_stat_holder)
+
+            if learn:
+                updated_stats = old_stats.decay(1.0-self.new_stat_coeff)
+                updated_stats = updated_stats.accum(new_stat_coeff = self.new_stat_coeff, new_stats = new_stats)
+            else:
+                updated_stats = old_stats.accum(new_stat_coeff = m / self.learn_after, new_stats = new_stats)
+            #
+
+        if do_learn_updates:
+            learning_updates = self.m_step.get_updates(self, updated_stats)
+        else:
+            learning_updates = {}
+
+        if do_stats_updates:
+            self.suff_stat_holder.update(learning_updates, updated_stats)
 
         if self.recycle_q:
-            learning_updates[self.prev_H] = H_hat
-            learning_updates[self.prev_Mu1] = S_hat
+            learning_updates[self.prev_H] = hidden_obs['H']
+            learning_updates[self.prev_Mu1] = hidden_obs['Mu1']
 
         self.censor_updates(learning_updates)
 
@@ -698,7 +902,7 @@ class S3C(Model):
             em_functional_before = self.em_functional(H = hidden_obs['H'],
                                                       sigma0 = hidden_obs['sigma0'],
                                                       Sigma1 = hidden_obs['Sigma1'],
-                                                      stats = stats)
+                                                      stats = updated_stats)
 
             tmp_bias_hid = self.bias_hid
             tmp_mu = self.mu
@@ -718,7 +922,7 @@ class S3C(Model):
                 em_functional_after  = self.em_functional(H = hidden_obs['H'],
                                                           sigma0 = hidden_obs['sigma0'],
                                                           Sigma1 = hidden_obs['Sigma1'],
-                                                          stats = stats)
+                                                          stats = updated_stats)
             finally:
                 self.bias_hid = tmp_bias_hid
                 self.mu = tmp_mu
@@ -735,12 +939,13 @@ class S3C(Model):
 
         print "compiling function..."
         t1 = time.time()
-        rval = function([V], updates = learning_updates)
+        rval = function([X], updates = learning_updates)
         t2 = time.time()
         print "... compilation took "+str(t2-t1)+" seconds"
         print "graph size: ",len(rval.maker.env.toposort())
 
         return rval
+    #
 
     def censor_updates(self, updates):
 
@@ -767,6 +972,11 @@ class S3C(Model):
 
         if should_censor(self.bias_hid):
             updates[self.bias_hid] = T.clip(updates[self.bias_hid],self.min_bias_hid,self.max_bias_hid)
+
+        if self.hard_max_step is not None:
+            for param in updates:
+                if should_censor(param):
+                    updates[param] = T.clip(updates[param],param-self.hard_max_step,param+self.hard_max_step)
 
         model_params = self.get_params()
         for param in updates:
@@ -808,9 +1018,9 @@ class S3C(Model):
         return union
 
 
-    def expected_log_prob_vhs(self, stats, H_hat, S_hat):
+    def expected_log_prob_vhs(self, stats):
 
-        expected_log_prob_v_given_hs = self.expected_log_prob_v_given_hs(stats, H_hat = H_hat, S_hat = S_hat)
+        expected_log_prob_v_given_hs = self.expected_log_prob_v_given_hs(stats)
         log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
         log_likelihood_h          = self.log_likelihood_h(stats)
 
@@ -820,6 +1030,9 @@ class S3C(Model):
 
         return rval
 
+    @classmethod
+    def expected_log_prob_v_given_hs_needed_stats(cls):
+        return set(['mean_sq_v','mean_hsv','second_hs'])
 
     def log_prob_v_given_hs(self, V, H, Mu1):
         """
@@ -848,11 +1061,8 @@ class S3C(Model):
 
         return rval
 
-    @classmethod
-    def expected_log_prob_v_given_hs_needed_stats(cls):
-        return set(['mean_sq_v','mean_hsv', 'mean_sq_hs', 'mean_sq_mean_hs'])
 
-    def expected_log_prob_v_given_hs(self, stats, H_hat, S_hat):
+    def expected_log_prob_v_given_hs(self, stats):
         """
         Return value is a SCALAR-- expectation taken across batch index too
         """
@@ -860,39 +1070,9 @@ class S3C(Model):
 
         """
         E_v,h,s \sim Q log P( v | h, s)
-        = sum_k [  E_v,h,s \sim Q log sqrt(B/2 pi) exp( - 0.5 B (v- W[v,:] (h*s) )^2)   ]
-        = sum_k [ E_v,h,s \sim Q 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) - 0.5 B_k sum_i sum_j W[k,i] W[k,j] h_i s_i h_j s_j ]
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ] - 0.5  sum_k B_k sum_i,j W[k,i] W[k,j]  < h_i s_i  h_j s_j >
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ] - (1/2T)  sum_k B_k sum_i,j W[k,i] W[k,j]  sum_t <h_it s_it  h_jt s_t>
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ] - (1/2T)  sum_k B_k sum_t sum_i,j W[k,i] W[k,j] <h_it s_it  h_jt s_t>
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_k B_k sum_t sum_i W[k,i]  sum_{j\neq i} W[k,j] <h_it s_it>  <h_jt s_t>
-          - (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 <h_it s_it^2>
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_k B_k sum_t sum_i W[k,i] <h_it s_it> sum_j W[k,j]  <h_jt s_t>
-          + (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 <h_it s_it>^2
-          - (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 <h_it s_it^2>
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_k B_k sum_t sum_i W[k,i] <h_it s_it> sum_j W[k,j]  <h_jt s_t>
-          + (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 (<h_it s_it>^2 - <h_it s_it^2>)
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_k B_k sum_t sum_i W_ki HS_it sum_j W_kj  HS_tj
-          + (1/2T) sum_k B_k sum_t sum_i sq(W)_ki ( sq(HS)-sq_HS)_it
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_k B_k sum_t sum_i W_ki HS_it sum_j W_kj  HS_tj
-          + (1/2T) sum_k B_k sum_t sum_i sq(W)_ki ( sq(HS)-sq_HS)_it
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_k B_k sum_t sum_i W_ki HS_it sum_j W_kj  HS_tj
-          + (1/2T) sum_k B_k sum_t sum_i sq(W)_ki ( sq(HS)-sq_HS)_it
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_k B_k sum_t (HS_t: W_k:^T)  (HS_t:  W_k:^T)
-          + (1/2) sum_k B_k  sum_i sq(W)_ki ( mean_sq_mean_hs-mean_sq_hs)_i
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2T)  sum_t sum_k B_k  (HS_t: W_k:^T)^2
-          + (1/2) sum_k B_k  sum_i sq(W)_ki ( mean_sq_mean_hs-mean_sq_hs)_i
-        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
-          - (1/2)  mean(   (HS W^T)^2 B )
-          + (1/2) sum_k B_k  sum_i sq(W)_ki ( mean_sq_mean_hs-mean_sq_hs)_i
+        = E_v,h,s \sim Q log sqrt(B/2 pi) exp( - 0.5 B (v- W[v,:] (h*s) )^2)
+        = E_v,h,s \sim Q 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + v B W[v,:] (h*s) - 0.5 B sum_i sum_j W[v,i] W[v,j] h_i s_i h_j s_j
+        = 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + v B W[v,:] (h*s) - 0.5 B sum_i,j W[v,i] W[v,j] cov(h_i s_i, h_j s_j)
         """
 
 
@@ -903,24 +1083,28 @@ class S3C(Model):
 
         mean_sq_v = stats.d['mean_sq_v']
         mean_hsv  = stats.d['mean_hsv']
-        mean_sq_mean_hs = stats.d['mean_sq_mean_hs']
-        mean_sq_hs = stats.d['mean_sq_hs']
+        second_hs = stats.d['second_hs']
 
         term1 = half * T.sum(T.log(self.B))
         term2 = - half * N * T.log(two * pi)
         term3 = - half * T.dot(self.B, mean_sq_v)
         term4 = T.dot(self.B , (self.W * mean_hsv.T).sum(axis=1))
 
-        HS = H_hat * S_hat
-        recons = T.dot(HS, self.W.T)
-        sq_recons = T.sqr(recons)
-        weighted = T.dot(sq_recons, self.B)
-        assert len(weighted.type.broadcastable) == 1
-        term5 = - half * T.mean( weighted)
+        def inner_func(new_W_row, second_hs):
+            val = T.dot(new_W_row, T.dot(second_hs, new_W_row))
+            return val
 
-        term6 = half * T.dot(self.B, T.dot(T.sqr(self.W), mean_sq_mean_hs - mean_sq_hs))
+        rvector, updates= map(inner_func, \
+                    self.W, \
+                    non_sequences=[second_hs])
 
-        rval = term1 + term2 + term3 + term4 + term5 + term6
+        assert len(updates) == 0
+
+        term5 = - half * T.dot(self.B,  rvector)
+        #term5 = - half * T.dot(self.B,  ( second_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
+        #                self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
+
+        rval = term1 + term2 + term3 + term4 + term5
 
         assert len(rval.type.broadcastable) == 0
 
@@ -1018,7 +1202,12 @@ class S3C(Model):
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
-            self.learn_func = self.make_learn_func(X)
+            if self.learn_after is not None:
+                self.learn_func = self.make_learn_func(X, learn = True )
+                self.accum_func = self.make_learn_func(X, learn = False )
+            else:
+                self.learn_func = self.make_learn_func(X)
+            #
 
             final_names = dir(self)
 
@@ -1034,7 +1223,13 @@ class S3C(Model):
 
     def learn_mini_batch(self, X):
 
-        self.learn_func(X)
+        if self.learn_after is not None:
+            if self.monitor.examples_seen >= self.learn_after:
+                self.learn_func(X)
+            else:
+                self.accum_func(X)
+        else:
+            self.learn_func(X)
 
         if self.monitor.examples_seen % self.print_interval == 0:
             print ""
@@ -1056,6 +1251,9 @@ class S3C(Model):
             print 'W: ',(W.min(),W.mean(),W.max())
             norms = numpy_norms(W)
             print 'W norms:',(norms.min(),norms.mean(),norms.max())
+            if self.clip_W_norm_min is not None:
+                assert norms.min() >= .999 * self.clip_W_norm_min
+                assert norms.max() <= 1.001 * self.clip_W_norm_max
 
         if self.debug_m_step:
             if self.em_functional_diff.get_value() < 0.0:
@@ -1067,6 +1265,37 @@ class S3C(Model):
 
     def get_weights_format(self):
         return ['v','h']
+
+class E_step(object):
+    def __init__(self):
+        self.model = None
+
+    def get_monitoring_channels(self, V, model):
+        return {}
+
+    def register_model(self, model):
+        self.model = model
+
+    def mean_field(self, V):
+        raise NotImplementedError()
+
+    def truncated_KL(self, V, model, obs):
+        """ KL divergence between variation and true posterior, dropping terms that don't
+            depend on the mean field parameters """
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+        Mu1 = obs['Mu1']
+        mu0 = obs['mu0']
+
+        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
+        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
+
+        KL = entropy_term + energy_term
+
+        return KL
+
 
 def reflection_clip(Mu1, new_Mu1, rho = 0.5):
 
@@ -1081,7 +1310,316 @@ def reflection_clip(Mu1, new_Mu1, rho = 0.5):
 
     return rval
 
-class E_Step:
+#TODO: refactor this to be Damped_E_Step
+class VHS_E_Step(E_step):
+    """ A variational E_step that works by running damped fixed point
+        updates on a structured variation approximation to
+        P(v,h,s) (i.e., we do not use any auxiliary variable).
+
+        The structured variational approximation is:
+
+            P(v,h,s) = \Pi_i Q_i (h_i, s_i)
+
+        All variables are updated simultaneously, in parallel. The
+        spike variables are updated with a damping coefficient that is the same
+        for all units but changes each time step, specified by the yaml file. The slab
+        variables are updated with:
+            optionally: a unit-specific damping designed to ensure stability
+                        by preventing reflections from going too far away
+                        from the origin.
+            optionally: additional damping that is the same for all units but
+                        changes each time step, specified by the yaml file
+
+        The update equations were derived based on updating h_i and
+        s_i simultaneously, but not updating all units simultaneously.
+
+        The updates are not valid for updating h_i without also updating
+        s_i (i.e., doing this could increase the KL divergence).
+
+        They are also not valid for updating all units simultaneously,
+        but we do this anyway.
+
+        """
+
+
+    def em_functional(self, V, model, obs):
+        """ Return value is a scalar """
+
+        needed_stats = S3C.expected_log_prob_vhs_needed_stats()
+
+        stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
+                                                        X = V, ** obs )
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+
+        #TODO: why do I calculate the em functional manually here rather than using S3C.em_functional?
+
+        entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+        likelihood_term = model.expected_log_prob_vhs(stats)
+
+        em_functional = entropy_term + likelihood_term
+
+        return em_functional
+
+
+    def get_monitoring_channels(self, V, model):
+
+        rval = {}
+
+        if self.monitor_kl or self.monitor_em_functional:
+            obs_history = self.mean_field(V, return_history = True)
+
+            for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
+                obs = obs_history[i-1]
+                if self.monitor_kl:
+                    rval['trunc_KL_'+str(i)] = self.truncated_KL(V, model, obs).mean()
+                if self.monitor_em_functional:
+                    rval['em_functional_'+str(i)] = self.em_functional(V, model, obs).mean()
+
+        return rval
+
+
+    def __init__(self, h_new_coeff_schedule, s_new_coeff_schedule = None, clip_reflections = False, monitor_kl = False, monitor_em_functional = False):
+        """Parameters
+        --------------
+        h_new_coeff_schedule:
+            list of coefficients to put on the new value of h on each damped mean field step
+                    (coefficients on s are driven by a special formula)
+            length of this list determines the number of mean field steps
+        s_new_coeff_schedule:
+            list of coefficients to put on the new value of s on each damped mean field step
+                These are applied AFTER the reflection clipping, which can be seen as a form of
+                per-unit damping
+                s_new_coeff_schedule must have same length as h_new_coeff_schedule
+                if now s_new_coeff_schedule is not provided, it will be filled in with all ones,
+                    i.e. it will default to no damping beyond the reflection clipping
+        """
+
+        if s_new_coeff_schedule is None:
+            s_new_coeff_schedule = [ 1.0 for rho in h_new_coeff_schedule ]
+        else:
+            assert len(s_new_coeff_schedule) == len(h_new_coeff_schedule)
+
+        self.s_new_coeff_schedule = s_new_coeff_schedule
+
+        self.clip_reflections = clip_reflections
+        self.h_new_coeff_schedule = h_new_coeff_schedule
+        self.monitor_kl = monitor_kl
+        self.monitor_em_functional = monitor_em_functional
+
+        super(VHS_E_Step, self).__init__()
+
+    def init_mf_H(self, V):
+        if self.model.recycle_q:
+            rval = self.model.prev_H
+
+            if config.compute_test_value != 'off':
+                if rval.get_value().shape[0] != V.tag.test_value.shape[0]:
+                    raise Exception('E step given wrong test batch size', rval.get_value().shape, V.tag.test_value.shape)
+        else:
+            #just use the prior
+            value =  T.nnet.sigmoid(self.model.bias_hid)
+            rval = T.alloc(value, V.shape[0], value.shape[0])
+
+            if config.compute_test_value != 'off':
+                assert rval.tag.test_value.shape[0] == V.tag.test_value.shape[0]
+
+        return rval
+
+    def init_mf_Mu1(self, V):
+        if self.model.recycle_q:
+            rval = self.model.prev_Mu1
+        else:
+            #just use the prior
+            value = self.model.mu
+            if config.compute_test_value != 'off':
+                assert value.tag.test_value != None
+            rval = T.alloc(value, V.shape[0], value.shape[0])
+
+        return rval
+
+
+
+    def mean_field_A(self, V, H, Mu1):
+
+        if config.compute_test_value != 'off':
+            Vv = V.tag.test_value
+            from theano.gof import PureOp
+            Hv = PureOp._get_test_value(H)
+            if Vv.shape != (self.model.test_batch_size,self.model.nvis):
+                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(Vv.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
+
+            assert Vv.shape[0] == Hv.shape[0]
+            assert Hv.shape[1] == self.model.nhid
+
+
+        mu = self.model.mu
+        alpha = self.model.alpha
+        W = self.model.W
+        B = self.model.B
+        w = self.model.w
+
+        BW = B.dimshuffle(0,'x') * W
+
+        HS = H * Mu1
+
+        mean_term = mu * alpha
+
+        data_term = T.dot(V, BW)
+
+        iterm_part_1 = - T.dot(T.dot(HS, W.T), BW)
+        iterm_part_2 = w * HS
+
+        interaction_term = iterm_part_1 + iterm_part_2
+
+        if config.compute_test_value != 'off':
+            assert iterm_part_1.tag.test_value.shape[0] == V.tag.test_value.shape[0]
+
+        debug_interm = mean_term + data_term
+        A = debug_interm + interaction_term
+
+        V_name = make_name(V, 'anon_V')
+        H_name = make_name(H, 'anon_H')
+        Mu1_name = make_name(Mu1, 'anon_Mu1')
+
+        A.name = 'mean_field_A( %s, %s, %s ) ' % ( V_name, H_name, Mu1_name)
+
+        return A
+
+    def mean_field_Mu1(self, A):
+
+        alpha = self.model.alpha
+        w = self.model.w
+
+        denom = alpha + w
+
+        Mu1 =  A / denom
+
+        A_name = make_name(A, 'anon_A')
+
+        Mu1.name = 'mean_field_Mu1(%s)'%A_name
+
+        return Mu1
+
+    def mean_field_Sigma1(self):
+        """TODO: this is a bad name, since in the univariate case we would
+         call this sigma^2
+        I think what I was going for was covariance matrix Sigma constrained to be diagonal
+         but it is still confusing """
+
+        rval =  1./ (self.model.alpha + self.model.w )
+
+        rval.name = 'mean_field_Sigma1'
+
+        return rval
+
+    def mean_field_H(self, A):
+
+        half = as_floatX(.5)
+        alpha = self.model.alpha
+        w = self.model.w
+
+        term1 = half * T.sqr(A) / (alpha + w)
+
+        term2 = self.model.bias_hid
+
+        term3 = - half * T.sqr(self.model.mu) * self.model.alpha
+
+        term4 = -half * T.log(self.model.alpha + self.model.w)
+
+        term5 = half * T.log(self.model.alpha)
+
+        arg_to_sigmoid = term1 + term2 + term3 + term4 + term5
+
+        H = T.nnet.sigmoid(arg_to_sigmoid)
+
+        A_name = make_name(A, 'anon_A')
+
+        H.name = 'mean_field_H('+A_name+')'
+
+        return H
+
+    def damp(self, old, new, new_coeff):
+        return new_coeff * new + (1. - new_coeff) * old
+
+
+    def mean_field(self, V, return_history = False):
+        """
+
+            return_history: if True:
+                                returns a list of dictionaries with
+                                showing the history of the mean field
+                                parameters
+                                throughout fixed point updates
+                            if False:
+                                returns a dictionary containing the final
+                                mean field parameters
+        """
+
+        alpha = self.model.alpha
+
+        sigma0 = 1. / alpha
+        Sigma1 = self.mean_field_Sigma1()
+        mu0 = T.zeros_like(sigma0)
+
+
+
+        H   =    self.init_mf_H(V)
+        Mu1 =    self.init_mf_Mu1(V)
+
+        def check_H(my_H, my_V):
+            if my_H.dtype != config.floatX:
+                raise AssertionError('my_H.dtype should be config.floatX, but they are '
+                        ' %s and %s, respectively' % (my_H.dtype, config.floatX))
+            assert my_V.dtype == config.floatX
+            if config.compute_test_value != 'off':
+                from theano.gof.op import PureOp
+                Hv = PureOp._get_test_value(my_H)
+
+                Vv = my_V.tag.test_value
+
+                assert Hv.shape[0] == Vv.shape[0]
+
+        check_H(H,V)
+
+        def make_dict():
+
+            return {
+                    'H' : H,
+                    'mu0' : mu0,
+                    'Mu1' : Mu1,
+                    'sigma0' : sigma0,
+                    'Sigma1': Sigma1,
+                    }
+
+        history = [ make_dict() ]
+
+        for new_H_coeff, new_S_coeff in zip(self.h_new_coeff_schedule, self.s_new_coeff_schedule):
+
+            A = self.mean_field_A(V = V, H = H, Mu1 = Mu1)
+            new_Mu1 = self.mean_field_Mu1(A = A)
+            new_H = self.mean_field_H(A = A)
+
+            H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
+            if self.clip_reflections:
+                clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1)
+            else:
+                clipped_Mu1 = new_Mu1
+            Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
+
+            check_H(H,V)
+
+            history.append(make_dict())
+
+        if return_history:
+            return history
+        else:
+            return history[-1]
+
+
+class Split_E_Step(E_step):
     """ A variational E_step that works by running damped fixed point
         updates on a structured variation approximation to
         P(v,h,s) (i.e., we do not use any auxiliary variable).
@@ -1112,6 +1650,27 @@ class E_Step:
 
         """
 
+    def em_functional(self, V, model, obs):
+        """ Return value is a scalar """
+        #TODO: refactor so that this is shared between E-steps
+
+        needed_stats = S3C.expected_log_prob_vhs_needed_stats()
+
+        stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
+                                                        X = V, ** obs )
+
+        H = obs['H']
+        sigma0 = obs['sigma0']
+        Sigma1 = obs['Sigma1']
+
+        entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
+        likelihood_term = model.expected_log_prob_vhs(stats)
+
+        em_functional = entropy_term + likelihood_term
+
+        return em_functional
+
+
     def get_monitoring_channels(self, V, model):
 
         #TODO: update this to show updates to h_i and s_i in correct sequence
@@ -1119,7 +1678,7 @@ class E_Step:
         rval = {}
 
         if self.monitor_kl or self.monitor_em_functional:
-            obs_history = self.variational_inference(V, return_history = True)
+            obs_history = self.mean_field(V, return_history = True)
 
             for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
                 obs = obs_history[i-1]
@@ -1140,11 +1699,11 @@ class E_Step:
         """Parameters
         --------------
         h_new_coeff_schedule:
-            list of coefficients to put on the new value of h on each damped fixed point step
+            list of coefficients to put on the new value of h on each damped mean field step
                     (coefficients on s are driven by a special formula)
-            length of this list determines the number of fixed point steps
+            length of this list determines the number of mean field steps
         s_new_coeff_schedule:
-            list of coefficients to put on the new value of s on each damped fixed point step
+            list of coefficients to put on the new value of s on each damped mean field step
                 These are applied AFTER the reflection clipping, which can be seen as a form of
                 per-unit damping
                 s_new_coeff_schedule must have same length as h_new_coeff_schedule
@@ -1168,51 +1727,9 @@ class E_Step:
 
         self.rho = as_floatX(rho)
 
-        self.model = None
+        super(Split_E_Step, self).__init__()
 
-    def em_functional(self, V, model, obs):
-        """ Return value is a scalar """
-        #TODO: refactor so that this is shared between E-steps
-
-        needed_stats = S3C.expected_log_prob_vhs_needed_stats()
-
-        stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
-                                                        X = V, ** obs )
-
-        H = obs['H']
-        sigma0 = obs['sigma0']
-        Sigma1 = obs['Sigma1']
-
-        entropy_term = (model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
-        likelihood_term = model.expected_log_prob_vhs(stats)
-
-        em_functional = entropy_term + likelihood_term
-
-        return em_functional
-
-
-
-    def register_model(self, model):
-        self.model = model
-
-    def truncated_KL(self, V, model, obs):
-        """ KL divergence between variation and true posterior, dropping terms that don't
-            depend on the variational parameters """
-
-        H = obs['H']
-        sigma0 = obs['sigma0']
-        Sigma1 = obs['Sigma1']
-        Mu1 = obs['Mu1']
-        mu0 = obs['mu0']
-
-        entropy_term = - model.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)
-        energy_term = model.expected_energy_vhs(V, H, mu0, Mu1, sigma0, Sigma1)
-
-        KL = entropy_term + energy_term
-
-        return KL
-
-    def init_H_hat(self, V):
+    def init_mf_H(self, V):
 
         if self.model.recycle_q:
             rval = self.model.prev_H
@@ -1231,7 +1748,7 @@ class E_Step:
 
         return rval
 
-    def init_S_hat(self, V):
+    def init_mf_Mu1(self, V):
         if self.model.recycle_q:
             rval = self.model.prev_Mu1
         else:
@@ -1241,10 +1758,12 @@ class E_Step:
 
         return rval
 
-    def infer_S_hat(self, V, H_hat, S_hat):
+    def mean_field_Mu1(self, V, H, Mu1):
 
-        H = H_hat
-        Mu1 = S_hat
+
+        #patch files made before rho field
+        if not hasattr(self,'rho'):
+            self.rho = as_floatX(0.5)
 
         for Vv, Hv in get_debug_values(V, H):
             if Vv.shape != (self.model.test_batch_size,self.model.nvis):
@@ -1288,22 +1807,19 @@ class E_Step:
 
         return Mu1
 
-    def var_s1_hat(self):
-        """Returns the variational parameter for the variance of s given h=1
-            This is data-independent so its just a vector of size (nhid,) and
-            doesn't take any arguments """
+    def mean_field_Sigma1(self):
+        """TODO: this is a bad name, since in the univariate case we would
+         call this sigma^2
+        I think what I was going for was covariance matrix Sigma constrained to be diagonal
+         but it is still confusing """
 
         rval =  1./ (self.model.alpha + self.model.w )
 
-        rval.name = 'var_s1'
+        rval.name = 'mean_field_Sigma1'
 
         return rval
 
-    def infer_H_hat(self, V, H_hat, S_hat, var_s1):
-
-        H = H_hat
-        Mu1 = S_hat
-        Sigma1 = var_s1
+    def mean_field_H(self, V, H, Mu1, Sigma1):
 
         half = as_floatX(.5)
         alpha = self.model.alpha
@@ -1337,6 +1853,7 @@ class E_Step:
 
         term_3 = self.model.bias_hid
 
+        warnings.warn("in scratch6, I got the sign of these next two terms wrong. figure out why.")
         term_4 = -half * T.log(alpha + self.model.w)
         term_5 = half * T.log(alpha)
 
@@ -1350,28 +1867,30 @@ class E_Step:
     def damp(self, old, new, new_coeff):
         return new_coeff * new + (1. - new_coeff) * old
 
-    def variational_inference(self, V, return_history = False):
+
+    def mean_field(self, V, return_history = False):
         """
 
             return_history: if True:
                                 returns a list of dictionaries with
-                                showing the history of the variational
+                                showing the history of the mean field
                                 parameters
                                 throughout fixed point updates
                             if False:
                                 returns a dictionary containing the final
-                                variational parameters
+                                mean field parameters
         """
 
         alpha = self.model.alpha
 
 
-        var_s0_hat = 1. / alpha
-        var_s1_hat = self.var_s1_hat()
+        sigma0 = 1. / alpha
+        Sigma1 = self.mean_field_Sigma1()
+        mu0 = T.zeros_like(sigma0)
 
 
-        H   =    self.init_H_hat(V)
-        Mu1 =    self.init_S_hat(V)
+        H   =    self.init_mf_H(V)
+        Mu1 =    self.init_mf_Mu1(V)
 
         def check_H(my_H, my_V):
             if my_H.dtype != config.floatX:
@@ -1391,24 +1910,25 @@ class E_Step:
         def make_dict():
 
             return {
-                    'H_hat' : H,
-                    'S_hat' : Mu1,
-                    'var_s0_hat' : var_s0_hat,
-                    'var_s1_hat': var_s1_hat,
+                    'H' : H,
+                    'mu0' : mu0,
+                    'Mu1' : Mu1,
+                    'sigma0' : sigma0,
+                    'Sigma1': Sigma1,
                     }
 
         history = [ make_dict() ]
 
         for new_H_coeff, new_S_coeff in zip(self.h_new_coeff_schedule, self.s_new_coeff_schedule):
 
-            new_Mu1 = self.infer_S_hat(V, H, Mu1)
+            new_Mu1 = self.mean_field_Mu1(V, H, Mu1)
 
             if self.clip_reflections:
                 clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1, rho = self.rho)
             else:
                 clipped_Mu1 = new_Mu1
             Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
-            new_H = self.infer_H_hat(V, H, Mu1, var_s1_hat)
+            new_H = self.mean_field_H(V, H, Mu1, Sigma1)
 
             H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
 
@@ -1421,11 +1941,255 @@ class E_Step:
         else:
             return history[-1]
 
-class Grad_M_Step:
-    """ A partial M-step based on gradient ascent.
-        More aggressive M-steps are possible but didn't work particularly well in practice
-        on STL-10/CIFAR-10
+
+class M_Step(object):
+
+    def needed_stats(self):
+        """ Return a set of string names of the sufficient statistics that will be needed
+            TODO: do this automatically instead of requiring it to be hard-coded """
+        raise NotImplementedError()
+
+    def get_updates(self, model, stats):
+        raise NotImplementedError()
+
+    def get_monitoring_channels(self, V, model):
+        return {}
+
+class VHS_M_Step(M_Step):
+    """ An M-step based on learning using the distribution
+        over V,H, and S.
+
+        In conjunction with VHS_E_Step this does variational
+        EM in the original model. (Haven't run this yet as of
+        time of writing this comment)
+
+        In conjunction with VHSU_E_Step: we have no theoretical
+        justification for this. In experiments on CIFAR it learns
+        a mixture of gabors and dead filters.
     """
+
+    def get_monitoring_channels(self, V, model):
+
+        hid_observations = model.e_step.mean_field(V)
+
+        stats = SufficientStatistics.from_observations(needed_stats = S3C.expected_log_prob_vhs_needed_stats(),
+                X = V, **hid_observations)
+
+        obj = model.expected_log_prob_vhs(stats)
+
+        return { 'expected_log_prob_vhs' : obj }
+
+class VHS_Solve_M_Step(VHS_M_Step):
+
+    def __init__(self, new_coeff, geodesic_updates = False):
+        self.new_coeff = np.cast[config.floatX](float(new_coeff))
+        self.geodesic_updates = geodesic_updates
+
+    def needed_stats(self):
+        return set([ 'second_hs',
+                 'mean_hsv',
+                 'mean_v',
+                 'mean_sq_v',
+                 'mean_sq_s',
+                 'mean_sq_hs',
+                 'mean_hs',
+                 'mean_h'
+                ])
+
+
+    def mangle(self, model, new_W):
+        """  do any censorship / norm adjustment to a raw W update
+            required by the M-step or the model
+
+            model may map update to unit norm
+            M-step may step toward the update along a geodesic
+        """
+
+        one = as_floatX(1.)
+        new_coeff = as_floatX(self.new_coeff)
+
+        if self.geodesic_updates:
+            assert model.constrain_W_norm
+
+            new_W = rotate_towards(model.W, new_W, new_coeff)
+        else:
+            if model.constrain_W_norm:
+                norms = theano_norms(new_W)
+                new_W = new_W / norms.dimshuffle('x',0)
+            elif model.clip_W_norm_min is not None:
+                new_W = theano_norm_clip(new_W, model.clip_W_norm_min, model.clip_W_norm_max)
+            new_W = new_coeff * new_W + (one - new_coeff) * model.W
+        dummy = { model.W :  new_W }
+        model.censor_updates(dummy)
+        if model.W in dummy:
+            new_W = dummy[model.W]
+        else:
+            new_W = model.W
+
+        return new_W
+
+    def get_updates(self, model, stats):
+        """ Solves for the optimal model parameters given stats.
+            The step for each parameter is scaled based on self.new_coeff """
+
+        """
+            One thing that's complicated about debugging
+            this method is that some of the updates depend
+            on the other updates. For example, the new
+            value of B depends on the new value of W.
+            Because these updates are later passed to
+            censor_updates, some of the values computed
+            here may not be correct.
+
+            Thus it's important that all step lengths, update
+            censor, etc. is applied inside of this function,
+            when each new parameter value is computed
+        """
+
+        """Solve multiple linear regression problem where
+         W is a matrix used to predict v from h*s
+
+
+        second_hs[i,j] = E_D,Q h_i s_i h_j s_j   (note that diagonal has different formula)
+        """
+
+        learning_updates = {}
+
+        new_coeff = as_floatX(self.new_coeff)
+        one = as_floatX(1.)
+
+        second_hs = stats.d['second_hs']
+        assert second_hs.dtype == config.floatX
+        #mean_hsv[i,j] = E_D,Q h_i s_i v_j
+        mean_hsv = stats.d['mean_hsv']
+
+        W = model.W
+        mu = model.mu
+        W_eps = model.W_eps
+
+        regularized = second_hs + alloc_diag(T.ones_like(mu) * W_eps)
+        assert regularized.dtype == config.floatX
+
+
+        inv = matrix_inverse(regularized)
+        assert inv.dtype == config.floatX
+
+        inv_prod = T.dot(inv,mean_hsv)
+        inv_prod.name = 'inv_prod'
+        new_W = inv_prod.T
+        assert new_W.dtype == config.floatX
+
+        if model.monitor_norms:
+            norms = theano_norms(new_W)
+            learning_updates[model.debug_norms] = norms
+
+        #handle all step-size mangling on W   BEFORE COMPUTING B
+        new_W = self.mangle(model, new_W)
+
+
+        #Solve for B by setting gradient of log likelihood to 0
+        mean_sq_v = stats.d['mean_sq_v']
+
+        two = as_floatX(2.)
+
+
+        denom1 = mean_sq_v
+
+        denom2 = - two * (new_W * mean_hsv.T).sum(axis=1)
+        #denom3 = (second_hs.dimshuffle('x',0,1)*new_W.dimshuffle(0,1,'x')*new_W.dimshuffle(0,'x',1)).sum(axis=(1,2))
+
+        def inner_func(new_W_row, second_hs):
+            val = T.dot(new_W_row, T.dot(second_hs, new_W_row))
+            return val
+
+        rvector, updates= map(inner_func, \
+                    new_W, \
+                    non_sequences=[second_hs])
+
+        assert len(updates) == 0
+
+        denom3 = rvector
+
+
+        denom = denom1 + denom2 + denom3
+
+
+        #denom = T.clip(denom1 + denom2 + denom3, 1e-10, 1e8)
+
+        if model.tied_B:
+            #it's important to average the denominator, rather than averaging after taking the reciprocal
+            denom = denom.mean()
+
+
+        new_B = one / denom
+
+        new_B = new_coeff * new_B + (one-new_coeff) * model.B_driver
+
+        assert len(new_B.type().broadcastable) == len(model.B_driver.type().broadcastable)
+
+        mean_hs = stats.d['mean_hs']
+
+        # Now a linear regression problem where mu_i is used to predict
+        # s_i from h_i
+
+        # mu_i = ( h^T h + reg)^-1 h^T s_i
+
+        mean_h = stats.d['mean_h']
+        assert mean_h.dtype == config.floatX
+        reg = model.mu_eps
+        new_mu = mean_hs/(mean_h+reg)
+
+        new_mu = new_coeff * new_mu + (one - new_coeff)* model.mu
+        dummy = { model.mu : new_mu }
+        model.censor_updates(dummy)
+        new_mu = dummy[model.mu]
+
+
+        mean_sq_s = stats.d['mean_sq_s']
+        mean_sq_hs = stats.d['mean_h']
+
+        s_denom1 = mean_sq_s
+        s_denom2 = - two * new_mu * mean_hs
+        s_denom3 = T.sqr(new_mu) * mean_h
+
+
+        s_denom = s_denom1 + s_denom2 + s_denom3
+
+        new_alpha = one / s_denom
+
+        assert len(new_alpha.type().broadcastable) == 1
+
+        new_alpha = new_alpha * new_coeff + (one - new_coeff ) * model.alpha
+        assert len(new_alpha.type().broadcastable) == 1
+
+        #probability of hiddens just comes from sample counting
+        #to put it back in bias_hid space apply sigmoid inverse
+        #note: can't do 1e-8, 1.-1e-8 rounds to 1.0 in float32
+        p = T.clip(mean_h,np.cast[config.floatX](1e-7),np.cast[config.floatX](1.-1e-7))
+        p.name = 'mean_h_clipped'
+
+
+        assert p.dtype == config.floatX
+
+        arg_to_log = -p / (p-1.)
+
+
+        new_bias_hid = T.log( arg_to_log )
+
+        new_bias_hid = new_bias_hid * new_coeff + (one - new_coeff) * model.bias_hid
+
+        assert new_bias_hid.dtype == config.floatX
+
+        learning_updates[model.W] = new_W
+        learning_updates[model.B_driver] = new_B
+        learning_updates[model.mu] =  new_mu
+        learning_updates[model.alpha] = new_alpha
+        learning_updates[model.bias_hid] =  new_bias_hid
+
+        return learning_updates
+
+
+class VHS_Grad_M_Step(VHS_M_Step):
 
     def __init__(self, learning_rate, B_learning_rate_scale  = 1,
             W_learning_rate_scale = 1, p_penalty = 0.0, B_penalty = 0.0, alpha_penalty = 0.0):
@@ -1437,11 +2201,11 @@ class Grad_M_Step:
         self.B_penalty = as_floatX(B_penalty)
         self.alpha_penalty = as_floatX(alpha_penalty)
 
-    def get_updates(self, model, stats, H_hat, S_hat):
+    def get_updates(self, model, stats):
 
         params = model.get_params()
 
-        obj = model.expected_log_prob_vhs(stats, H_hat, S_hat) - T.mean(model.p) * self.p_penalty - T.mean(model.B)*self.B_penalty-T.mean(model.alpha)*self.alpha_penalty
+        obj = model.expected_log_prob_vhs(stats) - T.mean(model.p) * self.p_penalty - T.mean(model.B)*self.B_penalty-T.mean(model.alpha)*self.alpha_penalty
 
 
         grads = T.grad(obj, params, consider_constant = stats.d.values())
@@ -1489,17 +2253,4 @@ class Grad_M_Step:
     def needed_stats(self):
         return S3C.expected_log_prob_vhs_needed_stats()
 
-    def get_monitoring_channels(self, V, model):
-
-        hid_observations = model.e_step.variational_inference(V)
-
-        stats = SufficientStatistics.from_observations(needed_stats = S3C.expected_log_prob_vhs_needed_stats(),
-                V = V, **hid_observations)
-
-        H_hat = hid_observations['H_hat']
-        S_hat = hid_observations['S_hat']
-
-        obj = model.expected_log_prob_vhs(stats, H_hat, S_hat)
-
-        return { 'expected_log_prob_vhs' : obj }
 
