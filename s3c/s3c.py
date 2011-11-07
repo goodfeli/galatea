@@ -367,19 +367,18 @@ class S3C(Model):
 
         self.redo_theano()
 
-    def em_functional(self, H, sigma0, Sigma1, stats):
+    def em_functional(self, H_hat, S_hat, var_s0_hat, var_s1_hat, stats):
         """ Returns the em_functional for a single batch of data
             stats is assumed to be computed from and only from
             the same data points that yielded H """
 
-        if self.new_stat_coeff != 1.0:
-            warnings.warn(""" used to have this assert here: self.new_stat_coeff == 1.0
-                            but I think it's possible for stats to be valid and self.new_stat_coeff to
-                            1-- stats just has to come from the monitoring set. TODO: give stats enough
-                            metatdata to be able to do the correct assert""")
+
+        H = H_hat
+        sigma0 = var_s0_hat
+        Sigma1 = var_s1_hat
 
         entropy_term = (self.entropy_hs(H = H, sigma0 = sigma0, Sigma1 = Sigma1)).mean()
-        likelihood_term = self.expected_log_prob_vhs(stats)
+        likelihood_term = self.expected_log_prob_vhs(stats, H_hat = H_hat, S_hat = S_hat)
 
         em_functional = likelihood_term + entropy_term
 
@@ -410,14 +409,16 @@ class S3C(Model):
                         needed_stats = needed_stats.union(S3C.expected_log_prob_vhs_needed_stats())
 
                     stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
-                                                                X = V, ** obs )
+                                                                V = V, ** obs )
 
-                    H = obs['H']
-                    sigma0 = obs['sigma0']
-                    Sigma1 = obs['Sigma1']
+                    H_hat = obs['H_hat']
+                    S_hat = obs['S_hat']
+                    var_s0_hat = obs['var_s0_hat']
+                    var_s1_hat = obs['var_s1_hat']
 
                     if self.monitor_functional:
-                        em_functional = self.em_functional(H = H, sigma0 = sigma0, Sigma1 = Sigma1, stats = stats)
+                        em_functional = self.em_functional(H_hat = H_hat, S_hat = S_hat, var_s0_hat = var_s0_hat,
+                                var_s1_hat = var_s1_hat, stats = stats)
 
                         rval['em_functional'] = em_functional
 
@@ -1033,13 +1034,7 @@ class S3C(Model):
 
     def learn_mini_batch(self, X):
 
-        if self.learn_after is not None:
-            if self.monitor.examples_seen >= self.learn_after:
-                self.learn_func(X)
-            else:
-                self.accum_func(X)
-        else:
-            self.learn_func(X)
+        self.learn_func(X)
 
         if self.monitor.examples_seen % self.print_interval == 0:
             print ""
@@ -1061,9 +1056,6 @@ class S3C(Model):
             print 'W: ',(W.min(),W.mean(),W.max())
             norms = numpy_norms(W)
             print 'W norms:',(norms.min(),norms.mean(),norms.max())
-            if self.clip_W_norm_min is not None:
-                assert norms.min() >= .999 * self.clip_W_norm_min
-                assert norms.max() <= 1.001 * self.clip_W_norm_max
 
         if self.debug_m_step:
             if self.em_functional_diff.get_value() < 0.0:
@@ -1499,12 +1491,15 @@ class Grad_M_Step:
 
     def get_monitoring_channels(self, V, model):
 
-        hid_observations = model.e_step.mean_field(V)
+        hid_observations = model.e_step.variational_inference(V)
 
         stats = SufficientStatistics.from_observations(needed_stats = S3C.expected_log_prob_vhs_needed_stats(),
-                X = V, **hid_observations)
+                V = V, **hid_observations)
 
-        obj = model.expected_log_prob_vhs(stats)
+        H_hat = hid_observations['H_hat']
+        S_hat = hid_observations['S_hat']
+
+        obj = model.expected_log_prob_vhs(stats, H_hat, S_hat)
 
         return { 'expected_log_prob_vhs' : obj }
 
