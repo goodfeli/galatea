@@ -8,11 +8,8 @@ from pylearn2.utils import as_floatX
 from theano import function
 import numpy as np
 import theano.tensor as T
-import copy
-from theano.printing import Print
 from theano import config
 from pylearn2.utils import serial
-from matplotlib import pyplot as plt
 
 if config.floatX != 'float64':
     warnings.warn("Changing floatX to float64, unsure if these tests work for float32 yet")

@@ -188,10 +188,10 @@ class FeatureExtractor:
         print 'defining features'
         V = T.matrix()
         model.make_Bwp()
-        d = model.e_step.mean_field(V = V)
+        d = model.e_step.variational_inference(V = V)
 
-        H = d['H']
-        Mu1 = d['Mu1']
+        H = d['H_hat']
+        Mu1 = d['S_hat']
 
         assert H.dtype == 'float32'
         assert Mu1.dtype == 'float32'
