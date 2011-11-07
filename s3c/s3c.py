@@ -767,11 +767,6 @@ class S3C(Model):
         if should_censor(self.bias_hid):
             updates[self.bias_hid] = T.clip(updates[self.bias_hid],self.min_bias_hid,self.max_bias_hid)
 
-        if self.hard_max_step is not None:
-            for param in updates:
-                if should_censor(param):
-                    updates[param] = T.clip(updates[param],param-self.hard_max_step,param+self.hard_max_step)
-
         model_params = self.get_params()
         for param in updates:
             if param in model_params:
