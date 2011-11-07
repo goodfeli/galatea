@@ -1,4 +1,11 @@
 #TODO: why do I have both expected energy and expected log prob? aren't these just same thing with opposite sign
+__authors__ = "Ian Goodfellow"
+__copyright__ = "Copyright 2011, Universite de Montreal"
+__credits__ = ["Ian Goodfellow"]
+__license__ = "3-clause BSD"
+__maintainer__ = "Ian Goodfellow"
+
+
 import time
 from pylearn2.models.model import Model
 from theano import config, function, shared
@@ -158,7 +165,7 @@ class SufficientStatistics:
 
         #mean_sq_mean_hs
         mean_sq_mean_hs = T.mean(T.sqr(mean_HS), axis=0)
-        mean_sq_mean_hs = 'mean_sq_mean_hs(%s,%s)' % (H_name, Mu1_name)
+        mean_sq_mean_hs.name = 'mean_sq_mean_hs(%s,%s)' % (H_name, Mu1_name)
 
         #mean_hsv
         sum_hsv = T.dot(mean_HS.T,X)
@@ -675,11 +682,14 @@ class S3C(Model):
         stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
                 V = V, **hidden_obs)
 
-        learning_updates = self.m_step.get_updates(self, stats)
+        H_hat = hidden_obs['H_hat']
+        S_hat = hidden_obs['S_hat']
+
+        learning_updates = self.m_step.get_updates(self, stats, H_hat, S_hat)
 
         if self.recycle_q:
-            learning_updates[self.prev_H] = hidden_obs['H']
-            learning_updates[self.prev_Mu1] = hidden_obs['Mu1']
+            learning_updates[self.prev_H] = H_hat
+            learning_updates[self.prev_Mu1] = S_hat
 
         self.censor_updates(learning_updates)
 
@@ -802,9 +812,9 @@ class S3C(Model):
         return union
 
 
-    def expected_log_prob_vhs(self, stats):
+    def expected_log_prob_vhs(self, stats, H_hat, S_hat):
 
-        expected_log_prob_v_given_hs = self.expected_log_prob_v_given_hs(stats)
+        expected_log_prob_v_given_hs = self.expected_log_prob_v_given_hs(stats, H_hat = H_hat, S_hat = S_hat)
         log_likelihood_s_given_h  = self.log_likelihood_s_given_h(stats)
         log_likelihood_h          = self.log_likelihood_h(stats)
 
@@ -814,9 +824,6 @@ class S3C(Model):
 
         return rval
 
-    @classmethod
-    def expected_log_prob_v_given_hs_needed_stats(cls):
-        return set(['mean_sq_v','mean_hsv'])
 
     def log_prob_v_given_hs(self, V, H, Mu1):
         """
@@ -845,6 +852,9 @@ class S3C(Model):
 
         return rval
 
+    @classmethod
+    def expected_log_prob_v_given_hs_needed_stats(cls):
+        return set(['mean_sq_v','mean_hsv', 'mean_sq_hs', 'mean_sq_mean_hs'])
 
     def expected_log_prob_v_given_hs(self, stats, H_hat, S_hat):
         """
@@ -904,8 +914,6 @@ class S3C(Model):
         term2 = - half * N * T.log(two * pi)
         term3 = - half * T.dot(self.B, mean_sq_v)
         term4 = T.dot(self.B , (self.W * mean_hsv.T).sum(axis=1))
-
-        assert len(updates) == 0
 
         HS = H_hat * S_hat
         recons = T.dot(HS, self.W.T)
@@ -1442,11 +1450,11 @@ class Grad_M_Step:
         self.B_penalty = as_floatX(B_penalty)
         self.alpha_penalty = as_floatX(alpha_penalty)
 
-    def get_updates(self, model, stats):
+    def get_updates(self, model, stats, H_hat, S_hat):
 
         params = model.get_params()
 
-        obj = model.expected_log_prob_vhs(stats) - T.mean(model.p) * self.p_penalty - T.mean(model.B)*self.B_penalty-T.mean(model.alpha)*self.alpha_penalty
+        obj = model.expected_log_prob_vhs(stats, H_hat, S_hat) - T.mean(model.p) * self.p_penalty - T.mean(model.B)*self.B_penalty-T.mean(model.alpha)*self.alpha_penalty
 
 
         grads = T.grad(obj, params, consider_constant = stats.d.values())
