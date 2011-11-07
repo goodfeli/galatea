@@ -734,7 +734,7 @@ class S3C(Model):
 
         print "compiling function..."
         t1 = time.time()
-        rval = function([X], updates = learning_updates)
+        rval = function([V], updates = learning_updates)
         t2 = time.time()
         print "... compilation took "+str(t2-t1)+" seconds"
         print "graph size: ",len(rval.maker.env.toposort())
