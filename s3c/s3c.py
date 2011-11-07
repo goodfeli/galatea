@@ -1,4 +1,3 @@
-#TODO: why do I have both expected energy and expected log prob? aren't these just same thing with opposite sign
 __authors__ = "Ian Goodfellow"
 __copyright__ = "Copyright 2011, Universite de Montreal"
 __credits__ = ["Ian Goodfellow"]
@@ -544,12 +543,10 @@ class S3C(Model):
         return rval
 
 
-    def expected_energy_vhs(self, V, H, mu0, Mu1, sigma0, Sigma1, debug_energy = None):
+    def expected_energy_vhs(self, V, H, mu0, Mu1, sigma0, Sigma1):
+        """ This is not the same as negative expected log prob, which includes the constant term for the log partition function """
 
         var_HS = H * Sigma1 + (1.-H) * sigma0
-
-        if debug_energy is None:
-            debug_energy = DebugEnergy()
 
         half = as_floatX(.5)
 
@@ -565,30 +562,18 @@ class S3C(Model):
         h_term = - presign
         assert len(h_term.type.broadcastable) == 1
 
-        if not debug_energy.h_term:
-            h_term = 0.
-
         precoeff =  T.dot(sq_S, self.alpha)
         precoeff.name = 'precoeff'
         s_term_1 = half * precoeff
         assert len(s_term_1.type.broadcastable) == 1
-
-        if not debug_energy.s_term_1:
-            s_term_1 = 0.
 
         presign2 = T.dot(HS, self.alpha * self.mu)
         presign2.name = 'presign2'
         s_term_2 = - presign2
         assert len(s_term_2.type.broadcastable) == 1
 
-        if not debug_energy.s_term_2:
-            s_term_2 = 0.
-
         s_term_3 = half * T.dot(H, T.sqr(self.mu) * self.alpha)
         assert len(s_term_3.type.broadcastable) == 1
-
-        if not debug_energy.s_term_3:
-            s_term_3 = 0.
 
         s_term = s_term_1 + s_term_2 + s_term_3
 
@@ -753,8 +738,6 @@ class S3C(Model):
             elif self.constrain_W_norm:
                 norms = theano_norms(updates[self.W])
                 updates[self.W] /= norms.dimshuffle('x',0)
-            elif self.clip_W_norm_min is not None:
-                updates[self.W] = theano_norm_clip(updates[self.W], self.clip_W_norm_min, self.clip_W_norm_max)
 
         if should_censor(self.alpha):
             updates[self.alpha] = T.clip(updates[self.alpha],self.min_alpha,self.max_alpha)

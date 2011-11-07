@@ -3,7 +3,6 @@
 #project (solving based M step, decaying sufficient statistics, etc.)
 
 
-#TODO: why do I have both expected energy and expected log prob? aren't these just same thing with opposite sign
 import time
 from pylearn2.models.model import Model
 from theano import config, function, shared
