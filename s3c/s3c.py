@@ -1355,7 +1355,7 @@ class E_Step:
             else:
                 clipped_Mu1 = new_Mu1
             Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
-            new_H = self.infer_H_hat(V, H, Mu1, var_s1_hat)
+            new_H = self.infer_H_hat(V, H, Mu1)
 
             H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
 

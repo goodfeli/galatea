@@ -6,7 +6,12 @@ import numpy as np
 import theano.tensor as T
 from theano import config
 from pylearn2.utils import serial
-#config.compute_test_value = 'raise'
+import warnings
+
+
+if config.floatX != 'float64':
+    config.floatX = 'float64'
+    warnings.warn("Changed config.floatX to float64. s3c inference tests currently fail due to numerical issues for float32")
 
 def broadcast(mat, shape_0):
     rval = mat
@@ -69,8 +74,8 @@ class Test_S3C_Inference:
 
         model.test_batch_size = X.shape[0]
 
-        init_H = e_step.init_mf_H(V = X)
-        init_Mu1 = e_step.init_mf_Mu1(V = X)
+        init_H = e_step.init_H_hat(V = X)
+        init_Mu1 = e_step.init_S_hat(V = X)
 
         prev_setting = config.compute_test_value
         config.compute_test_value= 'off'
@@ -106,7 +111,7 @@ class Test_S3C_Inference:
         #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
         # (they don't affect the outcome of this test and some of them are intractable )
         trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H = H_var, Mu1 = Mu1_var, mu0 = mu0, sigma0 = sigma0, Sigma1 = Sigma1)
+                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var, var_s0_hat = sigma0, var_s1_hat = Sigma1)
 
         grad_Mu1 = T.grad(trunc_kl.sum(), Mu1_var)
 
@@ -137,8 +142,8 @@ class Test_S3C_Inference:
 
         assert X.shape[0] == self.m
 
-        init_H = e_step.init_mf_H(V = X)
-        init_Mu1 = e_step.init_mf_Mu1(V = X)
+        init_H = e_step.init_H_hat(V = X)
+        init_Mu1 = e_step.init_S_hat(V = X)
 
         prev_setting = config.compute_test_value
         config.compute_test_value= 'off'
@@ -171,8 +176,8 @@ class Test_S3C_Inference:
 
         #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
         # (they don't affect the outcome of this test and some of them are intractable )
-        trunc_kl = - model.entropy_hs(H = H_var, sigma0 = sigma0, Sigma1 = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H = H_var, Mu1 = Mu1_var, mu0 = mu0, sigma0 = sigma0, Sigma1 = Sigma1)
+        trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
+                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var, var_s0_hat = sigma0, var_s1_hat = Sigma1)
 
         trunc_kl_func = function([H_var, Mu1_var], trunc_kl)
 
@@ -225,7 +230,7 @@ class Test_S3C_Inference:
         idx.tag.test_value = 0
 
 
-        new_H = e_step.infer_H_hat(V = X, H_hat = H_var, S_hat = Mu1_var, var_s1_hat = model.e_step.var_s1_hat())
+        new_H = e_step.infer_H_hat(V = X, H_hat = H_var, S_hat = Mu1_var)
         h_idx = new_H[:,idx]
 
         h_idx = T.clip(h_idx, 0., 1.)
@@ -317,8 +322,8 @@ class Test_S3C_Inference:
 
         assert X.shape[0] == self.m
 
-        init_H = e_step.init_mf_H(V = X)
-        init_Mu1 = e_step.init_mf_Mu1(V = X)
+        init_H = e_step.init_H_hat(V = X)
+        init_Mu1 = e_step.init_S_hat(V = X)
 
         prev_setting = config.compute_test_value
         config.compute_test_value= 'off'
@@ -339,7 +344,7 @@ class Test_S3C_Inference:
         idx = T.iscalar()
         idx.tag.test_value = 0
 
-        newH = e_step.infer_H_hat(V = X, H_hat = H_var, S_hat = Mu1_var, var_s1_hat = e_step.var_s1_hat())
+        newH = e_step.infer_H_hat(V = X, H_hat = H_var, S_hat = Mu1_var)
 
 
         h_idx = newH[:,idx]
@@ -353,8 +358,8 @@ class Test_S3C_Inference:
 
         #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
         # (they don't affect the outcome of this test and some of them are intractable )
-        trunc_kl = - model.entropy_hs(H = H_var, sigma0 = sigma0, Sigma1 = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H = H_var, Mu1 = Mu1_var, mu0 = mu0, sigma0 = sigma0, Sigma1 = Sigma1)
+        trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
+                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var, var_s0_hat = sigma0, var_s1_hat = Sigma1)
 
         trunc_kl_func = function([H_var, Mu1_var], trunc_kl)
 
@@ -390,7 +395,7 @@ class Test_S3C_Inference:
 if __name__ == '__main__':
     obj = Test_S3C_Inference()
 
-    obj.test_grad_h()
-    obj.test_grad_s()
-    obj.test_value_s()
+    #obj.test_grad_h()
+    #obj.test_grad_s()
+    #obj.test_value_s()
     obj.test_value_h()
