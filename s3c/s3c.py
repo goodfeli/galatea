@@ -1398,7 +1398,9 @@ class Grad_M_Step:
         obj = model.expected_log_prob_vhs(stats, H_hat, S_hat) - T.mean(model.p) * self.p_penalty - T.mean(model.B)*self.B_penalty-T.mean(model.alpha)*self.alpha_penalty
 
 
-        grads = T.grad(obj, params, consider_constant = stats.d.values())
+        constants = set(stats.d.values()).union([H_hat, S_hat])
+
+        grads = T.grad(obj, params, consider_constant = constants)
 
         updates = {}
 
