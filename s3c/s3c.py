@@ -156,6 +156,10 @@ class SufficientStatistics:
         mean_sq_hs = T.mean(mean_sq_HS, axis=0)
         mean_sq_hs.name = 'mean_sq_hs(%s,%s)' % (H_name, Mu1_name)
 
+        #mean_sq_mean_hs
+        mean_sq_mean_hs = T.mean(T.sqr(mean_HS), axis=0)
+        mean_sq_mean_hs = 'mean_sq_mean_hs(%s,%s)' % (H_name, Mu1_name)
+
         #mean_hsv
         sum_hsv = T.dot(mean_HS.T,X)
         sum_hsv.name = 'sum_hsv<from_observations>'
@@ -171,6 +175,7 @@ class SufficientStatistics:
                     "mean_sq_s"             :   mean_sq_s,
                     "mean_hs"               :   mean_hs,
                     "mean_sq_hs"            :   mean_sq_hs,
+                    "mean_sq_mean_hs"       :   mean_sq_mean_hs,
                     "mean_hsv"              :   mean_hsv,
                 }
 
@@ -811,7 +816,7 @@ class S3C(Model):
 
     @classmethod
     def expected_log_prob_v_given_hs_needed_stats(cls):
-        return set(['mean_sq_v','mean_hsv','second_hs'])
+        return set(['mean_sq_v','mean_hsv'])
 
     def log_prob_v_given_hs(self, V, H, Mu1):
         """
@@ -841,7 +846,7 @@ class S3C(Model):
         return rval
 
 
-    def expected_log_prob_v_given_hs(self, stats):
+    def expected_log_prob_v_given_hs(self, stats, H_hat, S_hat):
         """
         Return value is a SCALAR-- expectation taken across batch index too
         """
@@ -849,9 +854,39 @@ class S3C(Model):
 
         """
         E_v,h,s \sim Q log P( v | h, s)
-        = E_v,h,s \sim Q log sqrt(B/2 pi) exp( - 0.5 B (v- W[v,:] (h*s) )^2)
-        = E_v,h,s \sim Q 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + v B W[v,:] (h*s) - 0.5 B sum_i sum_j W[v,i] W[v,j] h_i s_i h_j s_j
-        = 0.5 log B - 0.5 log 2 pi - 0.5 B v^2 + v B W[v,:] (h*s) - 0.5 B sum_i,j W[v,i] W[v,j] cov(h_i s_i, h_j s_j)
+        = sum_k [  E_v,h,s \sim Q log sqrt(B/2 pi) exp( - 0.5 B (v- W[v,:] (h*s) )^2)   ]
+        = sum_k [ E_v,h,s \sim Q 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) - 0.5 B_k sum_i sum_j W[k,i] W[k,j] h_i s_i h_j s_j ]
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ] - 0.5  sum_k B_k sum_i,j W[k,i] W[k,j]  < h_i s_i  h_j s_j >
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ] - (1/2T)  sum_k B_k sum_i,j W[k,i] W[k,j]  sum_t <h_it s_it  h_jt s_t>
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ] - (1/2T)  sum_k B_k sum_t sum_i,j W[k,i] W[k,j] <h_it s_it  h_jt s_t>
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_k B_k sum_t sum_i W[k,i]  sum_{j\neq i} W[k,j] <h_it s_it>  <h_jt s_t>
+          - (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 <h_it s_it^2>
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_k B_k sum_t sum_i W[k,i] <h_it s_it> sum_j W[k,j]  <h_jt s_t>
+          + (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 <h_it s_it>^2
+          - (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 <h_it s_it^2>
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_k B_k sum_t sum_i W[k,i] <h_it s_it> sum_j W[k,j]  <h_jt s_t>
+          + (1/2T) sum_k B_k sum_t sum_i W[k,i]^2 (<h_it s_it>^2 - <h_it s_it^2>)
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_k B_k sum_t sum_i W_ki HS_it sum_j W_kj  HS_tj
+          + (1/2T) sum_k B_k sum_t sum_i sq(W)_ki ( sq(HS)-sq_HS)_it
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_k B_k sum_t sum_i W_ki HS_it sum_j W_kj  HS_tj
+          + (1/2T) sum_k B_k sum_t sum_i sq(W)_ki ( sq(HS)-sq_HS)_it
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_k B_k sum_t sum_i W_ki HS_it sum_j W_kj  HS_tj
+          + (1/2T) sum_k B_k sum_t sum_i sq(W)_ki ( sq(HS)-sq_HS)_it
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_k B_k sum_t (HS_t: W_k:^T)  (HS_t:  W_k:^T)
+          + (1/2) sum_k B_k  sum_i sq(W)_ki ( mean_sq_mean_hs-mean_sq_hs)_i
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2T)  sum_t sum_k B_k  (HS_t: W_k:^T)^2
+          + (1/2) sum_k B_k  sum_i sq(W)_ki ( mean_sq_mean_hs-mean_sq_hs)_i
+        = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
+          - (1/2)  mean(   (HS W^T)^2 B )
+          + (1/2) sum_k B_k  sum_i sq(W)_ki ( mean_sq_mean_hs-mean_sq_hs)_i
         """
 
 
@@ -862,28 +897,26 @@ class S3C(Model):
 
         mean_sq_v = stats.d['mean_sq_v']
         mean_hsv  = stats.d['mean_hsv']
-        second_hs = stats.d['second_hs']
+        mean_sq_mean_hs = stats.d['mean_sq_mean_hs']
+        mean_sq_hs = stats.d['mean_sq_hs']
 
         term1 = half * T.sum(T.log(self.B))
         term2 = - half * N * T.log(two * pi)
         term3 = - half * T.dot(self.B, mean_sq_v)
         term4 = T.dot(self.B , (self.W * mean_hsv.T).sum(axis=1))
 
-        def inner_func(new_W_row, second_hs):
-            val = T.dot(new_W_row, T.dot(second_hs, new_W_row))
-            return val
-
-        rvector, updates= map(inner_func, \
-                    self.W, \
-                    non_sequences=[second_hs])
-
         assert len(updates) == 0
 
-        term5 = - half * T.dot(self.B,  rvector)
-        #term5 = - half * T.dot(self.B,  ( second_hs.dimshuffle('x',0,1) * self.W.dimshuffle(0,1,'x') *
-        #                self.W.dimshuffle(0,'x',1)).sum(axis=(1,2)))
+        HS = H_hat * S_hat
+        recons = T.dot(HS, self.W.T)
+        sq_recons = T.sqr(recons)
+        weighted = T.dot(sq_recons, self.B)
+        assert len(weighted.type.broadcastable) == 1
+        term5 = - half * T.mean( weighted)
 
-        rval = term1 + term2 + term3 + term4 + term5
+        term6 = half * T.dot(self.B, T.dot(T.sqr(self.W), mean_sq_mean_hs - mean_sq_hs))
+
+        rval = term1 + term2 + term3 + term4 + term5 + term6
 
         assert len(rval.type.broadcastable) == 0
 
