@@ -1572,7 +1572,7 @@ class VHS_E_Step(E_step):
             if my_H.dtype != config.floatX:
                 raise AssertionError('my_H.dtype should be config.floatX, but they are '
                         ' %s and %s, respectively' % (my_H.dtype, config.floatX))
-            assert my_V.dtype == config.floatX
+
             if config.compute_test_value != 'off':
                 from theano.gof.op import PureOp
                 Hv = PureOp._get_test_value(my_H)

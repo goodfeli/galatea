@@ -1,9 +1,9 @@
 import warnings
-from galatea.s3c.s3c import S3C
-from galatea.s3c.s3c import SufficientStatistics
-from galatea.s3c.s3c import SufficientStatisticsHolder
-from galatea.s3c.s3c import VHS_E_Step
-from galatea.s3c.s3c import VHS_Solve_M_Step
+from galatea.s3c.s3c_dev import S3C
+from galatea.s3c.s3c_dev import SufficientStatistics
+from galatea.s3c.s3c_dev import SufficientStatisticsHolder
+from galatea.s3c.s3c_dev import VHS_E_Step
+from galatea.s3c.s3c_dev import VHS_Solve_M_Step
 from pylearn2.utils import as_floatX
 from theano import function
 import numpy as np
@@ -14,6 +14,11 @@ from theano import config
 from pylearn2.utils import serial
 from theano.sandbox.linalg.ops import alloc_diag, extract_diag, matrix_inverse
 from matplotlib import pyplot as plt
+
+
+if config.floatX != 'float64':
+    warnings.warn('changing config.floatX to float64')
+    config.floatX = 'float64'
 
 class TestS3C_VHS:
 

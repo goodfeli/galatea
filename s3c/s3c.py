@@ -1324,7 +1324,14 @@ class E_Step:
             if my_H.dtype != config.floatX:
                 raise AssertionError('my_H.dtype should be config.floatX, but they are '
                         ' %s and %s, respectively' % (my_H.dtype, config.floatX))
-            assert my_V.dtype == config.floatX
+
+            allowed_v_types = ['float32']
+
+            if config.floatX == 'float64':
+                allowed_v_types.append('float64')
+
+            assert my_V.dtype in allowed_v_types
+
             if config.compute_test_value != 'off':
                 from theano.gof.op import PureOp
                 Hv = PureOp._get_test_value(my_H)
