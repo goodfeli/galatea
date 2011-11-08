@@ -105,10 +105,10 @@ map_hs: h*s, computed from joint MAP estimation under q
     print 'defining features'
     V = T.matrix()
     model.make_Bwp()
-    d = model.e_step.mean_field(V = V)
+    d = model.e_step.variational_inference(V = V)
 
-    H = d['H']
-    Mu1 = d['Mu1']
+    H = d['H_hat']
+    Mu1 = d['S_hat']
 
     if feature_type == 'exp_hs':
         feat = H * Mu1

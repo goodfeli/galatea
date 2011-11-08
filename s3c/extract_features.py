@@ -100,20 +100,26 @@ for which_set in ['train', 'test']:
 
         cifar100[which_set][size] = FeaturesDataset( dataset_maker = dataset_constructor( CIFAR100, which_set),
                                                 num_examples = cifar100_size[which_set],
-                                                pipeline_path = '${GOODFELI_TMP}/tl_challenge_patches_2M_6x6_prepro.pkl')
-        warnings.warn('using TLC pipeline for CIFAR100')
+                                                pipeline_path = '${PYLEARN2_DATA_PATH}/cifar100/cifar100_patches/preprocessor.pkl')
 
-        cifar100[which_set][size] = FeaturesDataset( dataset_maker = dataset_constructor( TL_Challenge, which_set),
+        tl_challenge[which_set][size] = FeaturesDataset( dataset_maker = dataset_constructor( TL_Challenge, which_set),
                                                 num_examples = tl_challenge_size[which_set],
                                                 pipeline_path = '${GOODFELI_TMP}/tl_challenge_patches_2M_6x6_prepro.pkl')
 
 
+    stl10[which_set][8] = FeaturesDataset( dataset_maker = dataset_loader( '${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/'+which_set+'.pkl'),
+                                            num_examples = stl10_size[which_set],
+                                            pipeline_path = '${PYLEARN2_DATA_PATH}/stl10/stl10_patches_8x8/preprocessor.pkl')
+
+
+
 class FeatureExtractor:
     def __init__(self, batch_size, model_path, pooling_region_counts,
-           save_paths, feature_type, dataset_family, which_set, restrict = None):
+           save_paths, feature_type, dataset_family, which_set,
+           chunk_size = None):
         self.batch_size = batch_size
         self.model_path = model_path
-        self.restrict = restrict
+        self.restrict = None
 
         assert len(pooling_region_counts) == len(save_paths)
 
@@ -122,22 +128,46 @@ class FeatureExtractor:
         self.feature_type = feature_type
         self.which_set = which_set
         self.dataset_family = dataset_family
+        self.chunk_size = chunk_size
 
     def __call__(self):
+
+        print 'loading model'
         model_path = self.model_path
+        self.model = serial.load(model_path)
+        self.model.set_dtype('float32')
+        self.size = int(np.sqrt(self.model.nvis/3))
+
+        if self.chunk_size is not None:
+            dataset_family = self.dataset_family
+            which_set = self.which_set
+            dataset_descriptor = self.dataset_family[which_set][size]
+
+            num_examples = dataset_descriptor.num_examples
+            assert num_examples % self.chunk_size == 0
+
+            self.chunk_id = 0
+            for i in xrange(0,num_examples, self.chunk_size):
+                self.restrict = (i, i + self.chunk_size)
+
+                self._execute()
+
+                self.chunk_id += 1
+        else:
+            self._execute()
+
+    def _execute(self):
+
         batch_size = self.batch_size
         feature_type = self.feature_type
         pooling_region_counts = self.pooling_region_counts
         dataset_family = self.dataset_family
         which_set = self.which_set
+        model = self.model
+        size = self.size
 
         nan = 0
-        assert stl10 or cifar10 or cifar100 or tl_challenge
 
-        print 'loading model'
-        model = serial.load(model_path)
-        model.set_dtype('float32')
-        size = np.sqrt(model.nvis/3)
 
         dataset_descriptor = dataset_family[which_set][size]
 
@@ -159,27 +189,15 @@ class FeatureExtractor:
         #update for after restriction
         num_examples = full_X.shape[0]
 
-
         assert num_examples > 0
 
         dataset.X = None
         dataset.design_loc = None
         dataset.compress = False
 
-
         patchifier = ExtractGridPatches( patch_shape = (size,size), patch_stride = (1,1) )
 
-        if size ==6:
-            if stl10:
-                pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/preprocessor.pkl')
-            elif cifar10:
-                pipeline = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M_6x6.pkl')
-            elif cifar100 or tl_challenge:
-                warnings.warn('using TLC pipeline, not CIFAR100 pipeline')
-                pipeline = serial.load('${GOODFELI_TMP}/tl_challenge_patches_2M_6x6_prepro.pkl')
-        else:
-            print size
-            assert False
+        pipeline = serial.load(dataset_descriptor.pipeline_path)
 
         assert isinstance(pipeline.items[0], ExtractPatches)
         pipeline.items[0] = patchifier
@@ -212,7 +230,7 @@ class FeatureExtractor:
         f = function([V],feat)
 
 
-        if config.device.startswith('gpu') and model.nhid == 4000:
+        if config.device.startswith('gpu') and model.nhid >= 4000:
             f = halver(f, model.nhid)
 
         topo_feat_var = T.TensorType(broadcastable = (False,False,False,False), dtype='float32')()
@@ -292,6 +310,12 @@ class FeatureExtractor:
             print (t6-t1, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5)
 
         for output, save_path in zip(outputs, self.save_paths):
+            if self.restrict is not None:
+                assert save_path.endswith('.npy')
+                save_path_pieces = save_path.split('.npy')
+                assert len(save_path_pieces) == 2
+                assert save_path_pieces[1] == ''
+                save_path = save_path_pieces[0] + '_' + chr(ord('A')+self.chunk_id)+'.npy'
             np.save(save_path,output)
 
 

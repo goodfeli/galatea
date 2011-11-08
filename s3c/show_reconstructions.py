@@ -23,9 +23,9 @@ model.make_Bwp()
 def get_reconstruction_func():
     V = T.matrix()
 
-    mf = model.e_step.mean_field(V)
-    H = mf['H']
-    S = mf['Mu1']
+    mf = model.e_step.variational_inference(V)
+    H = mf['H_hat']
+    S = mf['S_hat']
     Z = H*S
     recons = T.dot(Z,model.W.T)
 
