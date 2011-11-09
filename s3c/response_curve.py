@@ -4,7 +4,7 @@ import sys
 print 'loading model'
 model_path = sys.argv[1]
 model = load(model_path)
-model.make_Bwp()
+model.make_pseudoparams()
 
 print 'loading dataset'
 dataset_path = sys.argv[2]

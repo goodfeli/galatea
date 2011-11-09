@@ -473,34 +473,16 @@ class S3C(Model):
     def get_params(self):
         return [self.W, self.bias_hid, self.alpha, self.mu, self.B_driver ]
 
-    def energy_vhs(self, V, H, S, debug_energy = None):
+    def energy_vhs(self, V, H, S):
         " H MUST be binary "
-
-        if debug_energy is None:
-            debug_energy = DebugEnergy()
-
-
 
         h_term = - T.dot(H, self.bias_hid)
         assert len(h_term.type.broadcastable) == 1
-
-        if not debug_energy.h_term:
-            h_term = 0.
-
 
         s_term_1 = T.dot(T.sqr(S), self.alpha)/2.
         s_term_2 = -T.dot(S * self.mu * H , self.alpha)
         #s_term_3 = T.dot(T.sqr(self.mu * H), self.alpha)/2.
         s_term_3 = T.dot(T.sqr(self.mu) * H, self.alpha) / 2.
-
-        if not debug_energy.s_term_1:
-            s_term_1 = 0.
-
-        if not debug_energy.s_term_2:
-            s_term_2 = 0.
-
-        if not debug_energy.s_term_3:
-            s_term_3 = 0.
 
         s_term = s_term_1 + s_term_2 + s_term_3
         #s_term = T.dot( T.sqr( S - self.mu * H) , self.alpha) / 2.
@@ -517,10 +499,6 @@ class S3C(Model):
 
         #v_term = T.dot( T.sqr( V - recons), self. B) / 2.
         assert len(v_term.type.broadcastable) == 1
-
-
-        if not debug_energy.v_term:
-            v_term = 0.
 
         rval = h_term + s_term + v_term
         assert len(rval.type.broadcastable) == 1
@@ -637,8 +615,6 @@ class S3C(Model):
         #E step
         hidden_obs = self.e_step.variational_inference(V)
 
-        m = T.cast(V.shape[0],dtype = config.floatX)
-        N = np.cast[config.floatX](self.nhid)
         stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
                 V = V, **hidden_obs)
 
@@ -671,7 +647,7 @@ class S3C(Model):
             if self.W in learning_updates:
                 self.W = learning_updates[self.W]
             self.B_driver = learning_updates[self.B_driver]
-            self.make_Bwp()
+            self.make_pseudoparams()
 
             try:
                 em_functional_after  = self.em_functional(H_hat = hidden_obs['H_hat'],
@@ -684,7 +660,7 @@ class S3C(Model):
                 self.alpha = tmp_alpha
                 self.W = tmp_W
                 self.B_driver = tmp_B_driver
-                self.make_Bwp()
+                self.make_pseudoparams()
 
             em_functional_diff = em_functional_after - em_functional_before
 
@@ -731,14 +707,23 @@ class S3C(Model):
                 self.censored_updates[param] = self.censored_updates[param].union(set([updates[param]]))
 
 
-    def random_design_matrix(self, batch_size, theano_rng):
+    def random_design_matrix(self, batch_size, theano_rng,
+                            H_sample = None):
+        """
+            H_sample: a matrix of values of H
+                      if none is provided, samples one from the prior
+                      (H_sample is used if you want to see what samples due
+                        to specific hidden units look like, or when sampling
+                        from a larger model that s3c is part of)
+        """
 
         if not hasattr(self,'p'):
-            self.make_Bwp()
+            self.make_pseudoparams()
 
         hid_shape = (batch_size, self.nhid)
 
-        H_sample = theano_rng.binomial( size = hid_shape, n = 1, p = self.p)
+        if H_sample is None:
+            H_sample = theano_rng.binomial( size = hid_shape, n = 1, p = self.p)
 
         pos_s_sample = theano_rng.normal( size = hid_shape, avg = self.mu, std = T.sqrt(1./self.alpha) )
 
@@ -947,7 +932,7 @@ class S3C(Model):
         return rval
 
 
-    def make_Bwp(self):
+    def make_pseudoparams(self):
         if self.tied_B:
             #can't just use a dimshuffle; dot products involving B won't work
             #and because doing it this way makes the partition function multiply by nvis automatically
@@ -964,7 +949,7 @@ class S3C(Model):
             self.compile_mode()
             init_names = dir(self)
 
-            self.make_Bwp()
+            self.make_pseudoparams()
 
             self.get_B_value = function([], self.B)
 

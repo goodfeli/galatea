@@ -19,7 +19,7 @@ print 'defining em functional...'
 import theano.tensor as T
 
 V = T.matrix("V")
-model.make_Bwp()
+model.make_pseudoparams()
 obs = model.e_step.mean_field(V)
 
 from galatea.s3c.s3c import S3C

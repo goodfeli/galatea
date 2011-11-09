@@ -18,7 +18,7 @@ print 'done'
 
 import theano.tensor as T
 from theano import function
-model.make_Bwp()
+model.make_pseudoparams()
 
 def get_reconstruction_func():
     V = T.matrix()
