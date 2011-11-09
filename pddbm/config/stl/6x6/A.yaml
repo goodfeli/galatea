@@ -1,11 +1,13 @@
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: &src "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
     "model": !obj:galatea.pddbm.pddbm.PDDBM {
-        "dbm": !obj:pylearn2.models.dbm {
-                "rbms" : [ !obj:pylearn2.models.rbm {
+        "dbm": !obj:pylearn2.models.dbm.DBM {
+                "rbms" : [ !obj:pylearn2.models.rbm.RBM {
+                                                  "nvis" : 625,
+                                                  "nhid" : 1000
                                                 }
                          ]
-        }
+        },
         "s3c": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 108,
                "nhid" : 1600,
@@ -31,10 +33,8 @@
                "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
                #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
                "e_step" : !obj:galatea.s3c.s3c.E_Step {
-                        "h_new_coeff_schedule" : [ .1, .1, .1, .1, .1, .1, .1, .1, .2, .2, .2, .3, .3, .3, .4, .4, .4, .4, .4 ],
-                        "s_new_coeff_schedule" : [  .7, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1 ],
+                        #no damping coeffs since this is not where the schedule is specified anymore
                         "clip_reflections" : 1,
-                        #"monitor_em_functional" : 1
                },
                "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
                         "learning_rate" : 1e-2,
@@ -45,7 +45,7 @@
                         "alpha_penalty" : 1.
                },
         },
-    }
+    },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 100,
                "batches_per_iter" : 100,

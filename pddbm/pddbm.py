@@ -152,6 +152,9 @@ class PDDBM(Model):
             print_interval: number of examples between each status printout
         """
 
+        warnings.warn("""TODO: need to take init_bias_vis from RBM if the RBM has been trained,
+                S3C otherwise""")
+
         super(PDDBM,self).__init__()
 
         self.s3c = s3c
@@ -315,7 +318,6 @@ class InferenceProcedure:
     """
 
 
-    TODO: update this class to work with the PD-DBM, it is just copied from S3C for now
 
 
     def get_monitoring_channels(self, V, model):
@@ -359,6 +361,7 @@ class InferenceProcedure:
         clip_reflections, rho : if clip_reflections is true, the update to Mu1[i,j] is
             bounded on one side by - rho * Mu1[i,j] and unbounded on the other side
         """
+        raise NotImplementedError("TODO: update this class to work with the PD-DBM, it is just copied from S3C for now")
 
         if s_new_coeff_schedule is None:
             s_new_coeff_schedule = [ 1.0 for rho in h_new_coeff_schedule ]
@@ -630,7 +633,6 @@ class InferenceProcedure:
 
 class Grad_M_Step:
 
-    TODO: roll this into the main class's make_learn_func somehow
 
     """ A partial M-step based on gradient ascent.
         More aggressive M-steps are possible but didn't work particularly well in practice
@@ -640,6 +642,9 @@ class Grad_M_Step:
     def __init__(self, learning_rate, B_learning_rate_scale  = 1,
             W_learning_rate_scale = 1, p_penalty = 0.0, B_penalty = 0.0, alpha_penalty = 0.0):
         self.learning_rate = np.cast[config.floatX](float(learning_rate))
+
+
+        raise NotImplementedError("TODO: roll this into the main class's make_learn_func somehow")
 
         self.B_learning_rate_scale = np.cast[config.floatX](float(B_learning_rate_scale))
         self.W_learning_rate_scale = np.cast[config.floatX](float(W_learning_rate_scale))
