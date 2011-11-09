@@ -4,7 +4,6 @@ __credits__ = ["Ian Goodfellow"]
 __license__ = "3-clause BSD"
 __maintainer__ = "Ian Goodfellow"
 
-
 import time
 from pylearn2.models.model import Model
 from theano import config, function, shared
@@ -18,60 +17,11 @@ warnings.warn('pddbm changing the recursion limit')
 import sys
 sys.setrecursionlimit(50000)
 
-def numpy_norms(W):
-    """ returns a vector containing the L2 norm of each
-    column of W, where W and the return value are
-    numpy ndarrays """
-    return np.sqrt(1e-8+np.square(W).sum(axis=0))
-
-def theano_norms(W):
-    """ returns a vector containing the L2 norm of each
-    column of W, where W and the return value are symbolic
-    theano variables """
-    return T.sqrt(as_floatX(1e-8)+T.sqr(W).sum(axis=0))
-
-def rotate_towards(old_W, new_W, new_coeff):
-    """
-        old_W: every column is a unit vector
-
-        for each column, rotates old_w toward
-            new_w by new_coeff * theta where
-            theta is the angle between them
-    """
-
-    norms = theano_norms(new_W)
-
-    #update, scaled back onto unit sphere
-    scal_points = new_W / norms.dimshuffle('x',0)
-
-    #dot product between scaled update and current W
-    dot_update = (old_W * scal_points).sum(axis=0)
-
-    theta = T.arccos(dot_update)
-
-    rot_amt = new_coeff * theta
-
-    new_basis_dir = scal_points - dot_update * old_W
-
-    new_basis_norms = theano_norms(new_basis_dir)
-
-    new_basis = new_basis_dir / new_basis_norms
-
-    rval = T.cos(rot_amt) * old_W + T.sin(rot_amt) * new_basis
-
-    return rval
-
-def full_min(var):
-    """ returns a symbolic expression for the value of the minimal
-    element of symbolic tensor. T.min does something else as of
-    the time of this writing. """
-    return var.min(axis=range(0,len(var.type.broadcastable)))
-
-def full_max(var):
-    """ returns a symbolic expression for the value of the maximal
-        element of a symbolic tensor. T.max does something else as of the
-        time of this writing. """
-    return var.max(axis=range(0,len(var.type.broadcastable)))
+from galatea.s3c.s3c import numpy_norms
+from galatea.s3c.s3c import theano_norms
+from galatea.s3c.s3c import rotate_towards
+from galatea.s3c.s3c import full_min
+from galatea.s3c.s3c import full_max
 
 class SufficientStatistics:
     """ The SufficientStatistics class computes several sufficient
@@ -226,16 +176,6 @@ class PDDBM(Model):
 
         self.redo_everything()
 
-
-    def set_dtype(self, dtype):
-        for field in dir(self):
-            obj = getattr(self, field)
-            if hasattr(obj, 'get_value'):
-                setattr(self, field, shared(np.cast[dtype](obj.get_value())))
-            if hasattr(obj, 'set_dtype'):
-                obj.set_dtype(dtype)
-
-
     def redo_everything(self):
 
         self.dbm.redo_everything()
@@ -360,9 +300,9 @@ class PDDBM(Model):
         if self.monitor.examples_seen % self.print_interval == 0:
             print ""
             print "S3C:"
-            self.s3c.status_print()
+            self.s3c.print_status()
             print "DBM:"
-            self.dbm.status_print()
+            self.dbm.print_status()
 
     def get_weights_format(self):
         return self.s3c.get_weights_format()

@@ -305,13 +305,6 @@ class S3C(Model):
 
         self.redo_everything()
 
-
-    def set_dtype(self, dtype):
-        for field in dir(self):
-            obj = getattr(self, field)
-            if hasattr(obj, 'get_value'):
-                setattr(self, field, shared(np.cast[dtype](obj.get_value())))
-
     def reset_rng(self):
         if self.seed is None:
             self.rng = np.random.RandomState([1.,2.,3.])
