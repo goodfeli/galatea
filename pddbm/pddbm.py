@@ -136,6 +136,10 @@ class SufficientStatistics:
 
 class PDDBM(Model):
 
+    """ Implements a model of the form
+        P(v,s,h,g[0],...,g[N_g]) = S3C(v,s|h)DBM(h,g)
+    """
+
     def __init__(self,
             s3c,
             dbm,
@@ -147,19 +151,22 @@ class PDDBM(Model):
                 it won't be deleted but many of its fields will change
             dbm: a pylearn2.dbm.DBM object
                 will become owned by the PDDBM
-                it won't be deleted but many of its fileds will change
+                it won't be deleted but many of its fields will change
             inference_procedure: a galatea.pddbm.pddbm.InferenceProcedure
+            h_bias_src: 's3c' to take bias on h from s3c, 'dbm' to take it from dbm
             print_interval: number of examples between each status printout
         """
-
-        warnings.warn("""TODO: need to take init_bias_vis from RBM if the RBM has been trained,
-                S3C otherwise""")
 
         super(PDDBM,self).__init__()
 
         self.s3c = s3c
         s3c.m_step = None
         self.dbm = dbm
+
+        self.rng = np.random.RandomState([1,2,3])
+
+        #must use DBM bias now
+        self.s3c.bias_hid = None
 
         self.nvis = s3c.nvis
 
@@ -176,6 +183,9 @@ class PDDBM(Model):
 
         s3c.print_interval = None
         dbm.print_interval = None
+
+        inference_procedure.register_model(self)
+        self.inference_procedure = inference_procedure
 
         self.redo_everything()
 
@@ -227,9 +237,8 @@ class PDDBM(Model):
         V: a symbolic design matrix
         """
 
-        raise NotImplementedError("This is mostly just a copy-paste of S3C, hasn't been rewritten for PDDBM yet")
-
         hidden_obs = self.inference_procedure.infer(V)
+        raise NotImplementedError("This is mostly just a copy-paste of S3C, hasn't been rewritten for PDDBM yet")
 
         stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
                 V = V, **hidden_obs)
@@ -272,6 +281,8 @@ class PDDBM(Model):
         return V_sample
 
 
+    def make_pseudoparams(self):
+        self.s3c.make_pseudoparams()
 
     def redo_theano(self):
         try:
@@ -317,6 +328,33 @@ class InferenceProcedure:
 
     """
 
+    def __init__(self, schedule,
+                       clip_reflections = False,
+                       monitor_kl = False,
+                       rho = 0.5):
+        """Parameters
+        --------------
+        schedule:
+            list of steps. each step can consist of one of the following:
+                ['s', <new_coeff>] where <new_coeff> is a number between 0. and 1.
+                    does a damped parallel update of s, putting <new_coeff> on the new value of s
+                ['h', <new_coeff>] where <new_coeff> is a number between 0. and 1.
+                    does a damped parallel update of h, putting <new_coeff> on the new value of h
+                ['g', idx]
+                    does a block update of g[idx]
+
+        clip_reflections, rho : if clip_reflections is true, the update to Mu1[i,j] is
+            bounded on one side by - rho * Mu1[i,j] and unbounded on the other side
+        """
+
+        self.schedule = schedule
+
+        self.clip_reflections = clip_reflections
+        self.monitor_kl = monitor_kl
+
+        self.rho = as_floatX(rho)
+
+        self.model = None
 
 
 
@@ -339,45 +377,6 @@ class InferenceProcedure:
         return rval
 
 
-    def __init__(self, h_new_coeff_schedule,
-                       s_new_coeff_schedule = None,
-                       clip_reflections = False,
-                       monitor_kl = False,
-                       monitor_em_functional = False,
-                       rho = 0.5):
-        """Parameters
-        --------------
-        h_new_coeff_schedule:
-            list of coefficients to put on the new value of h on each damped fixed point step
-                    (coefficients on s are driven by a special formula)
-            length of this list determines the number of fixed point steps
-        s_new_coeff_schedule:
-            list of coefficients to put on the new value of s on each damped fixed point step
-                These are applied AFTER the reflection clipping, which can be seen as a form of
-                per-unit damping
-                s_new_coeff_schedule must have same length as h_new_coeff_schedule
-                if s_new_coeff_schedule is not provided, it will be filled in with all ones,
-                    i.e. it will default to no damping beyond the reflection clipping
-        clip_reflections, rho : if clip_reflections is true, the update to Mu1[i,j] is
-            bounded on one side by - rho * Mu1[i,j] and unbounded on the other side
-        """
-        raise NotImplementedError("TODO: update this class to work with the PD-DBM, it is just copied from S3C for now")
-
-        if s_new_coeff_schedule is None:
-            s_new_coeff_schedule = [ 1.0 for rho in h_new_coeff_schedule ]
-        else:
-            assert len(s_new_coeff_schedule) == len(h_new_coeff_schedule)
-
-        self.s_new_coeff_schedule = s_new_coeff_schedule
-
-        self.clip_reflections = clip_reflections
-        self.h_new_coeff_schedule = h_new_coeff_schedule
-        self.monitor_kl = monitor_kl
-        self.monitor_em_functional = monitor_em_functional
-
-        self.rho = as_floatX(rho)
-
-        self.model = None
 
     def em_functional(self, V, model, obs):
         """ Return value is a scalar """

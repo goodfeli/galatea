@@ -4,7 +4,8 @@
         "dbm": !obj:pylearn2.models.dbm.DBM {
                 "rbms" : [ !obj:pylearn2.models.rbm.RBM {
                                                   "nvis" : 625,
-                                                  "nhid" : 1000
+                                                  "nhid" : 1000,
+                                                  "init_bias_vis" : -4.
                                                 }
                          ]
         },
@@ -27,17 +28,9 @@
                "random_patches_src" : *src,
                #"min_mu"  : 1.,
                #"max_mu"  : 1.,
-               #"recycle_q" : 1000,
-               "print_interval" : 10000,
-               "monitor_functional" : 1,
                "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
                #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
-               "e_step" : !obj:galatea.s3c.s3c.E_Step {
-                        #no damping coeffs since this is not where the schedule is specified anymore
-                        "clip_reflections" : 1,
-               },
                "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
-                        "learning_rate" : 1e-2,
                         "B_learning_rate_scale" : 0.01,
                         "W_learning_rate_scale" : 10.,
                         "p_penalty" : 1.,
@@ -45,6 +38,16 @@
                         "alpha_penalty" : 1.
                },
         },
+       "inference_procedure" : !obj:galatea.pddbm.pddbm.InferenceProcedure {
+                "schedule" : [ ['s',1.],   ['h',1.],   ['g',0],   ['h', 0.1], ['s',0.1],
+                             ['h',0.1], ['g',0],   ['h',0.1], ['s',0.1],  ['h',0.1],
+                             ['g',0],   ['h',0.1], ['s',0.1], ['h', 0.1], ['g',0.1],
+                             ['h',0.1], ['g',0],   ['h',0.1], ['s', 0.1], ['h',0.1] ],
+                "monitor_kl" : 1,
+                "clip_reflections" : 1,
+                "rho" : 0.5
+       },
+       "print_interval" :  1
     },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
                "batch_size" : 100,
