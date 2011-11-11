@@ -196,6 +196,7 @@ def main(train_path,
         out_path,
         split,
         dataset,
+        standardize,
         **kwargs):
 
     stl10 = dataset == 'stl10'
@@ -215,7 +216,7 @@ def main(train_path,
 
     if mem:
         print 'mem usage before getting features '+str(mem.usage())
-    train_X = get_features(train_path, split)
+    train_X = get_features(train_path, split, standardize)
     #assert train_X.flags.c_contiguous
     gc.collect()
     if mem:
@@ -259,6 +260,7 @@ if __name__ == '__main__':
     parser.add_option('--dataset', type='string', dest = 'dataset', action='store', default = None)
     parser.add_option('--skip-cv', action="store_true", dest="skip_cv", default=False, help="don't cross validate, just use first value in C list")
     parser.add_option('--max-folds',action="store_true", dest="max_folds", default=None)
+    parser.add_option('--standardize',action="store_true", dest="standardize", default=False)
 
     (options, args) = parser.parse_args()
 
@@ -272,5 +274,6 @@ if __name__ == '__main__':
          C_list = C_list,
          dataset = options.dataset,
          skip_cv = options.skip_cv,
-         max_folds = options.max_folds
+         max_folds = options.max_folds,
+         standardize = options.standardize
     )

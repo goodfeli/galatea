@@ -2,7 +2,7 @@ from pylearn2.utils import serial
 import numpy as np
 from pylearn2.datasets.dense_design_matrix import DefaultViewConverter
 
-def get_features(path, split):
+def get_features(path, split, standardize):
     if path.find(',') != -1:
         paths = path.split(',')
         Xs = [ get_features(subpath, split) for subpath in paths ]
@@ -22,6 +22,10 @@ def get_features(path, split):
 
     if split:
         X = np.concatenate( (np.abs(X),np.abs(-X)), axis=1)
+
+    if standardize:
+        X -= X.mean(axis=0)
+        X /= np.sqrt(.01+np.var(X,axis=0))
 
     return X
 

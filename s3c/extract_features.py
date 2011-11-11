@@ -205,7 +205,7 @@ class FeatureExtractor:
 
         print 'defining features'
         V = T.matrix()
-        model.make_Bwp()
+        model.make_pseudoparams()
         d = model.e_step.variational_inference(V = V)
 
         H = d['H_hat']

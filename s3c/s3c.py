@@ -192,12 +192,12 @@ class S3C(Model):
     def __init__(self, nvis, nhid, irange, init_bias_hid,
                        init_B, min_B, max_B,
                        init_alpha, min_alpha, max_alpha, init_mu,
-                       e_step,
                        m_step,
                         min_bias_hid = -1e30,
                         max_bias_hid = 1e30,
                         min_mu = -1e30,
                         max_mu = 1e30,
+                       e_step = None,
                         tied_B = False,
                        monitor_stats = None,
                        monitor_params = None,
@@ -223,6 +223,9 @@ class S3C(Model):
         init_mu: initial value of mu (scalar or vector)
         min_mu/max_mu: clip mu updates to this range.
         e_step:      An E_Step object that determines what kind of E-step to do
+                        if None, assumes that the S3C model is being driven by
+                        a larger model, and does not generate theano functions
+                        necessary for autonomous operation
         m_step:      An M_Step object that determines what kind of M-step to do
         tied_B:         if True, use a scalar times identity for the precision on visible units.
                         otherwise use a diagonal matrix for the precision on visible units
@@ -290,9 +293,15 @@ class S3C(Model):
         self.init_B = float(init_B)
         self.min_B = float(min_B)
         self.max_B = float(max_B)
-        self.e_step = e_step
-        self.e_step.register_model(self)
         self.m_step = m_step
+        self.e_step = e_step
+        if e_step is None:
+            self.autonomous = False
+            assert not self.m_step.autonomous
+        else:
+            self.autonomous = True
+            assert self.m_step.autonomous
+            self.e_step.register_model(self)
         self.init_mu = init_mu
         self.min_mu = np.cast[config.floatX](float(min_mu))
         self.max_mu = np.cast[config.floatX](float(max_mu))
@@ -938,6 +947,9 @@ class S3C(Model):
         self.p = T.nnet.sigmoid(self.bias_hid)
 
     def redo_theano(self):
+        if not self.autonomous:
+            return
+
         try:
             self.compile_mode()
             init_names = dir(self)
@@ -1012,6 +1024,7 @@ def reflection_clip(Mu1, new_Mu1, rho = 0.5):
 
     return rval
 
+#TODO: refactor to InferenceProcedure
 class E_Step:
     """ A variational E_step that works by running damped fixed point
         updates on a structured variation approximation to
@@ -1074,6 +1087,8 @@ class E_Step:
             list of coefficients to put on the new value of h on each damped fixed point step
                     (coefficients on s are driven by a special formula)
             length of this list determines the number of fixed point steps
+            if None, assumes that the model is not meant to run on its own (ie a larger model
+                will specify how to do inference in this layer)
         s_new_coeff_schedule:
             list of coefficients to put on the new value of s on each damped fixed point step
                 These are applied AFTER the reflection clipping, which can be seen as a form of
@@ -1085,10 +1100,19 @@ class E_Step:
             bounded on one side by - rho * Mu1[i,j] and unbounded on the other side
         """
 
-        if s_new_coeff_schedule is None:
-            s_new_coeff_schedule = [ 1.0 for rho in h_new_coeff_schedule ]
+        self.autonomous = True
+
+        if h_new_coeff_schedule is None:
+            self.autonomous = False
+            assert s_new_coeff_schedule is None
+            assert rho is None
+            assert clip_reflections is None
+            assert monitor_em_functional is None
         else:
-            assert len(s_new_coeff_schedule) == len(h_new_coeff_schedule)
+            if s_new_coeff_schedule is None:
+                s_new_coeff_schedule = [ 1.0 for rho in h_new_coeff_schedule ]
+            else:
+                assert len(s_new_coeff_schedule) == len(h_new_coeff_schedule)
 
         self.s_new_coeff_schedule = s_new_coeff_schedule
 
@@ -1288,6 +1312,9 @@ class E_Step:
                                 variational parameters
         """
 
+        if not self.autonomous:
+            raise ValueError("Non-autonomous model asked to perform inference on its own")
+
         alpha = self.model.alpha
 
 
@@ -1353,15 +1380,29 @@ class E_Step:
         else:
             return history[-1]
 
+    def __setstate__(self,d):
+        #patch pkls made before autonomous flag
+        if 'autonomous' not in d:
+            d['autonomous'] = True
+
+        self.__dict__.update(d)
+
 class Grad_M_Step:
     """ A partial M-step based on gradient ascent.
         More aggressive M-steps are possible but didn't work particularly well in practice
         on STL-10/CIFAR-10
     """
 
-    def __init__(self, learning_rate, B_learning_rate_scale  = 1,
+    def __init__(self, learning_rate = None, B_learning_rate_scale  = 1,
             W_learning_rate_scale = 1, p_penalty = 0.0, B_penalty = 0.0, alpha_penalty = 0.0):
-        self.learning_rate = np.cast[config.floatX](float(learning_rate))
+
+        self.autonomous = True
+
+        if learning_rate is None:
+            self.autonomous = False
+        else:
+            self.learning_rate = np.cast[config.floatX](float(learning_rate))
+
 
         self.B_learning_rate_scale = np.cast[config.floatX](float(B_learning_rate_scale))
         self.W_learning_rate_scale = np.cast[config.floatX](float(W_learning_rate_scale))
@@ -1370,6 +1411,8 @@ class Grad_M_Step:
         self.alpha_penalty = as_floatX(alpha_penalty)
 
     def get_updates(self, model, stats, H_hat, S_hat):
+
+        assert self.autonomous
 
         params = model.get_params()
 
