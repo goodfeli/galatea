@@ -17,11 +17,13 @@ warnings.warn('pddbm changing the recursion limit')
 import sys
 sys.setrecursionlimit(50000)
 
-from galatea.s3c.s3c import numpy_norms
-from galatea.s3c.s3c import theano_norms
-from galatea.s3c.s3c import rotate_towards
-from galatea.s3c.s3c import full_min
-from galatea.s3c.s3c import full_max
+from pylearn2.models.s3c import numpy_norms
+from pylearn2.models.s3c import theano_norms
+from pylearn2.models.s3c import rotate_towards
+from pylearn2.models.s3c import full_min
+from pylearn2.models.s3c import full_max
+from pylearn2.models.s3c import reflection_clip
+from pylearn2.models.s3c import damp
 
 class SufficientStatistics:
     """ The SufficientStatistics class computes several sufficient
@@ -186,6 +188,8 @@ class PDDBM(Model):
 
         inference_procedure.register_model(self)
         self.inference_procedure = inference_procedure
+
+        self.num_g = len(self.dbm.W)
 
         self.redo_everything()
 
@@ -358,199 +362,64 @@ class InferenceProcedure:
 
 
 
-    def get_monitoring_channels(self, V, model):
-
-        #TODO: update this to show updates to h_i and s_i in correct sequence
+    def get_monitoring_channels(self, V):
 
         rval = {}
 
-        if self.monitor_kl or self.monitor_em_functional:
-            obs_history = self.variational_inference(V, return_history = True)
+        if self.monitor_kl:
+            obs_history = self.infer(V, return_history = True)
 
             for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
                 obs = obs_history[i-1]
-                if self.monitor_kl:
-                    rval['trunc_KL_'+str(i)] = self.truncated_KL(V, model, obs).mean()
-                if self.monitor_em_functional:
-                    rval['em_functional_'+str(i)] = self.em_functional(V, model, obs).mean()
+                rval['trunc_KL_'+str(i)] = self.truncated_KL(V, obs).mean()
 
         return rval
-
-
-
-    def em_functional(self, V, model, obs):
-        """ Return value is a scalar """
-        #TODO: refactor so that this is shared between E-steps
-
-        needed_stats = S3C.expected_log_prob_vhs_needed_stats()
-
-        stats = SufficientStatistics.from_observations( needed_stats = needed_stats,
-                                                        X = V, ** obs )
-
-        H_hat = obs['H_hat']
-        var_s0_hat = obs['var_s0_hat']
-        var_s1_hat = obs['var_s1_hat']
-
-        entropy_term = (model.entropy_hs(H_hat = H_hat, var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)).mean()
-        likelihood_term = model.expected_log_prob_vhs(stats)
-
-        em_functional = entropy_term + likelihood_term
-
-        return em_functional
-
 
     def register_model(self, model):
         self.model = model
 
-    def truncated_KL(self, V, model, obs):
-        """ KL divergence between variation and true posterior, dropping terms that don't
+        self.s3c_e_step = self.model.s3c.e_step
+
+        self.s3c_e_step.clip_reflections = self.clip_reflections
+        self.s3c_e_step.rho = self.rho
+
+        self.dbm_ip = self.model.dbm.inference_procedure
+
+    def truncated_KL(self, V, obs):
+        """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
-        H_hat = obs['H_hat']
-        var_s0_hat = obs['var_s0_hat']
-        var_s1_hat = obs['var_s1_hat']
-        S_hat = obs['S_hat']
+        s3c_truncated_KL = self.s3c_e_step.truncated_KL(self, V, obs)
 
-        entropy_term = - model.entropy_hs(H_hat = H_hat, var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)
-        energy_term = model.expected_energy_vhs(V, H_hat = H_hat, S_hat = S_hat,
-                                        var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)
+        dbm_obs = self.dbm_observations(obs)
 
-        KL = entropy_term + energy_term
+        #when computing the dbm truncated KL, we ignore the entropy on the visible units
+        #and the visible bias term of the dbm energy function. otherwise these would both
+        #get double-counted, since they are also part of s3c_truncated_KL
+        dbm_truncated_KL = self.dbm_ip.truncated_KL(self,V, dbm_obs, ignore_vis = True)
 
-        return KL
-
-    def init_H_hat(self, V):
-
-        if self.model.recycle_q:
-            rval = self.model.prev_H
-
-            if config.compute_test_value != 'off':
-                if rval.get_value().shape[0] != V.tag.test_value.shape[0]:
-                    raise Exception('E step given wrong test batch size', rval.get_value().shape, V.tag.test_value.shape)
-        else:
-            #just use the prior
-            value =  T.nnet.sigmoid(self.model.bias_hid)
-            rval = T.alloc(value, V.shape[0], value.shape[0])
-
-            for rval_value, V_value in get_debug_values(rval, V):
-                if rval_value.shape[0] != V_value.shape[0]:
-                    debug_error_message("rval.shape = %s, V.shape = %s, element 0 should match but doesn't", str(rval_value.shape), str(V_value.shape))
+        rval = s3c_truncated_KL + dbm_truncated_KL
 
         return rval
 
-    def init_S_hat(self, V):
-        if self.model.recycle_q:
-            rval = self.model.prev_Mu1
-        else:
-            #just use the prior
-            value = self.model.mu
-            rval = T.alloc(value, V.shape[0], value.shape[0])
+    def infer_H_hat(self, V, H_hat, S_hat, G1_hat):
+        """
+            G1_hat: variational parameters for the g layer closest to h
+                    here we use the designation from the math rather than from
+                    the list, where it is G_hat[0]
+        """
 
-        return rval
+        s3c_presigmoid = self.s3c_e_step.infer_H_hat_presigmoid(V, H_hat, S_hat)
 
-    def infer_S_hat(self, V, H_hat, S_hat):
+        W = self.model.dbm.W[0]
 
-        H = H_hat
-        Mu1 = S_hat
+        top_down = T.dot(G1_hat, W.T)
 
-        for Vv, Hv in get_debug_values(V, H):
-            if Vv.shape != (self.model.test_batch_size,self.model.nvis):
-                raise Exception('Well this is awkward. We require visible input test tags to be of shape '+str((self.model.test_batch_size,self.model.nvis))+' but the monitor gave us something of shape '+str(Vv.shape)+". The batch index part is probably only important if recycle_q is enabled. It's also probably not all that realistic to plan on telling the monitor what size of batch we need for test tags. the best thing to do is probably change self.model.test_batch_size to match what the monitor does")
+        presigmoid = s3c_presigmoid + top_down
 
-            assert Vv.shape[0] == Hv.shape[0]
-            assert Hv.shape[1] == self.model.nhid
-
-
-        mu = self.model.mu
-        alpha = self.model.alpha
-        W = self.model.W
-        B = self.model.B
-        w = self.model.w
-
-        BW = B.dimshuffle(0,'x') * W
-
-        HS = H * Mu1
-
-        mean_term = mu * alpha
-
-        data_term = T.dot(V, BW)
-
-        iterm_part_1 = - T.dot(T.dot(HS, W.T), BW)
-        iterm_part_2 = w * HS
-
-        interaction_term = iterm_part_1 + iterm_part_2
-
-        for i1v, Vv in get_debug_values(iterm_part_1, V):
-            assert i1v.shape[0] == Vv.shape[0]
-
-        debug_interm = mean_term + data_term
-        numer = debug_interm + interaction_term
-
-        alpha = self.model.alpha
-        w = self.model.w
-
-        denom = alpha + w
-
-        Mu1 =  numer / denom
-
-        return Mu1
-
-    def var_s1_hat(self):
-        """Returns the variational parameter for the variance of s given h=1
-            This is data-independent so its just a vector of size (nhid,) and
-            doesn't take any arguments """
-
-        rval =  1./ (self.model.alpha + self.model.w )
-
-        rval.name = 'var_s1'
-
-        return rval
-
-    def infer_H_hat(self, V, H_hat, S_hat):
-
-        half = as_floatX(.5)
-        alpha = self.model.alpha
-        w = self.model.w
-        mu = self.model.mu
-        W = self.model.W
-        B = self.model.B
-        BW = B.dimshuffle(0,'x') * W
-
-        HS = H_hat * S_hat
-
-        t1f1t1 = V
-
-        t1f1t2 = -T.dot(HS,W.T)
-        iterm_corrective = w * H_hat *T.sqr(S_hat)
-
-        t1f1t3_effect = - half * w * T.sqr(S_hat)
-
-        term_1_factor_1 = t1f1t1 + t1f1t2
-
-        term_1 = T.dot(term_1_factor_1, BW) * S_hat + iterm_corrective + t1f1t3_effect
-
-        term_2_subterm_1 = - half * alpha * T.sqr(S_hat)
-
-        term_2_subterm_2 = alpha * S_hat * mu
-
-        term_2_subterm_3 = - half * alpha * T.sqr(mu)
-
-        term_2 = term_2_subterm_1 + term_2_subterm_2 + term_2_subterm_3
-
-        term_3 = self.model.bias_hid
-
-        term_4 = -half * T.log(alpha + self.model.w)
-
-        term_5 = half * T.log(alpha)
-
-        arg_to_sigmoid = term_1 + term_2 + term_3 + term_4 + term_5
-
-        H = T.nnet.sigmoid(arg_to_sigmoid)
+        H = T.nnet.sigmoid(presigmoid)
 
         return H
-
-    def damp(self, old, new, new_coeff):
-        return new_coeff * new + (1. - new_coeff) * old
 
     def infer(self, V, return_history = False):
         """
@@ -565,15 +434,16 @@ class InferenceProcedure:
                                 variational parameters
         """
 
-        alpha = self.model.alpha
-
+        alpha = self.model.s3c.alpha
+        s3c_e_step = self.s3c_e_step
+        dbm_ip = self.dbm_ip
 
         var_s0_hat = 1. / alpha
-        var_s1_hat = self.var_s1_hat()
+        var_s1_hat = s3c_e_step.var_s1_hat()
 
-
-        H   =    self.init_H_hat(V)
-        Mu1 =    self.init_S_hat(V)
+        H_hat = s3c_e_step.init_H_hat(V)
+        G_hat = dbm_ip.init_H_hat(H_hat)
+        S_hat = s3c_e_step.init_S_hat(V)
 
         def check_H(my_H, my_V):
             if my_H.dtype != config.floatX:
@@ -595,33 +465,72 @@ class InferenceProcedure:
 
                 assert Hv.shape[0] == Vv.shape[0]
 
-        check_H(H,V)
+        check_H(H_hat,V)
 
         def make_dict():
 
             return {
-                    'H_hat' : H,
-                    'S_hat' : Mu1,
+                    'G_hat' : G_hat,
+                    'H_hat' : H_hat,
+                    'S_hat' : S_hat,
                     'var_s0_hat' : var_s0_hat,
                     'var_s1_hat': var_s1_hat,
                     }
 
         history = [ make_dict() ]
 
-        for new_H_coeff, new_S_coeff in zip(self.h_new_coeff_schedule, self.s_new_coeff_schedule):
+        for step in self.schedule:
 
-            new_Mu1 = self.infer_S_hat(V, H, Mu1)
+            letter, number = step
 
-            if self.clip_reflections:
-                clipped_Mu1 = reflection_clip(Mu1 = Mu1, new_Mu1 = new_Mu1, rho = self.rho)
+            if letter == 's':
+
+                new_S_hat = s3c_e_step.infer_S_hat(V, H_hat, S_hat)
+
+                if self.clip_reflections:
+                    clipped_S_hat = reflection_clip(S_hat = S_hat, new_S_hat = new_S_hat, rho = self.rho)
+                else:
+                    clipped_S_hat = new_S_hat
+
+                S_hat = damp(old = S_hat, new = clipped_S_hat, new_coeff = number)
+
+            elif letter == 'h':
+
+                new_H = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
+
+                H_hat = damp(old = H_hat, new = new_H, new_coeff = number)
+
+                check_H(H_hat,V)
+
+            elif letter == 'g':
+
+                if not isinstance(number, int):
+                    raise ValueError("Step parameter for 'g' code must be an integer in [0, # g layers) "
+                            "but got "+str(number)+" (of type "+str(type(number)))
+
+                b = self.model.dbm.bias_hid[number]
+
+                W = self.model.dbm.W
+
+                W_below = W[number]
+
+                if number == 0:
+                    H_hat_below = H_hat
+                else:
+                    H_hat_below = G_hat[number - 1]
+
+                num_g = self.model.num_g
+
+                if number == num_g - 1:
+                    G_hat[number] = dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
+                else:
+                    H_hat_above = G_hat[number + 1]
+                    W_above = W[number+1]
+                    G_hat[number] = dbm_ip.infer_H_hat_two_sided(H_hat_below = H_hat_below, H_hat_above = H_hat_above,
+                                           W_below = W_below, W_above = W_above,
+                                           b = b)
             else:
-                clipped_Mu1 = new_Mu1
-            Mu1 = self.damp(old = Mu1, new = clipped_Mu1, new_coeff = new_S_coeff)
-            new_H = self.infer_H_hat(V, H, Mu1)
-
-            H = self.damp(old = H, new = new_H, new_coeff = new_H_coeff)
-
-            check_H(H,V)
+                raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
 
             history.append(make_dict())
 
@@ -631,7 +540,6 @@ class InferenceProcedure:
             return history[-1]
 
 class Grad_M_Step:
-
 
     """ A partial M-step based on gradient ascent.
         More aggressive M-steps are possible but didn't work particularly well in practice
