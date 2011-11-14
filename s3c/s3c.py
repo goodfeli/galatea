@@ -4,7 +4,7 @@ __credits__ = ["Ian Goodfellow"]
 __license__ = "3-clause BSD"
 __maintainer__ = "Ian Goodfellow"
 
-
+"""
 import time
 from pylearn2.models.model import Model
 from theano import config, function, shared
@@ -22,25 +22,25 @@ import sys
 sys.setrecursionlimit(50000)
 
 def numpy_norms(W):
-    """ returns a vector containing the L2 norm of each
+    "" returns a vector containing the L2 norm of each
     column of W, where W and the return value are
-    numpy ndarrays """
+    numpy ndarrays ""
     return np.sqrt(1e-8+np.square(W).sum(axis=0))
 
 def theano_norms(W):
-    """ returns a vector containing the L2 norm of each
+    "" returns a vector containing the L2 norm of each
     column of W, where W and the return value are symbolic
-    theano variables """
+    theano variables ""
     return T.sqrt(as_floatX(1e-8)+T.sqr(W).sum(axis=0))
 
 def rotate_towards(old_W, new_W, new_coeff):
-    """
+    ""
         old_W: every column is a unit vector
 
         for each column, rotates old_w toward
             new_w by new_coeff * theta where
             theta is the angle between them
-    """
+    ""
 
     norms = theano_norms(new_W)
 
@@ -65,19 +65,19 @@ def rotate_towards(old_W, new_W, new_coeff):
     return rval
 
 def full_min(var):
-    """ returns a symbolic expression for the value of the minimal
+    "" returns a symbolic expression for the value of the minimal
     element of symbolic tensor. T.min does something else as of
-    the time of this writing. """
+    the time of this writing. ""
     return var.min(axis=range(0,len(var.type.broadcastable)))
 
 def full_max(var):
-    """ returns a symbolic expression for the value of the maximal
+    "" returns a symbolic expression for the value of the maximal
         element of a symbolic tensor. T.max does something else as of the
-        time of this writing. """
+        time of this writing. ""
     return var.max(axis=range(0,len(var.type.broadcastable)))
 
 class SufficientStatistics:
-    """ The SufficientStatistics class computes several sufficient
+    "" The SufficientStatistics class computes several sufficient
         statistics of a minibatch of examples / variational parameters.
         This is mostly for convenience since several expressions are
         easy to express in terms of these same sufficient statistics.
@@ -92,7 +92,7 @@ class SufficientStatistics:
         naturally are expressed in terms of the second moment matrix
         are now written with a different order of operations that
         avoids O(nhid^2) operations but whose dependence on the dataset
-        cannot be expressed in terms only of sufficient statistics."""
+        cannot be expressed in terms only of sufficient statistics.""
 
 
     def __init__(self, d):
@@ -102,7 +102,7 @@ class SufficientStatistics:
 
     @classmethod
     def from_observations(self, needed_stats, V, H_hat, S_hat, var_s0_hat, var_s1_hat):
-        """
+        ""
             returns a SufficientStatistics
 
             needed_stats: a set of string names of the statistics to include
@@ -115,7 +115,7 @@ class SufficientStatistics:
                         all inputs)
             var_s1_hat: variational parameters for variance of s given h=1
                         (again, a vector of length nhid)
-        """
+        ""
 
         m = T.cast(V.shape[0],config.floatX)
 
@@ -211,7 +211,7 @@ class S3C(Model):
                        init_unit_W = None,
                        debug_m_step = False,
                        print_interval = 10000):
-        """"
+        ""
         nvis: # of visible units
         nhid: # of hidden units
         irange: (scalar) weights are initinialized ~U( [-irange,irange] )
@@ -247,7 +247,7 @@ class S3C(Model):
         random_patches_src: if not None, should be a dataset
                             will set W to a batch
         init_unit_W:   if True, initializes weights with unit norm
-        """
+        ""
 
         super(S3C,self).__init__()
 
@@ -361,9 +361,9 @@ class S3C(Model):
         self.redo_theano()
 
     def em_functional(self, H_hat, S_hat, var_s0_hat, var_s1_hat, stats):
-        """ Returns the em_functional for a single batch of data
+        "" Returns the em_functional for a single batch of data
             stats is assumed to be computed from and only from
-            the same data points that yielded H """
+            the same data points that yielded H ""
 
         entropy_term = (self.entropy_hs(H_hat = H_hat, var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)).mean()
         likelihood_term = self.expected_log_prob_vhs(stats, H_hat = H_hat, S_hat = S_hat)
@@ -455,8 +455,8 @@ class S3C(Model):
                 self.deploy_mode()
 
     def compile_mode(self):
-        """ If any shared variables need to have batch-size dependent sizes,
-        sets them all to the sizes used for interactive debugging during graph construction """
+        "" If any shared variables need to have batch-size dependent sizes,
+        sets them all to the sizes used for interactive debugging during graph construction ""
         if self.recycle_q:
             self.prev_H.set_value(
                     np.cast[self.prev_H.dtype](
@@ -467,7 +467,7 @@ class S3C(Model):
                         np.zeros((self.test_batch_size, self.nhid)) + self.mu.get_value() ) )
 
     def deploy_mode(self):
-        """ If any shared variables need to have batch-size dependent sizes, sets them all to their runtime sizes """
+        "" If any shared variables need to have batch-size dependent sizes, sets them all to their runtime sizes ""
         if self.recycle_q:
             self.prev_H.set_value( np.cast[self.prev_H.dtype]( np.zeros((self.recycle_q, self.nhid)) + 1./(1.+np.exp(-self.bias_hid.get_value()))))
             self.prev_Mu1.set_value( np.cast[self.prev_Mu1.dtype]( np.zeros((self.recycle_q, self.nhid)) + self.mu.get_value() ) )
@@ -508,8 +508,8 @@ class S3C(Model):
         return rval
 
     def expected_energy_vhs(self, V, H_hat, S_hat, var_s0_hat, var_s1_hat):
-        """ This is not the same as negative expected log prob,
-        which includes the constant term for the log partition function """
+        "" This is not the same as negative expected log prob,
+        which includes the constant term for the log partition function ""
 
         var_HS = H_hat * var_s1_hat + (1.-H_hat) * var_s0_hat
 
@@ -610,9 +610,9 @@ class S3C(Model):
 
 
     def make_learn_func(self, V):
-        """
+        ""
         V: a symbolic design matrix
-        """
+        ""
 
         #E step
         hidden_obs = self.e_step.variational_inference(V)
@@ -711,13 +711,13 @@ class S3C(Model):
 
     def random_design_matrix(self, batch_size, theano_rng,
                             H_sample = None):
-        """
+        ""
             H_sample: a matrix of values of H
                       if none is provided, samples one from the prior
                       (H_sample is used if you want to see what samples due
                         to specific hidden units look like, or when sampling
                         from a larger model that s3c is part of)
-        """
+        ""
 
         if not hasattr(self,'p'):
             self.make_pseudoparams()
@@ -766,10 +766,10 @@ class S3C(Model):
 
 
     def log_prob_v_given_hs(self, V, H, Mu1):
-        """
+        ""
         V, H, Mu1 are SAMPLES   (i.e., H must be LITERALLY BINARY)
         Return value is a vector, of length batch size
-        """
+        ""
 
         half = as_floatX(0.5)
         two = as_floatX(2.)
@@ -797,12 +797,12 @@ class S3C(Model):
         return set(['mean_sq_v','mean_hsv', 'mean_sq_hs', 'mean_sq_mean_hs'])
 
     def expected_log_prob_v_given_hs(self, stats, H_hat, S_hat):
-        """
+        ""
         Return value is a SCALAR-- expectation taken across batch index too
-        """
+        ""
 
 
-        """
+        ""
         E_v,h,s \sim Q log P( v | h, s)
         = sum_k [  E_v,h,s \sim Q log sqrt(B/2 pi) exp( - 0.5 B (v- W[v,:] (h*s) )^2)   ]
         = sum_k [ E_v,h,s \sim Q 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) - 0.5 B_k sum_i sum_j W[k,i] W[k,j] h_i s_i h_j s_j ]
@@ -837,7 +837,7 @@ class S3C(Model):
         = sum_k [ 0.5 log B_k - 0.5 log 2 pi - 0.5 B_k v_k^2 + v_k B_k W[k,:] (h*s) ]
           - (1/2)  mean(   (HS W^T)^2 B )
           + (1/2) sum_k B_k  sum_i sq(W)_ki ( mean_sq_mean_hs-mean_sq_hs)_i
-        """
+        ""
 
 
         half = as_floatX(0.5)
@@ -876,14 +876,14 @@ class S3C(Model):
 
     def log_likelihood_s_given_h(self, stats):
 
-        """
+        ""
         E_h,s\sim Q log P(s|h)
         = E_h,s\sim Q log sqrt( alpha / 2pi) exp(- 0.5 alpha (s-mu h)^2)
         = E_h,s\sim Q log sqrt( alpha / 2pi) - 0.5 alpha (s-mu h)^2
         = E_h,s\sim Q  0.5 log alpha - 0.5 log 2 pi - 0.5 alpha s^2 + alpha s mu h + 0.5 alpha mu^2 h^2
         = E_h,s\sim Q 0.5 log alpha - 0.5 log 2 pi - 0.5 alpha s^2 + alpha mu h s + 0.5 alpha mu^2 h
         = 0.5 log alpha - 0.5 log 2 pi - 0.5 alpha mean_sq_s + alpha mu mean_hs - 0.5 alpha mu^2 mean_h
-        """
+        ""
 
         mean_h = stats.d['mean_h']
         mean_sq_s = stats.d['mean_sq_s']
@@ -911,16 +911,16 @@ class S3C(Model):
         return set(['mean_h'])
 
     def log_likelihood_h(self, stats):
-        """ Returns the expected log probability of the vector h
+        "" Returns the expected log probability of the vector h
             under the model when the data is drawn according to
             stats
-        """
+        ""
 
-        """
+        ""
             E_h\sim Q log P(h)
             = E_h\sim Q log exp( bh) / (1+exp(b))
             = E_h\sim Q bh - softplus(b)
-        """
+        ""
 
         mean_h = stats.d['mean_h']
 
@@ -1026,7 +1026,7 @@ def reflection_clip(Mu1, new_Mu1, rho = 0.5):
 
 #TODO: refactor to InferenceProcedure
 class E_Step:
-    """ A variational E_step that works by running damped fixed point
+    "" A variational E_step that works by running damped fixed point
         updates on a structured variation approximation to
         P(v,h,s) (i.e., we do not use any auxiliary variable).
 
@@ -1054,7 +1054,7 @@ class E_Step:
         but damping the solution to s_i from the joint update makes the solution to h_i
         from the joint update no longer optimal.
 
-        """
+        ""
 
     def get_monitoring_channels(self, V, model):
 
@@ -1081,7 +1081,7 @@ class E_Step:
                        monitor_kl = False,
                        monitor_em_functional = False,
                        rho = 0.5):
-        """Parameters
+        ""Parameters
         --------------
         h_new_coeff_schedule:
             list of coefficients to put on the new value of h on each damped fixed point step
@@ -1098,7 +1098,7 @@ class E_Step:
                     i.e. it will default to no damping beyond the reflection clipping
         clip_reflections, rho : if clip_reflections is true, the update to Mu1[i,j] is
             bounded on one side by - rho * Mu1[i,j] and unbounded on the other side
-        """
+        ""
 
         self.autonomous = True
 
@@ -1126,7 +1126,7 @@ class E_Step:
         self.model = None
 
     def em_functional(self, V, model, obs):
-        """ Return value is a scalar """
+        "" Return value is a scalar ""
         #TODO: refactor so that this is shared between E-steps
 
         needed_stats = S3C.expected_log_prob_vhs_needed_stats()
@@ -1150,8 +1150,8 @@ class E_Step:
         self.model = model
 
     def truncated_KL(self, V, model, obs):
-        """ KL divergence between variation and true posterior, dropping terms that don't
-            depend on the variational parameters """
+        "" KL divergence between variation and true posterior, dropping terms that don't
+            depend on the variational parameters ""
 
         H_hat = obs['H_hat']
         var_s0_hat = obs['var_s0_hat']
@@ -1243,9 +1243,9 @@ class E_Step:
         return Mu1
 
     def var_s1_hat(self):
-        """Returns the variational parameter for the variance of s given h=1
+        ""Returns the variational parameter for the variance of s given h=1
             This is data-independent so its just a vector of size (nhid,) and
-            doesn't take any arguments """
+            doesn't take any arguments ""
 
         rval =  1./ (self.model.alpha + self.model.w )
 
@@ -1300,7 +1300,7 @@ class E_Step:
         return new_coeff * new + (1. - new_coeff) * old
 
     def variational_inference(self, V, return_history = False):
-        """
+        ""
 
             return_history: if True:
                                 returns a list of dictionaries with
@@ -1310,7 +1310,7 @@ class E_Step:
                             if False:
                                 returns a dictionary containing the final
                                 variational parameters
-        """
+        ""
 
         if not self.autonomous:
             raise ValueError("Non-autonomous model asked to perform inference on its own")
@@ -1388,10 +1388,10 @@ class E_Step:
         self.__dict__.update(d)
 
 class Grad_M_Step:
-    """ A partial M-step based on gradient ascent.
+    "" A partial M-step based on gradient ascent.
         More aggressive M-steps are possible but didn't work particularly well in practice
         on STL-10/CIFAR-10
-    """
+    ""
 
     def __init__(self, learning_rate = None, B_learning_rate_scale  = 1,
             W_learning_rate_scale = 1, p_penalty = 0.0, B_penalty = 0.0, alpha_penalty = 0.0):
@@ -1480,3 +1480,4 @@ class Grad_M_Step:
 
         return { 'expected_log_prob_vhs' : obj }
 
+"""
