@@ -41,7 +41,7 @@
        "inference_procedure" : !obj:galatea.pddbm.pddbm.InferenceProcedure {
                 "schedule" : [ ['s',1.],   ['h',1.],   ['g',0],   ['h', 0.1], ['s',0.1],
                              ['h',0.1], ['g',0],   ['h',0.1], ['s',0.1],  ['h',0.1],
-                             ['g',0],   ['h',0.1], ['s',0.1], ['h', 0.1], ['g',0.1],
+                             ['g',0],   ['h',0.1], ['s',0.1], ['h', 0.1], ['g',0],
                              ['h',0.1], ['g',0],   ['h',0.1], ['s', 0.1], ['h',0.1] ],
                 "monitor_kl" : 1,
                 "clip_reflections" : 1,
