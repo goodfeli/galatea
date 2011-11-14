@@ -204,7 +204,7 @@ class FeatureExtractor:
 
 
         print 'defining features'
-        V = T.matrix()
+        V = T.matrix('V')
         model.make_pseudoparams()
         d = model.e_step.variational_inference(V = V)
 
@@ -225,10 +225,11 @@ class FeatureExtractor:
         else:
             raise NotImplementedError()
 
+
+
         assert feat.dtype == 'float32'
         print 'compiling theano function'
         f = function([V],feat)
-
 
         if config.device.startswith('gpu') and model.nhid >= 4000:
             f = halver(f, model.nhid)
