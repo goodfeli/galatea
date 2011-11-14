@@ -195,8 +195,9 @@ class PDDBM(Model):
 
     def redo_everything(self):
 
+        #we don't call redo_everything on s3c because this would reset its weights
+        #however, calling redo_everything on the dbm just resets its negative chain
         self.dbm.redo_everything()
-        self.s3c.redo_everything()
 
         self.test_batch_size = 2
 
