@@ -1,5 +1,6 @@
-#This model, using 3x3 pooling grid and exp_h as features, obtained the best results on STL-10 for my AISTATS 2012 submission
-#I stopped the pretraining after 1,514,000 examples
+#This model, using 3x3 pooling grid and exp_h as features, obtained the best results on STL-10 for a 1600 unit model
+#as of 14 nov 2011
+#I stopped the pretraining after 1,560,000 examples
 
 
 #initialize with random patches then learn only the weights

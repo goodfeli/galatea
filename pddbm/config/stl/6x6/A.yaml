@@ -1,7 +1,9 @@
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: &src "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
     "model": !obj:galatea.pddbm.pddbm.PDDBM {
+        "learning_rate" : .01,
         "dbm": !obj:pylearn2.models.dbm.DBM {
+                "negative_chains" : 100,
                 "rbms" : [ !obj:pylearn2.models.rbm.RBM {
                                                   "nvis" : 625,
                                                   "nhid" : 1000,

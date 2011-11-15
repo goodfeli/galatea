@@ -653,40 +653,107 @@ Variational inference for
 \end_layout
 
 \begin_layout Section
-Partially Stochastic Maximum Likelihood
+Variational learning
+\end_layout
+
+\begin_layout Standard
+We use a variational learning scheme in which we maximize a lower bound
+ on the likelihood:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\log P(v)\geq\log P(v)-D_{KL}(Q(s,h,g)\Vert P(s,h,g\mid v))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g,h}\int_{s}Q(s,h,g)\log P(v,s,h,g)+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g,h}\int_{s}Q(s,h,g)\log P(v,s,h,g)+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g,h}\int_{s}Q(s,h,g)\log P(v\mid s,h)P(s\mid h)P(h,g)+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\mathbb{E}_{s,h,g\sim Q}[\log P(v\mid s,h)+\log P(s\mid h)+\log P(h,g)]+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Well, all of these are things we already have code to compute, except for
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mathbb{E}_{s,h,g\sim Q}[\log P(h,g)]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\log Z_{dbm}-\mathbb{E}_{s,h,g\sim Q}E(h,g)
+\]
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Subsection
-General description
+Tractable terms of the objective
 \end_layout
 
 \begin_layout Standard
-Partially stochastic maximum likelihood is a more general technique which
- we will demonstrate for the first time while training this PD-DBM.
- Here we describe the general technique.
-\end_layout
-
-\begin_layout Standard
-Suppose we have an energy-based model that includes visible units 
-\begin_inset Formula $v$
-\end_inset
-
- and two sets of latent variables, 
-\begin_inset Formula $u$
-\end_inset
-
- and 
-\begin_inset Formula $d$
-\end_inset
-
-.
- Suppose that its energy function can be defined as
+Part of our learning update is thus to follow the gradient of:
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-E(v,u,d)=E_{d}(v,u,d)+E_{u}(u)
+\mathbb{E}_{s,h,g\sim Q}[\log P(v\mid s,h)+\log P(s\mid h)-E_{dbm}(h,g)]+\mathcal{H}_{Q}(s,h,g)
 \]
 
 \end_inset
@@ -695,153 +762,51 @@ E(v,u,d)=E_{d}(v,u,d)+E_{u}(u)
 \end_layout
 
 \begin_layout Standard
-where
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-P(v,u,d)=\exp(-E(v,u,d))/Z
-\]
-
+Remember to regard 
+\begin_inset Formula $Q$
 \end_inset
 
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-P(u)=\exp(-E_{u}(u))/Z_{u}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-P(v,d\mid u)=\exp(-E_{d}(v,u,d))/Z_{d}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-and 
-\begin_inset Formula $Z_{d}$
-\end_inset
-
- is tractable.
-\end_layout
-
-\begin_layout Standard
-Note that not all PD-DBMs can be written in this way; the assumption that
- 
-\begin_inset Formula $Z_{d}$
-\end_inset
-
- is a constant rather than a function of 
-\begin_inset Formula $u$
-\end_inset
-
- imposes some restrictions.
-\end_layout
-
-\begin_layout Standard
-We can train this model using maximum likelihood:
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\log P(v)=\log\sum_{u}\sum_{d}P(v,u,d)
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-=\log\frac{1}{Z}\sum_{u}\sum_{d}\exp(-E(v,u,d))
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-=\log\sum_{u}\sum_{d}\exp(-E(v,u,d))-\log Z
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-The term on the left results in our updates having a standard SML positive
- phase (we'll usually need to make a variational approximation as in DBM
- training).
- The term on the right decomposes into
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
--\log Z_{u}-\log Z_{d}.
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Only the gradient of 
-\begin_inset Formula $Z_{u}$
-\end_inset
-
- need be approximated with sampling (hence the 
-\begin_inset Quotes eld
-\end_inset
-
-partially stochastic
-\begin_inset Quotes erd
-\end_inset
-
-).
- We can do this by running a negative chain over 
-\begin_inset Formula $u$
-\end_inset
-
- only, and follow the exact gradient on 
-\begin_inset Formula $d$
+ as constant while taking the gradient, ie, ignore the effects of the parameters
+ on 
+\begin_inset Formula $Q$
 \end_inset
 
 .
 \end_layout
 
 \begin_layout Subsection
-Application to this PD-DBM
+Stochastic approximation to the DBM partition function
 \end_layout
 
 \begin_layout Standard
-Here 
-\begin_inset Formula $u$
+The other part of our objective is intractable, but we can make a stochastic
+ approximation to its gradient:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial\theta}-\log Z=-\frac{\frac{\partial}{\partial\theta}Z}{Z}=-\frac{\frac{\partial}{\partial\theta}\sum_{g,h}\exp(-E(g,h))}{Z}=\frac{\sum_{g,h}\exp(-E(g,h))\frac{\partial}{\partial\theta}E(g,h)}{Z}
+\]
+
 \end_inset
 
- is 
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\mathbb{E}_{g,h\sim P_{dbm}}\frac{\partial}{\partial\theta}E(g,h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As an initial naive version we can just sample 
 \begin_inset Formula $g$
 \end_inset
 
@@ -849,106 +814,8 @@ Here
 \begin_inset Formula $h$
 \end_inset
 
-, and 
-\begin_inset Formula $d$
-\end_inset
-
- is 
-\begin_inset Formula $s.$
-\end_inset
-
-
-\end_layout
-
-\begin_layout Subsubsection
-Positive phase
-\end_layout
-
-\begin_layout Standard
-Here we want to compute
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\frac{\partial}{\partial\theta}\log\sum_{g}\sum_{h}\int_{s}\exp(-E(v,s,h,g))
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-for every parameter 
-\begin_inset Formula $\theta$
-\end_inset
-
-.
- This is
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\frac{\frac{\partial}{\partial\theta}\sum_{g}\sum_{h}\int_{s}\exp(-E(v,s,h,g))}{\sum_{g}\sum_{h}\int_{s}\exp(-E(v,s,h,g))}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-=-\frac{\sum_{g}\sum_{h}\int_{s}\exp(-E(v,s,h,g))\frac{\partial}{\partial\theta}E(v,s,h,g)}{\sum_{g}\sum_{h}\int_{s}\exp(-E(v,s,h,g))}
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-=\mathbb{E}_{s,h,g\sim P(s,h,g\mid v)}\frac{\partial}{\partial\theta}E(v,s,h,g)
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-We approximate this with
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\mathbb{E}_{s,h,g\sim Q(s,h,g)}\frac{\partial}{\partial\theta}E(v,s,h,g)
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-TODO: in EM (and thus the existing S3C code) the order of the expectation
- and derivation are swapped.
- Does this cause any problems? I thought it did, see the sheet of paper
- at home.
- If so, does this mean I should change the implementation of S3C to possibly
- get a benefit there?
-\end_layout
-
-\begin_layout Standard
-TODO: see if this section can take advantage of existing expected log prob
- stuff in S3C code to simultaneously compute part of this and the tractable
- part of the negative phase
+ but later: TODO work out analytical expectation for not using the samples
+ on the topmost layer (or maybe even topmost and bottom-most layer)
 \end_layout
 
 \end_body

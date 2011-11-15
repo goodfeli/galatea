@@ -24,6 +24,7 @@ from pylearn2.models.s3c import full_min
 from pylearn2.models.s3c import full_max
 from pylearn2.models.s3c import reflection_clip
 from pylearn2.models.s3c import damp
+from pylearn2.models.s3c import S3C
 
 class SufficientStatistics:
     """ The SufficientStatistics class computes several sufficient
@@ -145,6 +146,7 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
+            learning_rate,
             inference_procedure,
             print_interval = 10000):
         """
@@ -161,6 +163,8 @@ class PDDBM(Model):
 
         super(PDDBM,self).__init__()
 
+        self.learning_rate = learning_rate
+
         self.s3c = s3c
         s3c.m_step = None
         self.dbm = dbm
@@ -168,7 +172,7 @@ class PDDBM(Model):
         self.rng = np.random.RandomState([1,2,3])
 
         #must use DBM bias now
-        self.s3c.bias_hid = None
+        self.s3c.bias_hid = self.dbm.bias_vis
 
         self.nvis = s3c.nvis
 
@@ -235,30 +239,91 @@ class PDDBM(Model):
         pass
 
     def get_params(self):
-        return list(set(self.s3c.get_params()).union(set(self.dbm.get_params)))
+        return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
 
     def make_learn_func(self, V):
         """
         V: a symbolic design matrix
         """
 
+        #run variational inference on the train set
         hidden_obs = self.inference_procedure.infer(V)
-        raise NotImplementedError("This is mostly just a copy-paste of S3C, hasn't been rewritten for PDDBM yet")
 
-        stats = SufficientStatistics.from_observations(needed_stats = self.m_step.needed_stats(),
-                V = V, **hidden_obs)
+        #make a restricted dictionary containing only vars s3c knows about
+        restricted_obs = {}
+        for key in hidden_obs:
+            if key != 'G_hat':
+                restricted_obs[key] = hidden_obs[key]
 
+        #request s3c sufficient statistics
+        needed_stats = \
+         S3C.expected_log_prob_v_given_hs_needed_stats().union(\
+         S3C.log_likelihood_s_given_h_needed_stats())
+        stats = SufficientStatistics.from_observations(needed_stats = needed_stats,
+                V = V, **restricted_obs)
+
+        G_hat = hidden_obs['G_hat']
         H_hat = hidden_obs['H_hat']
         S_hat = hidden_obs['S_hat']
+        var_s0_hat = hidden_obs['var_s0_hat']
+        var_s1_hat = hidden_obs['var_s1_hat']
 
-        learning_updates = self.m_step.get_updates(self, stats, H_hat, S_hat)
+        expected_log_prob_v_given_hs = self.s3c.expected_log_prob_v_given_hs(stats, \
+                H_hat = H_hat, S_hat = S_hat)
+        assert len(expected_log_prob_v_given_hs.type.broadcastable) == 0
 
-        if self.recycle_q:
-            learning_updates[self.prev_H] = H_hat
-            learning_updates[self.prev_Mu1] = S_hat
+        expected_log_prob_s_given_h  = self.s3c.log_likelihood_s_given_h(stats)
+        assert len(expected_log_prob_s_given_h.type.broadcastable) == 0
+
+        expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat )
+        assert len(expected_dbm_energy.type.broadcastable) == 0
+
+        entropy_g = self.dbm.entropy_h( H_hat = G_hat)
+        assert len(entropy_g.type.broadcastable) == 1
+
+        entropy_hs = self.s3c.entropy_hs( H_hat = H_hat, \
+                var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)
+        assert len(entropy_hs.type.broadcastable) == 1
+
+        entropy = T.mean(entropy_hs + entropy_g)
+        assert len(entropy.type.broadcastable) == 0
+
+        tractable_obj = expected_log_prob_v_given_hs + \
+                        expected_log_prob_s_given_h  - \
+                        expected_dbm_energy \
+                        + entropy
+        assert len(tractable_obj.type.broadcastable) == 0
+
+        #don't backpropagate through inference
+        obs_set = set(hidden_obs.values())
+        stats_set = set(stats.d.values())
+        constants = obs_set.union(stats_set)
+
+        #take the gradient of the tractable part
+        params = self.get_params()
+        grads = T.grad(tractable_obj, params, consider_constant = constants)
+
+        #put gradients into convenient dictionary
+        params_to_grads = {}
+        for param, grad in zip(params, grads):
+            params_to_grads[param] = grad
+
+
+        #add the approximate gradients
+        params_to_approx_grads = self.dbm.get_neg_phase_grads()
+
+        for param in params_to_approx_grads:
+            params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
+
+
+        learning_updates = self.get_param_updates(params_to_grads)
+
+        sampling_updates = self.dbm.get_sampling_updates()
+
+        for key in sampling_updates:
+            learning_updates[key] = sampling_updates[key]
 
         self.censor_updates(learning_updates)
-
 
         print "compiling function..."
         t1 = time.time()
@@ -266,6 +331,17 @@ class PDDBM(Model):
         t2 = time.time()
         print "... compilation took "+str(t2-t1)+" seconds"
         print "graph size: ",len(rval.maker.env.toposort())
+
+        return rval
+
+    def get_param_updates(self, params_to_grads):
+
+        warnings.warn("TODO: get_param_updates does not use geodesics for now")
+
+        rval = {}
+
+        for key in params_to_grads:
+            rval[key] = key + self.learning_rate * params_to_grads[key]
 
         return rval
 
@@ -471,7 +547,7 @@ class InferenceProcedure:
         def make_dict():
 
             return {
-                    'G_hat' : G_hat,
+                    'G_hat' : tuple(G_hat),
                     'H_hat' : H_hat,
                     'S_hat' : S_hat,
                     'var_s0_hat' : var_s0_hat,
@@ -539,92 +615,4 @@ class InferenceProcedure:
             return history
         else:
             return history[-1]
-
-class Grad_M_Step:
-
-    """ A partial M-step based on gradient ascent.
-        More aggressive M-steps are possible but didn't work particularly well in practice
-        on STL-10/CIFAR-10
-    """
-
-    def __init__(self, learning_rate, B_learning_rate_scale  = 1,
-            W_learning_rate_scale = 1, p_penalty = 0.0, B_penalty = 0.0, alpha_penalty = 0.0):
-        self.learning_rate = np.cast[config.floatX](float(learning_rate))
-
-
-        raise NotImplementedError("TODO: roll this into the main class's make_learn_func somehow")
-
-        self.B_learning_rate_scale = np.cast[config.floatX](float(B_learning_rate_scale))
-        self.W_learning_rate_scale = np.cast[config.floatX](float(W_learning_rate_scale))
-        self.p_penalty = as_floatX(p_penalty)
-        self.B_penalty = as_floatX(B_penalty)
-        self.alpha_penalty = as_floatX(alpha_penalty)
-
-    def get_updates(self, model, stats, H_hat, S_hat):
-
-        params = model.get_params()
-
-        obj = model.expected_log_prob_vhs(stats, H_hat, S_hat) - T.mean(model.p) * self.p_penalty - T.mean(model.B)*self.B_penalty-T.mean(model.alpha)*self.alpha_penalty
-
-
-        constants = set(stats.d.values()).union([H_hat, S_hat])
-
-        grads = T.grad(obj, params, consider_constant = constants)
-
-        updates = {}
-
-        for param, grad in zip(params, grads):
-            learning_rate = self.learning_rate
-
-            if param is model.W:
-                learning_rate = learning_rate * self.W_learning_rate_scale
-
-            if param is model.B_driver:
-                #can't use *= since this is a numpy ndarray now
-                learning_rate = learning_rate * self.B_learning_rate_scale
-
-            if param is model.W and model.constrain_W_norm:
-                #project the gradient into the tangent space of the unit hypersphere
-                #see "On Gradient Adaptation With Unit Norm Constraints"
-                #this is the "true gradient" method on a sphere
-                #it computes the gradient, projects the gradient into the tangent space of the sphere,
-                #then moves a certain distance along a geodesic in that direction
-
-                g_k = learning_rate * grad
-
-                h_k = g_k -  (g_k*model.W).sum(axis=0) * model.W
-
-                theta_k = T.sqrt(1e-8+T.sqr(h_k).sum(axis=0))
-
-                u_k = h_k / theta_k
-
-                updates[model.W] = T.cos(theta_k) * model.W + T.sin(theta_k) * u_k
-
-            else:
-                pparam = param
-
-                inc = learning_rate * grad
-
-                updated_param = pparam + inc
-
-                updates[param] = updated_param
-
-        return updates
-
-    def needed_stats(self):
-        return S3C.expected_log_prob_vhs_needed_stats()
-
-    def get_monitoring_channels(self, V, model):
-
-        hid_observations = model.e_step.variational_inference(V)
-
-        stats = SufficientStatistics.from_observations(needed_stats = S3C.expected_log_prob_vhs_needed_stats(),
-                V = V, **hid_observations)
-
-        H_hat = hid_observations['H_hat']
-        S_hat = hid_observations['S_hat']
-
-        obj = model.expected_log_prob_vhs(stats, H_hat, S_hat)
-
-        return { 'expected_log_prob_vhs' : obj }
 
