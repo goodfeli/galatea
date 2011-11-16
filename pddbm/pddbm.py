@@ -165,6 +165,7 @@ class PDDBM(Model):
 
         self.learning_rate = learning_rate
 
+
         self.s3c = s3c
         s3c.m_step = None
         self.dbm = dbm
@@ -172,6 +173,8 @@ class PDDBM(Model):
         self.rng = np.random.RandomState([1,2,3])
 
         #must use DBM bias now
+        assert dbm.bias_vis.get_value(borrow=True).shape \
+                == s3c.bias_hid.get_value(borrow=True).shape
         self.s3c.bias_hid = self.dbm.bias_vis
 
         self.nvis = s3c.nvis
@@ -197,6 +200,19 @@ class PDDBM(Model):
 
         self.redo_everything()
 
+
+    def get_weights(self):
+        x = input('which weights you want?')
+
+        if x == 2:
+            warnings.warn("HACK!")
+            return np.dot(self.s3c.W.get_value(), self.dbm.W[0].get_value())
+
+        if x == 1:
+            return self.s3c.W.get_value()
+
+        assert False
+
     def redo_everything(self):
 
         #we don't call redo_everything on s3c because this would reset its weights
@@ -214,20 +230,23 @@ class PDDBM(Model):
 
                 self.s3c.set_monitoring_channel_prefix('s3c_')
 
-                rval = self.s3c.get_monitoring_channels(V, self)
+                rval = self.s3c.get_monitoring_channels(V)
 
-                from_inference_procedure = self.inference_procedure.get_monitoring_channels(V, self)
+                from_inference_procedure = self.inference_procedure.get_monitoring_channels(V)
 
                 rval.update(from_inference_procedure)
 
                 self.dbm.set_monitoring_channel_prefix('dbm_')
 
-                from_dbm = self.dbm.get_monitoring_channels(V, self)
+                from_dbm = self.dbm.get_monitoring_channels(V)
 
                 rval.update(from_dbm)
 
             finally:
                 self.deploy_mode()
+
+            return rval
+
 
     def compile_mode(self):
         """ If any shared variables need to have batch-size dependent sizes,
@@ -348,7 +367,7 @@ class PDDBM(Model):
     def censor_updates(self, updates):
 
         self.s3c.censor_updates(updates)
-        self.dbm.censor_update(updates)
+        self.dbm.censor_updates(updates)
 
     def random_design_matrix(self, batch_size, theano_rng):
 
@@ -366,6 +385,9 @@ class PDDBM(Model):
         self.s3c.make_pseudoparams()
 
     def redo_theano(self):
+
+        self.s3c.reset_censorship_cache()
+
         try:
             self.compile_mode()
 
@@ -446,7 +468,7 @@ class InferenceProcedure:
         if self.monitor_kl:
             obs_history = self.infer(V, return_history = True)
 
-            for i in xrange(1, 2 + len(self.h_new_coeff_schedule)):
+            for i in xrange(1, 2 + len(self.schedule)):
                 obs = obs_history[i-1]
                 rval['trunc_KL_'+str(i)] = self.truncated_KL(V, obs).mean()
 
@@ -466,7 +488,7 @@ class InferenceProcedure:
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
-        s3c_truncated_KL = self.s3c_e_step.truncated_KL(self, V, obs)
+        s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs)
 
         dbm_obs = self.dbm_observations(obs)
 
@@ -521,6 +543,26 @@ class InferenceProcedure:
         H_hat = s3c_e_step.init_H_hat(V)
         G_hat = dbm_ip.init_H_hat(H_hat)
         S_hat = s3c_e_step.init_S_hat(V)
+
+        for Hv in get_debug_values(H_hat):
+            if isinstance(Hv, tuple):
+                warnings.warn("I got a tuple from this and I have no idea why the fuck that happens. Pulling out the single element of the tuple")
+                Hv ,= Hv
+
+            if Hv.shape[1] != s3c_e_step.model.nhid:
+                debug_error_message('H prior has wrong # hu, expected %d actual %d'%\
+                        (s3c_e_step.model.nhid,
+                            Hv.shape[1]))
+
+        for Sv in get_debug_values(S_hat):
+            if isinstance(Sv, tuple):
+                warnings.warn("I got a tuple from this and I have no idea why the fuck that happens. Pulling out the single element of the tuple")
+                Sv ,= Sv
+
+            if Sv.shape[1] != s3c_e_step.model.nhid:
+                debug_error_message('prior has wrong # hu, expected %d actual %d'%\
+                        (s3c_e_step.model.nhid,
+                            Sv.shape[1]))
 
         def check_H(my_H, my_V):
             if my_H.dtype != config.floatX:
