@@ -70,8 +70,17 @@ class DebugDBM(DBM):
         return v_weights_contrib
 
 
+class DebugPDDBM(PDDBM):
+    def __init__(self,
+            s3c,
+            dbm,
+            learning_rate,
+            inference_procedure,
+            print_interval = 10000,
+            dbm_weight_decay = None):
+        super(DebugPDDBM,self).__init__(s3c,dbm,learning_rate,inference_procedure,print_interval,dbm_weight_decay)
 
-obj = PDDBM(learning_rate = .01,
+obj = DebugPDDBM(learning_rate = .01,
         dbm_weight_decay = [ 100. ],
         dbm =  DebugDBM (
                 negative_chains = 100,
