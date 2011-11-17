@@ -18,19 +18,13 @@ class DebugInferenceProcedure(InferenceProcedure):
         return H
 
     def infer(self, V, return_history = False):
-        alpha = self.model.s3c.alpha
         s3c_e_step = self.s3c_e_step
         dbm_ip = self.dbm_ip
 
-        var_s0_hat = 1. / alpha
-        var_s1_hat = s3c_e_step.var_s1_hat()
-
         H_hat = s3c_e_step.init_H_hat(V)
         G_hat = dbm_ip.init_H_hat(H_hat)
-        #S_hat = s3c_e_step.init_S_hat(V)
 
         H_hat.name = 'init_H_hat'
-        #S_hat.name = 'init_S_hat'
 
         def make_dict():
 
