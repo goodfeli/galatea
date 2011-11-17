@@ -87,7 +87,7 @@ class DebugPDDBM(PDDBM):
         assert G_hat in constants
 
 
-        a = T.dot(H_hat.T, G_hat[0])/m
+        a = T.dot(H_hat.T, G_hat[0])
         b = T.sum(self.dbm.W[0] * a)
 
         test = T.grad(b, self.dbm.W[0], consider_constant = constants)
