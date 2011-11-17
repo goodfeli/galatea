@@ -95,15 +95,7 @@ class DebugInferenceProcedure(InferenceProcedure):
 
             letter, number = step
 
-            coeff = as_floatX(number)
-            coeff = T.as_tensor_variable(coeff)
-            coeff.name = 'coeff_step_'+str(i)
-
-            if letter == 's':
-                S_hat = s3c_e_step.infer_S_hat(V, H_hat, S_hat)
-                S_hat.name = 'S_hat_step_'+str(i)
-
-            elif letter == 'h':
+            if letter == 'h':
 
                 H_hat = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
                 H_hat.name = 'new_H_hat_step_'+str(i)
