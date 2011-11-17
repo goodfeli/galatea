@@ -96,13 +96,9 @@ class DebugDBM(DBM):
 
         v_weights_contrib = T.sum(self.W[0] * exp_vh)
 
-        v_weights_contrib.name = 'v_weights_contrib('+V_name+','+H_names[0]+')'
+        #v_weights_contrib.name = 'v_weights_contrib('+V_name+','+H_names[0]+')'
 
-        total = v_bias_contrib + v_weights_contrib
-
-        highest_bias_contrib = T.dot(T.mean(H_hat[-1],axis=0), self.bias_hid[-1])
-
-        #total = total + highest_bias_contrib
+        total = v_weights_contrib
 
         assert len(total.type.broadcastable) == 0
 
