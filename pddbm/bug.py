@@ -111,7 +111,7 @@ class DebugInferenceProcedure(InferenceProcedure):
 
                 new_H.name = 'new_H_step_'+str(i)
 
-                H_hat = damp(old = H_hat, new = new_H, new_coeff = coeff)
+                H_hat = new_H #damp(old = H_hat, new = new_H, new_coeff = coeff)
                 H_hat.name = 'new_H_hat_step_'+str(i)
 
                 check_H(H_hat,V)
