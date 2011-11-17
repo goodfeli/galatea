@@ -16,9 +16,6 @@ W = sharedX( np.zeros((400,400)))
 W.name = 'W'
 
 class DebugInferenceProcedure(InferenceProcedure):
-    def infer_H_hat(self, V, H_hat, G1_hat):
-        top_down = T.dot(G1_hat, W.T)
-        return top_down
 
     def infer(self, V, return_history = False):
         s3c_e_step = self.s3c_e_step
@@ -39,7 +36,7 @@ class DebugInferenceProcedure(InferenceProcedure):
             letter, number = step
 
             if letter == 'h':
-                H_hat = self.infer_H_hat(V = V, H_hat = H_hat, G1_hat = G_hat[0])
+                H_hat = T.dot( G_hat[0] , W)
                 H_hat.name = 'new_H_hat_step_'+str(i)
             elif letter == 'g':
                 H_hat_below = H_hat
