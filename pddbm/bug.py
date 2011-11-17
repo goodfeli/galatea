@@ -106,7 +106,7 @@ class DebugDBM(DBM):
 
         assert len(total.type.broadcastable) == 0
 
-        rval =  - total
+        rval =  total
 
         return rval
 
