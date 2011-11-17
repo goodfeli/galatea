@@ -11,18 +11,6 @@ from theano import tensor as T
 
 class DebugInferenceProcedure(InferenceProcedure):
     def infer(self, V, return_history = False):
-        """
-
-            return_history: if True:
-                                returns a list of dictionaries with
-                                showing the history of the variational
-                                parameters
-                                throughout fixed point updates
-                            if False:
-                                returns a dictionary containing the final
-                                variational parameters
-        """
-
         alpha = self.model.s3c.alpha
         s3c_e_step = self.s3c_e_step
         dbm_ip = self.dbm_ip
@@ -47,8 +35,6 @@ class DebugInferenceProcedure(InferenceProcedure):
                     'var_s1_hat': var_s1_hat,
                     }
 
-        history = [ make_dict() ]
-
         for i, step in enumerate(self.schedule):
 
             letter, number = step
@@ -59,10 +45,6 @@ class DebugInferenceProcedure(InferenceProcedure):
                 H_hat.name = 'new_H_hat_step_'+str(i)
 
             elif letter == 'g':
-
-                if not isinstance(number, int):
-                    raise ValueError("Step parameter for 'g' code must be an integer in [0, # g layers) "
-                            "but got "+str(number)+" (of type "+str(type(number)))
 
                 b = self.model.dbm.bias_hid[number]
 
@@ -88,9 +70,8 @@ class DebugInferenceProcedure(InferenceProcedure):
             else:
                 raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
 
-            history.append(make_dict())
 
-        return history[-1]
+        return make_dict()
 
 
 obj = PDDBM(learning_rate = .01,
