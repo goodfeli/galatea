@@ -44,8 +44,7 @@ obj = PDDBM(learning_rate = .01,
                              ['g',0],   ['h',0.1], ['s',0.1], ['h', 0.1], ['g',0],
                              ['h',0.1], ['g',0],   ['h',0.1], ['s', 0.1], ['h',0.1] ],
                 monitor_kl = 0,
-                clip_reflections = 1,
-                rho = 0.5
+                clip_reflections = 0,
        ),
        print_interval =  10000
 )
