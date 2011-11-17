@@ -45,8 +45,7 @@ class DebugInferenceProcedure(InferenceProcedure):
             elif letter == 'g':
                 b = self.model.dbm.bias_hid[0]
                 H_hat_below = H_hat
-                G_hat[number] = T.nnet.sigmoid(T.dot(H_hat_below, W)+b)
-#dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W, b = b)
+                G_hat[number] = T.nnet.sigmoid(T.dot(H_hat_below, W))
 
         return make_dict()
 
