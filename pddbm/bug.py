@@ -36,40 +36,16 @@ class DebugInferenceProcedure(InferenceProcedure):
                     }
 
         for i, step in enumerate(self.schedule):
-
             letter, number = step
 
             if letter == 'h':
-
                 H_hat = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
                 H_hat.name = 'new_H_hat_step_'+str(i)
-
             elif letter == 'g':
-
-                b = self.model.dbm.bias_hid[number]
-
-                W = self.model.dbm.W
-
-                W_below = W[number]
-
-                if number == 0:
-                    H_hat_below = H_hat
-                else:
-                    H_hat_below = G_hat[number - 1]
-
-                num_g = self.model.num_g
-
-                if number == num_g - 1:
-                    G_hat[number] = dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
-                else:
-                    H_hat_above = G_hat[number + 1]
-                    W_above = W[number+1]
-                    G_hat[number] = dbm_ip.infer_H_hat_two_sided(H_hat_below = H_hat_below, H_hat_above = H_hat_above,
-                                           W_below = W_below, W_above = W_above,
-                                           b = b)
-            else:
-                raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
-
+                b = self.model.dbm.bias_hid[0]
+                W_below = self.model.dbm.W[0]
+                H_hat_below = H_hat
+                G_hat[number] = dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
 
         return make_dict()
 
