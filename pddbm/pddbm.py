@@ -141,6 +141,18 @@ class SufficientStatistics:
         return SufficientStatistics(final_d)
 """
 
+def flatten(collection):
+    rval = set([])
+
+    for elem in collection:
+        if hasattr(elem,'__len__'):
+            rval = rval.union(flatten(elem))
+        else:
+            rval = rval.union([elem])
+
+    return rval
+
+
 class PDDBM(Model):
 
     """ Implements a model of the form
@@ -292,7 +304,7 @@ class PDDBM(Model):
         #don't backpropagate through inference
         obs_set = set(hidden_obs.values())
         stats_set = set(stats.d.values())
-        constants = obs_set.union(stats_set)
+        constants = flatten(obs_set.union(stats_set))
 
         G_hat = hidden_obs['G_hat']
         for i, G in enumerate(G_hat):
@@ -303,7 +315,8 @@ class PDDBM(Model):
         S_hat.name = 'final_S_hat'
 
         assert H_hat in constants
-        assert G_hat in constants
+        for G in G_hat:
+            assert G in constants
         assert S_hat in constants
 
         expected_log_prob_v_given_hs = self.s3c.expected_log_prob_v_given_hs(stats, \
@@ -318,18 +331,7 @@ class PDDBM(Model):
         expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat )
         assert len(expected_dbm_energy.type.broadcastable) == 0
 
-        #warnings.warn("""need to debug:
         test = T.grad(expected_dbm_energy, self.dbm.W[0], consider_constant = constants)
-        print min_informative_str(test)
-        assert False
-        #""")
-
-        warnings.warn(""" also need to debug
-        test = T.grad(expected_dbm_energy, self.dbm.W[0])
-        print min_informative_str(test)
-        assert False
-        """)
-
 
         #note: this is not the complete tractable part of the objective
         #the objective also includes the entropy of Q, but we drop that since it is
@@ -364,10 +366,6 @@ class PDDBM(Model):
         params_to_grads = {}
         for param, grad in zip(params, grads):
             params_to_grads[param] = grad
-
-
-        print min_informative_str(params_to_grads[self.dbm.W[0]])
-        assert False
 
         #add the approximate gradients
         params_to_approx_grads = self.dbm.get_neg_phase_grads()
