@@ -128,7 +128,7 @@ obj = DebugPDDBM(learning_rate = .01,
                ),
        inference_procedure = DebugInferenceProcedure(
                 schedule = [ ['h',1.],   ['g', 0],
-                             ['h',0.1]  ],
+                              ],
                 monitor_kl = 0,
                 clip_reflections = 0,
        ),
