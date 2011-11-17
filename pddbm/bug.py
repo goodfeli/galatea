@@ -37,8 +37,8 @@ class DebugInferenceProcedure(InferenceProcedure):
             return {
                     'G_hat' : tuple(G_hat),
                     'H_hat' : H_hat,
-                    'S_hat' : S_hat,
-                    'var_s0_hat' : var_s0_hat,
+                    #'S_hat' : S_hat,
+                    #'var_s0_hat' : var_s0_hat,
                     #'var_s1_hat': var_s1_hat,
                     }
 
@@ -114,12 +114,12 @@ class DebugPDDBM(PDDBM):
             G.name = 'final_G_hat[%d]' % (i,)
         H_hat = hidden_obs['H_hat']
         H_hat.name = 'final_H_hat'
-        S_hat = hidden_obs['S_hat']
-        S_hat.name = 'final_S_hat'
+        #S_hat = hidden_obs['S_hat']
+        #S_hat.name = 'final_S_hat'
 
         assert H_hat in constants
         assert G_hat in constants
-        assert S_hat in constants
+        #assert S_hat in constants
 
         #expected_log_prob_v_given_hs = self.s3c.expected_log_prob_v_given_hs(stats, \
         #        H_hat = H_hat, S_hat = S_hat)
