@@ -54,17 +54,7 @@ class DebugInferenceProcedure(InferenceProcedure):
         return make_dict()
 
 class DebugDBM(DBM):
-    def expected_energy(self, V_hat, H_hat):
-        V_name = make_name(V_hat, 'anon_V_hat')
-
-        m = V_hat.shape[0]
-        m.name = V_name + '.shape[0]'
-
-        exp_vh = T.dot(V_hat.T,H_hat[0]) / m
-
-        v_weights_contrib = T.sum(self.W[0] * exp_vh)
-
-        return v_weights_contrib
+    pass
 
 
 class DebugPDDBM(PDDBM):
@@ -78,11 +68,14 @@ class DebugPDDBM(PDDBM):
         super(DebugPDDBM,self).__init__(s3c,dbm,learning_rate,inference_procedure,print_interval,dbm_weight_decay)
 
     def make_learn_func(self, V):
-        #run variational inference on the train set
+        V.name = 'V'
+
+        m = V.shape[0]
+        m.name = 'm'
+
         hidden_obs = self.inference_procedure.infer(V)
 
-        obs_set = set(hidden_obs.values())
-        constants = obs_set
+        constants = set(hidden_obs.values())
 
         G_hat = hidden_obs['G_hat']
         for i, G in enumerate(G_hat):
@@ -93,20 +86,13 @@ class DebugPDDBM(PDDBM):
         assert H_hat in constants
         assert G_hat in constants
 
-        expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat )
-        assert len(expected_dbm_energy.type.broadcastable) == 0
 
-        #warnings.warn("""need to debug:
-        test = T.grad(expected_dbm_energy, self.dbm.W[0], consider_constant = constants)
+        a = T.dot(H_hat.T, G_hat[0])/m
+        b = T.sum(self.dbm.W[0] * a)
+
+        test = T.grad(b, self.dbm.W[0], consider_constant = constants)
         print min_informative_str(test)
         assert False
-        #""")
-
-        warnings.warn(""" also need to debug
-        test = T.grad(expected_dbm_energy, self.dbm.W[0])
-        print min_informative_str(test)
-        assert False
-        """)
 
 obj = DebugPDDBM(learning_rate = .01,
         dbm_weight_decay = [ 100. ],
