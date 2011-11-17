@@ -25,7 +25,7 @@ class DebugInferenceProcedure(InferenceProcedure):
         dbm_ip = self.dbm_ip
 
         H_hat = s3c_e_step.init_H_hat(V)
-        G_hat = dbm_ip.init_H_hat(H_hat)
+        G_hat = [ s3c_e_step.init_H_hat(V) ]
 
         H_hat.name = 'init_H_hat'
 
