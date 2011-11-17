@@ -17,7 +17,7 @@ class DebugInferenceProcedure(InferenceProcedure):
 
         top_down = T.dot(G1_hat, W.T)
 
-        presigmoid = s3c_presigmoid + top_down
+        presigmoid =  top_down
 
         H = T.nnet.sigmoid(presigmoid)
 
