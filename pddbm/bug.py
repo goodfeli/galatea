@@ -74,9 +74,71 @@ class DebugInferenceProcedure(InferenceProcedure):
         return make_dict()
 
 
+class DebugDBM(DBM):
+    def expected_energy(self, V_hat, H_hat):
+        """ expected energy of the model under the mean field distribution
+            defined by V_hat and H_hat
+            alternately, could be expectation of the energy function across
+            a batch of examples, where every element of V_hat and H_hat is
+            a binary observation
+        """
+
+
+        V_name = make_name(V_hat, 'anon_V_hat')
+        assert isinstance(H_hat, (list,tuple))
+
+        H_names = []
+        for i in xrange(len(H_hat)):
+            H_names.append( make_name(H_hat[i], 'anon_H_hat[%d]' %(i,) ))
+
+        m = V_hat.shape[0]
+        m.name = V_name + '.shape[0]'
+
+        assert len(H_hat) == len(self.rbms)
+
+        v = T.mean(V_hat, axis=0)
+
+        v_bias_contrib = T.dot(v, self.bias_vis)
+
+        exp_vh = T.dot(V_hat.T,H_hat[0]) / m
+
+        v_weights_contrib = T.sum(self.W[0] * exp_vh)
+
+        v_weights_contrib.name = 'v_weights_contrib('+V_name+','+H_names[0]+')'
+
+        total = v_bias_contrib + v_weights_contrib
+
+        for i in xrange(len(H_hat) - 1):
+            lower_H = H_hat[i]
+            low = T.mean(lower_H, axis = 0)
+            higher_H = H_hat[i+1]
+            exp_lh = T.dot(lower_H.T, higher_H) / m
+            lower_bias = self.bias_hid[i]
+            W = self.W[i+1]
+
+            lower_bias_contrib = T.dot(low, lower_bias)
+
+            weights_contrib = T.sum( W * exp_lh) / m
+
+            total = total + lower_bias_contrib + weights_contrib
+
+        highest_bias_contrib = T.dot(T.mean(H_hat[-1],axis=0), self.bias_hid[-1])
+
+        total = total + highest_bias_contrib
+
+        assert len(total.type.broadcastable) == 0
+
+        rval =  - total
+
+        #rval.name = 'dbm_expected_energy('+V_name+','+str(H_names)+')'
+
+        return rval
+
+
+
 obj = PDDBM(learning_rate = .01,
         dbm_weight_decay = [ 100. ],
-        dbm =  DBM (
+        dbm =  DebugDBM (
                 negative_chains = 100,
                 monitor_params = 1,
                 rbms = [ RBM(
