@@ -8,8 +8,6 @@ from theano.gof.op import get_debug_values, debug_error_message
 from theano import config
 from pylearn2.utils import make_name, as_floatX
 from theano import tensor as T
-from pylearn2.models.s3c import damp
-
 
 class DebugInferenceProcedure(InferenceProcedure):
     def infer(self, V, return_history = False):
@@ -107,11 +105,7 @@ class DebugInferenceProcedure(InferenceProcedure):
 
             elif letter == 'h':
 
-                new_H = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
-
-                new_H.name = 'new_H_step_'+str(i)
-
-                H_hat = new_H #damp(old = H_hat, new = new_H, new_coeff = coeff)
+                H_hat = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
                 H_hat.name = 'new_H_hat_step_'+str(i)
 
                 check_H(H_hat,V)
