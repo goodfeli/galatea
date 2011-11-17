@@ -14,7 +14,7 @@ class DebugInferenceProcedure(InferenceProcedure):
     def infer_H_hat(self, V, H_hat, G1_hat):
         W = self.model.dbm.W[0]
         top_down = T.dot(G1_hat, W.T)
-        H = T.nnet.sigmoid(top_down)
+        H = top_down
         return H
 
     def infer(self, V, return_history = False):
