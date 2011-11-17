@@ -1,10 +1,6 @@
-from galatea.pddbm.pddbm import PDDBM
 from galatea.pddbm.pddbm import InferenceProcedure
-from pylearn2.models.dbm import DBM
-from pylearn2.models.rbm import RBM
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import Grad_M_Step
-from theano.gof.op import get_debug_values, debug_error_message
 from theano import config
 from pylearn2.utils import make_name, as_floatX
 from theano import tensor as T
@@ -32,15 +28,13 @@ class DebugInferenceProcedure(InferenceProcedure):
                     'H_hat' : H_hat,
                     }
 
-        for i, step in enumerate(self.schedule):
-            letter, number = step
 
-            if letter == 'h':
-                H_hat = T.dot( G_hat[0] , W)
-                H_hat.name = 'new_H_hat_step_'+str(i)
-            elif letter == 'g':
-                H_hat_below = H_hat
-                G_hat[number] = T.nnet.sigmoid(T.dot(H_hat_below, W))
+        H_hat = T.dot( G_hat[0] , W)
+        H_hat.name = 'new_H_hat_step_0'
+
+        H_hat_below = H_hat
+        G_hat[0] = T.nnet.sigmoid(T.dot(H_hat_below, W))
+        G_hat[0].name = 'new_G_hat_step_1'
 
         return make_dict()
 
