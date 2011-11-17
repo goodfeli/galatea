@@ -102,7 +102,7 @@ class DebugDBM(DBM):
 
         highest_bias_contrib = T.dot(T.mean(H_hat[-1],axis=0), self.bias_hid[-1])
 
-        total = total + highest_bias_contrib
+        #total = total + highest_bias_contrib
 
         assert len(total.type.broadcastable) == 0
 
