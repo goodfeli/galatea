@@ -57,46 +57,7 @@ class DebugDBM(DBM):
     pass
 
 
-class DebugPDDBM(PDDBM):
-    def __init__(self,
-            s3c,
-            dbm,
-            learning_rate,
-            inference_procedure,
-            print_interval = 10000,
-            dbm_weight_decay = None):
-        super(DebugPDDBM,self).__init__(s3c,dbm,learning_rate,inference_procedure,print_interval,dbm_weight_decay)
-
-    def make_learn_func(self, V):
-        V.name = 'V'
-
-        m = V.shape[0]
-        m.name = 'm'
-
-        hidden_obs = self.inference_procedure.infer(V)
-
-        constants = set(hidden_obs.values())
-
-        G_hat = hidden_obs['G_hat']
-        for i, G in enumerate(G_hat):
-            G.name = 'final_G_hat[%d]' % (i,)
-        H_hat = hidden_obs['H_hat']
-        H_hat.name = 'final_H_hat'
-
-        assert H_hat in constants
-        assert G_hat in constants
-
-
-        a = T.dot(H_hat.T, G_hat[0])
-        b = T.sum(self.dbm.W[0] * a)
-
-        test = T.grad(b, self.dbm.W[0], consider_constant = constants)
-        print min_informative_str(test)
-        assert False
-
-obj = DebugPDDBM(learning_rate = .01,
-        dbm_weight_decay = [ 100. ],
-        dbm =  DebugDBM (
+dbm =  DebugDBM (
                 negative_chains = 100,
                 monitor_params = 1,
                 rbms = [ RBM(
@@ -106,8 +67,9 @@ obj = DebugPDDBM(learning_rate = .01,
                                                   init_bias_vis = -3.
                                                 )
                          ]
-        ),
-        s3c = S3C (
+        )
+
+s3c = S3C (
                nvis = 108,
                nhid = 400,
                init_bias_hid = -3.,
@@ -125,12 +87,51 @@ obj = DebugPDDBM(learning_rate = .01,
                init_mu =  0.,
                monitor_params = [ 'B', 'p', 'alpha', 'mu', 'W' ],
                m_step =  Grad_M_Step()
-               ),
-       inference_procedure = DebugInferenceProcedure(
+               )
+
+s3c.make_pseudoparams()
+
+inference_procedure = DebugInferenceProcedure(
                 schedule = [ ['h',1.],   ['g', 0],
                               ],
                 monitor_kl = 0,
                 clip_reflections = 0,
-       ),
-       print_interval =  10000
-)
+       )
+
+class A:
+    pass
+
+dummy = A()
+dummy.s3c = s3c
+dummy.dbm = dbm
+
+inference_procedure.model = dummy
+inference_procedure.s3c_e_step = s3c.e_step
+inference_procedure.dbm_ip = dbm.inference_procedure
+
+V = T.matrix()
+V.name = 'V'
+
+m = V.shape[0]
+m.name = 'm'
+
+hidden_obs = inference_procedure.infer(V)
+
+constants = set(hidden_obs.values())
+
+G_hat = hidden_obs['G_hat']
+for i, G in enumerate(G_hat):
+    G.name = 'final_G_hat[%d]' % (i,)
+H_hat = hidden_obs['H_hat']
+H_hat.name = 'final_H_hat'
+
+assert H_hat in constants
+assert G_hat in constants
+
+
+a = T.dot(H_hat.T, G_hat[0])
+b = T.sum(dbm.W[0] * a)
+
+test = T.grad(b, dbm.W[0], consider_constant = constants)
+print min_informative_str(test)
+assert False
