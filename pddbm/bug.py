@@ -77,34 +77,15 @@ class DebugInferenceProcedure(InferenceProcedure):
 class DebugDBM(DBM):
     def expected_energy(self, V_hat, H_hat):
         V_name = make_name(V_hat, 'anon_V_hat')
-        assert isinstance(H_hat, (list,tuple))
-
-        H_names = []
-        for i in xrange(len(H_hat)):
-            H_names.append( make_name(H_hat[i], 'anon_H_hat[%d]' %(i,) ))
 
         m = V_hat.shape[0]
         m.name = V_name + '.shape[0]'
-
-        assert len(H_hat) == len(self.rbms)
-
-        v = T.mean(V_hat, axis=0)
-
-        v_bias_contrib = T.dot(v, self.bias_vis)
 
         exp_vh = T.dot(V_hat.T,H_hat[0]) / m
 
         v_weights_contrib = T.sum(self.W[0] * exp_vh)
 
-        #v_weights_contrib.name = 'v_weights_contrib('+V_name+','+H_names[0]+')'
-
-        total = v_weights_contrib
-
-        assert len(total.type.broadcastable) == 0
-
-        rval =  total
-
-        return rval
+        return v_weights_contrib
 
 
 
