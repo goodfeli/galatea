@@ -5,7 +5,6 @@ from pylearn2.models.rbm import RBM
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import Grad_M_Step
 
-
 obj = PDDBM(learning_rate = .01,
         dbm_weight_decay = [ 100. ],
         dbm =  DBM (
