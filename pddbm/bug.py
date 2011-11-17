@@ -16,7 +16,7 @@ class DebugInferenceProcedure(InferenceProcedure):
     def infer(self, V, return_history = False):
         s3c_e_step = self.s3c_e_step
 
-        H_hat = s3c_e_step.init_H_hat(V)
+        H_hat = T.matrix('init_H')#s3c_e_step.init_H_hat(V)
         G_hat = [ s3c_e_step.init_H_hat(V) ]
 
         H_hat.name = 'init_H_hat'
