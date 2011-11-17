@@ -127,10 +127,8 @@ obj = DebugPDDBM(learning_rate = .01,
                m_step =  Grad_M_Step()
                ),
        inference_procedure = DebugInferenceProcedure(
-                schedule = [ ['h',1.],   ['h', 0.1],
-                             ['h',0.1], ['g',0],   ['h',0.1],  ['h',0.1],
-                             ['g',0],   ['h',0.1], ['h', 0.1], ['g',0],
-                             ['h',0.1], ['g',0],   ['h',0.1], ['h',0.1] ],
+                schedule = [ ['h',1.],   ['g', 0],
+                             ['h',0.1]  ],
                 monitor_kl = 0,
                 clip_reflections = 0,
        ),
