@@ -13,7 +13,7 @@ import numpy as np
 from pylearn2.utils import sharedX
 
 W = sharedX( np.zeros((400,400)))
-W.name = 'HARBINGER'
+W.name = 'W'
 
 class DebugInferenceProcedure(InferenceProcedure):
     def infer_H_hat(self, V, H_hat, G1_hat):
@@ -22,7 +22,6 @@ class DebugInferenceProcedure(InferenceProcedure):
 
     def infer(self, V, return_history = False):
         s3c_e_step = self.s3c_e_step
-        dbm_ip = self.dbm_ip
 
         H_hat = s3c_e_step.init_H_hat(V)
         G_hat = [ s3c_e_step.init_H_hat(V) ]
@@ -43,27 +42,11 @@ class DebugInferenceProcedure(InferenceProcedure):
                 H_hat = self.infer_H_hat(V = V, H_hat = H_hat, G1_hat = G_hat[0])
                 H_hat.name = 'new_H_hat_step_'+str(i)
             elif letter == 'g':
-                b = self.model.dbm.bias_hid[0]
                 H_hat_below = H_hat
                 G_hat[number] = T.nnet.sigmoid(T.dot(H_hat_below, W))
 
         return make_dict()
 
-class DebugDBM(DBM):
-    pass
-
-
-dbm =  DebugDBM (
-                negative_chains = 100,
-                monitor_params = 1,
-                rbms = [ RBM(
-                                                  nvis = 400,
-                                                  nhid = 400,
-                                                  irange = .05,
-                                                  init_bias_vis = -3.
-                                                )
-                         ]
-        )
 
 s3c = S3C (
                nvis = 108,
@@ -99,11 +82,9 @@ class A:
 
 dummy = A()
 dummy.s3c = s3c
-dummy.dbm = dbm
 
 inference_procedure.model = dummy
 inference_procedure.s3c_e_step = s3c.e_step
-inference_procedure.dbm_ip = dbm.inference_procedure
 
 V = T.matrix()
 V.name = 'V'
@@ -127,6 +108,7 @@ assert G_hat in constants
 
 a = T.dot(H_hat.T, G_hat[0])
 b = T.sum(W * a)
+
 
 test = T.grad(b, W, consider_constant = constants)
 print min_informative_str(test)
