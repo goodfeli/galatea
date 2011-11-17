@@ -10,6 +10,19 @@ from pylearn2.utils import make_name, as_floatX
 from theano import tensor as T
 
 class DebugInferenceProcedure(InferenceProcedure):
+    def infer_H_hat(self, V, H_hat, S_hat, G1_hat):
+        s3c_presigmoid = self.s3c_e_step.infer_H_hat_presigmoid(V, H_hat, S_hat)
+
+        W = self.model.dbm.W[0]
+
+        top_down = T.dot(G1_hat, W.T)
+
+        presigmoid = s3c_presigmoid + top_down
+
+        H = T.nnet.sigmoid(presigmoid)
+
+        return H
+
     def infer(self, V, return_history = False):
         alpha = self.model.s3c.alpha
         s3c_e_step = self.s3c_e_step
