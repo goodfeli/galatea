@@ -37,48 +37,6 @@ class DebugInferenceProcedure(InferenceProcedure):
         H_hat.name = 'init_H_hat'
         S_hat.name = 'init_S_hat'
 
-        for Hv in get_debug_values(H_hat):
-            if isinstance(Hv, tuple):
-                warnings.warn("I got a tuple from this and I have no idea why the fuck that happens. Pulling out the single element of the tuple")
-                Hv ,= Hv
-
-            if Hv.shape[1] != s3c_e_step.model.nhid:
-                debug_error_message('H prior has wrong # hu, expected %d actual %d'%\
-                        (s3c_e_step.model.nhid,
-                            Hv.shape[1]))
-
-        for Sv in get_debug_values(S_hat):
-            if isinstance(Sv, tuple):
-                warnings.warn("I got a tuple from this and I have no idea why the fuck that happens. Pulling out the single element of the tuple")
-                Sv ,= Sv
-
-            if Sv.shape[1] != s3c_e_step.model.nhid:
-                debug_error_message('prior has wrong # hu, expected %d actual %d'%\
-                        (s3c_e_step.model.nhid,
-                            Sv.shape[1]))
-
-        def check_H(my_H, my_V):
-            if my_H.dtype != config.floatX:
-                raise AssertionError('my_H.dtype should be config.floatX, but they are '
-                        ' %s and %s, respectively' % (my_H.dtype, config.floatX))
-
-            allowed_v_types = ['float32']
-
-            if config.floatX == 'float64':
-                allowed_v_types.append('float64')
-
-            assert my_V.dtype in allowed_v_types
-
-            if config.compute_test_value != 'off':
-                from theano.gof.op import PureOp
-                Hv = PureOp._get_test_value(my_H)
-
-                Vv = my_V.tag.test_value
-
-                assert Hv.shape[0] == Vv.shape[0]
-
-        check_H(H_hat,V)
-
         def make_dict():
 
             return {
@@ -99,8 +57,6 @@ class DebugInferenceProcedure(InferenceProcedure):
 
                 H_hat = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
                 H_hat.name = 'new_H_hat_step_'+str(i)
-
-                check_H(H_hat,V)
 
             elif letter == 'g':
 
@@ -134,10 +90,7 @@ class DebugInferenceProcedure(InferenceProcedure):
 
             history.append(make_dict())
 
-        if return_history:
-            return history
-        else:
-            return history[-1]
+        return history[-1]
 
 
 obj = PDDBM(learning_rate = .01,
