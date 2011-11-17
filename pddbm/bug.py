@@ -14,27 +14,7 @@ W.name = 'W'
 class DebugInferenceProcedure(InferenceProcedure):
 
     def infer(self, V, return_history = False):
-        s3c_e_step = self.s3c_e_step
 
-        H_hat = T.matrix('init_H')
-        G_hat = [ T.matrix('init_G') ]
-
-        H_hat.name = 'init_H_hat'
-
-        def make_dict():
-
-            return {
-                    'G_hat' : tuple(G_hat),
-                    'H_hat' : H_hat,
-                    }
-
-
-        H_hat = T.dot( G_hat[0] , W)
-        H_hat.name = 'new_H_hat_step_0'
-
-        H_hat_below = H_hat
-        G_hat[0] = T.nnet.sigmoid(T.dot(H_hat_below, W))
-        G_hat[0].name = 'new_G_hat_step_1'
 
         return make_dict()
 
@@ -83,18 +63,34 @@ V.name = 'V'
 m = V.shape[0]
 m.name = 'm'
 
-hidden_obs = inference_procedure.infer(V)
+H_hat = T.matrix('init_H')
+G_hat = [ T.matrix('init_G') ]
 
-constants = set(hidden_obs.values())
+H_hat.name = 'init_H_hat'
 
-G_hat = hidden_obs['G_hat']
+def make_dict():
+
+    return {
+            'G_hat' : tuple(G_hat),
+            'H_hat' : H_hat,
+            }
+
+
+H_hat = T.dot( G_hat[0] , W)
+H_hat.name = 'new_H_hat_step_0'
+
+H_hat_below = H_hat
+G_hat[0] = T.nnet.sigmoid(T.dot(H_hat_below, W))
+G_hat[0].name = 'new_G_hat_step_1'
+
+constants = set([H_hat, G_hat[0]])
+
 for i, G in enumerate(G_hat):
     G.name = 'final_G_hat[%d]' % (i,)
-H_hat = hidden_obs['H_hat']
 H_hat.name = 'final_H_hat'
 
 assert H_hat in constants
-assert G_hat in constants
+assert G_hat[0] in constants
 
 
 a = T.dot(H_hat.T, G_hat[0])
