@@ -766,8 +766,14 @@ Remember to regard
 \begin_inset Formula $Q$
 \end_inset
 
- as constant while taking the gradient, ie, ignore the effects of the parameters
- on 
+ as constant while taking the gradient, ie, ignore the effects of the model
+ parameters on 
+\begin_inset Formula $Q$
+\end_inset
+
+.
+ This means we can disregard the final term, which is only a function of
+ 
 \begin_inset Formula $Q$
 \end_inset
 

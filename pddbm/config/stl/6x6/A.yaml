@@ -4,6 +4,7 @@
         "learning_rate" : .01,
         "dbm": !obj:pylearn2.models.dbm.DBM {
                 "negative_chains" : 100,
+                "monitor_params" : 1,
                 "rbms" : [ !obj:pylearn2.models.rbm.RBM {
                                                   "nvis" : 400,
                                                   "nhid" : 400,
@@ -17,7 +18,7 @@
                "nhid" : 400,
                "init_bias_hid" : -3.,
                "max_bias_hid" : -2.,
-               "min_bias_hid" : -4.,
+               "min_bias_hid" : -8.,
                "irange"  : .02,
                "constrain_W_norm" : 1,
                "init_B"  : 3.,

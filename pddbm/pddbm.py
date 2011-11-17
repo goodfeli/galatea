@@ -25,9 +25,13 @@ from pylearn2.models.s3c import full_max
 from pylearn2.models.s3c import reflection_clip
 from pylearn2.models.s3c import damp
 from pylearn2.models.s3c import S3C
+from pylearn2.models.s3c import SufficientStatistics
+from theano.printing import min_informative_str
 
+
+"""
 class SufficientStatistics:
-    """ The SufficientStatistics class computes several sufficient
+    "" The SufficientStatistics class computes several sufficient
         statistics of a minibatch of examples / variational parameters.
         This is mostly for convenience since several expressions are
         easy to express in terms of these same sufficient statistics.
@@ -42,7 +46,7 @@ class SufficientStatistics:
         naturally are expressed in terms of the second moment matrix
         are now written with a different order of operations that
         avoids O(nhid^2) operations but whose dependence on the dataset
-        cannot be expressed in terms only of sufficient statistics."""
+        cannot be expressed in terms only of sufficient statistics.""
 
 
     def __init__(self, d):
@@ -52,7 +56,7 @@ class SufficientStatistics:
 
     @classmethod
     def from_observations(self, needed_stats, V, H_hat, S_hat, var_s0_hat, var_s1_hat):
-        """
+        ""
             returns a SufficientStatistics
 
             needed_stats: a set of string names of the statistics to include
@@ -65,7 +69,7 @@ class SufficientStatistics:
                         all inputs)
             var_s1_hat: variational parameters for variance of s given h=1
                         (again, a vector of length nhid)
-        """
+        ""
 
         m = T.cast(V.shape[0],config.floatX)
 
@@ -135,7 +139,7 @@ class SufficientStatistics:
             final_d[stat].name = 'observed_'+stat
 
         return SufficientStatistics(final_d)
-
+"""
 
 class PDDBM(Model):
 
@@ -148,7 +152,8 @@ class PDDBM(Model):
             dbm,
             learning_rate,
             inference_procedure,
-            print_interval = 10000):
+            print_interval = 10000,
+            dbm_weight_decay = None):
         """
             s3c: a galatea.s3c.s3c.S3C object
                 will become owned by the PDDBM
@@ -165,6 +170,7 @@ class PDDBM(Model):
 
         self.learning_rate = learning_rate
 
+        self.dbm_weight_decay = dbm_weight_decay
 
         self.s3c = s3c
         s3c.m_step = None
@@ -206,7 +212,8 @@ class PDDBM(Model):
 
         if x == 2:
             warnings.warn("HACK!")
-            return np.dot(self.s3c.W.get_value(), self.dbm.W[0].get_value())
+            return np.dot(self.s3c.W.get_value() \
+                    * self.s3c.mu.get_value(), self.dbm.W[0].get_value())
 
         if x == 1:
             return self.s3c.W.get_value()
@@ -274,6 +281,7 @@ class PDDBM(Model):
             if key != 'G_hat':
                 restricted_obs[key] = hidden_obs[key]
 
+
         #request s3c sufficient statistics
         needed_stats = \
          S3C.expected_log_prob_v_given_hs_needed_stats().union(\
@@ -281,42 +289,72 @@ class PDDBM(Model):
         stats = SufficientStatistics.from_observations(needed_stats = needed_stats,
                 V = V, **restricted_obs)
 
+        #don't backpropagate through inference
+        obs_set = set(hidden_obs.values())
+        stats_set = set(stats.d.values())
+        constants = obs_set.union(stats_set)
+
         G_hat = hidden_obs['G_hat']
+        for i, G in enumerate(G_hat):
+            G.name = 'final_G_hat[%d]' % (i,)
         H_hat = hidden_obs['H_hat']
+        H_hat.name = 'final_H_hat'
         S_hat = hidden_obs['S_hat']
-        var_s0_hat = hidden_obs['var_s0_hat']
-        var_s1_hat = hidden_obs['var_s1_hat']
+        S_hat.name = 'final_S_hat'
+
+        assert H_hat in constants
+        assert G_hat in constants
+        assert S_hat in constants
 
         expected_log_prob_v_given_hs = self.s3c.expected_log_prob_v_given_hs(stats, \
                 H_hat = H_hat, S_hat = S_hat)
         assert len(expected_log_prob_v_given_hs.type.broadcastable) == 0
 
+
         expected_log_prob_s_given_h  = self.s3c.log_likelihood_s_given_h(stats)
         assert len(expected_log_prob_s_given_h.type.broadcastable) == 0
+
 
         expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat )
         assert len(expected_dbm_energy.type.broadcastable) == 0
 
-        entropy_g = self.dbm.entropy_h( H_hat = G_hat)
-        assert len(entropy_g.type.broadcastable) == 1
+        #warnings.warn("""need to debug:
+        test = T.grad(expected_dbm_energy, self.dbm.W[0], consider_constant = constants)
+        print min_informative_str(test)
+        assert False
+        #""")
 
-        entropy_hs = self.s3c.entropy_hs( H_hat = H_hat, \
-                var_s0_hat = var_s0_hat, var_s1_hat = var_s1_hat)
-        assert len(entropy_hs.type.broadcastable) == 1
+        warnings.warn(""" also need to debug
+        test = T.grad(expected_dbm_energy, self.dbm.W[0])
+        print min_informative_str(test)
+        assert False
+        """)
 
-        entropy = T.mean(entropy_hs + entropy_g)
-        assert len(entropy.type.broadcastable) == 0
 
+        #note: this is not the complete tractable part of the objective
+        #the objective also includes the entropy of Q, but we drop that since it is
+        #not a function of the parameters and we're not able to compute the true
+        #value of the objective function anyway
         tractable_obj = expected_log_prob_v_given_hs + \
                         expected_log_prob_s_given_h  - \
-                        expected_dbm_energy \
-                        + entropy
+                        expected_dbm_energy
+
         assert len(tractable_obj.type.broadcastable) == 0
 
-        #don't backpropagate through inference
-        obs_set = set(hidden_obs.values())
-        stats_set = set(stats.d.values())
-        constants = obs_set.union(stats_set)
+
+        if self.dbm_weight_decay:
+
+            for i, t in enumerate(zip(self.dbm_weight_decay, self.dbm.W)):
+
+                coeff, W = t
+
+                coeff = as_floatX(coeff)
+                coeff = T.as_tensor_variable(coeff)
+                coeff.name = 'dbm_weight_decay_coeff_'+str(i)
+
+                tractable_obj = tractable_obj - coeff * T.mean(T.sqr(W))
+
+        assert len(tractable_obj.type.broadcastable) == 0
 
         #take the gradient of the tractable part
         params = self.get_params()
@@ -328,12 +366,14 @@ class PDDBM(Model):
             params_to_grads[param] = grad
 
 
+        print min_informative_str(params_to_grads[self.dbm.W[0]])
+        assert False
+
         #add the approximate gradients
         params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
         for param in params_to_approx_grads:
             params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
-
 
         learning_updates = self.get_param_updates(params_to_grads)
 
@@ -361,6 +401,9 @@ class PDDBM(Model):
 
         for key in params_to_grads:
             rval[key] = key + self.learning_rate * params_to_grads[key]
+
+        for param in self.get_params():
+            assert param in params_to_grads
 
         return rval
 
@@ -470,7 +513,14 @@ class InferenceProcedure:
 
             for i in xrange(1, 2 + len(self.schedule)):
                 obs = obs_history[i-1]
-                rval['trunc_KL_'+str(i)] = self.truncated_KL(V, obs).mean()
+
+                if i == 1:
+                    summary = '(init)'
+                else:
+                    step = self.schedule[i-2]
+                    summary = '(' + step[0]+','+step[1]+')'
+
+                rval['trunc_KL_'+str(i)+summary] = self.truncated_KL(V, obs).mean()
 
         return rval
 
@@ -484,6 +534,15 @@ class InferenceProcedure:
 
         self.dbm_ip = self.model.dbm.inference_procedure
 
+
+    def dbm_observations(self, obs):
+
+        rval = {}
+        rval['H_hat'] = obs['G_hat']
+        rval['V_hat'] = obs['H_hat']
+
+        return rval
+
     def truncated_KL(self, V, obs):
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
@@ -495,6 +554,8 @@ class InferenceProcedure:
         #when computing the dbm truncated KL, we ignore the entropy on the visible units
         #and the visible bias term of the dbm energy function. otherwise these would both
         #get double-counted, since they are also part of s3c_truncated_KL
+        assert False  #TODO: this actually makes no sense, dbm truncated kl puts no entropy
+                      #on the dbm's visible units anyway, revisit the math for this
         dbm_truncated_KL = self.dbm_ip.truncated_KL(self,V, dbm_obs, ignore_vis = True)
 
         rval = s3c_truncated_KL + dbm_truncated_KL
@@ -543,6 +604,9 @@ class InferenceProcedure:
         H_hat = s3c_e_step.init_H_hat(V)
         G_hat = dbm_ip.init_H_hat(H_hat)
         S_hat = s3c_e_step.init_S_hat(V)
+
+        H_hat.name = 'init_H_hat'
+        S_hat.name = 'init_S_hat'
 
         for Hv in get_debug_values(H_hat):
             if isinstance(Hv, tuple):
@@ -598,26 +662,38 @@ class InferenceProcedure:
 
         history = [ make_dict() ]
 
-        for step in self.schedule:
+        for i, step in enumerate(self.schedule):
 
             letter, number = step
+
+            coeff = as_floatX(number)
+
+            coeff = T.as_tensor_variable(coeff)
+
+            coeff.name = 'coeff_step_'+str(i)
 
             if letter == 's':
 
                 new_S_hat = s3c_e_step.infer_S_hat(V, H_hat, S_hat)
+                new_S_hat.name = 'new_S_hat_step_'+str(i)
 
                 if self.clip_reflections:
                     clipped_S_hat = reflection_clip(S_hat = S_hat, new_S_hat = new_S_hat, rho = self.rho)
                 else:
                     clipped_S_hat = new_S_hat
 
-                S_hat = damp(old = S_hat, new = clipped_S_hat, new_coeff = number)
+                S_hat = damp(old = S_hat, new = clipped_S_hat, new_coeff = coeff)
+
+                S_hat.name = 'S_hat_step_'+str(i)
 
             elif letter == 'h':
 
                 new_H = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
 
-                H_hat = damp(old = H_hat, new = new_H, new_coeff = number)
+                new_H.name = 'new_H_step_'+str(i)
+
+                H_hat = damp(old = H_hat, new = new_H, new_coeff = coeff)
+                H_hat.name = 'new_H_hat_step_'+str(i)
 
                 check_H(H_hat,V)
 
