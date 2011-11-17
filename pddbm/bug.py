@@ -108,12 +108,12 @@ class DebugInferenceProcedure(InferenceProcedure):
                 new_S_hat = s3c_e_step.infer_S_hat(V, H_hat, S_hat)
                 new_S_hat.name = 'new_S_hat_step_'+str(i)
 
-                if self.clip_reflections:
-                    clipped_S_hat = reflection_clip(S_hat = S_hat, new_S_hat = new_S_hat, rho = self.rho)
-                else:
-                    clipped_S_hat = new_S_hat
+                #if self.clip_reflections:
+                #    clipped_S_hat = reflection_clip(S_hat = S_hat, new_S_hat = new_S_hat, rho = self.rho)
+                #else:
+                #    clipped_S_hat = new_S_hat
 
-                S_hat = damp(old = S_hat, new = clipped_S_hat, new_coeff = coeff)
+                S_hat = new_S_hat #damp(old = S_hat, new = clipped_S_hat, new_coeff = coeff)
 
                 S_hat.name = 'S_hat_step_'+str(i)
 
