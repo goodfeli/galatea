@@ -86,12 +86,13 @@ def main(model_path,
     assert cifar10 + cifar100 + stl10 == 1
 
     y = get_test_labels(cifar10, cifar100, stl10)
-    X = get_features(test_path, split)
+    X = get_features(test_path, split, False)
     if stl10:
         num_examples = 8000
     if cifar10 or cifar100:
         num_examples = 10000
-    assert X.shape[0] == num_examples
+    if not X.shape[0] == num_examples:
+        raise AssertionError('Expected %d examples but got %d' % (num_examples, X.shape[0]))
     assert y.shape[0] == num_examples
 
     test(model,X,y,output_path)
