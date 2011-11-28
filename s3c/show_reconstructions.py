@@ -41,6 +41,11 @@ dataset.get_batch_design(model.nhid)
 
 X = dataset.get_batch_design(50)
 R = f(X)
+if np.any(np.isnan(R)) or np.any(np.isinf(R)):
+    mask = (np.isnan(R).sum(axis=1) + np.isinf(R).sum(axis=1)) > 0
+    print float(mask.sum())/float(mask.shape[0])
+    print R
+    assert False
 
 print 'mean squared error: ',np.square(X-R).mean()
 
@@ -78,6 +83,8 @@ for i in xrange(X.shape[0]):
 
     if pair_rescale:
         scale = max(np.abs(x).max(),np.abs(r).max())
+
+    assert scale != 0.0
 
     pv.add_patch( x / scale, rescale = False)
     pv.add_patch( r / scale, rescale = False)

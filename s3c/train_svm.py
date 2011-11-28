@@ -238,7 +238,6 @@ def main(train_path,
         print 'mem usage before calling train: '+str(mem.usage())
     model = train(fold_indices, train_X, train_y, report, **kwargs)
 
-
     serial.save(out_path+'.model.pkl', model)
     report.write(out_path+'.validation_report.txt')
 
