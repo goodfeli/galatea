@@ -1,4 +1,4 @@
-CIFAR_DIR='/path/to/cifar/cifar-10-batches-mat/';
+CIFAR_DIR='/data/lisa/data/cifar10/cifar-10-batches-mat/';
 SPAMS_DIR='/path/to/SPAMS/release/platform'; % E.g.: 'SPAMS/release/mkl64'
 
 %%%%% Configuration

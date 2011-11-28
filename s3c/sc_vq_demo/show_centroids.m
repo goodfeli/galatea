@@ -21,4 +21,8 @@ function image = show_centroids(centroids, H, W)
   mn=-1.5;
   mx=+1.5;
   image = (image - mn) / (mx - mn);
-  imshow(image);
+  try
+	  imshow(image)
+  catch err
+	fprintf(1,'cannot display images\n')
+  end
