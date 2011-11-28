@@ -56,6 +56,9 @@ class PDDBM(Model):
             dbm,
             learning_rate,
             inference_procedure,
+            h_penalty = 0.0,
+            g_penalties = None,
+            g_targets = None,
             print_interval = 10000,
             dbm_weight_decay = None):
         """
@@ -77,6 +80,10 @@ class PDDBM(Model):
         self.dbm_weight_decay = dbm_weight_decay
 
         self.s3c = s3c
+
+        if self.s3c.m_step is not None:
+            self.B_learning_rate_scale = self.s3c.m_step.B_learning_rate_scale
+
         s3c.m_step = None
         self.dbm = dbm
 
@@ -107,6 +114,11 @@ class PDDBM(Model):
         self.inference_procedure = inference_procedure
 
         self.num_g = len(self.dbm.W)
+
+        self.h_penalty = h_penalty
+
+        self.g_penalties = g_penalties
+        self.g_targets = g_targets
 
         self.redo_everything()
 
@@ -146,6 +158,7 @@ class PDDBM(Model):
                 from_inference_procedure = self.inference_procedure.get_monitoring_channels(V)
 
                 rval.update(from_inference_procedure)
+
 
                 self.dbm.set_monitoring_channel_prefix('dbm_')
 
@@ -189,7 +202,7 @@ class PDDBM(Model):
         #request s3c sufficient statistics
         needed_stats = \
          S3C.expected_log_prob_v_given_hs_needed_stats().union(\
-         S3C.log_likelihood_s_given_h_needed_stats())
+         S3C.expected_log_prob_s_given_h_needed_stats())
         stats = SufficientStatistics.from_observations(needed_stats = needed_stats,
                 V = V, **restricted_obs)
 
@@ -216,7 +229,7 @@ class PDDBM(Model):
         assert len(expected_log_prob_v_given_hs.type.broadcastable) == 0
 
 
-        expected_log_prob_s_given_h  = self.s3c.log_likelihood_s_given_h(stats)
+        expected_log_prob_s_given_h  = self.s3c.expected_log_prob_s_given_h(stats)
         assert len(expected_log_prob_s_given_h.type.broadcastable) == 0
 
 
@@ -242,11 +255,33 @@ class PDDBM(Model):
 
                 coeff, W = t
 
-                coeff = as_floatX(coeff)
+                coeff = as_floatX(float(coeff))
                 coeff = T.as_tensor_variable(coeff)
                 coeff.name = 'dbm_weight_decay_coeff_'+str(i)
 
                 tractable_obj = tractable_obj - coeff * T.mean(T.sqr(W))
+
+        if self.h_penalty != 0.0:
+            next_h = self.inference_procedure.infer_H_hat(V = V,
+                H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
+
+            h_penalty = T.mean(next_h)
+
+            tractable_obj = tractable_obj - self.h_penalty * h_penalty
+
+        if self.g_penalties is not None:
+            for i in xrange(len(self.dbm.bias_hid)):
+                G = self.inference_procedure.infer_G_hat(H_hat = H_hat, G_hat = G_hat, idx = i)
+
+                g = T.mean(G,axis=0)
+
+                err = g - self.g_targets[i]
+
+                abs_err = abs(err)
+
+                penalty = T.mean(abs_err)
+
+                tractable_obj = tractable_obj - self.g_penalties[i] * penalty
 
         assert len(tractable_obj.type.broadcastable) == 0
 
@@ -289,8 +324,16 @@ class PDDBM(Model):
 
         rval = {}
 
+        learning_rate = {}
+
+        for param in params_to_grads:
+            if param is self.s3c.B_driver:
+                learning_rate[param] = as_floatX(self.learning_rate * self.B_learning_rate_scale)
+            else:
+                learning_rate[param] = as_floatX(self.learning_rate)
+
         for key in params_to_grads:
-            rval[key] = key + self.learning_rate * params_to_grads[key]
+            rval[key] = key + learning_rate[key] * params_to_grads[key]
 
         for param in self.get_params():
             assert param in params_to_grads
@@ -345,6 +388,9 @@ class PDDBM(Model):
 
     def learn_mini_batch(self, X):
 
+
+        assert self.s3c is self.inference_procedure.s3c_e_step.model
+
         self.learn_func(X)
 
         if self.monitor.examples_seen % self.print_interval == 0:
@@ -398,8 +444,9 @@ class InferenceProcedure:
 
         rval = {}
 
+        obs_history = self.infer(V, return_history = True)
+
         if self.monitor_kl:
-            obs_history = self.infer(V, return_history = True)
 
             for i in xrange(1, 2 + len(self.schedule)):
                 obs = obs_history[i-1]
@@ -411,6 +458,25 @@ class InferenceProcedure:
                     summary = '(' + step[0]+','+step[1]+')'
 
                 rval['trunc_KL_'+str(i)+summary] = self.truncated_KL(V, obs).mean()
+
+        final_vals = obs_history[-1]
+
+        H_hat = final_vals['H_hat']
+        h = T.mean(H_hat, axis=0)
+
+        rval['h_min'] = full_min(h)
+        rval['h_mean'] = T.mean(h)
+        rval['h_max'] = full_max(h)
+
+        Gs = final_vals['G_hat']
+
+        for i, G in enumerate(Gs):
+
+            g = T.mean(G,axis=0)
+
+            rval['g[%d]_min'%(i,)] = full_min(g)
+            rval['g[%d]_mean'%(i,)] = T.mean(g)
+            rval['g[%d]_max'%(i,)] = full_max(g)
 
         return rval
 
@@ -593,27 +659,9 @@ class InferenceProcedure:
                     raise ValueError("Step parameter for 'g' code must be an integer in [0, # g layers) "
                             "but got "+str(number)+" (of type "+str(type(number)))
 
-                b = self.model.dbm.bias_hid[number]
 
-                W = self.model.dbm.W
+                G_hat[number] = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number)
 
-                W_below = W[number]
-
-                if number == 0:
-                    H_hat_below = H_hat
-                else:
-                    H_hat_below = G_hat[number - 1]
-
-                num_g = self.model.num_g
-
-                if number == num_g - 1:
-                    G_hat[number] = dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
-                else:
-                    H_hat_above = G_hat[number + 1]
-                    W_above = W[number+1]
-                    G_hat[number] = dbm_ip.infer_H_hat_two_sided(H_hat_below = H_hat_below, H_hat_above = H_hat_above,
-                                           W_below = W_below, W_above = W_above,
-                                           b = b)
             else:
                 raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
 
@@ -623,4 +671,32 @@ class InferenceProcedure:
             return history
         else:
             return history[-1]
+
+    def infer_G_hat(self, H_hat, G_hat, idx):
+        number = idx
+        dbm_ip = self.model.dbm.inference_procedure
+
+        b = self.model.dbm.bias_hid[number]
+
+        W = self.model.dbm.W
+
+        W_below = W[number]
+
+        if number == 0:
+            H_hat_below = H_hat
+        else:
+            H_hat_below = G_hat[number - 1]
+
+        num_g = self.model.num_g
+
+        if number == num_g - 1:
+            return dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
+        else:
+            H_hat_above = G_hat[number + 1]
+            W_above = W[number+1]
+            return dbm_ip.infer_H_hat_two_sided(H_hat_below = H_hat_below, H_hat_above = H_hat_above,
+                                   W_below = W_below, W_above = W_above,
+                                   b = b)
+
+
 
