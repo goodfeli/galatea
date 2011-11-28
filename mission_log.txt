@@ -142,11 +142,17 @@ Making hidden units do more work
 	and Canonical Correlation Analysis at another. The idea is that
 	CRA does more generative modeling work with the covariance matrices
 	on the visible units, and PLS does more modeling work with the
-	hidden units.
+	hidden units. (Clarifification: it is already known that CCA and PLS
+	are two ends of the same spectrum, but only CCA has a probabilistic
+	model interpretation. So we should try to find a probabilistic model
+	for PLS and show that there is a spectrum of models as well as a
+	spectrum of algorithms)
 	Aaron told me about this b/c I said I was interested in regularizers
 	that make RBM's do more of the modeling work with the hidden units
 	(i.e., make a GRBM or ssRBM try not to rely too much on the visible
 	unit variance parameter)
+	Aaron is also interested in taking Francis Bach's probabilistic model
+	for CCA and making a spike-and-slab version
 Activation function idea
 	Based on the success of OMP-10, would it be possible to make an
 	activation function that generalizes softmax to a distribution
