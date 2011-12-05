@@ -1,28 +1,30 @@
 import os
 
-def explore_images(path):
+def explore_images(path, suffix):
     """ An iterator over all JPG file paths in a directory (recursive)"""
 
-    return ImageIterator(path)
+    return ImageIterator(path, suffix)
 
-def count_images(path):
+def count_images(path, suffix):
 
     count = 0
 
-    for img_path in explore_images(path):
-        print '\t',img_path
+    for img_path in explore_images(path, suffix):
+        #print '\t',img_path
         count += 1
 
     return count
 
 class ImageIterator:
 
-    def __init__(self, path):
+    def __init__(self, path, suffix = ".JPEG"):
         #print 'making iterator for '+path
         self.path = path
         self.entries = sorted(os.listdir(path))
         self.next_pos = 0
         self.sub_iter = None
+        self.suffix = suffix
+        assert suffix == '.npy'
 
     def __iter__(self):
         return self
@@ -40,9 +42,8 @@ class ImageIterator:
             self.next_pos += 1
 
             if os.path.isdir(path):
-                self.sub_iter = ImageIterator(path)
-            elif path.endswith('.JPEG') or path.endswith('.jpeg'):
-                #print 'returning '+path
+                self.sub_iter = ImageIterator(path, self.suffix)
+            elif path.endswith(self.suffix):
                 return path
 
             return self.next()

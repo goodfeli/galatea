@@ -5,8 +5,8 @@ import numpy as np
 import os
 import time
 
-input_path = '/data/lisatmp/glorotxa/train'
-output_path = '/data/lisatmp/goodfeli/darpa_imagenet'
+input_path = '/Tmp/glorotxa/train'
+output_path = '/Tmp/goodfeli/darpa_imagenet'
 image_shape = (32,32)
 
 created_subdirs = set([])
