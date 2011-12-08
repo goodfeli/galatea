@@ -31,6 +31,8 @@ if __name__ == '__main__':
 exp_h: expectation of h
 map_hs: h*s, computed from joint MAP estimation under q
 """)
+    parser.add_option("--disable-activation", action="store_true", dest="disable_activation", default=False,
+            help="Disables the activation shells in the filter plot")
 
     (options, args) = parser.parse_args()
 
@@ -42,6 +44,7 @@ map_hs: h*s, computed from joint MAP estimation under q
     filter_start = options.filter_start
     num_filters = options.num_filters
     feature_type = options.feature_type
+    disable_activation = options.disable_activation
 
     assert feature_type in ['exp_hs','exp_h','map_hs']
 
@@ -104,7 +107,7 @@ map_hs: h*s, computed from joint MAP estimation under q
 
     print 'defining features'
     V = T.matrix()
-    model.make_Bwp()
+    model.make_pseudoparams()
     d = model.e_step.variational_inference(V = V)
 
     H = d['H_hat']
@@ -167,7 +170,10 @@ map_hs: h*s, computed from joint MAP estimation under q
         cur_mu_act = mu_act[cur_idx]
         cur_alpha_act = alpha_act[cur_idx]
 
-        activation = (cur_p_act, cur_mu_act, cur_alpha_act)
+        if disable_activation:
+            activation = None
+        else:
+            activation = (cur_p_act, cur_mu_act, cur_alpha_act)
 
         pv4.add_patch(weights_view[cur_idx,:], rescale = True,
                 activation = activation)
@@ -197,3 +203,5 @@ map_hs: h*s, computed from joint MAP estimation under q
     pv3.show()
     pv4.show()
     pv5.show()
+
+print 'weights viewer dimensions: '+str((n,n))
