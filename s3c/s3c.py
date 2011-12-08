@@ -9,6 +9,8 @@ from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import E_Step
 from pylearn2.models.s3c import Grad_M_Step
 
+#included to make old pkl files load
+Split_E_Step = E_Step
 
 """ This file now exists just so that imports using this
 filename work. This is so that pre-existing pkl files will
