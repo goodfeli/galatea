@@ -18,7 +18,7 @@ def main(model_path,
     model =  serial.load(model_path)
 
     raw_dataset = get_test_data()
-    X = get_features(data_path, split)
+    X = get_features(data_path, split, False)
     assert X.shape[0] == 8000
 
     size = 100
