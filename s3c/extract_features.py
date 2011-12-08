@@ -116,10 +116,15 @@ for which_set in ['train', 'test']:
 class FeatureExtractor:
     def __init__(self, batch_size, model_path, pooling_region_counts,
            save_paths, feature_type, dataset_family, which_set,
-           chunk_size = None):
+           chunk_size = None, restrict = None):
+
+        if chunk_size is not None and restrict is not None:
+            raise NotImplementedError("Currently restrict is used internally to "
+                    "implement chunk_size, so a client may not specify both")
+
         self.batch_size = batch_size
         self.model_path = model_path
-        self.restrict = None
+        self.restrict = restrict
 
         assert len(pooling_region_counts) == len(save_paths)
 
@@ -222,6 +227,8 @@ class FeatureExtractor:
             feat = H * Mu1
         elif self.feature_type == 'exp_h':
             feat = H
+        elif self.feature_type == 'exp_h_thresh':
+            feat = H * (H > .01)
         else:
             raise NotImplementedError()
 
@@ -311,7 +318,7 @@ class FeatureExtractor:
             print (t6-t1, t2-t1, t3-t2, t4-t3, t5-t4, t6-t5)
 
         for output, save_path in zip(outputs, self.save_paths):
-            if self.restrict is not None:
+            if self.chunk_size is not None:
                 assert save_path.endswith('.npy')
                 save_path_pieces = save_path.split('.npy')
                 assert len(save_path_pieces) == 2
