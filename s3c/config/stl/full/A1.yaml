@@ -1,0 +1,55 @@
+#like D4 but added penalty on h
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: &src "${PYLEARN2_DATA_PATH}/stl10/stl10_32x32_whitened/unsupervised.pkl",
+    "model": !obj:pylearn2.models.s3c.S3C {
+               "nvis" : 3072,
+               "nhid" : 3072,
+               "init_bias_hid" : -3.,
+               "max_bias_hid" : -2.,
+               "min_bias_hid" : -8.,
+               "irange"  : .02,
+               "constrain_W_norm" : 1,
+               "init_B"  : 1.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  1,
+               "init_alpha" : 1.,
+               "min_alpha" : 1e-3,
+               "max_alpha" : 1e6,
+               #"monitor_functional": 1,
+               "init_mu" : 0.,
+               "print_interval" : 1000,
+               "e_step" : !obj:pylearn2.models.s3c.E_Step {
+                        "h_new_coeff_schedule" : [ .01, .02, .03, .04, .05, .06, .07, .08, .09, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1],
+                        "s_new_coeff_schedule" : [ .01, .02, .03, .04, .05, .06, .07, .08, .09, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1, .1],
+                        #"monitor_em_functional" : 1,
+                        "clip_reflections" : 1,
+                       "rho" : 0.0
+               },
+               #"random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
+               "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
+                        "learning_rate" : 0.01, 
+                        "B_learning_rate_scale" : 0.01,
+                        #note: I think all this stuff is currently ignored by the actual learning algo
+                        "W_learning_rate_scale" : 10.,
+                        "p_penalty" : 1.,
+                        "B_penalty" : 1.,
+                        "alpha_penalty" : 1.
+               },
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 1,
+               "batches_per_iter" : 10000,
+               "monitoring_batches" : 100,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : *src,
+                        "num_examples" : 100
+                }
+        },
+    "save_path": "${PYLEARN2_TRAIN_FILE_NAME}.pkl"
+}
+

@@ -1,0 +1,71 @@
+#A did not work well, seems like layer 2 weights got big before layer 1 weights were stable enough
+#imposing weight decay on layer 2 weights
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: &src "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
+    "model": !obj:galatea.pddbm.pddbm.PDDBM {
+        "learning_rate" : .01,
+        "dbm_weight_decay" : [ 1000. ],
+        "dbm": !obj:pylearn2.models.dbm.DBM {
+                "negative_chains" : 100,
+                "monitor_params" : 1,
+                "rbms" : [ !obj:pylearn2.models.rbm.RBM {
+                                                  "nvis" : 400,
+                                                  "nhid" : 400,
+                                                  "irange" : .05,
+                                                  "init_bias_vis" : -3.
+                                                }
+                         ]
+        },
+        "s3c": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 108,
+               "nhid" : 400,
+               "init_bias_hid" : -3.,
+               "max_bias_hid" : -2.,
+               "min_bias_hid" : -8.,
+               "irange"  : .02,
+               "constrain_W_norm" : 1,
+               "init_B"  : 3.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  1,
+               "init_alpha" : 1.,
+               "min_alpha" : 1e-3,
+               "max_alpha" : 1e6,
+               "init_mu" : 0.,
+               #"random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
+               "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
+                        #note: I think all this stuff is currently ignored by the actual learning algo
+                        "B_learning_rate_scale" : 0.01,
+                        "W_learning_rate_scale" : 10.,
+                        "p_penalty" : 1.,
+                        "B_penalty" : 1.,
+                        "alpha_penalty" : 1.
+               },
+        },
+       "inference_procedure" : !obj:galatea.pddbm.pddbm.InferenceProcedure {
+                "schedule" : [ ['s',1.],   ['h',1.],   ['g',0],   ['h', 0.1], ['s',0.1],
+                             ['h',0.1], ['g',0],   ['h',0.1], ['s',0.1],  ['h',0.1],
+                             ['g',0],   ['h',0.1], ['s',0.1], ['h', 0.1], ['g',0],
+                             ['h',0.1], ['g',0],   ['h',0.1], ['s', 0.1], ['h',0.1] ],
+                "monitor_kl" : 0,
+                "clip_reflections" : 1,
+                "rho" : 0.5
+       },
+       "print_interval" :  100000
+    },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 1000,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
+                        "num_examples" : 100
+                }
+        },
+    "save_path": "${PYLEARN2_TRAIN_FILE_NAME}.pkl"
+}
+
