@@ -173,9 +173,16 @@ class TheanoSGDClassifier(object):
     def predict(self, X):
         return self.predict_fn_(X)
 
-
-clf = TheanoSGDClassifier(10)
 import sys
+
+f = open(sys.argv[2])
+l = f.readlines()
+f.close()
+s = '\n'.join(l)
+args = eval(s)
+
+
+clf = TheanoSGDClassifier(10, ** args)
 from pylearn2.datasets.cifar10 import CIFAR10
 X = np.load(sys.argv[1])
 X = X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
@@ -183,4 +190,15 @@ y = CIFAR10(which_set="train").y.astype(int)
 print 'fit'
 clf.fit(X, y)
 
+del X
+del y
 
+y = np.asarray(CIFAR10(which_set="test").y).astype(int)
+print 'loading test data'
+X = np.load(sys.argv[3])
+X = X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
+
+print 'evaluating svm'
+yhat = clf.predict(X)
+
+print (yhat == y).mean()
