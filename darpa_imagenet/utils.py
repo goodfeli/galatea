@@ -24,7 +24,6 @@ class ImageIterator:
         self.next_pos = 0
         self.sub_iter = None
         self.suffix = suffix
-        assert suffix == '.npy'
 
     def __iter__(self):
         return self
