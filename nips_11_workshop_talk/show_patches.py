@@ -10,9 +10,10 @@ from pylearn2.gui.patch_viewer import PatchViewer
 
 pv = PatchViewer((27,27),(6,6),pad=(1,1),is_color=True)
 
-for col in xrange(27):
-    for row in xrange(27):
+for row in xrange(27):
+    for col in xrange(27):
         pv.add_patch(img[row:row+6,col:col+6], rescale = False)
 pv.show()
 
+pv.save('patches.png')
 

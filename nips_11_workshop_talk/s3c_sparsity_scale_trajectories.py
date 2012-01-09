@@ -86,10 +86,14 @@ plt.show()
 alpha_schedule = [ .2/5000., .5/5000., 1./5000., 2./5000., 5./5000. ]
 
 
+assert num_trajectories == len(trajectories)
+
 for j, alpha in enumerate(alpha_schedule):
+    print 'j = ',j,'; alpha = ',alpha
     from sklearn.decomposition import sparse_encode
     print 'running SC ',j
     HS = sparse_encode( model.W.get_value(), X.T, alpha = alpha, algorithm='lasso_cd').T
+    assert HS.shape == (5000,1600)
     print 'done encoding'
 
     HS = np.abs(HS)
@@ -101,16 +105,21 @@ for j, alpha in enumerate(alpha_schedule):
     if np.any(np.isinf(HS)):
         print 'has infs'
 
-    act_prob = (HS[0:num_trajectories] > .01).mean(axis=0)
+    print 'HS shape ',HS.shape
+    print 'HS subtensor shape ',HS[0:num_trajectories].shape
+    act_prob = (HS[:,0:num_trajectories] > .01).mean(axis=0)
+    print act_prob.shape
+    assert len(act_prob.shape) == 1
 
     act_mean = np.zeros(act_prob.shape)
+    assert act_mean.shape[0] == num_trajectories
     for i in xrange(act_mean.shape[0]):
         s = HS[:,i]
         s = s[s > .01]
         act_mean[i] = s.mean()
 
-        trajectory['x'].append(act_prob[i])
-        trajectory['y'].append(act_mean[i])
+        trajectories[i]['x'].append(act_prob[i])
+        trajectories[i]['y'].append(act_mean[i])
 
 
 print "drawing plot"
