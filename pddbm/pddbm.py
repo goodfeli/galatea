@@ -572,9 +572,6 @@ class InferenceProcedure:
         S_hat.name = 'init_S_hat'
 
         for Hv in get_debug_values(H_hat):
-            if isinstance(Hv, tuple):
-                warnings.warn("I got a tuple from this and I have no idea why the fuck that happens. Pulling out the single element of the tuple")
-                Hv ,= Hv
 
             if Hv.shape[1] != s3c_e_step.model.nhid:
                 debug_error_message('H prior has wrong # hu, expected %d actual %d'%\
