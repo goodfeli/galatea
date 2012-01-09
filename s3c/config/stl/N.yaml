@@ -1,5 +1,6 @@
 #based on CIFAR10 G, which was the best model on CIFAR 10
 #difference here I run it on STL-10 and I boost number of HU to 6000
+#this had the best result on STL-10 as of the NIPS 11 workshop paper
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: &src "${STL10_PATCHES}",
     "model": !obj:galatea.s3c.s3c.S3C {

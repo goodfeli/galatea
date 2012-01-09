@@ -4,7 +4,9 @@ __credits__ = ["Ian Goodfellow"]
 __license__ = "3-clause BSD"
 __maintainer__ = "Ian Goodfellow"
 
-
+#Included so that old imports using this filename
+#still work. All development on these classes should
+#be done in pylearn2
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import E_Step
 from pylearn2.models.s3c import Grad_M_Step
