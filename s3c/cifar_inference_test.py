@@ -44,7 +44,11 @@ from theano import function
 H = sharedX(np.zeros((batch_size, model.nhid), dtype='float32'))
 S = sharedX(np.zeros((batch_size, model.nhid), dtype='float32'))
 
-obj = model.em_functional(stats = stats, H_hat = H, S_hat = S, var_s0_hat = obs['var_s0_hat'], var_s1_hat = obs['var_s1_hat'])
+new_stats = SufficientStatistics.from_observations( needed_stats = needed_stats, V = V, H_hat = H, S_hat = S,
+                    var_s0_hat = obs['var_s0_hat'], var_s1_hat = obs['var_s1_hat'])
+
+
+obj = model.em_functional(stats = new_stats, H_hat = H, S_hat = S, var_s0_hat = obs['var_s0_hat'], var_s1_hat = obs['var_s1_hat'])
 
 grad_H = T.grad(obj,H)
 grad_S = T.grad(obj,S)
