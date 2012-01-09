@@ -27,6 +27,8 @@ from pylearn2.models.s3c import damp
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import SufficientStatistics
 from theano.printing import min_informative_str
+from theano.gof.op import debug_assert
+from theano.gof.op import get_debug_values
 
 warnings.warn('There is a known bug where for some reason the w field of s3c '
 'gets serialized. Not sure if other things get serialized too but be sure to '
@@ -503,16 +505,21 @@ class InferenceProcedure:
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
-        s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs)
+        s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs).mean()
 
         dbm_obs = self.dbm_observations(obs)
 
-        #when computing the dbm truncated KL, we ignore the entropy on the visible units
-        #and the visible bias term of the dbm energy function. otherwise these would both
-        #get double-counted, since they are also part of s3c_truncated_KL
-        assert False  #TODO: this actually makes no sense, dbm truncated kl puts no entropy
-                      #on the dbm's visible units anyway, revisit the math for this
-        dbm_truncated_KL = self.dbm_ip.truncated_KL(self,V, dbm_obs, ignore_vis = True)
+        dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], obs = dbm_obs)
+        assert len(dbm_truncated_KL.type.broadcastable) == 0
+
+        for s3c_kl_val, dbm_kl_val in get_debug_values(s3c_truncated_KL, dbm_truncated_KL):
+            debug_assert( not np.any(np.isnan(s3c_kl_val)))
+            debug_assert( not np.any(np.isnan(dbm_kl_val)))
+
+        warnings.warn("""TODO: double check that this decomposition works--
+                        It may be ignoring a subtlety where the math for dbm.truncated_kl is based on
+                        a fixed V but the pddbm is actually passing it variational parameters
+                        for distributional V""")
 
         rval = s3c_truncated_KL + dbm_truncated_KL
 
