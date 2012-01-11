@@ -50,8 +50,6 @@ class E_Step_Scan(E_Step):
         """
 
 
-        if return_history:
-            raise NotImplementedError()
 
         if not self.autonomous:
             raise ValueError("Non-autonomous model asked to perform inference on its own")
@@ -92,6 +90,19 @@ class E_Step_Scan(E_Step):
                  T.constant(np.cast[config.floatX](np.asarray(self.s_new_coeff_schedule)))],
                                         outputs_info = [ H_hat, S_hat ] )
 
+        if  return_history:
+            hist =  [
+                    {'H_hat' : H_hats[i],
+                     'S_hat' : S_hats[i],
+                     'var_s0_hat' : var_s0_hat,
+                     'var_s1_hat' : var_s1_hat
+                    } for i in xrange(len(self.h_new_coeff_schedule)) ]
+
+            hist.insert(0, { 'H_hat' : H_hat,
+                             'S_hat' : S_hat,
+                             'var_s0_hat' : var_s0_hat,
+                             'var_s1_hat' : var_s1_hat
+                            } )
 
         return {
                 'H_hat' : H_hats[-1],
