@@ -27,8 +27,8 @@
                "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
                #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
                "e_step" : !obj:galatea.s3c.s3c.E_Step_CG {
-                        "h_new_coeff_schedule" : [ .7, .7, .7, .7 ],
-                        "s_max_iters" : [  3, 3, 3, 3 ],
+                        "h_new_coeff_schedule" : [ .7, .7, .7 ],
+                        "s_max_iters" : [  3, 3, 3 ],
                         "monitor_em_functional" : 1
                },
                #"learn_after" : 1000,
