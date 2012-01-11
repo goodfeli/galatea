@@ -25,8 +25,85 @@ from pylearn2.optimization.linear_cg import linear_cg
 from theano import config
 from pylearn2.models.s3c import damp
 from pylearn2.utils import as_floatX
+from pylearn2.utils import sharedX
+import numpy as np
+import theano.tensor as T
+from theano import function
+from theano import scan
+from pylearn2.models.s3c import reflection_clip
+
+
+class E_Step_Scan(E_Step):
+    """ The heuristic E step implemented using scan rather than unrolled loops """
+
+    def variational_inference(self, V, return_history = False):
+        """
+
+            return_history: if True:
+                                returns a list of dictionaries with
+                                showing the history of the variational
+                                parameters
+                                throughout fixed point updates
+                            if False:
+                                returns a dictionary containing the final
+                                variational parameters
+        """
+
+
+        if return_history:
+            raise NotImplementedError()
+
+        if not self.autonomous:
+            raise ValueError("Non-autonomous model asked to perform inference on its own")
+
+        alpha = self.model.alpha
+
+
+        var_s0_hat = 1. / alpha
+        var_s1_hat = self.infer_var_s1_hat()
+
+
+        H_hat   =    self.init_H_hat(V)
+        S_hat =    self.init_S_hat(V)
+
+        def inner_function(new_H_coeff, new_S_coeff, H_hat, S_hat):
+
+            orig_H_dtype = H_hat.dtype
+            orig_S_dtype = S_hat.dtype
+
+            new_S_hat = self.infer_S_hat(V, H_hat,S_hat)
+            if self.clip_reflections:
+                clipped_S_hat = reflection_clip(S_hat = S_hat, new_S_hat = new_S_hat, rho = self.rho)
+            else:
+                clipped_S_hat = new_S_hat
+            S_hat = damp(old = S_hat, new = clipped_S_hat, new_coeff = new_S_coeff)
+            new_H = self.infer_H_hat(V, H_hat, S_hat)
+
+            H_hat = damp(old = H_hat, new = new_H, new_coeff = new_H_coeff)
+
+            assert H_hat.dtype == orig_H_dtype
+            assert S_hat.dtype == orig_S_dtype
+
+            return H_hat, S_hat
+
+
+        (H_hats, S_hats), _ = scan( fn = inner_function, sequences =
+                [T.constant(np.cast[config.floatX](np.asarray(self.h_new_coeff_schedule))),
+                 T.constant(np.cast[config.floatX](np.asarray(self.s_new_coeff_schedule)))],
+                                        outputs_info = [ H_hat, S_hat ] )
+
+
+        return {
+                'H_hat' : H_hats[-1],
+                'S_hat' : S_hats[-1],
+                'var_s0_hat' : var_s0_hat,
+                'var_s1_hat': var_s1_hat,
+                }
+
+
 
 class E_Step_CG(E_Step):
+    """ An E Step for the S3C class that updates S_hat using linear conjugate gradient, using the R operator to perform Hessian vector products """
 
     def __init__(self, h_new_coeff_schedule,
                        s_max_iters,
