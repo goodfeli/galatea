@@ -86,7 +86,12 @@ for G_elem, grad_G_elem in zip(G,grad_G):
 
 update = function([V], obj, updates = updates )
 
-init = function([V], trunc_kl, updates = { H : obs['H_hat'], S : obs['S_hat'] })
+updates = { H : obs['H_hat'], S : obs['S_hat'] }
+
+for G_elem, G_hat_elem in zip(G, obs['G_hat']):
+    updates[G_elem] = G_hat_elem
+
+init = function([V], trunc_kl,  updates = updates )
 print 'done'
 
 print 'loading dataset...'
