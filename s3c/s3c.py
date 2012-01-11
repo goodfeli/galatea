@@ -167,10 +167,8 @@ class E_Step_CG(E_Step):
 
         alpha = self.model.alpha
 
-
         var_s0_hat = 1. / alpha
         var_s1_hat = self.var_s1_hat()
-
 
         H_hat   =    self.init_H_hat(V)
         S_hat =    self.init_S_hat(V)
@@ -227,3 +225,216 @@ class E_Step_CG(E_Step):
             return history
         else:
             return history[-1]
+
+
+class S3C_Shared(S3C):
+    """A version of S3C where the variational parameters are
+        stored as shared variables so that looping in the
+        inference algorithm may be implemented in python
+        rather than theano. """
+
+    def __init__(self, ** kwargs):
+
+        super(S3C_Shared, self).__init__(**kwargs)
+
+        if self.recycle_q:
+            raise NotImplementedError()
+
+    def get_hidden_obs(self, V, return_history = False):
+
+        return self.e_step.get_hidden_obs(return_history)
+
+    def learn_mini_batch(self, X):
+        self.e_step.prereq(X)
+
+        super(S3C_Shared, self).learn_mini_batch(X)
+
+
+class Inferotron:
+    def __init__(self, e_step):
+        self.e_step = e_step
+
+    def __call__(self, X):
+        self.e_step.variational_inference(X)
+
+
+class E_Step_CG_Shared(E_Step_CG):
+
+    def __init__(self, **kwargs):
+
+        #Configure the E Step
+        super(E_Step_CG_Shared, self).__init__(**kwargs)
+
+
+        #Figure out whether we're in history mode or not
+        self.infer_history = self.monitor_kl or self.monitor_em_functional
+
+
+        self.prereq = Inferotron(self)
+
+    def get_monitoring_channels(self, V):
+        d = super(E_Step_CG_Shared, self).get_monitoring_channels(V)
+
+        for key in d:
+            d[key] = (d[key], [self.prereq])
+
+        return d
+
+    def get_hidden_obs(self, return_history):
+
+        if self.infer_history:
+            if return_history:
+                rval = []
+                for i in xrange(len(self.H_hat)):
+                    rval.append(
+                            { 'H_hat': self.H_hat[i],
+                              'S_hat': self.S_hat[i],
+                              'var_s0_hat': self.var_s0_hat,
+                              'var_s1_hat': self.var_s1_hat
+                              })
+                return rval
+
+
+            H = self.H_hat[-1]
+            S = self.S_hat[-1]
+        else:
+            assert not return_history
+            H = self.H_hat
+            S = self.S_hat
+
+        return { 'H_hat': H, 'S_hat' : S,
+                'var_s0_hat': self.var_s0_hat,
+                'var_s1_hat': self.var_s1_hat
+                }
+
+
+    def register_model(self, model):
+
+        self.model = model
+
+        self.nhid = model.nhid
+
+        self.allocate_shared()
+        self.redo_theano()
+
+    def redo_theano(self):
+        """re-compiles all theano functions"""
+        self.make_init_func()
+        self.make_update_funcs()
+
+
+    def make_init_func(self):
+        """ compiles theano function for initializing inference """
+
+        V = T.matrix("V")
+
+        alpha = self.model.alpha
+
+        var_s0_hat = 1. / alpha
+        var_s1_hat = self.infer_var_s1_hat()
+
+        H_hat = self.init_H_hat(V)
+        S_hat = self.init_S_hat(V)
+
+        if self.infer_history:
+            H_targ = self.H_hat[0]
+            S_targ = self.S_hat[0]
+        else:
+            H_targ = self.H_hat
+            S_targ = self.S_hat
+
+        updates = {
+                self.var_s0_hat : var_s0_hat,
+                self.var_s1_hat : var_s1_hat,
+                H_targ : H_hat,
+                S_targ : S_hat
+                }
+
+        print "Compiling init_func..."
+        self.init_func = function([V], updates = updates)
+        print "...done"
+
+    def allocate_shared(self):
+        """ allocates the shared variables the E Step needs """
+
+        self.var_s0_hat = sharedX(np.zeros((self.nhid,)),name='var_s0_hat')
+        self.var_s1_hat = sharedX(np.zeros((self.nhid,)),name='var_S1_hat')
+
+        if self.infer_history:
+            self.H_hat = []
+            self.S_hat = []
+
+            for i in xrange(len(self.h_new_coeff_schedule)+1):
+                self.H_hat.append(sharedX(np.zeros((1,self.nhid)),name='H_hat_'+str(i+1)))
+                self.S_hat.append(sharedX(np.zeros((1,self.nhid)),name='S_hat_'+str(i+1)))
+        else:
+            self.H_hat = sharedX(np.zeros((1,self.nhid)),name="H_hat")
+            self.S_hat = sharedX(np.zeros((1,self.nhid)),name="S_hat")
+
+
+
+    def make_update_funcs(self):
+
+        if self.infer_history:
+            self.update_funcs = []
+            for i in xrange(len(self.h_new_coeff_schedule)):
+                print 'compiling update ',i,'...'
+                f = self.get_update_func(
+                        H_in = self.H_hat[i],
+                        S_in = self.S_hat[i],
+                        H_out = self.H_hat[i+1],
+                        S_out = self.S_hat[i+1])
+                print '...done'
+                self.update_funcs.append(f)
+        else:
+            print 'compiling update func...'
+            self.update_func = self.get_update_func(
+                    H_in = self.H_hat,
+                    S_in = self.S_hat,
+                    H_out = self.H_hat,
+                    S_out = self.S_hat)
+            print '...done'
+
+
+
+    def get_update_func(self, H_in, S_in, H_out, S_out):
+
+        V = T.matrix('V')
+        iters = T.iscalar('max_iters')
+        new_coeff = T.scalar('h_new_coeff')
+
+        S_hat = self.infer_S_hat(V, H_in, S_in, self.var_s0_hat, self.var_s1_hat, iters)
+
+        H_hat = self.infer_H_hat(V, H_in, S_hat)
+
+        H_hat = damp(old = H_in, new = H_hat, new_coeff = new_coeff)
+
+        updates = { H_out : H_hat, S_out : S_hat }
+
+        f = function( [V,iters,new_coeff], updates = updates)
+
+        return f
+
+    def variational_inference(self, X):
+        """
+            TODO: WRITEME
+        """
+
+        if not self.autonomous:
+            raise ValueError("Non-autonomous model asked to perform inference on its own")
+
+        self.init_func(X)
+
+
+        for i in xrange(len(self.h_new_coeff_schedule)):
+            new_H_coeff = self.h_new_coeff_schedule[i]
+            max_iters = self.s_max_iters[i]
+
+            if self.infer_history:
+                f = self.update_funcs[i]
+            else:
+                f = self.update_func
+
+            f(X,max_iters,new_H_coeff)
+
+
