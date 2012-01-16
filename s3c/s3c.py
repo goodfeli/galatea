@@ -31,6 +31,8 @@ import theano.tensor as T
 from theano import function
 from theano import scan
 from pylearn2.models.s3c import reflection_clip
+from theano.gof.op import get_debug_values, debug_error_message
+import warnings
 
 
 class E_Step_Scan(E_Step):
@@ -103,6 +105,8 @@ class E_Step_Scan(E_Step):
                              'var_s0_hat' : var_s0_hat,
                              'var_s1_hat' : var_s1_hat
                             } )
+
+            return hist
 
         return {
                 'H_hat' : H_hats[-1],
@@ -236,6 +240,152 @@ class E_Step_CG(E_Step):
             return history
         else:
             return history[-1]
+
+class E_Step_CG_Scan(E_Step):
+    """ An E Step for the S3C class that updates S_hat using linear conjugate gradient, using the R operator to perform Hessian vector products """
+
+    def __init__(self, h_new_coeff_schedule,
+                       s_max_iters,
+                       monitor_kl = False,
+                       monitor_em_functional = False,
+                       monitor_s_mag = False):
+        """Parameters
+        --------------
+        h_new_coeff_schedule:
+            list of coefficients to put on the new value of h on each damped fixed point step
+                    (coefficients on s are driven by a special formula)
+            length of this list determines the number of fixed point steps
+            if None, assumes that the model is not meant to run on its own (ie a larger model
+                will specify how to do inference in this layer)
+        s_max_iters:
+                schedule of max_iters arguments to linear_cg
+                    must have same length as the one for h_new_coeff_schedule
+        """
+
+        self.autonomous = True
+
+        if h_new_coeff_schedule is None:
+            self.autonomous = False
+            assert monitor_em_functional is None
+        else:
+            assert len(s_max_iters) == len(h_new_coeff_schedule)
+
+        self.s_max_iters = s_max_iters
+
+        self.h_new_coeff_schedule = h_new_coeff_schedule
+        self.monitor_kl = monitor_kl
+        self.monitor_em_functional = monitor_em_functional
+
+        self.monitor_s_mag = monitor_s_mag
+
+        self.model = None
+
+    def infer_S_hat(self, V, H_hat, S_hat, var_s0_hat, var_s1_hat, max_iters):
+
+        alpha = self.model.alpha
+
+        obj = self.truncated_KL( V = V,
+                obs = locals() ).mean()
+
+        new_S_hat = linear_cg( fn = obj, params = S_hat, max_iters = max_iters)
+
+        return new_S_hat
+
+    def variational_inference(self, V, return_history = False):
+        """
+
+            return_history: if True:
+                                returns a list of dictionaries with
+                                showing the history of the variational
+                                parameters
+                                throughout fixed point updates
+                            if False:
+                                returns a dictionary containing the final
+                                variational parameters
+        """
+
+        if not self.autonomous:
+            raise ValueError("Non-autonomous model asked to perform inference on its own")
+
+        alpha = self.model.alpha
+
+        var_s0_hat = 1. / alpha
+        var_s1_hat = self.infer_var_s1_hat()
+
+        H_hat   =    self.init_H_hat(V)
+        S_hat =    self.init_S_hat(V)
+
+        def inner_function(new_H_coeff, max_iters, H_hat, S_hat):
+
+            S_hat = self.infer_S_hat(V, H_hat, S_hat, var_s0_hat, var_s1_hat, max_iters)
+
+            new_H = self.infer_H_hat(V, H_hat, S_hat)
+
+            H_hat = damp(old = H_hat, new = new_H, new_coeff = new_H_coeff)
+
+            return H_hat, S_hat
+
+
+        (H_hats, S_hats), _ = scan( fn = inner_function, sequences =
+                [T.constant(np.cast[config.floatX](np.asarray(self.h_new_coeff_schedule))),
+                 T.constant(np.asarray(self.s_max_iters))],
+                                        outputs_info = [ H_hat, S_hat ] )
+
+        if return_history:
+            hist =  [
+                    {'H_hat' : H_hats[i],
+                     'S_hat' : S_hats[i],
+                     'var_s0_hat' : var_s0_hat,
+                     'var_s1_hat' : var_s1_hat
+                    } for i in xrange(len(self.h_new_coeff_schedule)) ]
+
+            hist.insert(0, { 'H_hat' : H_hat,
+                             'S_hat' : S_hat,
+                             'var_s0_hat' : var_s0_hat,
+                             'var_s1_hat' : var_s1_hat
+                            } )
+            return hist
+
+        return {
+                'H_hat' : H_hats[-1],
+                'S_hat' : S_hats[-1],
+                'var_s0_hat' : var_s0_hat,
+                'var_s1_hat': var_s1_hat,
+                }
+
+
+class E_Step_CG_Scan_StartOn(E_Step_CG_Scan):
+
+    #def __init__(self, ** kwargs):
+    #    warnings.warn("need to put a safe call here")
+
+    #    super(E_Step_CG_Scan_StartOn, self).__init__(**kwargs)
+
+
+    def init_H_hat(self, V):
+
+        if self.model.recycle_q:
+            rval = self.model.prev_H
+            if config.compute_test_value != 'off':
+                if rval.get_value().shape[0] != V.tag.test_value.shape[0]:
+                    raise Exception('E step given wrong test batch size', rval.get_value().shape, V.tag.test_value.shape)
+        else:
+            rval = T.alloc(1., V.shape[0], self.model.nhid)
+
+            for rval_value, V_value in get_debug_values(rval, V):
+                if rval_value.shape[0] != V_value.shape[0]:
+                    debug_error_message("rval.shape = %s, V.shape = %s, element 0 should match but doesn't", str(rval_value.shape), str(V_value.shape))
+
+        return rval
+
+
+    def init_S_hat(self, V):
+        if self.model.recycle_q:
+            rval = self.model.prev_S_hat
+        else:
+            rval = T.dot(V, self.model.W)
+
+        return rval
 
 
 class S3C_Shared(S3C):

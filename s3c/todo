@@ -1,59 +1,13 @@
-gryphon: train 4k model for deployment on stl-10
+compare speed to NIPS paper. basically make a Quoc plot arguing for importance of parallel updates on GPU, but present it more graciously than Quoc would
 
-bart2,dev2: try to get 81.5 on cifar
-    sticking point: can only train 4k HU due to cov_hs. figure out how to do fast version of gradient
+figure out what to do for the experiment to verify that our inference works (ie, the comparison to SGD)
 
-after final F and G are done extracting, see which is best, and also extract hs for that model
+do experiment to show heuristic works better.
 
-compare h, hs, map h, and map hs, concat
-	h: done
-	hs: extracting on leprof
-	concat: concat of h and hs training on amazon
+finish experiment comparing our speed to SPAMS
 
-model trained with mu fixed to 0--- waiting for free gpu
-
-
-
-
-
-
-
-
-
-
-
-difference between datasets-- could it be due to using float64 on gryphon and float32 in the lab?
-
-I1 versus I-- geodesic updating didn't change a lot
-I1A and IAB versus I1-- playing with rho didn't change a lot; maybe this would have an effect if using fewer E step iterations though
-
-lots of results have good reconstructions, so maybe not having enough sparsity?
-
-
-get it working on other datasets
-	MNIST: the problems so far may be due to centering by mean making the filters look funny
-	Yoshua suggested: UTL, Shapeset 2x3, CIFAR-100
-conjugate gradient E step
-gradient based learning is not producing good filters. figure out why.
-	gradient based learning does NOT drive W to zero... at least not all W
-	one thing worth experimenting with is keeping old sufficient statistics around
-	another is initializing W small
-
-figure out if there's a faster way to calculate the M step gradient based on Aaron's idea
-make something that shows activation boxes around the filters plotting p versus mean_h
-maybe try training by initializing with random patches
-experiment with keeping old sufficient statistics around on the solve M step
-
-make code for accumulating on several batches and then doing M step. large batch sizes seem very helpful and we'll need this if we want to do 6000 units anyway
-	
-benchmark the uses of scan. it seems like the runtime is not deterministic in some cases, ie sometimes I ran it and got a runtime of 30s/epoch and other times ran it and got 80s/epoch. maybe theano optimizations are chosen randomly and it gets dramatically different runtimes depending on which it chooses?
 
 some files, at least for gradient descent, show alpha increasing forever, and since the other parameters seem converged, this seems to be the only thing making the likelihood go down. should we do something about this?
 
 why does fixing mu to 0 make the first step of mean field stay flat throughout learning? I understand this means the mean of s is always 0 but there is still variance on s even in the mean field distribution and the weights should be able to affect the likelihood of the input by steering that variance
 
-slowdown bug. note: extracting stl A5M slowed down over time on sencha and oolong but not on bart7
-
-ideas that may need to be updated given the invention of split E step:
-extract features for random_patches_learned_prior, and for stl/C
-run feature extraction and classification for cifar A5M
