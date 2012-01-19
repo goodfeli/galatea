@@ -86,7 +86,7 @@ for i in xrange(X.shape[0]):
 
     assert scale != 0.0
 
-    pv.add_patch( x / scale, rescale = False)
-    pv.add_patch( r / scale, rescale = False)
+    pv.add_patch( x / scale, rescale = False, activation = 0)
+    pv.add_patch( r / scale, rescale = False, activation = 0)
 
 pv.show()

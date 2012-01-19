@@ -376,6 +376,9 @@ class PDDBM(Model):
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
+
+            self.s3c.e_step.register_model(self.s3c)
+
             self.learn_func = self.make_learn_func(X)
 
             final_names = dir(self)
@@ -562,7 +565,7 @@ class InferenceProcedure:
         dbm_ip = self.dbm_ip
 
         var_s0_hat = 1. / alpha
-        var_s1_hat = s3c_e_step.var_s1_hat()
+        var_s1_hat = s3c_e_step.infer_var_s1_hat()
 
         H_hat = s3c_e_step.init_H_hat(V)
         G_hat = dbm_ip.init_H_hat(H_hat)
