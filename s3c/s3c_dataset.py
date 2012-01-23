@@ -1,29 +1,14 @@
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultViewConverter
+from pylearn2.datasets.transformer_dataset import TransformerDataset
 import theano.tensor as T
 from theano import function
 import numpy as np
 
-class S3C_Dataset(DenseDesignMatrix):
+#TransformerDataset goes first so its get_batch_design will go first
+class S3C_Dataset(TransformerDataset,DenseDesignMatrix):
 
     def __init__(self, raw, transformer):
-        self.dataset = raw
-        self.transformer = transformer
-
-        self.transformer.make_pseudoparams()
-
-        V = T.matrix()
-
-        obs = self.transformer.get_hidden_obs(V)
-
-        H = obs['H_hat']
-        S = obs['S_hat']
-
-        F = H * S
-
-        print 'compiling transformer...'
-        self.transform_func = function([V], F)
-        print '...done'
-
+        TransformerDataset.__init__(self,raw, transformer)
 
         N = self.transformer.nhid
 
@@ -35,15 +20,7 @@ class S3C_Dataset(DenseDesignMatrix):
         else:
             shape = (N,1,1)
 
-
         self.view_converter = DefaultViewConverter(shape=shape)
-
-
-    def get_batch_design(self, batch_size):
-
-        X = self.dataset.get_batch_design(batch_size)
-
-        return self.transform_func(X)
 
     def weights_view_shape(self):
         n = self.transformer.nvis / 3
@@ -58,6 +35,9 @@ class S3C_Dataset(DenseDesignMatrix):
 
     def get_weights_view(self, mat):
 
-        recons = np.dot(mat, self.transformer.W.get_value().T)
+        recons = np.dot(mat * self.transformer.mu.get_value(), self.transformer.W.get_value().T)
 
-        return self.dataset.get_topological_view(recons)
+        return self.raw.get_topological_view(recons)
+
+    def get_batch_topo(self, batch_size):
+        return DenseDesignMatrix.get_batch_topo(self, batch_size)

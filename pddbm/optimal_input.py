@@ -3,7 +3,9 @@
 
 import sys
 
-l1, l2, idx = sys.argv[1:]
+l1, l2, idx, alpha = sys.argv[1:]
+idx = int(idx)
+alpha = float(alpha)
 
 from pylearn2.utils import serial
 l1 = serial.load(l1)
@@ -48,7 +50,6 @@ g = obs['G_hat'][0][0,0]
 
 grad = T.grad(g,X)
 
-alpha = 1.
 
 step_X = X + alpha * grad
 
