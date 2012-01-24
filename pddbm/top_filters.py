@@ -2,12 +2,17 @@
 #arg2: layer 2 model
 
 import sys
-
-l1, l2= sys.argv[1:]
-
 from pylearn2.utils import serial
-l1 = serial.load(l1)
-l2 = serial.load(l2)
+
+if len(sys.argv) == 3:
+    l1, l2= sys.argv[1:]
+    l1 = serial.load(l1)
+    l2 = serial.load(l2)
+else:
+    model = serial.load(sys.argv[1])
+    l1 = model.s3c
+    l2 = model.dbm.rbms[0]
+
 
 W1 = l1.W.get_value()
 W2 = l2.weights.get_value()
