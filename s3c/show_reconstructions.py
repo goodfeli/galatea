@@ -3,6 +3,7 @@ import numpy as np
 import sys
 model_path = sys.argv[1]
 
+indiv_rescale = True
 pair_rescale = True
 global_rescale = False
 
@@ -18,16 +19,28 @@ print 'done'
 
 import theano.tensor as T
 from theano import function
-model.make_pseudoparams()
+if hasattr(model,'make_pseudoparams'):
+    model.make_pseudoparams()
 
 def get_reconstruction_func():
     V = T.matrix()
 
-    mf = model.e_step.variational_inference(V)
-    H = mf['H_hat']
-    S = mf['S_hat']
-    Z = H*S
-    recons = T.dot(Z,model.W.T)
+    if hasattr(model,'e_step'):
+        mf = model.e_step.variational_inference(V)
+        H = mf['H_hat']
+        S = mf['S_hat']
+        Z = H*S
+        recons = T.dot(Z,model.W.T)
+    else:
+        H = model.mean_h_given_v(V)
+        from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
+        theano_rng = RandomStreams(42)
+        H_sample = theano_rng.binomial(size = H.shape, p = H)
+        from theano.printing import Print
+        H_sample = Print('H_sample', attrs=['mean'])(H_sample)
+        recons = model.mean_v_given_h(H_sample)
+        recons = Print('recons', attrs=['min','mean','max'])(recons)
+
 
     rval = function([V],recons)
 
@@ -39,7 +52,15 @@ print 'done'
 
 dataset.get_batch_design(model.nhid)
 
-X = dataset.get_batch_design(50)
+n = 50
+if hasattr(dataset, 'get_unprocessed_batch_design'):
+    Xr = dataset.get_unprocessed_batch_design(50)
+    Xt = dataset.raw.get_topological_view(Xr)
+    X = dataset.transformer.perform(Xr)
+else:
+    X = dataset.get_batch_design(50)
+    Xt = dataset.get_topological_view(X)
+
 R = f(X)
 if np.any(np.isnan(R)) or np.any(np.isinf(R)):
     mask = (np.isnan(R).sum(axis=1) + np.isinf(R).sum(axis=1)) > 0
@@ -49,7 +70,6 @@ if np.any(np.isnan(R)) or np.any(np.isinf(R)):
 
 print 'mean squared error: ',np.square(X-R).mean()
 
-Xt = dataset.get_topological_view(X)
 Rt = dataset.get_topological_view(R)
 
 from pylearn2.gui.patch_viewer import PatchViewer
@@ -86,7 +106,7 @@ for i in xrange(X.shape[0]):
 
     assert scale != 0.0
 
-    pv.add_patch( x / scale, rescale = False, activation = 0)
-    pv.add_patch( r / scale, rescale = False, activation = 0)
+    pv.add_patch( x / scale, rescale = indiv_rescale, activation = 0)
+    pv.add_patch( r / scale, rescale = indiv_rescale, activation = 0)
 
 pv.show()

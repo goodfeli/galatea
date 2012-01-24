@@ -15,10 +15,13 @@ def get_features(path, split, standardize):
     else:
         topo_view = serial.load(path)
 
-    view_converter = DefaultViewConverter(topo_view.shape[1:])
+    if len(topo_view.shape) == 2:
+        X = topo_view
+    else:
+        view_converter = DefaultViewConverter(topo_view.shape[1:])
 
-    print 'converting data'
-    X = view_converter.topo_view_to_design_mat(topo_view)
+        print 'converting data'
+        X = view_converter.topo_view_to_design_mat(topo_view)
 
     if split:
         X = np.concatenate( (np.abs(X),np.abs(-X)), axis=1)
