@@ -30,7 +30,7 @@ imgs = dataset.get_weights_view(W1.T)
 N1 = l1.nhid
 N = l2.nhid
 
-count = N1
+count = 10
 
 pv = PatchViewer( (N, count), imgs.shape[1:3], is_color = imgs.shape[3] == 3)
 
