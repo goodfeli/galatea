@@ -5,7 +5,7 @@ from pylearn2.datasets.dense_design_matrix import DefaultViewConverter
 def get_features(path, split, standardize):
     if path.find(',') != -1:
         paths = path.split(',')
-        Xs = [ get_features(subpath, split) for subpath in paths ]
+        Xs = [ get_features(subpath, split, standardize) for subpath in paths ]
         X = np.concatenate( Xs, axis = 1)
         return X
 
