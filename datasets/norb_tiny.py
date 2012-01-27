@@ -1,6 +1,6 @@
 from pylearn2.datasets.norb_small import NORBSmall
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
-from pylearn2.datasets.preprocessing import ExtractGridPatches, ReassembleGridPatches
+from pylearn2.utils.image import rescale
 import numpy as np
 import time
 
@@ -12,21 +12,21 @@ class NORB_Tiny(DenseDesignMatrix):
         t1 = time.time()
         small = NORBSmall(which_set)
 
-        t = small.get_topological_view(small.X)[:,:,0:1]
+        t = small.get_topological_view(small.X)[:,:,:,0:1] / 255.
 
-        del small
+        t = t[:,10:86,10:86,:]
 
-        super(NORB_Tiny, self).__init__(topo = t)
+        r,c = 20, 20
 
-        self.apply_preprocessor(ExtractGridPatches((2,2),(2,2)))
+        new_t = np.zeros( (t.shape[0], r, c, 1 ), dtype = t.dtype )
 
-        X = self.X
+        for i in xrange(t.shape[0]):
+            print i
+            new_t[i,:,:,:] = rescale(t[i,:], (r,c) )
 
-        self.X = np.zeros((X.shape[0],1),dtype=X.dtype)
+        new_t -= 0.5
 
-        X[:,0] = X.mean(axis=1)
-
-        self.apply_preprocessor(ReassembleGridPatches((16,16),(1,1)))
+        super(NORB_Tiny, self).__init__(topo_view = new_t)
 
         t2 = time.time()
 
