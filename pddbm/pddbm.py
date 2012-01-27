@@ -85,6 +85,7 @@ class PDDBM(Model):
 
         if self.s3c.m_step is not None:
             self.B_learning_rate_scale = self.s3c.m_step.B_learning_rate_scale
+            self.W_learning_rate_scale = self.s3c.m_step.W_learning_rate_scale
 
         s3c.m_step = None
         self.dbm = dbm
@@ -331,6 +332,8 @@ class PDDBM(Model):
         for param in params_to_grads:
             if param is self.s3c.B_driver:
                 learning_rate[param] = as_floatX(self.learning_rate * self.B_learning_rate_scale)
+            elif param is self.s3c.W:
+                learning_rate[param] = as_floatX(self.learning_rate * self.W_learning_rate_scale)
             else:
                 learning_rate[param] = as_floatX(self.learning_rate)
 
