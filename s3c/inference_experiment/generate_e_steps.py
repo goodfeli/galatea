@@ -10,28 +10,30 @@ def emit_cg(directory, n, eta_h):
 
         f = open(filepath,'w')
 
-        f.write(""""e_step" : !obj:galatea.s3c.s3c.E_Step_CG_Scan {
+        f.write("""!obj:galatea.s3c.s3c.E_Step_CG_Scan {
                         "h_new_coeff_schedule" : %s,
                         "s_max_iters" : %s,
-               }""" % (str(h_schedule),str(s_schedule)))
+               }
+               """ % (str(h_schedule),str(s_schedule)))
 
         f.close()
 
 def emit_heuristic(directory, n, eta_h):
     h_schedule = [ eta_h ] * n
 
-    for steps in [1,2,3]:
-        s_schedule = [ steps ] * n
+    for s_eta in [.25, .5, .75]:
+        s_schedule = [ s_eta ] * n
 
-        filepath = directory + '/s'+str(steps) + '.yaml'
+        filepath = directory + '/s'+str(s_eta) + '.yaml'
 
         f = open(filepath,'w')
 
-        f.write(""""e_step" : !obj:galatea.s3c.s3c.E_Step_Scan {
+        f.write("""!obj:galatea.s3c.s3c.E_Step_Scan {
                         "h_new_coeff_schedule" : %s,
                         "s_new_coeff_schedule" : %s,
                         "clip_reflections" : 1,
-               }""" % (str(h_schedule), str(s_schedule)))
+               }
+               """ % (str(h_schedule), str(s_schedule)))
 
         f.close()
 

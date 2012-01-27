@@ -24,7 +24,7 @@ import time
 model_path, e_step_path, data_path, batch_size_str, prefix = sys.argv[1:]
 
 print 'loading model'
-model = serial.load('model_path')
+model = serial.load(model_path)
 model.make_pseudoparams()
 assert isinstance(model, S3C)
 
@@ -37,7 +37,7 @@ e_step.register_model(model)
 
 print 'loading data'
 data = np.load(data_path)
-m,n = data
+m,n = data.shape
 
 print 'batch_size: ',batch_size_str
 batch_size = int(batch_size_str)
