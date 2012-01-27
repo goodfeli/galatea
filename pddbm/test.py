@@ -1,13 +1,16 @@
-print 'hi'
+from pylearn2.utils.serial import load
 
-if True:
- print 'hi'
+dataset = load('/u/goodfeli/galatea/datasets/norb_tiny_preprocessed_train.pkl')
 
-if True:
-  print 'hi'
+X = dataset.get_topological_view(dataset.X)
 
-if True:
-    print 'hi'
+import numpy as np
+X /= np.abs(X).mean()
+X += 1.
+X /= 2.
 
-if True:
-	print 'hi'
+img = X.mean(axis=0)
+
+from pylearn2.utils.image import show
+
+show(img)
