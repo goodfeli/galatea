@@ -1,8 +1,8 @@
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: &src "${STL10_PATCHES}",
     "model": !obj:galatea.s3c.s3c.S3C {
-               "nvis" : 108,
-               "nhid" : 625,
+               "nvis" : 3072,
+               "nhid" : 4000,
                "init_bias_hid" : -4.,
                "max_bias_hid" : 0.,
                "min_bias_hid" : -7.,
@@ -41,7 +41,7 @@
                }
         },
     "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
-               "batch_size" : 100,
+               "batch_size" : 10,
                "batches_per_iter" : 100,
                #"monitoring_batches" : 1,
                #"monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
