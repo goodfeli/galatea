@@ -26,12 +26,22 @@ def get_reconstruction_func():
     V = T.matrix()
 
     if hasattr(model,'e_step'):
+        #S3C
         mf = model.e_step.variational_inference(V)
         H = mf['H_hat']
         S = mf['S_hat']
         Z = H*S
         recons = T.dot(Z,model.W.T)
+    elif hasattr(model,'s3c'):
+        #PDDBM
+
+        mf = model.inference_procedure.infer(V)
+        H = mf['H_hat']
+        S = mf['S_hat']
+        Z = H*S
+        recons = T.dot(Z,model.s3c.W.T)
     else:
+        #RBM
         H = model.mean_h_given_v(V)
         from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
         theano_rng = RandomStreams(42)
@@ -50,7 +60,8 @@ print 'making reconstruction function...'
 f = get_reconstruction_func()
 print 'done'
 
-dataset.get_batch_design(model.nhid)
+if hasattr(model, 'random_patches_src'):
+    dataset.get_batch_design(model.nhid)
 
 n = 50
 if hasattr(dataset, 'get_unprocessed_batch_design'):
