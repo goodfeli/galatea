@@ -11,7 +11,13 @@ def fix(obj):
     if hasattr(obj,'__array__'):
         return
 
-    for field in dir(obj):
+    if isinstance(obj, (int, float)):
+        return
+
+    fields = dir(obj)
+    print 'scanning fields'
+    for field in fields:
+        print '\t',field
         field_obj = getattr(obj,field)
 
         if hasattr(field_obj,'__call__'):
@@ -22,7 +28,6 @@ def fix(obj):
                 '__cmp__','__delattr__','__doc__','__getattribute__']:
             continue
 
-        print field
 
         orig_id = id(field_obj)
         print orig_id
@@ -36,8 +41,9 @@ def fix(obj):
             setattr(obj,field,field_obj)
             fixedobjs[orig_id] = field_obj
         else:
-            print 'fixing'
+            print 'marking to fix'
             fixedobjs[orig_id] = field_obj
+            print 'fixing'
             fix(field_obj)
 
 fix(model)
