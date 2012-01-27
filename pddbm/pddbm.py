@@ -17,9 +17,6 @@ warnings.warn('pddbm changing the recursion limit')
 import sys
 sys.setrecursionlimit(50000)
 
-from pylearn2.models.s3c import numpy_norms
-from pylearn2.models.s3c import theano_norms
-from pylearn2.models.s3c import rotate_towards
 from pylearn2.models.s3c import full_min
 from pylearn2.models.s3c import full_max
 from pylearn2.models.s3c import reflection_clip
@@ -27,6 +24,7 @@ from pylearn2.models.s3c import damp
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import SufficientStatistics
 from theano.printing import min_informative_str
+from theano.printing import Print
 from theano.gof.op import debug_assert
 from theano.gof.op import get_debug_values
 
@@ -59,6 +57,7 @@ class PDDBM(Model):
             inference_procedure,
             learning_rate = 1e-3,
             h_penalty = 0.0,
+            h_target = None,
             g_penalties = None,
             g_targets = None,
             print_interval = 10000,
@@ -119,6 +118,7 @@ class PDDBM(Model):
         self.num_g = len(self.dbm.W)
 
         self.h_penalty = h_penalty
+        self.h_target = h_target
 
         self.g_penalties = g_penalties
         self.g_targets = g_targets
@@ -268,9 +268,13 @@ class PDDBM(Model):
             next_h = self.inference_procedure.infer_H_hat(V = V,
                 H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
 
-            h_penalty = T.mean(next_h)
+            err = H_hat - self.h_target
 
-            tractable_obj = tractable_obj - self.h_penalty * h_penalty
+            abs_err = abs(err)
+
+            penalty = T.mean(abs_err)
+
+            tractable_obj =  tractable_obj - self.h_penalty * penalty
 
         if self.g_penalties is not None:
             for i in xrange(len(self.dbm.bias_hid)):
@@ -290,7 +294,7 @@ class PDDBM(Model):
 
         #take the gradient of the tractable part
         params = self.get_params()
-        grads = T.grad(tractable_obj, params, consider_constant = constants)
+        grads = T.grad(tractable_obj, params, consider_constant = constants, disconnected_inputs = 'warn')
 
         #put gradients into convenient dictionary
         params_to_grads = {}
