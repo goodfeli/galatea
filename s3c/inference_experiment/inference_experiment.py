@@ -50,7 +50,7 @@ obs = model.get_hidden_obs(V)
 needed_stats = S3C.energy_functional_needed_stats()
 stats = SufficientStatistics.from_observations(needed_stats = needed_stats, V = V, ** obs)
 
-energy_functional = model.energy_functional( stats = stats, ** obs)
+energy_functional = model.energy_functional_batch( V =V, ** obs)
 assert len(energy_functional.type.broadcastable) == 1
 
 print 'compiling energy functional theano function'
