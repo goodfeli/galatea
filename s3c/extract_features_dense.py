@@ -60,6 +60,8 @@ class FeatureExtractor:
         print 'loading model'
         model_path = self.model_path
         self.model = serial.load(model_path)
+        #print model_path
+        #print type(self.model)
         self.model.set_dtype('float32')
         self.size = int(np.sqrt(self.model.nvis/3))
 
@@ -93,6 +95,8 @@ class FeatureExtractor:
 
         full_X = dataset.get_design_matrix()
         num_examples = full_X.shape[0]
+        if full_X.dtype != 'float32':
+            full_X = np.cast['float32'](full_X)
 
         if self.restrict is not None:
             assert self.restrict[1]  <= full_X.shape[0]
