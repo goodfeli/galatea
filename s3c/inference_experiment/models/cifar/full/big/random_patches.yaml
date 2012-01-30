@@ -1,6 +1,6 @@
 
 !obj:pylearn2.scripts.train.Train {
-    "dataset": !pkl: &src "${CIFAR10_WHITENED_UNSUP}",
+    "dataset": !pkl: &src "${CIFAR10_WHITENED_TRAIN}",
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 108,
                "nhid" : 4000,
