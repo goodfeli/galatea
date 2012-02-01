@@ -22,10 +22,6 @@ import gc
 
 class PDDBM(Model):
 
-    """ Implements a model of the form
-        P(v,s,h,g[0],...,g[N_g]) = S3C(v,s|h)DBM(h,g)
-    """
-
     def __init__(self,
             s3c,
             dbm,
@@ -104,20 +100,6 @@ class PDDBM(Model):
 
         self.redo_everything()
 
-
-    def get_weights(self):
-        x = input('which weights you want?')
-
-        if x == 2:
-            warnings.warn("HACK!")
-            return np.dot(self.s3c.W.get_value() \
-                    * self.s3c.mu.get_value(), self.dbm.W[0].get_value())
-
-        if x == 1:
-            return self.s3c.W.get_value()
-
-        assert False
-
     def redo_everything(self):
 
         #we don't call redo_everything on s3c because this would reset its weights
@@ -134,30 +116,6 @@ class PDDBM(Model):
 
         self.redo_theano()
 
-
-    def get_monitoring_channels(self, V):
-            try:
-                self.compile_mode()
-
-                self.s3c.set_monitoring_channel_prefix('s3c_')
-
-                rval = self.s3c.get_monitoring_channels(V)
-
-                from_inference_procedure = self.inference_procedure.get_monitoring_channels(V)
-
-                rval.update(from_inference_procedure)
-
-
-                self.dbm.set_monitoring_channel_prefix('dbm_')
-
-                from_dbm = self.dbm.get_monitoring_channels(V)
-
-                rval.update(from_dbm)
-
-            finally:
-                self.deploy_mode()
-
-            return rval
 
 
     def compile_mode(self):
@@ -205,195 +163,6 @@ class PDDBM(Model):
         f = function([], updates = updates)
 
         return f
-
-
-    def make_accum_pos_phase_grad_func(self, V):
-
-
-        hidden_obs = self.inference_procedure.infer(V)
-
-        obj, constants = self.positive_phase_obj(V, hidden_obs)
-
-        updates = {}
-
-        for param in self.grads:
-            updates[self.grads[param]] = self.grads[param] + T.grad(obj, param, consider_constant = constants )
-
-        f = function([V], updates= updates)
-        #f = function([V], updates.keys())
-
-
-        return f
-
-    def positive_phase_obj(self, V, hidden_obs):
-        """ returns both the objective AND things that should be considered constant
-            in order to avoid propagating through inference """
-
-        #make a restricted dictionary containing only vars s3c knows about
-        restricted_obs = {}
-        for key in hidden_obs:
-            if key != 'G_hat':
-                restricted_obs[key] = hidden_obs[key]
-
-
-        #request s3c sufficient statistics
-        needed_stats = \
-         S3C.expected_log_prob_v_given_hs_needed_stats().union(\
-         S3C.expected_log_prob_s_given_h_needed_stats())
-        stats = SufficientStatistics.from_observations(needed_stats = needed_stats,
-                V = V, **restricted_obs)
-
-        #don't backpropagate through inference
-        obs_set = set(hidden_obs.values())
-        stats_set = set(stats.d.values())
-        constants = flatten(obs_set.union(stats_set))
-
-        G_hat = hidden_obs['G_hat']
-        for i, G in enumerate(G_hat):
-            G.name = 'final_G_hat[%d]' % (i,)
-        H_hat = hidden_obs['H_hat']
-        H_hat.name = 'final_H_hat'
-        S_hat = hidden_obs['S_hat']
-        S_hat.name = 'final_S_hat'
-
-        expected_log_prob_v_given_hs = self.s3c.expected_log_prob_v_given_hs(stats, \
-                H_hat = H_hat, S_hat = S_hat)
-        assert len(expected_log_prob_v_given_hs.type.broadcastable) == 0
-
-
-        expected_log_prob_s_given_h  = self.s3c.expected_log_prob_s_given_h(stats)
-        assert len(expected_log_prob_s_given_h.type.broadcastable) == 0
-
-
-        expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat )
-        assert len(expected_dbm_energy.type.broadcastable) == 0
-
-        #note: this is not the complete tractable part of the objective
-        #the objective also includes the entropy of Q, but we drop that since it is
-        #not a function of the parameters and we're not able to compute the true
-        #value of the objective function anyway
-        obj = expected_log_prob_v_given_hs + \
-                        expected_log_prob_s_given_h  - \
-                        expected_dbm_energy
-
-        assert len(obj.type.broadcastable) == 0
-
-        return obj, constants
-
-
-    def make_grad_step_func(self):
-
-        learning_updates = self.get_param_updates(self.grads)
-        self.censor_updates(learning_updates)
-
-        print "compiling function..."
-        t1 = time.time()
-        rval = function([], updates = learning_updates)
-        t2 = time.time()
-        print "... compilation took "+str(t2-t1)+" seconds"
-
-        return rval
-
-
-    def make_learn_func(self, V):
-        """
-        V: a symbolic design matrix
-        """
-
-        #run variational inference on the train set
-        hidden_obs = self.inference_procedure.infer(V)
-
-
-
-        G_hat = hidden_obs['G_hat']
-        for i, G in enumerate(G_hat):
-            G.name = 'final_G_hat[%d]' % (i,)
-        H_hat = hidden_obs['H_hat']
-        H_hat.name = 'final_H_hat'
-        S_hat = hidden_obs['S_hat']
-        S_hat.name = 'final_S_hat'
-
-        tractable_obj, constants = self.positive_phase_obj(V, hidden_obs)
-
-
-        assert H_hat in constants
-        for G in G_hat:
-            assert G in constants
-        assert S_hat in constants
-
-
-        if self.dbm_weight_decay:
-
-            for i, t in enumerate(zip(self.dbm_weight_decay, self.dbm.W)):
-
-                coeff, W = t
-
-                coeff = as_floatX(float(coeff))
-                coeff = T.as_tensor_variable(coeff)
-                coeff.name = 'dbm_weight_decay_coeff_'+str(i)
-
-                tractable_obj = tractable_obj - coeff * T.mean(T.sqr(W))
-
-        if self.h_penalty != 0.0:
-            next_h = self.inference_procedure.infer_H_hat(V = V,
-                H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
-
-            err = H_hat - self.h_target
-
-            abs_err = abs(err)
-
-            penalty = T.mean(abs_err)
-
-            tractable_obj =  tractable_obj - self.h_penalty * penalty
-
-        if self.g_penalties is not None:
-            for i in xrange(len(self.dbm.bias_hid)):
-                G = self.inference_procedure.infer_G_hat(H_hat = H_hat, G_hat = G_hat, idx = i)
-
-                g = T.mean(G,axis=0)
-
-                err = g - self.g_targets[i]
-
-                abs_err = abs(err)
-
-                penalty = T.mean(abs_err)
-
-                tractable_obj = tractable_obj - self.g_penalties[i] * penalty
-
-        assert len(tractable_obj.type.broadcastable) == 0
-
-        #take the gradient of the tractable part
-        params = self.get_params()
-        grads = T.grad(tractable_obj, params, consider_constant = constants, disconnected_inputs = 'warn')
-
-        #put gradients into convenient dictionary
-        params_to_grads = {}
-        for param, grad in zip(params, grads):
-            params_to_grads[param] = grad
-
-        #add the approximate gradients
-        params_to_approx_grads = self.dbm.get_neg_phase_grads()
-
-        for param in params_to_approx_grads:
-            params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
-
-        learning_updates = self.get_param_updates(params_to_grads)
-
-        sampling_updates = self.dbm.get_sampling_updates()
-
-        for key in sampling_updates:
-            learning_updates[key] = sampling_updates[key]
-
-        self.censor_updates(learning_updates)
-
-        print "compiling function..."
-        t1 = time.time()
-        rval = function([V], updates = learning_updates)
-        t2 = time.time()
-        print "... compilation took "+str(t2-t1)+" seconds"
-        print "graph size: ",len(rval.maker.env.toposort())
-
-        return rval
 
     def get_param_updates(self, params_to_grads):
 
@@ -456,12 +225,7 @@ class PDDBM(Model):
 
             self.s3c.e_step.register_model(self.s3c)
 
-            if self.sub_batch:
-                self.reset_grad_func = self.make_reset_grad_func()
-                self.accum_pos_phase_grad_func = self.make_accum_pos_phase_grad_func(X)
-                self.grad_step_func = self.make_grad_step_func()
-            else:
-                self.learn_func = self.make_learn_func(X)
+            self.reset_grad_func = self.make_reset_grad_func()
 
             final_names = dir(self)
 
@@ -506,11 +270,6 @@ class PDDBM(Model):
         return self.s3c.get_weights_format()
 
 class PDDBM_InferenceProcedure:
-    """
-
-    Variational inference
-
-    """
 
     def __init__(self, schedule,
                        clip_reflections = False,
@@ -539,48 +298,6 @@ class PDDBM_InferenceProcedure:
         self.rho = as_floatX(rho)
 
         self.model = None
-
-
-
-    def get_monitoring_channels(self, V):
-
-        rval = {}
-
-        obs_history = self.infer(V, return_history = True)
-
-        if self.monitor_kl:
-
-            for i in xrange(1, 2 + len(self.schedule)):
-                obs = obs_history[i-1]
-
-                if i == 1:
-                    summary = '(init)'
-                else:
-                    step = self.schedule[i-2]
-                    summary = '(' + step[0]+','+step[1]+')'
-
-                rval['trunc_KL_'+str(i)+summary] = self.truncated_KL(V, obs).mean()
-
-        final_vals = obs_history[-1]
-
-        H_hat = final_vals['H_hat']
-        h = T.mean(H_hat, axis=0)
-
-        rval['h_min'] = full_min(h)
-        rval['h_mean'] = T.mean(h)
-        rval['h_max'] = full_max(h)
-
-        Gs = final_vals['G_hat']
-
-        for i, G in enumerate(Gs):
-
-            g = T.mean(G,axis=0)
-
-            rval['g[%d]_min'%(i,)] = full_min(g)
-            rval['g[%d]_mean'%(i,)] = T.mean(g)
-            rval['g[%d]_max'%(i,)] = full_max(g)
-
-        return rval
 
     def register_model(self, model):
         self.model = model
@@ -829,6 +546,3 @@ gc.collect(); gc.collect(); gc.collect()
 after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 assert after[0] >= before[0]
 
-#X = np.random.RandomState([1,2,3]).randn(50,model.s3c.nvis)
-
-#model.learn_mini_batch(X)
