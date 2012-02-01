@@ -30,24 +30,16 @@ s3c =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_1_C1.pkl")
 
 grads = {}
 
-
-
 s3c.e_step.autonomous = False
 
 rng = np.random.RandomState([1,2,3])
 
 s3c.bias_hid = dbm.bias_vis
 
-nvis = s3c.nvis
-
-num_g = len(dbm.W)
-
 dbm.redo_everything()
 
 for param in list(set(s3c.get_params()).union(set(dbm.get_params()))):
     grads[param] = sharedX(np.zeros(param.get_value().shape))
-
-test_batch_size = 2
 
 params_to_approx_grads = dbm.get_neg_phase_grads()
 
