@@ -30,9 +30,8 @@ s3c =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_1_C1.pkl")
 
 grads = {}
 
-s3c.e_step.autonomous = False
-
-rng = np.random.RandomState([1,2,3])
+#s3c.e_step.autonomous = False
+#rng = np.random.RandomState([1,2,3])
 
 s3c.bias_hid = dbm.bias_vis
 
@@ -51,16 +50,8 @@ for param in grads:
     else:
         updates[grads[param]] = T.zeros_like(param)
 
-#sampling_updates = dbm.get_sampling_updates()
-
-#for key in sampling_updates:
-#    assert key not in updates
-#    updates[key] = sampling_updates[key]
-
 global f
 f = function([], updates = updates)
-
-
 
 before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 f()
