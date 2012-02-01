@@ -33,7 +33,7 @@ c = sharedX(np.zeros((8478,)))
 
 grads = {}
 
-params= [W,c]
+params= [W]
 
 for param in params:
     grads[param] = sharedX(np.zeros(param.get_value().shape))
