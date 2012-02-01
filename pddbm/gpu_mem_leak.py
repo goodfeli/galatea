@@ -12,31 +12,15 @@ import gc
 W = sharedX(np.zeros((8478,400)))
 
 
-grads = {}
-
-params= [W]
-
-for param in params:
-    grads[param] = sharedX(np.zeros(param.get_value().shape))
+grad  = sharedX(np.zeros(W.get_value().shape))
 
 obj = T.sum(W)
 
-agrads = T.grad(obj, params)
+sgrad = T.grad(obj, W)
 
-pags = {}
 
-for param, grad in zip(params, agrads):
-    pags[param] = grad
+updates = { grad : sgrad}
 
-updates = {}
-
-for param in grads:
-    if param in pags:
-        updates[grads[param]] = pags[param]
-    else:
-        updates[grads[param]] = T.zeros_like(param)
-
-global f
 f = function([], updates = updates)
 
 before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
