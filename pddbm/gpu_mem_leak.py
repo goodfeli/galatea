@@ -35,8 +35,6 @@ grads = {}
 
 s3c.bias_hid = dbm.bias_vis
 
-dbm.redo_everything()
-
 for param in list(set(s3c.get_params()).union(set(dbm.get_params()))):
     grads[param] = sharedX(np.zeros(param.get_value().shape))
 
