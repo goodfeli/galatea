@@ -57,10 +57,6 @@ class PDDBM(Model):
 
         self.test_batch_size = 2
 
-
-        self.s3c.reset_censorship_cache()
-        self.s3c.e_step.register_model(self.s3c)
-
         params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
         updates = {}
