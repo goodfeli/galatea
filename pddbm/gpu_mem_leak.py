@@ -22,8 +22,6 @@ import gc
 
 rbm =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_2_from_C1_A.pkl")
 
-
-
 V_chain = sharedX(np.zeros((100,8478)))
 H_chain = sharedX(np.zeros((100,400)))
 
@@ -36,7 +34,7 @@ grads = {}
 
 s3c.bias_hid = rbm.bias_vis
 
-for param in list(set(s3c.get_params()).union(set(rbm.get_params()))):
+for param in rbm.get_params():
     grads[param] = sharedX(np.zeros(param.get_value().shape))
 
 v = T.mean(V_chain, axis=0)
@@ -67,7 +65,6 @@ pags = {}
 
 for param, grad in zip(params, agrads):
     pags[param] = grad
-
 
 updates = {}
 
