@@ -20,15 +20,13 @@ import time
 import theano
 import gc
 
-#rbm =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_2_from_C1_A.pkl")
-
-V_chain = sharedX(np.zeros((100,8478)))
-H_chain = sharedX(np.zeros((100,400)))
+#V_chain = sharedX(np.zeros((100,8478)))
+#H_chain = sharedX(np.zeros((100,400)))
 
 
 W = sharedX(np.zeros((8478,400)))
-b = sharedX(np.zeros((400,)))
-c = sharedX(np.zeros((8478,)))
+#b = sharedX(np.zeros((400,)))
+#c = sharedX(np.zeros((8478,)))
 
 
 grads = {}
@@ -38,19 +36,19 @@ params= [W]
 for param in params:
     grads[param] = sharedX(np.zeros(param.get_value().shape))
 
-v = T.mean(V_chain, axis=0)
+#v = T.mean(V_chain, axis=0)
 
-v_bias_contrib = T.dot(v, c)
+#v_bias_contrib = T.dot(v, c)
 
-exp_vh = T.dot(V_chain.T,H_chain)
+#exp_vh = T.dot(V_chain.T,H_chain)
 
-v_weights_contrib = T.sum(W)
+#v_weights_contrib = T.sum(W)
 
-total = v_bias_contrib + v_weights_contrib
+#total = v_bias_contrib + v_weights_contrib
 
-highest_bias_contrib = T.dot(T.mean(H_chain,axis=0), b)
+#highest_bias_contrib = T.dot(T.mean(H_chain,axis=0), b)
 
-obj = total + highest_bias_contrib
+obj = T.sum(W)#total + highest_bias_contrib
 
 agrads = T.grad(obj, params)
 
