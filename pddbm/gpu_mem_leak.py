@@ -6,7 +6,7 @@ from theano import function
 import theano
 import gc
 
-W = sharedX(np.zeros((8478,400)))
+W = sharedX(np.zeros((400,400)))
 
 grad  = sharedX(np.zeros(W.get_value().shape))
 
