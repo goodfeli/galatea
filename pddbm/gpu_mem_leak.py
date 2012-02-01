@@ -26,6 +26,10 @@ dbm = DBM (
         rbms = [ serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_2_from_C1_A.pkl") ]
 )
 
+
+V_chain = sharedX(np.zeros((100,8478)))
+H_chain = sharedX(np.zeros((100,400)))
+
 s3c =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_1_C1.pkl")
 
 grads = {}
@@ -38,19 +42,17 @@ s3c.bias_hid = dbm.bias_vis
 for param in list(set(s3c.get_params()).union(set(dbm.get_params()))):
     grads[param] = sharedX(np.zeros(param.get_value().shape))
 
-#m = dbm.V_chains.shape[0]
-
-v = T.mean(dbm.V_chains, axis=0)
+v = T.mean(V_chain, axis=0)
 
 v_bias_contrib = T.dot(v, dbm.bias_vis)
 
-exp_vh = T.dot(dbm.V_chains.T,dbm.H_chains[0])
+exp_vh = T.dot(V_chain.T,H_chain)
 
 v_weights_contrib = T.sum(dbm.W[0] * exp_vh)
 
 total = v_bias_contrib + v_weights_contrib
 
-highest_bias_contrib = T.dot(T.mean(dbm.H_chains[-1],axis=0), dbm.bias_hid[-1])
+highest_bias_contrib = T.dot(T.mean(H_chain,axis=0), dbm.bias_hid[-1])
 
 total = total + highest_bias_contrib
 
@@ -58,7 +60,7 @@ assert len(total.type.broadcastable) == 0
 
 obj =  - total
 
-constants = list(set(dbm.H_chains).union([dbm.V_chains]))
+constants = [ H_chain, V_chain ]
 
 params = dbm.get_params()
 
