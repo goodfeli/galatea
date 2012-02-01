@@ -75,7 +75,6 @@ class PDDBM(Model):
         self.redo_theano()
 
         self.s3c.reset_censorship_cache()
-        self.make_pseudoparams()
         self.s3c.e_step.register_model(self.s3c)
 
         self.reset_grad_func = self.make_reset_grad_func()
@@ -134,10 +133,6 @@ class PDDBM(Model):
 
         self.s3c.censor_updates(updates)
         self.dbm.censor_updates(updates)
-
-
-    def make_pseudoparams(self):
-        self.s3c.make_pseudoparams()
 
 
 class PDDBM_InferenceProcedure:
