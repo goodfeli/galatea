@@ -2,7 +2,6 @@
 
 import numpy as np
 from pylearn2.utils import sharedX
-import theano.tensor as T
 from theano import function
 import theano
 import gc
@@ -11,11 +10,7 @@ W = sharedX(np.zeros((8478,400)))
 
 grad  = sharedX(np.zeros(W.get_value().shape))
 
-obj = T.sum(W)
-
-sgrad = T.grad(obj, W)
-
-updates = { grad : sgrad}
+updates = { grad : W}
 
 f = function([], updates = updates)
 
