@@ -20,6 +20,9 @@ import time
 import theano
 import gc
 
+
+grads = {}
+
 class PDDBM(Model):
 
     def __init__(self,
@@ -33,30 +36,13 @@ class PDDBM(Model):
         self.s3c = s3c
         s3c.e_step.autonomous = False
 
-        if self.s3c.m_step is not None:
-            self.B_learning_rate_scale = self.s3c.m_step.B_learning_rate_scale
-            self.W_learning_rate_scale = self.s3c.m_step.W_learning_rate_scale
-
-        s3c.m_step = None
         self.dbm = dbm
 
         self.rng = np.random.RandomState([1,2,3])
 
-        #must use DBM bias now
-        assert dbm.bias_vis.get_value(borrow=True).shape \
-                == s3c.bias_hid.get_value(borrow=True).shape
         self.s3c.bias_hid = self.dbm.bias_vis
 
         self.nvis = s3c.nvis
-
-        #don't support some exotic options on s3c
-        for option in ['monitor_functional',
-                       'recycle_q',
-                       'debug_m_step']:
-            if getattr(s3c, option):
-                warnings.warn('PDDBM does not support '+option+' in '
-                        'the S3C layer, disabling it')
-                setattr(s3c, option, False)
 
         inference_procedure.register_model(self)
         self.inference_procedure = inference_procedure
@@ -66,33 +52,24 @@ class PDDBM(Model):
         self.dbm.redo_everything()
 
 
-        self.grads = {}
         for param in self.get_params():
-            self.grads[param] = sharedX(np.zeros(param.get_value().shape))
+            grads[param] = sharedX(np.zeros(param.get_value().shape))
 
         self.test_batch_size = 2
 
-        self.redo_theano()
 
         self.s3c.reset_censorship_cache()
         self.s3c.e_step.register_model(self.s3c)
-
-        self.reset_grad_func = self.make_reset_grad_func()
-
-    def get_params(self):
-        return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
-
-    def make_reset_grad_func(self):
 
         params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
         updates = {}
 
-        for param in self.grads:
+        for param in grads:
             if param in params_to_approx_grads:
-                updates[self.grads[param]] = params_to_approx_grads[param]
+                updates[grads[param]] = params_to_approx_grads[param]
             else:
-                updates[self.grads[param]] = T.zeros_like(param)
+                updates[grads[param]] = T.zeros_like(param)
 
         sampling_updates = self.dbm.get_sampling_updates()
 
@@ -101,9 +78,12 @@ class PDDBM(Model):
             updates[key] = sampling_updates[key]
 
         print 'compiling reset grad func'
+        global f
         f = function([], updates = updates)
 
-        return f
+    def get_params(self):
+        return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
+
 
     def get_param_updates(self, params_to_grads):
 
@@ -404,7 +384,7 @@ model = PDDBM(
 )
 
 before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-model.reset_grad_func()
+f()
 gc.collect(); gc.collect(); gc.collect()
 after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 assert after[0] >= before[0]
