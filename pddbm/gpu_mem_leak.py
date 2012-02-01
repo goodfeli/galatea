@@ -77,11 +77,6 @@ class PDDBM(Model):
     def get_params(self):
         return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
 
-    def censor_updates(self, updates):
-
-        self.s3c.censor_updates(updates)
-        self.dbm.censor_updates(updates)
-
 model = PDDBM(
         dbm = DBM (
                 negative_chains = 100,
