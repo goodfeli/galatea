@@ -26,31 +26,9 @@ class PDDBM(Model):
             s3c,
             dbm,
             inference_procedure,
-            learning_rate = 1e-3,
-            h_penalty = 0.0,
-            h_target = None,
-            g_penalties = None,
-            g_targets = None,
-            print_interval = 10000,
-            dbm_weight_decay = None,
-            sub_batch = False):
-        """
-            s3c: a pylearn2.models.s3c.S3C object
-                will become owned by the PDDBM
-                it won't be deleted but many of its fields will change
-            dbm: a pylearn2.dbm.DBM object
-                will become owned by the PDDBM
-                it won't be deleted but many of its fields will change
-            inference_procedure: a galatea.pddbm.pddbm.InferenceProcedure
-            h_bias_src: 's3c' to take bias on h from s3c, 'dbm' to take it from dbm
-            print_interval: number of examples between each status printout
-        """
+            ):
 
         super(PDDBM,self).__init__()
-
-        self.learning_rate = learning_rate
-
-        self.dbm_weight_decay = dbm_weight_decay
 
         self.s3c = s3c
         s3c.e_step.autonomous = False
@@ -80,23 +58,10 @@ class PDDBM(Model):
                         'the S3C layer, disabling it')
                 setattr(s3c, option, False)
 
-        self.print_interval = print_interval
-
-        s3c.print_interval = None
-        dbm.print_interval = None
-
         inference_procedure.register_model(self)
         self.inference_procedure = inference_procedure
 
         self.num_g = len(self.dbm.W)
-
-        self.h_penalty = h_penalty
-        self.h_target = h_target
-
-        self.g_penalties = g_penalties
-        self.g_targets = g_targets
-
-        self.sub_batch = sub_batch
 
         self.redo_everything()
 
@@ -107,41 +72,18 @@ class PDDBM(Model):
         self.dbm.redo_everything()
 
 
-        if self.sub_batch:
-            self.grads = {}
-            for param in self.get_params():
-                self.grads[param] = sharedX(np.zeros(param.get_value().shape))
+        self.grads = {}
+        for param in self.get_params():
+            self.grads[param] = sharedX(np.zeros(param.get_value().shape))
 
         self.test_batch_size = 2
 
         self.redo_theano()
 
-
-
-    def compile_mode(self):
-        """ If any shared variables need to have batch-size dependent sizes,
-        sets them all to the sizes used for interactive debugging during graph construction """
-        pass
-
-    def deploy_mode(self):
-        """ If any shared variables need to have batch-size dependent sizes, sets them all to their runtime sizes """
-        pass
-
     def get_params(self):
         return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
 
     def make_reset_grad_func(self):
-        """
-        For use with the sub_batch feature only
-        Resets the gradient to the data-independent gradient (ie, negative phase, regularization)
-        One can then accumulate the positive phase gradient in sub-batches
-        """
-
-        assert self.sub_batch
-
-        assert self.g_penalties is None
-        assert self.h_penalty == 0.0
-        assert self.dbm_weight_decay is None
 
         params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
@@ -193,17 +135,6 @@ class PDDBM(Model):
         self.s3c.censor_updates(updates)
         self.dbm.censor_updates(updates)
 
-    def random_design_matrix(self, batch_size, theano_rng):
-
-        if not hasattr(self,'p'):
-            self.make_pseudoparams()
-
-        H_sample = self.dbm.random_design_matrix(batch_size, theano_rng)
-
-        V_sample = self.s3c.random_design_matrix(batch_size, theano_rng, H_sample = H_sample)
-
-        return V_sample
-
 
     def make_pseudoparams(self):
         self.s3c.make_pseudoparams()
@@ -211,63 +142,12 @@ class PDDBM(Model):
     def redo_theano(self):
 
         self.s3c.reset_censorship_cache()
+        self.make_pseudoparams()
+        self.s3c.e_step.register_model(self.s3c)
 
-        try:
-            self.compile_mode()
-
-            init_names = dir(self)
-
-            self.make_pseudoparams()
-
-            X = T.matrix(name='V')
-            X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
+        self.reset_grad_func = self.make_reset_grad_func()
 
 
-            self.s3c.e_step.register_model(self.s3c)
-
-            self.reset_grad_func = self.make_reset_grad_func()
-
-            final_names = dir(self)
-
-            self.register_names_to_del([name for name in final_names if name not in init_names])
-        finally:
-            self.deploy_mode()
-    #
-
-    def learn(self, dataset, batch_size):
-        self.learn_mini_batch(dataset.get_batch_design(batch_size))
-
-    def learn_mini_batch(self, X):
-
-
-        assert self.s3c is self.inference_procedure.s3c_e_step.model
-
-        if self.sub_batch:
-            print 'reset'
-            for i in xrange(X.shape[0]):
-                print 'accum'
-                print theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-                self.accum_pos_phase_grad_func(X[i:i+1,:])
-                gc.collect(); gc.collect(); gc.collect()
-                print theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-            print 'step'
-            print theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-            self.grad_step_func()
-            gc.collect(); gc.collect(); gc.collect()
-            print theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-            print 'done'
-        else:
-            self.learn_func(X)
-
-        if self.monitor.examples_seen % self.print_interval == 0:
-            print ""
-            print "S3C:"
-            self.s3c.print_status()
-            print "DBM:"
-            self.dbm.print_status()
-
-    def get_weights_format(self):
-        return self.s3c.get_weights_format()
 
 class PDDBM_InferenceProcedure:
 
@@ -520,7 +400,6 @@ class PDDBM_InferenceProcedure:
                                    b = b)
 
 model = PDDBM(
-        learning_rate = .001,
         dbm = DBM (
                 negative_chains = 100,
                 monitor_params = 1,
@@ -535,9 +414,7 @@ model = PDDBM(
                 monitor_kl =  0,
                 clip_reflections = 1,
                 rho = 0.5
-       ),
-       print_interval =   100000,
-       sub_batch = 1,
+       )
 )
 
 before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
