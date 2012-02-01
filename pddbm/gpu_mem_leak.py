@@ -38,13 +38,26 @@ s3c.bias_hid = dbm.bias_vis
 for param in list(set(s3c.get_params()).union(set(dbm.get_params()))):
     grads[param] = sharedX(np.zeros(param.get_value().shape))
 
-params_to_approx_grads = dbm.get_neg_phase_grads()
+
+obj = dbm.expected_energy(V_hat = dbm.V_chains, H_hat = dbm.H_chains)
+
+constants = list(set(dbm.H_chains).union([dbm.V_chains]))
+
+params = dbm.get_params()
+
+agrads = T.grad(obj, params, consider_constant = constants)
+
+pags = {}
+
+for param, grad in zip(params, agrads):
+    pags[param] = grad
+
 
 updates = {}
 
 for param in grads:
-    if param in params_to_approx_grads:
-        updates[grads[param]] = params_to_approx_grads[param]
+    if param in pags:
+        updates[grads[param]] = pags[param]
     else:
         updates[grads[param]] = T.zeros_like(param)
 
