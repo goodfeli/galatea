@@ -20,11 +20,8 @@ import time
 import theano
 import gc
 
-dbm = DBM (
-        negative_chains = 100,
-        monitor_params = 1,
-        rbms = [ serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_2_from_C1_A.pkl") ]
-)
+rbm =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_2_from_C1_A.pkl")
+
 
 
 V_chain = sharedX(np.zeros((100,8478)))
@@ -37,22 +34,22 @@ grads = {}
 #s3c.e_step.autonomous = False
 #rng = np.random.RandomState([1,2,3])
 
-s3c.bias_hid = dbm.bias_vis
+s3c.bias_hid = rbm.bias_vis
 
-for param in list(set(s3c.get_params()).union(set(dbm.get_params()))):
+for param in list(set(s3c.get_params()).union(set(rbm.get_params()))):
     grads[param] = sharedX(np.zeros(param.get_value().shape))
 
 v = T.mean(V_chain, axis=0)
 
-v_bias_contrib = T.dot(v, dbm.bias_vis)
+v_bias_contrib = T.dot(v, rbm.bias_vis)
 
 exp_vh = T.dot(V_chain.T,H_chain)
 
-v_weights_contrib = T.sum(dbm.W[0] * exp_vh)
+v_weights_contrib = T.sum(rbm.weights * exp_vh)
 
 total = v_bias_contrib + v_weights_contrib
 
-highest_bias_contrib = T.dot(T.mean(H_chain,axis=0), dbm.bias_hid[-1])
+highest_bias_contrib = T.dot(T.mean(H_chain,axis=0), rbm.bias_hid)
 
 total = total + highest_bias_contrib
 
@@ -62,7 +59,7 @@ obj =  - total
 
 constants = [ H_chain, V_chain ]
 
-params = dbm.get_params()
+params = rbm.get_params()
 
 agrads = T.grad(obj, params, consider_constant = constants)
 
