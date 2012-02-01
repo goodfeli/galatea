@@ -26,60 +26,49 @@ dbm = DBM (
         rbms = [ serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_2_from_C1_A.pkl") ]
 )
 
+s3c =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_1_C1.pkl")
+
 grads = {}
 
-class PDDBM(Model):
-
-    def __init__(self,
-            s3c):
-        global dbm
-
-        super(PDDBM,self).__init__()
-
-        self.s3c = s3c
-        s3c.e_step.autonomous = False
-
-        self.rng = np.random.RandomState([1,2,3])
-
-        self.s3c.bias_hid = dbm.bias_vis
-
-        self.nvis = s3c.nvis
 
 
-        self.num_g = len(dbm.W)
+s3c.e_step.autonomous = False
 
-        dbm.redo_everything()
+rng = np.random.RandomState([1,2,3])
+
+s3c.bias_hid = dbm.bias_vis
+
+nvis = s3c.nvis
+
+num_g = len(dbm.W)
+
+dbm.redo_everything()
+
+for param in list(set(s3c.get_params()).union(set(dbm.get_params()))):
+    grads[param] = sharedX(np.zeros(param.get_value().shape))
+
+test_batch_size = 2
+
+params_to_approx_grads = dbm.get_neg_phase_grads()
+
+updates = {}
+
+for param in grads:
+    if param in params_to_approx_grads:
+        updates[grads[param]] = params_to_approx_grads[param]
+    else:
+        updates[grads[param]] = T.zeros_like(param)
+
+sampling_updates = dbm.get_sampling_updates()
+
+for key in sampling_updates:
+    assert key not in updates
+    updates[key] = sampling_updates[key]
+
+global f
+f = function([], updates = updates)
 
 
-        for param in self.get_params():
-            grads[param] = sharedX(np.zeros(param.get_value().shape))
-
-        self.test_batch_size = 2
-
-        params_to_approx_grads = dbm.get_neg_phase_grads()
-
-        updates = {}
-
-        for param in grads:
-            if param in params_to_approx_grads:
-                updates[grads[param]] = params_to_approx_grads[param]
-            else:
-                updates[grads[param]] = T.zeros_like(param)
-
-        sampling_updates = dbm.get_sampling_updates()
-
-        for key in sampling_updates:
-            assert key not in updates
-            updates[key] = sampling_updates[key]
-
-        global f
-        f = function([], updates = updates)
-
-    def get_params(self):
-        return list(set(self.s3c.get_params()).union(set(dbm.get_params())))
-
-model = PDDBM(
-        s3c =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_1_C1.pkl"))
 
 before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 f()
