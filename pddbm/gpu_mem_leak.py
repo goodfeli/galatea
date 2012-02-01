@@ -480,11 +480,6 @@ class PDDBM(Model):
 
         if self.sub_batch:
             print 'reset'
-            before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-            self.reset_grad_func()
-            gc.collect(); gc.collect(); gc.collect()
-            after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-            assert after[0] >= before[0]
             for i in xrange(X.shape[0]):
                 print 'accum'
                 print theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
@@ -828,7 +823,12 @@ model = PDDBM(
        sub_batch = 1,
 )
 
+before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
+model.reset_grad_func()
+gc.collect(); gc.collect(); gc.collect()
+after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
+assert after[0] >= before[0]
 
-X = np.random.RandomState([1,2,3]).randn(50,model.s3c.nvis)
+#X = np.random.RandomState([1,2,3]).randn(50,model.s3c.nvis)
 
-model.learn_mini_batch(X)
+#model.learn_mini_batch(X)
