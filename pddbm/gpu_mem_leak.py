@@ -25,14 +25,11 @@ rbm =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_2_from_C1_A.
 V_chain = sharedX(np.zeros((100,8478)))
 H_chain = sharedX(np.zeros((100,400)))
 
-s3c =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_1_C1.pkl")
+#s3c =  serial.load("/u/goodfeli/galatea/pddbm/config/stl/full/layer_1_C1.pkl")
 
 grads = {}
 
-#s3c.e_step.autonomous = False
-#rng = np.random.RandomState([1,2,3])
-
-s3c.bias_hid = rbm.bias_vis
+#s3c.bias_hid = rbm.bias_vis
 
 for param in rbm.get_params():
     grads[param] = sharedX(np.zeros(param.get_value().shape))
