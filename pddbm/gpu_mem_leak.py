@@ -1,22 +1,9 @@
 #script to demonstrate that theano leaks memory on the gpu
 
 import numpy as np
-from pylearn2.models.dbm import DBM
-from pylearn2.utils import serial
-from pylearn2.models.model import Model
-from pylearn2.utils import as_floatX
 from pylearn2.utils import sharedX
-import warnings
 import theano.tensor as T
-from theano import config
 from theano import function
-from theano.gof.op import get_debug_values
-from pylearn2.models.s3c import reflection_clip
-from pylearn2.models.s3c import damp
-from pylearn2.models.s3c import S3C
-from pylearn2.models.s3c import SufficientStatistics
-from galatea.pddbm.pddbm import flatten
-import time
 import theano
 import gc
 
