@@ -38,8 +38,40 @@ s3c.bias_hid = dbm.bias_vis
 for param in list(set(s3c.get_params()).union(set(dbm.get_params()))):
     grads[param] = sharedX(np.zeros(param.get_value().shape))
 
+m = dbm.V_chains.shape[0]
 
-obj = dbm.expected_energy(V_hat = dbm.V_chains, H_hat = dbm.H_chains)
+v = T.mean(dbm.V_chains, axis=0)
+
+v_bias_contrib = T.dot(v, dbm.bias_vis)
+
+exp_vh = T.dot(dbm.V_chains.T,dbm.H_chains[0]) / m
+
+v_weights_contrib = T.sum(dbm.W[0] * exp_vh)
+
+total = v_bias_contrib + v_weights_contrib
+
+H_hat = dbm.H_chains
+for i in xrange(len(H_hat) - 1):
+    lower_H = H_hat[i]
+    low = T.mean(lower_H, axis = 0)
+    higher_H = H_hat[i+1]
+    exp_lh = T.dot(lower_H.T, higher_H) / m
+    lower_bias = dbm.bias_hid[i]
+    W = dbm.W[i+1]
+
+    lower_bias_contrib = T.dot(low, lower_bias)
+
+    weights_contrib = T.sum( W * exp_lh) / m
+
+    total = total + lower_bias_contrib + weights_contrib
+
+highest_bias_contrib = T.dot(T.mean(H_hat[-1],axis=0), dbm.bias_hid[-1])
+
+total = total + highest_bias_contrib
+
+assert len(total.type.broadcastable) == 0
+
+obj =  - total
 
 constants = list(set(dbm.H_chains).union([dbm.V_chains]))
 
