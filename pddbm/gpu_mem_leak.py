@@ -50,15 +50,9 @@ total = v_bias_contrib + v_weights_contrib
 
 highest_bias_contrib = T.dot(T.mean(H_chain,axis=0), b)
 
-total = total + highest_bias_contrib
+obj = total + highest_bias_contrib
 
-assert len(total.type.broadcastable) == 0
-
-obj =  - total
-
-constants = [ H_chain, V_chain ]
-
-agrads = T.grad(obj, params, consider_constant = constants)
+agrads = T.grad(obj, params)
 
 pags = {}
 
