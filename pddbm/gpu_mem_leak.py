@@ -33,7 +33,7 @@ c = sharedX(np.zeros((8478,)))
 
 grads = {}
 
-params= [W,b,c]
+params= [W,c]
 
 for param in params:
     grads[param] = sharedX(np.zeros(param.get_value().shape))
@@ -44,7 +44,7 @@ v_bias_contrib = T.dot(v, c)
 
 exp_vh = T.dot(V_chain.T,H_chain)
 
-v_weights_contrib = T.sum(W * exp_vh)
+v_weights_contrib = T.sum(W)
 
 total = v_bias_contrib + v_weights_contrib
 
