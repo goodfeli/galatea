@@ -63,12 +63,6 @@ class PDDBM(Model):
 
         self.num_g = len(self.dbm.W)
 
-        self.redo_everything()
-
-    def redo_everything(self):
-
-        #we don't call redo_everything on s3c because this would reset its weights
-        #however, calling redo_everything on the dbm just resets its negative chain
         self.dbm.redo_everything()
 
 
@@ -79,6 +73,12 @@ class PDDBM(Model):
         self.test_batch_size = 2
 
         self.redo_theano()
+
+        self.s3c.reset_censorship_cache()
+        self.make_pseudoparams()
+        self.s3c.e_step.register_model(self.s3c)
+
+        self.reset_grad_func = self.make_reset_grad_func()
 
     def get_params(self):
         return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
@@ -138,15 +138,6 @@ class PDDBM(Model):
 
     def make_pseudoparams(self):
         self.s3c.make_pseudoparams()
-
-    def redo_theano(self):
-
-        self.s3c.reset_censorship_cache()
-        self.make_pseudoparams()
-        self.s3c.e_step.register_model(self.s3c)
-
-        self.reset_grad_func = self.make_reset_grad_func()
-
 
 
 class PDDBM_InferenceProcedure:
