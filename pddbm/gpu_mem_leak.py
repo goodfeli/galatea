@@ -51,11 +51,11 @@ for param in grads:
     else:
         updates[grads[param]] = T.zeros_like(param)
 
-sampling_updates = dbm.get_sampling_updates()
+#sampling_updates = dbm.get_sampling_updates()
 
-for key in sampling_updates:
-    assert key not in updates
-    updates[key] = sampling_updates[key]
+#for key in sampling_updates:
+#    assert key not in updates
+#    updates[key] = sampling_updates[key]
 
 global f
 f = function([], updates = updates)
