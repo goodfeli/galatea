@@ -84,31 +84,6 @@ class PDDBM(Model):
     def get_params(self):
         return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
 
-
-    def get_param_updates(self, params_to_grads):
-
-        warnings.warn("TODO: get_param_updates does not use geodesics for now")
-
-        rval = {}
-
-        learning_rate = {}
-
-        for param in params_to_grads:
-            if param is self.s3c.B_driver:
-                learning_rate[param] = as_floatX(self.learning_rate * self.B_learning_rate_scale)
-            elif param is self.s3c.W:
-                learning_rate[param] = as_floatX(self.learning_rate * self.W_learning_rate_scale)
-            else:
-                learning_rate[param] = as_floatX(self.learning_rate)
-
-        for key in params_to_grads:
-            rval[key] = key + learning_rate[key] * params_to_grads[key]
-
-        for param in self.get_params():
-            assert param in params_to_grads
-
-        return rval
-
     def censor_updates(self, updates):
 
         self.s3c.censor_updates(updates)
