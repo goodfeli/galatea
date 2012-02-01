@@ -50,22 +50,7 @@ v_weights_contrib = T.sum(dbm.W[0] * exp_vh)
 
 total = v_bias_contrib + v_weights_contrib
 
-H_hat = dbm.H_chains
-for i in xrange(len(H_hat) - 1):
-    lower_H = H_hat[i]
-    low = T.mean(lower_H, axis = 0)
-    higher_H = H_hat[i+1]
-    exp_lh = T.dot(lower_H.T, higher_H)
-    lower_bias = dbm.bias_hid[i]
-    W = dbm.W[i+1]
-
-    lower_bias_contrib = T.dot(low, lower_bias)
-
-    weights_contrib = T.sum( W * exp_lh)
-
-    total = total + lower_bias_contrib + weights_contrib
-
-highest_bias_contrib = T.dot(T.mean(H_hat[-1],axis=0), dbm.bias_hid[-1])
+highest_bias_contrib = T.dot(T.mean(dbm.H_chains[-1],axis=0), dbm.bias_hid[-1])
 
 total = total + highest_bias_contrib
 
