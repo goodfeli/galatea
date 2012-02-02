@@ -81,6 +81,7 @@ class PDDBM(Model):
         self.dbm_weight_decay = dbm_weight_decay
 
         self.s3c = s3c
+        s3c.e_step.autonomous = False
 
         if self.s3c.m_step is not None:
             self.B_learning_rate_scale = self.s3c.m_step.B_learning_rate_scale
