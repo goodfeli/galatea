@@ -6,12 +6,14 @@ __maintainer__ = "Ian Goodfellow"
 
 import time
 from pylearn2.models.model import Model
-from theano import config, function, shared
+from theano import config, function
 import theano.tensor as T
 import numpy as np
 import warnings
 from theano.gof.op import get_debug_values, debug_error_message
-from pylearn2.utils import make_name, as_floatX
+from pylearn2.utils import sharedX, as_floatX
+import theano
+import gc
 
 warnings.warn('pddbm changing the recursion limit')
 import sys
@@ -61,7 +63,8 @@ class PDDBM(Model):
             g_penalties = None,
             g_targets = None,
             print_interval = 10000,
-            dbm_weight_decay = None):
+            dbm_weight_decay = None,
+            sub_batch = False):
         """
             s3c: a galatea.s3c.s3c.S3C object
                 will become owned by the PDDBM
@@ -124,6 +127,8 @@ class PDDBM(Model):
         self.g_penalties = g_penalties
         self.g_targets = g_targets
 
+        self.sub_batch = sub_batch
+
         self.redo_everything()
 
 
@@ -145,6 +150,11 @@ class PDDBM(Model):
         #we don't call redo_everything on s3c because this would reset its weights
         #however, calling redo_everything on the dbm just resets its negative chain
         self.dbm.redo_everything()
+
+        if self.sub_batch:
+             self.grads = {}
+             for param in self.get_params():
+                 self.grads[param] = sharedX(np.zeros(param.get_value().shape))
 
         self.test_batch_size = 2
 
@@ -187,6 +197,123 @@ class PDDBM(Model):
 
     def get_params(self):
         return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
+
+    def make_reset_grad_func(self):
+        """
+        For use with the sub_batch feature only
+        Resets the gradient to the data-independent gradient (ie, negative phase, regularization)
+        One can then accumulate the positive phase gradient in sub-batches
+        """
+
+        assert self.sub_batch
+
+        assert self.g_penalties is None
+        assert self.h_penalty == 0.0
+        assert self.dbm_weight_decay is None
+
+        params_to_approx_grads = self.dbm.get_neg_phase_grads()
+
+        updates = {}
+
+        for param in self.grads:
+            if param in params_to_approx_grads:
+                updates[self.grads[param]] = params_to_approx_grads[param]
+            else:
+                updates[self.grads[param]] = T.zeros_like(param)
+
+        sampling_updates = self.dbm.get_sampling_updates()
+
+        for key in sampling_updates:
+            assert key not in updates
+            updates[key] = sampling_updates[key]
+
+
+
+    def make_accum_pos_phase_grad_func(self, V):
+
+        hidden_obs = self.inference_procedure.infer(V)
+
+        obj, constants = self.positive_phase_obj(V, hidden_obs)
+
+        updates = {}
+
+        for param in self.grads:
+            updates[self.grads[param]] = self.grads[param] + T.grad(obj, param, \
+                    consider_constant = constants)
+
+        f = function([V], updates= updates)
+
+        return f
+
+    def positive_phase_obj(self, V, hidden_obs):
+        """ returns both the objective AND things that should be considered constant
+            in order to avoid propagating through inference """
+
+        #make a restricted dictionary containing only vars s3c knows about
+        restricted_obs = {}
+        for key in hidden_obs:
+            if key != 'G_hat':
+                restricted_obs[key] = hidden_obs[key]
+
+
+        #request s3c sufficient statistics
+        needed_stats = \
+         S3C.expected_log_prob_v_given_hs_needed_stats().union(\
+         S3C.expected_log_prob_s_given_h_needed_stats())
+        stats = SufficientStatistics.from_observations(needed_stats = needed_stats,
+                V = V, **restricted_obs)
+
+        #don't backpropagate through inference
+        obs_set = set(hidden_obs.values())
+        stats_set = set(stats.d.values())
+        constants = flatten(obs_set.union(stats_set))
+
+        G_hat = hidden_obs['G_hat']
+        for i, G in enumerate(G_hat):
+            G.name = 'final_G_hat[%d]' % (i,)
+        H_hat = hidden_obs['H_hat']
+        H_hat.name = 'final_H_hat'
+        S_hat = hidden_obs['S_hat']
+        S_hat.name = 'final_S_hat'
+
+        expected_log_prob_v_given_hs = self.s3c.expected_log_prob_v_given_hs(stats, \
+                H_hat = H_hat, S_hat = S_hat)
+        assert len(expected_log_prob_v_given_hs.type.broadcastable) == 0
+
+
+        expected_log_prob_s_given_h  = self.s3c.expected_log_prob_s_given_h(stats)
+        assert len(expected_log_prob_s_given_h.type.broadcastable) == 0
+
+
+        expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat )
+        assert len(expected_dbm_energy.type.broadcastable) == 0
+
+        #note: this is not the complete tractable part of the objective
+        #the objective also includes the entropy of Q, but we drop that since it is
+        #not a function of the parameters and we're not able to compute the true
+        #value of the objective function anyway
+        obj = expected_log_prob_v_given_hs + \
+                        expected_log_prob_s_given_h  - \
+                        expected_dbm_energy
+
+        assert len(obj.type.broadcastable) == 0
+
+        return obj, constants
+
+    def make_grad_step_func(self):
+
+        learning_updates = self.get_param_updates(self.grads)
+        self.censor_updates(learning_updates)
+
+        print "compiling function..."
+        t1 = time.time()
+        rval = function([], updates = learning_updates)
+        t2 = time.time()
+        print "... compilation took "+str(t2-t1)+" seconds"
+
+        return rval
+
+
 
     def make_learn_func(self, V):
         """
@@ -387,7 +514,12 @@ class PDDBM(Model):
 
             self.s3c.e_step.register_model(self.s3c)
 
-            self.learn_func = self.make_learn_func(X)
+            if self.sub_batch:
+                self.reset_grad_func = self.make_reset_grad_func()
+                self.accum_pos_phase_grad_func = self.make_accum_pos_phase_grad_func(X)
+                self.grad_step_func = self.make_grad_step_func()
+            else:
+                self.learn_func = self.make_learn_func(X)
 
             final_names = dir(self)
 
@@ -404,8 +536,12 @@ class PDDBM(Model):
 
         assert self.s3c is self.inference_procedure.s3c_e_step.model
 
-        self.learn_func(X)
-
+        if self.sub_batch:
+            self.reset_grad_func()
+            for i in xrange(X.shape[0]):
+                self.accum_pos_phase_grad_func(X[i:i+1,:])
+        else:
+            self.learn_func(X)
         if self.monitor.examples_seen % self.print_interval == 0:
             print ""
             print "S3C:"
