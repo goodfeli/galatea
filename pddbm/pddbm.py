@@ -227,6 +227,10 @@ class PDDBM(Model):
             assert key not in updates
             updates[key] = sampling_updates[key]
 
+        f = function([], updates = updates)
+
+        return f
+
 
 
     def make_accum_pos_phase_grad_func(self, V):
