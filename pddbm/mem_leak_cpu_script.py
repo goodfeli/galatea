@@ -9,18 +9,18 @@ import sys
 
 s = [400,8000]
 print 'first shared'
-before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
+#before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 W = sharedX(np.zeros((s[0],s[1])))
 gc.collect()
 gc.collect()
 gc.collect()
-after =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-diff = before[0] - after[0]
-expected_diff = s[0]*s[1]*4
+#after =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
+#diff = before[0] - after[0]
+#expected_diff = s[0]*s[1]*4
 
-if diff > expected_diff:
-    print "W uses ",str(float(diff)/float(expected_diff))," times more memory than needed."
-    print "(",str(float(diff-expected_diff)/(1024. ** 2))," megabytes)"
+#if diff > expected_diff:
+#    print "W uses ",str(float(diff)/float(expected_diff))," times more memory than needed."
+#    print "(",str(float(diff-expected_diff)/(1024. ** 2))," megabytes)"
 
 print 'second shared'
 grad  =sharedX(np.zeros(W.get_value().shape))
@@ -31,11 +31,11 @@ print 'initial cudandarray addr %x' % id(init_array)
 gc.collect()
 gc.collect()
 gc.collect()
-after_after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
-diff = after_after[0] - after[0]
+#after_after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
+#diff = after_after[0] - after[0]
 
-if diff > expected_diff:
-    print "grad uses ",str(float(diff)/float(expected_diff))," times more memory than needed."
+#if diff > expected_diff:
+#    print "grad uses ",str(float(diff)/float(expected_diff))," times more memory than needed."
 
 
 updates = { grad : W}
@@ -49,10 +49,10 @@ debugprint(f)
 
 print 'call'
 
-before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
+#before =  theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 f()
 gc.collect(); gc.collect(); gc.collect()
-after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
+#after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 
 print 'references to initial array: ',sys.getrefcount(init_array)
 
@@ -149,8 +149,8 @@ print 'found instances: ',found
 
 final_array = grad.get_value(borrow=True, return_internal_type = True)
 print 'final cudandarray addr %x' % id(final_array)
-addr = final_array.gpudata
-print 'final storage address: %x' % addr
+#addr = final_array.gpudata
+#print 'final storage address: %x' % addr
 
 """
 print '------------'
@@ -204,10 +204,10 @@ del find
 del culprits
 #del gc
 del final_array
-del diff
+#del diff
 #del before
 del sharedX
-del addr
+#del addr
 #del __package__
 del np
 #del __doc__
@@ -222,8 +222,8 @@ del found
 del debugprint
 del culprit
 del s
-del after_after
-del expected_diff
+#del after_after
+#del expected_diff
 del grad
 del searched_objs
 
@@ -235,4 +235,4 @@ print 'references to initial array: ',sys.getrefcount(init_array)
 
 print locals().keys()
 
-assert after[0] >= before[0]
+#assert after[0] >= before[0]
