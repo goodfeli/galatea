@@ -1,0 +1,54 @@
+!obj:pylearn2.scripts.train.Train {
+    "dataset": &src !pkl: "${CIFAR10_WHITENED_TRAIN}",
+
+    "model": !obj:pylearn2.models.rbm.GaussianBinaryRBM {
+        "nvis" : 3072,
+        "nhid" : 400,
+
+        "irange" : 0.05,
+
+        "energy_function_class" : !obj:pylearn2.energy_functions.rbm_energy.grbm_type_1 {},
+        "learn_sigma" : True,
+
+        "init_sigma" : .4,
+        "init_bias_hid" : -2.,
+
+        "mean_vis" : False,
+
+        "sigma_lr_scale" : 1e-3
+
+    },
+
+    "algorithm": !obj:pylearn2.training_algorithms.sgd.SGD {
+        "learning_rate" : 1e-1,
+
+        "batch_size" : 5,
+
+        "batches_per_iter" : 20000,
+
+        "monitoring_batches" : 20,
+
+        "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                "dataset" : *src,
+                "num_examples" : 100
+        },
+
+        "cost" : !obj:pylearn2.costs.ebm_estimation.SMD {
+
+            "corruptor" : !obj:pylearn2.corruption.GaussianCorruptor {
+                    "stdev" : 0.4
+            },
+        },
+
+
+        "termination_criterion" : !obj:pylearn2.training_algorithms.sgd.MonitorBasedTermCrit {
+            "prop_decrease" : 0.01,
+            "N" : 10,
+        },
+
+        "learning_rate_adjuster" : !obj:pylearn2.training_algorithms.sgd.MonitorBasedLRAdjuster {}
+        },
+    "save_path": "${PYLEARN2_TRAIN_FILE_NAME}.pkl"
+}
+
+
