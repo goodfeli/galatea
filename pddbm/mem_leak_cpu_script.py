@@ -202,10 +202,8 @@ print 'deleting a bunch of stuff'
 del skip
 del find
 del culprits
-#del gc
+del gc
 del final_array
-#del diff
-#del before
 del sharedX
 #del addr
 #del __package__
@@ -214,7 +212,7 @@ del np
 del function
 #__builtins__', '__file__'
 #del after
-#sys', '
+del sys
 del updates
 del W
 del found
@@ -226,13 +224,40 @@ del s
 #del expected_diff
 del grad
 del searched_objs
+del field
+del __package__
+del __doc__
+del __file__
+del __name__
+del __builtins__
 
+
+
+print locals().keys()
+
+import gc
+import sys
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
+gc.collect()
 gc.collect()
 gc.collect()
 gc.collect()
 print 'references to initial array: ',sys.getrefcount(init_array)
-
-
-print locals().keys()
 
 #assert after[0] >= before[0]

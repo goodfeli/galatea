@@ -25,8 +25,8 @@ if diff > expected_diff:
 print 'second shared'
 grad  =sharedX(np.zeros(W.get_value().shape))
 
-init_array = grad.get_value(borrow=True, return_internal_type = True)
-print 'initial cudandarray addr %x' % id(init_array)
+#init_array = grad.get_value(borrow=True, return_internal_type = True)
+#print 'initial cudandarray addr %x' % id(init_array)
 
 gc.collect()
 gc.collect()
@@ -54,11 +54,11 @@ f()
 gc.collect(); gc.collect(); gc.collect()
 after = theano.sandbox.cuda.cuda_ndarray.cuda_ndarray.mem_info()
 
-print 'references to initial array: ',sys.getrefcount(init_array)
+#print 'references to initial array: ',sys.getrefcount(init_array)
 
 print "ALL DEALLOCS AFTER HERE ARE TOO LATE"
 
-
+"""
 print '--------------------------------'
 
 culprits = gc.get_referrers(init_array)
@@ -70,7 +70,7 @@ for culprit in culprits:
         print '\t',culprit
 
 print '--------------------------------'
-
+"""
 
 skip = {
         '__call__' : 'would cause infinite loop (property?)',
@@ -108,6 +108,7 @@ skip = {
 
 searched_objs = set([])
 
+"""
 found = []
 
 def find(obj, name):
@@ -146,6 +147,7 @@ def find(obj, name):
 #find(locals(),'locals')
 
 print 'found instances: ',found
+"""
 
 final_array = grad.get_value(borrow=True, return_internal_type = True)
 print 'final cudandarray addr %x' % id(final_array)
@@ -167,6 +169,7 @@ print f.defaults
 print type(f.defaults)
 print '--------------'
 
+"""
 for field in ['defaults','__dict__']:
     if field in ['container','__weakref__',
             '__subclasshook__','__str__','__sizeof__','__setitem__', \
@@ -180,14 +183,14 @@ for field in ['defaults','__dict__']:
     gc.collect()
     gc.collect()
     print 'references to initial array: ',sys.getrefcount(init_array)
-
+"""
 
 print 'deleting f'
 del f
 gc.collect()
 gc.collect()
 gc.collect()
-print 'references to initial array: ',sys.getrefcount(init_array)
+#print 'references to initial array: ',sys.getrefcount(init_array)
 
 
 print 'deleting theano'
@@ -195,13 +198,13 @@ del theano
 gc.collect()
 gc.collect()
 gc.collect()
-print 'references to initial array: ',sys.getrefcount(init_array)
+#print 'references to initial array: ',sys.getrefcount(init_array)
 
 
 print 'deleting a bunch of stuff'
 del skip
-del find
-del culprits
+#del find
+#del culprits
 #del gc
 del final_array
 del diff
@@ -217,10 +220,10 @@ del function
 #sys', '
 del updates
 del W
-del found
+#del found
 #', '__name__', '
 del debugprint
-del culprit
+#del culprit
 del s
 del after_after
 del expected_diff
@@ -230,7 +233,7 @@ del searched_objs
 gc.collect()
 gc.collect()
 gc.collect()
-print 'references to initial array: ',sys.getrefcount(init_array)
+#print 'references to initial array: ',sys.getrefcount(init_array)
 
 
 print locals().keys()
