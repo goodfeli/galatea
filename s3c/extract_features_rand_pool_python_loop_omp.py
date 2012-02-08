@@ -159,7 +159,7 @@ class FeatureExtractor:
 
         print 'loading model'
 
-        d = serial.load('/u/goodfeli/galatea/s3c/sc_vq_demo/omp1.mat')
+        d = serial.load('${USERDIR}/galatea/s3c/sc_vq_demo/omp1.mat')
 
         self.W = sharedX(d['dictionary'].T)
 
