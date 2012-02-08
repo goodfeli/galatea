@@ -1,0 +1,10 @@
+git add *.py
+git add */*.py
+git add */*/*.py
+git add */*/*/*.py
+git add */*/*/*/*.py
+git add */*/*/*/*/*.py
+git add */*/*/*/*/*/*.py
+git add */*/*/*/*/*/*/*.py
+git add */*/*/*/*/*/*/*/*.py
+git add */*/*/*/*/*/*/*/*/*.py
