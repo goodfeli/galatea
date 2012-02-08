@@ -1,0 +1,4 @@
+briaree has nodes with 24G or 48G per node
+	multiple cores though
+	there is a jobs/user limit that is possibly as low as 36
+	filesystem quotas, clear conditions, etc not known. e-mailed support to ask
