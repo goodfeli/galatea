@@ -1,0 +1,4 @@
+!obj:galatea.s3c.s3c_dataset.S3C_Dataset {
+        "raw" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
+        "transformer" : !pkl: "/u/goodfeli/galatea/pddbm/config/stl/6x6/layer_1_A.pkl"
+    }
