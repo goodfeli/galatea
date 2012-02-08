@@ -63,8 +63,10 @@ class PDDBM(Model):
             g_penalties = None,
             g_targets = None,
             print_interval = 10000,
+            freeze_s3c_params = False,
             dbm_weight_decay = None,
-            sub_batch = False):
+            sub_batch = False,
+            h_bias_src = 'dbm'):
         """
             s3c: a galatea.s3c.s3c.S3C object
                 will become owned by the PDDBM
@@ -73,8 +75,16 @@ class PDDBM(Model):
                 will become owned by the PDDBM
                 it won't be deleted but many of its fields will change
             inference_procedure: a galatea.pddbm.pddbm.InferenceProcedure
-            h_bias_src: 's3c' to take bias on h from s3c, 'dbm' to take it from dbm
             print_interval: number of examples between each status printout
+            h_bias_src: either 'dbm' or 's3c'. both the dbm and s3c have a bias
+                    term on h-- whose should we use when we build the model?
+                        if you want to start training with a new rbm on top
+                        of an s3c model, it probably makes sense to make the
+                        rbm have very small weights and take the biases from
+                        s3c.
+                      if you've already pretrained the rbm, then since this
+                      model is basically P(g,h)P(v,s|h) it might make sense
+                      to take the biases from the RBM
         """
 
         super(PDDBM,self).__init__()
@@ -95,12 +105,18 @@ class PDDBM(Model):
 
         self.rng = np.random.RandomState([1,2,3])
 
-        #must use DBM bias now
         assert dbm.bias_vis.get_value(borrow=True).shape \
                 == s3c.bias_hid.get_value(borrow=True).shape
-        self.s3c.bias_hid = self.dbm.bias_vis
+        if h_bias_src == 'dbm':
+            self.s3c.bias_hid = self.dbm.bias_vis
+        elif h_bias_src == 's3c':
+            self.dbm.bias_vis = self.s3c.bias_hid
+        else:
+            assert False
 
         self.nvis = s3c.nvis
+
+        self.freeze_s3c_params = freeze_s3c_params
 
         #don't support some exotic options on s3c
         for option in ['monitor_functional',
@@ -196,7 +212,10 @@ class PDDBM(Model):
         pass
 
     def get_params(self):
-        return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
+        if not self.freeze_s3c_params:
+            return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
+        else:
+            return self.dbm.get_params()
 
     def make_reset_grad_func(self):
         """
@@ -608,7 +627,7 @@ class InferenceProcedure:
                     summary = '(init)'
                 else:
                     step = self.schedule[i-2]
-                    summary = '(' + step[0]+','+step[1]+')'
+                    summary = '(' + str(step[0])+','+str(step[1])+')'
 
                 rval['trunc_KL_'+str(i)+summary] = self.truncated_KL(V, obs).mean()
 
