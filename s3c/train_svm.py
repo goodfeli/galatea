@@ -255,7 +255,7 @@ if __name__ == '__main__':
     parser.add_option("--one-against-one", action="store_false", dest="one_against_many", default=True,
                       help="use a one-against-one classifier rather than a one-against-many classifier")
     parser.add_option("--split", action="store_true", dest="split", default = False, help="double the example size by splitting each feature into a positive component and a negative component")
-    parser.add_option('-C', type='string', dest='C_list', action='store', default= '.01,.02,.05,.1,.15,.2,.5,1,5,10')
+    parser.add_option('-C', type='string', dest='C_list', action='store', default= '.05,.1,.15,.2,.5,1')
     parser.add_option('--dataset', type='string', dest = 'dataset', action='store', default = None)
     parser.add_option('--skip-cv', action="store_true", dest="skip_cv", default=False, help="don't cross validate, just use first value in C list")
     parser.add_option('--max-folds',action="store_true", dest="max_folds", default=None)
