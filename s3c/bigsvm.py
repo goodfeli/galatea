@@ -1,3 +1,5 @@
+#python bigsvm.py train.npy config.txt test.npy
+
 # Example of a BaseEstimator implemented with Theano.
 # This could use the GPU, except that
 # a) linear regression isn't really worth it, and
