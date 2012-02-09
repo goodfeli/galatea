@@ -219,12 +219,20 @@ class FeatureExtractor:
         assert H.dtype == 'float32'
         assert Mu1.dtype == 'float32'
 
+        nfeat = model.nhid
+
         if self.feature_type == 'map_hs':
             feat = (H > 0.5) * Mu1
         elif self.feature_type == 'map_h':
             feat = T.cast(H > 0.5, dtype='float32')
         elif self.feature_type == 'exp_hs':
             feat = H * Mu1
+        elif self.feature_type == 'exp_hs_split':
+            Z = H * Mu1
+            pos = T.clip(Z,0.,1e32)
+            neg = T.clip(-Z,0,1e32)
+            feat = T.concatenate((pos,neg),axis=1)
+            nfeat *= 2
         elif self.feature_type == 'exp_h':
             feat = H
         elif self.feature_type == 'exp_h_thresh':
@@ -238,8 +246,10 @@ class FeatureExtractor:
         print 'compiling theano function'
         f = function([V],feat)
 
-        if config.device.startswith('gpu') and model.nhid >= 4000:
-            f = halver(f, model.nhid)
+
+
+        if config.device.startswith('gpu') and nfeat >= 4000:
+            f = halver(f, nfeat)
 
         topo_feat_var = T.TensorType(broadcastable = (False,False,False,False), dtype='float32')()
         region_features = function([topo_feat_var],
@@ -257,11 +267,11 @@ class FeatureExtractor:
 
             return rval
 
-        outputs = [ np.zeros((num_examples,count,count,model.nhid),dtype='float32') for count in pooling_region_counts ]
+        outputs = [ np.zeros((num_examples,count,count,nfeat),dtype='float32') for count in pooling_region_counts ]
 
         assert len(outputs) > 0
 
-        fd = DenseDesignMatrix(X = np.zeros((1,1),dtype='float32'), view_converter = DefaultViewConverter([1, 1, model.nhid] ) )
+        fd = DenseDesignMatrix(X = np.zeros((1,1),dtype='float32'), view_converter = DefaultViewConverter([1, 1, nfeat] ) )
 
         ns = 32 - size + 1
         depatchifier = ReassembleGridPatches( orig_shape  = (ns, ns), patch_shape=(1,1) )
