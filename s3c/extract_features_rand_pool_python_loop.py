@@ -337,7 +337,7 @@ class FeatureExtractor:
             assert batch_size == 1
 
             for j in xrange(num_output_features):
-                output[i:i+batch_size, :] = superpixels[:,top[j]:bottom[j]+1,
+                output[i:i+batch_size, j] = superpixels[:,top[j]:bottom[j]+1,
                         left[j]:right[j]+1, idxs[j]].mean()
 
             t6 = time.time()
