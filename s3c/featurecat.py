@@ -5,7 +5,6 @@ print 'loading first chunk'
 first_chunk = np.load(sys.argv[1])
 
 final_shape = list(first_chunk.shape)
-assert len(final_shape) == 4
 
 final_shape[0] = 50000
 
