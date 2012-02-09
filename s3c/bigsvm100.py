@@ -185,7 +185,8 @@ args = eval(s)
 clf = TheanoSGDClassifier(100, ** args)
 from pylearn2.datasets.cifar100 import CIFAR100
 X = np.load(sys.argv[1])
-X = X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
+if len(X.shape) == 4:
+    X = X.reshape(X.shape[0], X.shape[1] * X.shape[2] * X.shape[3])
 y = CIFAR100(which_set="train").y_fine.astype(int)
 print 'fit'
 clf.fit(X, y)
