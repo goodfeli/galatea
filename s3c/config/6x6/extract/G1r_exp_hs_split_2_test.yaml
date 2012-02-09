@@ -1,0 +1,9 @@
+!obj:galatea.s3c.extract_features.FeatureExtractor {
+        "chunk_size" : 10000,
+        "batch_size" : 1,
+        "model_path" : "${GALATEA_PATH}/s3c/config/6x6/G1r.pkl",         "pooling_region_counts": [2],
+        "save_paths" : [ "${FEATURE_EXTRACTOR_YAML_PATH}.npy" ], 
+        "feature_type" : "exp_hs_split", 
+        "dataset_family" : galatea.s3c.extract_features.cifar10,
+        "which_set" : "test"
+}       
