@@ -336,7 +336,7 @@ class FeatureExtractor:
             assert superpixels.shape[3] == 2 * num_filters
 
             for j in xrange(num_output_features):
-                output[i:i+batch_size, :] = superpixels[:,top[j]:bottom[j]+1,
+                output[i:i+batch_size, j] = superpixels[:,top[j]:bottom[j]+1,
                         left[j]:right[j]+1, idxs[j]].mean()
 
             t6 = time.time()
