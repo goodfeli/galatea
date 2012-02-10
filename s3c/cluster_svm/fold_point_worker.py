@@ -1,4 +1,7 @@
 #TODO: support concatenating multiple datasets
+print 'script launched'
+
+
 try:
     from ia3n.util.mem import MemoryMonitor
     mem = MemoryMonitor()
@@ -110,12 +113,14 @@ def main(train_path,
         fold,
         C,
         **kwargs):
+    print 'in main()'
 
     stl10 = dataset == 'stl10'
     cifar10 = dataset == 'cifar10'
     cifar100 = dataset == 'cifar100'
     assert stl10 + cifar10 + cifar100 == 1
 
+    print 'getting labels and oflds'
     if mem:
         print 'mem usage before getting labels and folds '+str(mem.usage())
     train_y, fold_indices = get_labels_and_fold_indices(cifar10, cifar100, stl10)
@@ -135,6 +140,7 @@ def main(train_path,
         assert train_X.shape[0] == 50000
         assert train_y.shape == (50000,)
 
+    print 'running validate'
     acc = validate(train_X, train_y, fold_indices[fold,:], C, **kwargs)
 
     report = open(out_path, 'w')
@@ -142,10 +148,7 @@ def main(train_path,
     report.close()
 
 if __name__ == '__main__':
-    """
-    Useful for quick tests.
-    Usage: python train_bilinear.py
-    """
+    print '__main__ detected'
 
     parser = OptionParser()
     parser.add_option("-d", "--train",
