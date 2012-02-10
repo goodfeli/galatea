@@ -134,7 +134,7 @@ for which_set in ['train', 'test']:
 class FeatureExtractor:
     def __init__(self, batch_size, model_path,
            save_path, feature_type, dataset_family, which_set,
-           chunk_size = None, restrict = None):
+           chunk_size = None, restrict = None, pool_mode = 'mean'):
 
         if chunk_size is not None and restrict is not None:
             raise NotImplementedError("Currently restrict is used internally to "
@@ -143,6 +143,7 @@ class FeatureExtractor:
         self.batch_size = batch_size
         self.model_path = model_path
         self.restrict = restrict
+        self.pool_mode = pool_mode
 
         self.save_path = save_path
         self.feature_type = feature_type
@@ -265,8 +266,14 @@ class FeatureExtractor:
             f = halver(f, model.nhid)
 
         topo_feat_var = T.TensorType(broadcastable = (False,False,False,False), dtype='float32')()
-        region_features = function([topo_feat_var],
+        if self.pool_mode == 'mean':
+            region_features = function([topo_feat_var],
                 topo_feat_var.mean(axis=(1,2)) )
+        elif self.pool_mode == 'max':
+            region_features = function([topo_feat_var],
+                    topo_feat_var.max(axis=(1,2)) )
+        else:
+            assert False
 
         def average_pool( stride ):
             def point( p ):
@@ -336,9 +343,16 @@ class FeatureExtractor:
 
             assert batch_size == 1
 
-            for j in xrange(num_output_features):
-                output[i:i+batch_size, j] = superpixels[:,top[j]:bottom[j]+1,
-                        left[j]:right[j]+1, idxs[j]].mean()
+            if self.pool_mode == 'mean':
+                for j in xrange(num_output_features):
+                    output[i:i+batch_size, j] = superpixels[:,top[j]:bottom[j]+1,
+                            left[j]:right[j]+1, idxs[j]].mean()
+            elif self.pool_mode == 'max':
+                for j in xrange(num_output_features):
+                    output[i:i+batch_size, j] = superpixels[:,top[j]:bottom[j]+1,
+                            left[j]:right[j]+1, idxs[j]].max()
+            else:
+                assert False
 
             t6 = time.time()
 
@@ -364,6 +378,10 @@ if __name__ == '__main__':
     val = yaml_path[0:-len('.yaml')]
     os.environ['FEATURE_EXTRACTOR_YAML_PATH'] = val
     os.putenv('FEATURE_EXTRACTOR_YAML_PATH',val)
+    val = val.split('/')[-1]
+    os.environ['FEATURE_EXTRACTOR_YAML_NAME'] = val
+    os.putenv('FEATURE_EXTRACTOR_YAML_NAME', val)
+
 
     extractor = yaml_parse.load_path(yaml_path)
 
