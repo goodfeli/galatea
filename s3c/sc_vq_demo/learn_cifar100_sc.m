@@ -1,23 +1,25 @@
 
-function learn_cifar100_sc(lambda, save_path, iters, batch_size, new_coeff)
+function learn_cifar100_sc(lambda, save_path, numBases, iters, batch_size, new_coeff)
 
 	if nargin < 3
-		iters = 10
+		numBases = 1600
 	end
 
 	if nargin < 4
-		batch_size = 100000
+		iters = 10
 	end
 
 	if nargin < 5
+		batch_size = 100000
+	end
+
+	if nargin < 6
 		new_coeff = .1
 	end
 
 	CIFAR100_PATCHES='/data/lisa/data/cifar100/cifar100_patches/data.mat';
 
 	%%%%% Configuration
-	addpath minFunc;
-	numBases=1600;
 
 	D = load(CIFAR100_PATCHES);
 	patches = double(D.patches);
