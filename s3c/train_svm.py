@@ -31,8 +31,6 @@ def get_svm_type(C, one_against_many):
 
 
 def subtrain(fold_train_X, fold_train_y, C, one_against_many):
-    assert str(fold_train_X.dtype) == 'float32'
-
     #assert fold_train_X.flags.c_contiguous
 
     if mem:
@@ -223,7 +221,8 @@ def main(train_path,
         print 'mem usage after getting features '+str(mem.usage())
 
 
-    assert str(train_X.dtype) == 'float32'
+    if str(train_X.dtype) != 'float32':
+        warnings.warn('Your features are not float32, you may be wasting memory')
     if stl10:
         assert train_X.shape[0] == 5000
     if cifar10 or cifar100:
