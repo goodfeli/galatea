@@ -116,7 +116,7 @@ for which_set in ['train', 'test']:
 
 class FeatureExtractor:
     def __init__(self, batch_size, alpha, pooling_region_counts,
-           save_paths, num_filters, dataset_family, which_set,
+           save_paths, num_bases, dataset_family, which_set,
            chunk_size = None, restrict = None):
 
         if chunk_size is not None and restrict is not None:
@@ -125,7 +125,7 @@ class FeatureExtractor:
 
         self.batch_size = batch_size
         self.restrict = restrict
-        self.num_filters = num_filters
+        self.num_filters = num_bases
         self.alpha = alpha
 
 
@@ -143,7 +143,7 @@ class FeatureExtractor:
         if self.num_filters == 1600:
             d = serial.load('${USERDIR}/galatea/s3c/sc_vq_demo/omp1.mat')
         elif self.num_filters == 800:
-            d = serial.load('${USERDIR}/galatea/s3c/sc_vq_demo/omp1_800.mat')
+            d = serial.load('/RQexec/goodfell/omp1_800.mat')
         else:
             assert False
 
@@ -172,11 +172,9 @@ class FeatureExtractor:
     def _execute(self):
 
         batch_size = self.batch_size
-        feature_type = self.feature_type
         pooling_region_counts = self.pooling_region_counts
         dataset_family = self.dataset_family
         which_set = self.which_set
-        model = self.model
         size = self.size
 
         nan = 0
@@ -222,6 +220,7 @@ class FeatureExtractor:
 
         Z = T.dot(V, self.W)
 
+        alpha = self.alpha
         pos = T.clip(Z,alpha,1e30)
         neg = T.clip(-Z,alpha,1e30)
 
