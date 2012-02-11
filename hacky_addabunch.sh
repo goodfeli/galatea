@@ -27,3 +27,13 @@ git add */*/*/*/*/*/*.yaml
 git add */*/*/*/*/*/*/*.yaml
 git add */*/*/*/*/*/*/*/*.yaml
 git add */*/*/*/*/*/*/*/*/*.yaml
+git add */*.sh
+git add */*/*.sh
+git add */*/*/*.sh
+git add */*/*/*/*.sh
+git add */*/*/*/*/*.sh
+git add */*/*/*/*/*/*.sh
+git add */*/*/*/*/*/*/*.sh
+git add */*/*/*/*/*/*/*/*.sh
+git add */*/*/*/*/*/*/*/*/*.sh
+
