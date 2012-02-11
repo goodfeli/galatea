@@ -14,6 +14,7 @@ from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultView
 from pylearn2.datasets.cifar10 import CIFAR10
 from pylearn2.datasets.cifar100 import CIFAR100
 from pylearn2.datasets.tl_challenge import TL_Challenge
+from pylearn2.utils import sharedX
 import sys
 config.floatX = 'float32'
 
@@ -114,8 +115,8 @@ for which_set in ['train', 'test']:
 
 
 class FeatureExtractor:
-    def __init__(self, batch_size, model_path, pooling_region_counts,
-           save_paths, feature_type, dataset_family, which_set,
+    def __init__(self, batch_size, alpha, pooling_region_counts,
+           save_paths, num_filters, dataset_family, which_set,
            chunk_size = None, restrict = None):
 
         if chunk_size is not None and restrict is not None:
@@ -123,14 +124,15 @@ class FeatureExtractor:
                     "implement chunk_size, so a client may not specify both")
 
         self.batch_size = batch_size
-        self.model_path = model_path
         self.restrict = restrict
+        self.num_filters = num_filters
+        self.alpha = alpha
+
 
         assert len(pooling_region_counts) == len(save_paths)
 
         self.pooling_region_counts = pooling_region_counts
         self.save_paths = save_paths
-        self.feature_type = feature_type
         self.which_set = which_set
         self.dataset_family = dataset_family
         self.chunk_size = chunk_size
@@ -138,10 +140,16 @@ class FeatureExtractor:
     def __call__(self):
 
         print 'loading model'
-        model_path = self.model_path
-        self.model = serial.load(model_path)
-        self.model.set_dtype('float32')
-        self.size = int(np.sqrt(self.model.nvis/3))
+        if self.num_filters == 1600:
+            d = serial.load('${USERDIR}/galatea/s3c/sc_vq_demo/omp1.mat')
+        elif self.num_filters == 800:
+            d = serial.load('${USERDIR}/galatea/s3c/sc_vq_demo/omp1_800.mat')
+        else:
+            assert False
+
+        self.W = sharedX(d['dictionary'].T)
+
+        self.size = int(np.sqrt(self.W.get_value().shape[0]/3))
 
         if self.chunk_size is not None:
             dataset_family = self.dataset_family
@@ -210,43 +218,21 @@ class FeatureExtractor:
 
         print 'defining features'
         V = T.matrix('V')
-        model.make_pseudoparams()
-        d = model.e_step.variational_inference(V = V)
-
-        H = d['H_hat']
-        Mu1 = d['S_hat']
-
-        assert H.dtype == 'float32'
-        assert Mu1.dtype == 'float32'
-
-        nfeat = model.nhid
-
-        if self.feature_type == 'map_hs':
-            feat = (H > 0.5) * Mu1
-        elif self.feature_type == 'map_h':
-            feat = T.cast(H > 0.5, dtype='float32')
-        elif self.feature_type == 'exp_hs':
-            feat = H * Mu1
-        elif self.feature_type == 'exp_hs_split':
-            Z = H * Mu1
-            pos = T.clip(Z,0.,1e32)
-            neg = T.clip(-Z,0,1e32)
-            feat = T.concatenate((pos,neg),axis=1)
-            nfeat *= 2
-        elif self.feature_type == 'exp_h':
-            feat = H
-        elif self.feature_type == 'exp_h_thresh':
-            feat = H * (H > .01)
-        else:
-            raise NotImplementedError()
 
 
+        Z = T.dot(V, self.W)
+
+        pos = T.clip(Z,alpha,1e30)
+        neg = T.clip(-Z,alpha,1e30)
+
+        feat = T.concatenate((pos, neg), axis=1)
 
         assert feat.dtype == 'float32'
         print 'compiling theano function'
         f = function([V],feat)
 
 
+        nfeat = self.W.get_value().shape[1] * 2
 
         if config.device.startswith('gpu') and nfeat >= 4000:
             f = halver(f, nfeat)
