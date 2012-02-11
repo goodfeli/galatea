@@ -15,6 +15,10 @@ def get_features(path, split, standardize):
     else:
         topo_view = serial.load(path)
 
+        if str(type(topo_view)).find('h5py') != -1:
+            name ,= topo_view.keys()
+            topo_view = topo_view[name].value.T
+
     if len(topo_view.shape) == 2:
         X = topo_view
     else:
