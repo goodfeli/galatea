@@ -137,7 +137,6 @@ class FeatureExtractor:
 
         self.pooling_region_counts = pooling_region_counts
         self.save_paths = save_paths
-        self.feature_type = feature_type
         self.which_set = which_set
         self.dataset_family = dataset_family
         self.chunk_size = chunk_size
@@ -152,7 +151,7 @@ class FeatureExtractor:
             dataset_descriptor = self.dataset_family[which_set][size]
 
             d = serial.load(self.dict_file)
-            self.W = d['dictionary']
+            self.W = d['dictionary'].T
 
             M.put(s, 'dictionary', d['dictionary'])
             M.put(s, 'lambda', self.lamda)
@@ -175,11 +174,9 @@ class FeatureExtractor:
     def _execute(self):
 
         batch_size = self.batch_size
-        feature_type = self.feature_type
         pooling_region_counts = self.pooling_region_counts
         dataset_family = self.dataset_family
         which_set = self.which_set
-        model = self.model
         size = self.size
 
         nan = 0
@@ -228,10 +225,12 @@ class FeatureExtractor:
         feat = T.concatenate((pos, neg), axis=1)
 
         print 'compiling theano function'
-        f = function([V],feat)
+        f = function([Z],feat)
 
         nfeat = self.W.shape[1] * 2
-        assert (nfeat == 1600 or nfeat == 3200)
+        if not (nfeat == 1600 or nfeat == 3200):
+            print nfeat
+            assert False
 
         if config.device.startswith('gpu') and nfeat >= 4000:
             f = halver(f, nfeat)
