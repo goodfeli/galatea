@@ -17,6 +17,7 @@ from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 from pylearn2.datasets.cifar10 import CIFAR10
 from pylearn2.datasets.cifar100 import CIFAR100
+from pylearn2.models.svm import DenseMulticlassSVM
 import gc
 gc.collect()
 if mem:
@@ -24,14 +25,15 @@ if mem:
 
 def get_svm_type(C, one_against_many):
     if one_against_many:
-        svm_type = LinearSVC(C=C)
+        svm_type = DenseMulticlassSVM(C=C)
+        #svm_type = LinearSVC(C=C)
     else:
         svm_type =  SVC(kernel='linear',C=C)
     return svm_type
 
 
 def subtrain(fold_train_X, fold_train_y, C, one_against_many):
-    #assert fold_train_X.flags.c_contiguous
+    assert fold_train_X.flags.c_contiguous
 
     if mem:
         print 'mem usage before calling fit: '+str(mem.usage())
@@ -47,6 +49,9 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
     #not the validation set
     #The -1 is to convert from matlab indices
     train_mask[fold_indices-1] = 1
+
+    #cast to float64 so the internal float64-only svm won't duplicate the memory
+    fold_train_X = np.cast['float64'](train_X[train_mask.astype(bool),:])
 
     if mem:
         print 'mem usage before calling subtrain: '+str(mem.usage())
@@ -215,7 +220,7 @@ def main(train_path,
     if mem:
         print 'mem usage before getting features '+str(mem.usage())
     train_X = get_features(train_path, split, standardize)
-    #assert train_X.flags.c_contiguous
+    assert train_X.flags.c_contiguous
     gc.collect()
     if mem:
         print 'mem usage after getting features '+str(mem.usage())
