@@ -55,7 +55,7 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
 
     if mem:
         print 'mem usage before calling subtrain: '+str(mem.usage())
-    svm = subtrain( train_X[train_mask.astype(bool),:], train_y[train_mask.astype(bool)], \
+    svm = subtrain( fold_train_X, train_y[train_mask.astype(bool)], \
             C = C, one_against_many = one_against_many)
     gc.collect()
     if mem:
