@@ -25,10 +25,11 @@ if mem:
 
 def get_svm_type(C, one_against_many):
     if one_against_many:
-        svm_type = DenseMulticlassSVM(C=C)
-        #svm_type = LinearSVC(C=C)
+        #svm_type = DenseMulticlassSVM(C=C) this is an L1 SVM, Adam used l2
+        svm_type = LinearSVC(C=C, loss='l2', dual = False)
     else:
-        svm_type =  SVC(kernel='linear',C=C)
+        raise NotImplementedError()
+        #svm_type =  SVC(kernel='linear',C=C) this is an L1 SVM, Adam used l2
     return svm_type
 
 
@@ -50,8 +51,7 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
     #The -1 is to convert from matlab indices
     train_mask[fold_indices-1] = 1
 
-    #cast to float64 so the internal float64-only svm won't duplicate the memory
-    fold_train_X = np.cast['float64'](train_X[train_mask.astype(bool),:])
+    fold_train_X = train_X[train_mask.astype(bool),:]
 
     if mem:
         print 'mem usage before calling subtrain: '+str(mem.usage())
@@ -220,7 +220,12 @@ def main(train_path,
     if mem:
         print 'mem usage before getting features '+str(mem.usage())
     train_X = get_features(train_path, split, standardize)
-    assert train_X.flags.c_contiguous
+    if not train_X.flags.c_contiguous:
+        print 'not C contiguous, reshaping'
+        assert len(train_X.shape) == 2
+        train_X = np.ascontiguousarray(train_X)
+        assert train_X.flags.c_contiguous
+        print 'success, contiguous now'
     gc.collect()
     if mem:
         print 'mem usage after getting features '+str(mem.usage())
