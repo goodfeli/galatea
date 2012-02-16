@@ -221,8 +221,8 @@ class FeatureExtractor:
         Z = T.dot(V, self.W)
 
         alpha = self.alpha
-        pos = T.clip(Z,alpha,1e30)
-        neg = T.clip(-Z,alpha,1e30)
+        pos = T.clip(Z,alpha,1e30) - alpha
+        neg = T.clip(-Z,alpha,1e30) - alpha
 
         feat = T.concatenate((pos, neg), axis=1)
 

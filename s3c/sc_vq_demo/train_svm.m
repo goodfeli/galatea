@@ -1,15 +1,24 @@
 function theta = train_svm(trainXC, trainY, C)
-  
-  numClasses = max(trainY);
-  w0 = zeros(size(trainXC,2)*numClasses, 1);
+
+  numClasses = double(max(trainY));
+
+  numFeatures = size(trainXC,2);
+
+  numParameters = numFeatures * numClasses;
+
+  w0 = zeros(numParameters, 1);
+
+
   w = minFunc(@my_l2svmloss, w0, struct('MaxIter', 1000, 'MaxFunEvals', 1000), ...
               trainXC, trainY, numClasses, C);
 
+
   theta = reshape(w, size(trainXC,2), numClasses);
-  
+
 % 1-vs-all L2-svm loss function;  similar to LibLinear.
 function [loss, g] = my_l2svmloss(w, X, y, K, C)
   [M,N] = size(X);
+
   theta = reshape(w, N,K);
   Y = bsxfun(@(y,ypos) 2*(y==ypos)-1, y, 1:K);
 
