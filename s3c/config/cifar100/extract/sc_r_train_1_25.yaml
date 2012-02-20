@@ -1,0 +1,9 @@
+!obj:galatea.s3c.extract_features_rand_pool_python_loop_sc.FeatureExtractor {
+        "chunk_size" : 10000,
+        "batch_size" : 1,
+        "save_path" :  "${FEATURE_EXTRACTOR_YAML_PATH}.npy" , 
+        "lamda" : 1.25, 
+        "dict_file" : "/u/goodfeli/SPAMS/sc_1_25.mat",
+        "dataset_family" : galatea.s3c.extract_features.cifar100,
+        "which_set" : "train"
+}       
