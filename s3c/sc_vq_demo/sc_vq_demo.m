@@ -1,5 +1,5 @@
 CIFAR_DIR='/data/lisa/data/cifar10/cifar-10-batches-mat/';
-SPAMS_DIR='/path/to/SPAMS/release/platform'; % E.g.: 'SPAMS/release/mkl64'
+SPAMS_DIR='/u/goodfeli/SPAMS/release/atlas64'; % E.g.: 'SPAMS/release/mkl64'
 
 %%%%% Configuration
 addpath minFunc;
@@ -11,8 +11,8 @@ lambda = 1.0;  %% CV-chosen sparse coding penalty.
 
 %%%%% Dictionary Training %%%%%%
 %alg='patches'; %% Use randomly sampled patches.  Test accuracy 79.14%
-alg='omp1';   %% Use 1-hot VQ (OMP-1).  Test accuracy 79.96%
-%alg='sc';     %% Sparse coding
+%alg='omp1';   %% Use 1-hot VQ (OMP-1).  Test accuracy 79.96%
+alg='sc';     %% Sparse coding
 
 %%%%% Encoding %%%%%%
 encoder='thresh'; encParam=alpha; %% Use soft threshold encoder.
