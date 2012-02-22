@@ -17,7 +17,12 @@ function valid_acc = cifar100_fold_point_worker(fold, C, features_path, out_dir)
 	
 	fprintf(1,'loading features\n')
 	X = load(features_path);
-	X = X.X;
+	try
+		X = X.X;
+	catch
+		X = [ X.X_chunk_0; X.X_chunk_1 ];
+	end
+
 	fprintf(1,'augmenting features\n')
 	X = [ X, ones(size(X,1),1) ];
 
