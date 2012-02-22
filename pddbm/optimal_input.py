@@ -2,36 +2,46 @@
 #arg2: layer 2 model
 
 import sys
+from pylearn2.utils import serial
 
-l1, l2, idx, alpha = sys.argv[1:]
+if len(sys.argv) == 5:
+    l1, l2, idx, alpha = sys.argv[1:]
+
+    l1 = serial.load(l1)
+    l2 = serial.load(l2)
+
+    from pylearn2.models.dbm import DBM
+
+    dbm =  DBM(negative_chains = 1,
+               monitor_params = 0,
+               rbms = [ l2 ])
+
+
+    from galatea.pddbm.pddbm import PDDBM, InferenceProcedure
+
+    pddbm = PDDBM(
+            dbm = dbm,
+            s3c = l1,
+            inference_procedure = InferenceProcedure(
+                schedule = [ ['s',1.],  ['h',1.],   ['g',0],   ['h', 0.4], ['s',0.4],
+                             ['h',0.4], ['g',0],   ['h',0.4], ['s',0.4],  ['h',0.4],
+                             ['g',0],   ['h',0.4], ['s',0.4], ['h', 0.4], ['g',0],
+                             ['h',0.4], ['g',0],   ['h',0.4], ['s', 0.4], ['h',0.4] ],
+                monitor_kl = 0,
+                clip_reflections =  1,
+                rho = 0.5)
+            )
+else:
+    pddbm, idx, alpha = sys.argv[1:]
+
+    pddbm = serial.load(pddbm)
+
+    l1 = pddbm.s3c
+    l2 = pddbm.dbm.rbms[0]
+    pddbm.make_pseudoparams()
+
 idx = int(idx)
 alpha = float(alpha)
-
-from pylearn2.utils import serial
-l1 = serial.load(l1)
-l2 = serial.load(l2)
-
-from pylearn2.models.dbm import DBM
-
-dbm =  DBM(negative_chains = 1,
-           monitor_params = 0,
-           rbms = [ l2 ])
-
-
-from galatea.pddbm.pddbm import PDDBM, InferenceProcedure
-
-pddbm = PDDBM(
-        dbm = dbm,
-        s3c = l1,
-        inference_procedure = InferenceProcedure(
-            schedule = [ ['s',1.],  ['h',1.],   ['g',0],   ['h', 0.4], ['s',0.4],
-                         ['h',0.4], ['g',0],   ['h',0.4], ['s',0.4],  ['h',0.4],
-                         ['g',0],   ['h',0.4], ['s',0.4], ['h', 0.4], ['g',0],
-                         ['h',0.4], ['g',0],   ['h',0.4], ['s', 0.4], ['h',0.4] ],
-            monitor_kl = 0,
-            clip_reflections =  1,
-            rho = 0.5)
-        )
 
 from pylearn2.utils import sharedX
 import numpy as np
