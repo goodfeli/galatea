@@ -210,6 +210,7 @@ class FeatureExtractor:
 
         print 'defining features'
         V = T.matrix('V')
+        assert V.type.dtype == 'float32'
         model.make_pseudoparams()
         d = model.e_step.variational_inference(V = V)
 

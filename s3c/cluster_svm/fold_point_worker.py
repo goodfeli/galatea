@@ -1,7 +1,6 @@
 #TODO: support concatenating multiple datasets
 print 'script launched'
 
-
 try:
     from ia3n.util.mem import MemoryMonitor
     mem = MemoryMonitor()
@@ -20,6 +19,10 @@ from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 from pylearn2.datasets.cifar10 import CIFAR10
 from pylearn2.datasets.cifar100 import CIFAR100
+try:
+    from pylearn2.models.svm import DenseMulticlassSVM
+except:
+    DenseMulticlassSVM = None
 import gc
 gc.collect()
 if mem:
@@ -27,16 +30,17 @@ if mem:
 
 def get_svm_type(C, one_against_many):
     if one_against_many:
-        svm_type = LinearSVC(C=C)
+        #if DenseMulticlassSVM is None:
+        svm_type = LinearSVC(C=C, dual = False)
+        #else:
+        #    svm_type = DenseMulticlassSVM(C=C)
     else:
         svm_type =  SVC(kernel='linear',C=C)
     return svm_type
 
 
 def subtrain(fold_train_X, fold_train_y, C, one_against_many):
-    assert str(fold_train_X.dtype) == 'float32'
-
-    #assert fold_train_X.flags.c_contiguous
+    assert str(fold_train_X.dtype) == 'float64'
 
     if mem:
         print 'mem usage before calling fit: '+str(mem.usage())
@@ -46,7 +50,7 @@ def subtrain(fold_train_X, fold_train_y, C, one_against_many):
         print 'mem usage after calling fit: '+str(mem.usage())
     return svm
 
-def validate(train_X, train_y, fold_indices, C, one_against_many):
+def validate(train_X, train_y, fold_indices, C, log, one_against_many):
     train_mask = np.zeros((train_X.shape[0],),dtype='uint8')
     #Yes, Adam's site really does say to use the 1000 indices as the train,
     #not the validation set
@@ -55,13 +59,18 @@ def validate(train_X, train_y, fold_indices, C, one_against_many):
 
     if mem:
         print 'mem usage before calling subtrain: '+str(mem.usage())
-    svm = subtrain( train_X[train_mask.astype(bool),:], train_y[train_mask.astype(bool)], \
+    log.write('training...\n')
+    log.flush()
+    sub_train_X = np.cast['float64'](train_X[train_mask.astype(bool),:])
+    svm = subtrain( sub_train_X, train_y[train_mask.astype(bool)], \
             C = C, one_against_many = one_against_many)
     gc.collect()
     if mem:
         print 'mem usage after calling subtrain: '+str(mem.usage())
 
 
+    log.write('predicting...\n')
+    log.flush()
     this_fold_valid_X = train_X[(1-train_mask).astype(bool),:]
     y_pred = svm.predict(this_fold_valid_X)
     this_fold_valid_y = train_y[(1-train_mask).astype(bool)]
@@ -112,8 +121,12 @@ def main(train_path,
         standardize,
         fold,
         C,
+        log,
         **kwargs):
-    print 'in main()'
+
+    log.write('in main\n')
+    log.flush()
+
 
     stl10 = dataset == 'stl10'
     cifar10 = dataset == 'cifar10'
@@ -128,9 +141,13 @@ def main(train_path,
         print 'mem usage after getting labels and folds '+str(mem.usage())
     gc.collect()
     assert train_y is not None
+    log.write('got labels and folds')
+    log.flush()
 
     print 'loading training features'
     train_X = get_features(train_path, split = False, standardize = standardize)
+    log.write('got features')
+    log.flush()
 
 
     assert str(train_X.dtype) == 'float32'
@@ -141,7 +158,7 @@ def main(train_path,
         assert train_y.shape == (50000,)
 
     print 'running validate'
-    acc = validate(train_X, train_y, fold_indices[fold,:], C, **kwargs)
+    acc = validate(train_X, train_y, fold_indices[fold,:], C, log, **kwargs)
 
     report = open(out_path, 'w')
     report.write('C\tfold\tvalidation accuracy\n%f\t%d\t%f\n' % (C, fold, acc))
@@ -168,11 +185,20 @@ if __name__ == '__main__':
     assert options.C
     assert options.out
 
+
+    log = open(options.out+'.log.txt','w')
+    log.write('log file started succesfully\n')
+    log.flush()
+
+    print 'parsed the args'
     main(train_path=options.train,
          out_path = options.out,
          one_against_many = options.one_against_many,
          C = options.C,
          dataset = options.dataset,
          standardize = options.standardize,
-         fold = options.fold
+         fold = options.fold,
+         log = log
     )
+
+    log.close()
