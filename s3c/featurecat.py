@@ -28,7 +28,6 @@ for i in xrange(2, len(sys.argv)):
 
     idx += chunk_span
 
-assert idx == 50000
 
 
 np.save('out.npy',X)
