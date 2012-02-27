@@ -22,16 +22,16 @@ from pylearn2.gui.patch_viewer import PatchViewer
 
 pv1 = PatchViewer((3,3),(32,32),is_color = True)
 
-pv2 = PatchViewer((3,3),(32,32),is_color=True)
+pv2 = PatchViewer((3,4),(32,32),is_color=True)
 
 import numpy as np
 rng = np.random.RandomState([1,2,3])
 
-for i in xrange(9):
+for i in xrange(12):
     print i
     while True:
         print 'looping'
-        idxs = rng.randint(0,W.shape[0],(9,))
+        idxs = rng.randint(0,T.shape[0],(9,))
         for j in xrange(9):
             pv1.add_patch(T[idxs[j],:],activation=0.)
         pv1.show()

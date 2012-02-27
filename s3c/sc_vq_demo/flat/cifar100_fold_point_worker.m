@@ -26,7 +26,11 @@ function valid_acc = cifar100_fold_point_worker(fold_str, C_str, features_path, 
 	try
 		X = X.X;
 	catch
-		X = [ X.X_chunk_0; X.X_chunk_1 ];
+		try
+			X = [ X.X_chunk_0; X.X_chunk_1; X.X_chunk_2; X.X_chunk_3; X.X_chunk_4; X.X_chunk_5; X.X_chunk_6; X.X_chunk_7; X.X_chunk_8; X.X_chunk_9 ];
+		catch
+			X = [ X.X_chunk_0; X.X_chunk_1 ];
+		end
 	end
 	fprintf(1,'augmenting features\n')
 	X = [ X, ones(size(X,1),1) ];
@@ -74,6 +78,8 @@ function valid_acc = cifar100_fold_point_worker(fold_str, C_str, features_path, 
 	fprintf(1,'training svm\n')
 
 	W = train_svm(train_X,train_y,C);
+
+	fprintf(1,'done training svm\n')
 
 	cls = valid_X*W;
 	mx = max(cls');

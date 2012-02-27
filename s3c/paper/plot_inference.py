@@ -6,7 +6,8 @@ model_path = 'rpla_p5_interm.pkl'
 
 model = serial.load(model_path)
 
-model.make_Bwp()
+#model.make_Bwp()
+model.make_pseudoparams()
 
 stl10 = model.dataset_yaml_src.find('stl10') != -1
 
@@ -18,12 +19,13 @@ if stl10:
 
 V_var = T.matrix()
 
-history = model.e_step.mean_field(V = V_var, return_history = True)
+#history = model.e_step.mean_field(V = V_var, return_history = True)
+history = model.e_step.variational_inference(V = V_var, return_history = True)
 
 feature_type = 'exp_h'
 
 if feature_type == 'exp_h':
-    outputs = [ hist_elem['H'].mean() for hist_elem in history ]
+    outputs = [ hist_elem['H_hat'].mean() for hist_elem in history ]
 else:
     raise NotImplementedError()
 
@@ -40,9 +42,9 @@ plt.plot(y)
 ax = plt.gca()
 
 
-plt.title('Sparsification during inference')
-plt.xlabel('Damped parallel fixed point updates')
-plt.ylabel('Mean of $\mathbb{E}_Q [h]$')
+plt.title('Sparsification during inference',fontsize=20)
+plt.xlabel('Damped parallel fixed point updates',fontsize=18)
+plt.ylabel('Mean of $\mathbb{E}_Q [h]$',fontsize=18)
 
 plt.show()
 
