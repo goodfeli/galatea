@@ -14,7 +14,11 @@ if len(sys.argv) > 2:
 
 model = serial.load(model_path)
 
-model.make_Bwp()
+#model.make_Bwp()
+model.make_pseudoparams()
+
+
+model.bias_hid.set_value(model.bias_hid.get_value() * 1.3)
 
 stl10 = model.dataset_yaml_src.find('stl10') != -1
 
@@ -29,12 +33,12 @@ if shuffle:
 
 V_var = T.matrix()
 
-mean_field = model.e_step.mean_field(V = V_var)
+mean_field = model.e_step.variational_inference(V = V_var)
 
 feature_type = 'exp_h'
 
 if feature_type == 'exp_h':
-    outputs = mean_field['H']
+    outputs = mean_field['H_hat']
 else:
     raise NotImplementedError()
 
@@ -54,9 +58,9 @@ plt.hist(y, bins = 20, log = True)
 #ax = plt.gca()
 #ax.set_yscale('symlog' )
 
-plt.title('Distribution of $\mathbb{E}[h_i] $')
-plt.xlabel('$ \mathbb{E}[h_i] $')
-plt.ylabel('log number of occurrences')
+plt.title('Distribution of $\mathbb{E}[h_i] $',fontsize=20)
+plt.xlabel('$ \mathbb{E}[h_i] $', fontsize=18)
+plt.ylabel('log number of occurrences',fontsize=18)
 
 plt.show()
 
