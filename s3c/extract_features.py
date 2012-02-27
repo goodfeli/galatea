@@ -111,6 +111,9 @@ for which_set in ['train', 'test']:
                                             num_examples = stl10_size[which_set],
                                             pipeline_path = '${PYLEARN2_DATA_PATH}/stl10/stl10_patches_8x8/preprocessor.pkl')
 
+    cifar100[which_set][8] = FeaturesDataset( dataset_maker = dataset_constructor( CIFAR100, which_set),
+                                                num_examples = cifar100_size[which_set],
+                                                pipeline_path = '${PYLEARN2_DATA_PATH}/cifar100/cifar100_patches_8x8/preprocessor.pkl')
 
 
 class FeatureExtractor:
@@ -180,6 +183,7 @@ class FeatureExtractor:
         expected_num_examples = dataset_descriptor.num_examples
 
         full_X = dataset.get_design_matrix()
+        assert full_X.dtype == 'float32'
         num_examples = full_X.shape[0]
         assert num_examples == expected_num_examples
 
@@ -292,7 +296,7 @@ class FeatureExtractor:
 
             #print '\tapplying preprocessor'
             d.apply_preprocessor(pipeline, can_fit = False)
-            X2 = d.get_design_matrix()
+            X2 = np.cast['float32'](d.get_design_matrix())
 
             t3 = time.time()
 
