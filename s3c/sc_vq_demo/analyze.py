@@ -43,7 +43,9 @@ for key in C_to_res:
 
     value = C_to_res[key]
 
-    assert len(value) == num_folds
+    if len(value) != num_folds:
+        print key, 'has only ',len(value)
+        assert False
 
     C_to_res[key] = sum(value) / float(num_folds)
 
