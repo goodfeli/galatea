@@ -1,8 +1,0 @@
-!obj:galatea.s3c.extract_features.FeatureExtractor {
-        "batch_size" : 1,
-        "model_path" : "${GALATEA_PATH}/s3c/config/stl/rpla_p5_interm.pkl",         "pooling_region_counts": [3],
-        "save_paths" : [ "${FEATURE_EXTRACTOR_YAML_PATH}.npy" ], 
-        "feature_type" : "map_hs", 
-        "dataset_name" : "stl10",
-        "which_set" : "test"
-}       

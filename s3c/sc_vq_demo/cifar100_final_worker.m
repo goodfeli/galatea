@@ -22,13 +22,13 @@ function test_acc = cifar100_final_worker(C, features_path, test_features_path)
 	
 	fprintf(1,'loading features\n')
 	X = load(features_path);
-	X = X.X;
+	X = double(X.X);
 	fprintf(1,'augmenting features\n')
 	X = [ X, ones(size(X,1),1) ];
 
 	testX = load(test_features_path);
 	testX = testX.X;
-	testX = [ testX, ones(size(X,1),1) ];
+	testX = [ testX, ones(size(testX,1),1) ];
 
 	fprintf(1,'checking train y\n')
 	for i = 1:100
@@ -49,14 +49,11 @@ function test_acc = cifar100_final_worker(C, features_path, test_features_path)
 		die die die
 	end
 
-	valid_X = X(idx_mask == 1, :);
-	valid_y = y(idx_mask == 1);
-
 	fprintf(1,'training svm\n')
 
 	W = train_svm(X,y,C);
 
-	cls = test_X*W;
+	cls = testX*W;
 	mx = max(cls');
 	mask = cls == repmat(mx',1,size(cls,2));
 	pred_y = mask * [1:size(cls,2)]';
