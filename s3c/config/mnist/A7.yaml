@@ -7,7 +7,7 @@
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 784,
                "nhid" : 1058,
-               "init_bias_hid" : -3.,
+               "init_bias_hid" : -1.5,
                "max_bias_hid" : 1e6,
                "min_bias_hid" : -8.,
                "irange"  : .02,
@@ -41,7 +41,7 @@
                         "B_learning_rate_scale" : 1.0,
                         #note: I think all this stuff is currently ignored by the actual learning algo
                         "W_learning_rate_scale" : 10.,
-                        "p_penalty" : 1.,
+                        "p_penalty" : 0.,
                         "B_penalty" : 1.,
                         "alpha_penalty" : 1.
                },

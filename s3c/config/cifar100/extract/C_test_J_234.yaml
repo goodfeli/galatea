@@ -1,0 +1,12 @@
+!obj:galatea.s3c.extract_features.FeatureExtractor {
+        "batch_size" : 1,
+        "model_path" : "/RQexec/goodfell/C.pkl",
+        "save_paths" : [ "/RQexec/goodfell/C_test_2_J.npy",
+        "/RQexec/goodfell/C_test_3_J.npy",
+        "/RQexec/goodfell/C_test_4_J.npy" ] ,
+        "pooling_region_counts" : [ 2,3,4],
+        "feature_type" : "exp_h",
+        "dataset_family" : galatea.s3c.extract_features.cifar100,
+        "restrict" : [ 9000,  10000 ],
+        "which_set" : "test"
+}

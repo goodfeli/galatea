@@ -1,0 +1,10 @@
+!obj:galatea.s3c.extract_features_omp.FeatureExtractor {
+    "chunk_size" : 10000,
+    "batch_size" : 1,
+    "save_paths" :  [ "/RQexec/goodfell/omp_2_train_0_1.npy"  ] ,
+    "alpha" : 0.1,
+    "num_bases" : 1600,
+    "pooling_region_counts" : [2],
+    "dataset_family" : galatea.s3c.extract_features.cifar100,
+    "which_set" : "train"
+}

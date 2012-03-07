@@ -7,7 +7,7 @@
     "model": !obj:galatea.s3c.s3c.S3C {
                "nvis" : 784,
                "nhid" : 1058,
-               "init_bias_hid" : -3.,
+               "init_bias_hid" : -2.,
                "max_bias_hid" : 1e6,
                "min_bias_hid" : -8.,
                "irange"  : .02,
