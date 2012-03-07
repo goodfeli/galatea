@@ -14,7 +14,7 @@ assert len(pieces) == 2
 results_dir = pieces[0]
 serial.mkdir(results_dir)
 
-command = 'jobdispatch --duree=48:00:00 --whitespace --mem=18G python /RQusagers/goodfell/galatea/s3c/cluster_svm/fold_point_worker.py --dataset cifar100 --train '
+command = 'jobdispatch --duree=48:00:00 --whitespace --mem=40G python /RQusagers/goodfell/galatea/s3c/cluster_svm/fold_point_worker.py --dataset cifar100 --train '
 command += train_file
 command += ' "{{'
 

@@ -29,11 +29,9 @@ if mem:
     print 'memory usage after imports'+str(mem.usage())
 
 def get_svm_type(C, one_against_many):
+    #using standard SVM rather than Adam's L2 SVM
     if one_against_many:
-        #if DenseMulticlassSVM is None:
-        svm_type = LinearSVC(C=C, dual = False)
-        #else:
-        #    svm_type = DenseMulticlassSVM(C=C)
+        svm_type = DenseMulticlassSVM(C=C)
     else:
         svm_type =  SVC(kernel='linear',C=C)
     return svm_type
