@@ -31,6 +31,7 @@ def get_features(path, split, standardize):
         X = np.concatenate( (np.abs(X),np.abs(-X)), axis=1)
 
     if standardize:
+        assert False   #bug: if X is test set, we need to subtract train mean, divide by train std
         X -= X.mean(axis=0)
         X /= np.sqrt(.01+np.var(X,axis=0))
 
