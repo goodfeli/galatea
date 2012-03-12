@@ -66,6 +66,7 @@ class PDDBM(Model):
             print_interval = 10000,
             freeze_s3c_params = False,
             dbm_weight_decay = None,
+            dbm_l1_weight_decay = None,
             sub_batch = False,
             h_bias_src = 'dbm'):
         """
@@ -92,7 +93,11 @@ class PDDBM(Model):
 
         self.learning_rate = learning_rate
 
+        use_cd = dbm.use_cd
+        self.use_cd = use_cd
+
         self.dbm_weight_decay = dbm_weight_decay
+        self.dbm_l1_weight_decay = dbm_l1_weight_decay
 
         self.s3c = s3c
         s3c.e_step.autonomous = False
@@ -103,6 +108,7 @@ class PDDBM(Model):
 
         s3c.m_step = None
         self.dbm = dbm
+        self.dbm.use_cd = use_cd
 
         self.rng = np.random.RandomState([1,2,3])
 
@@ -231,6 +237,8 @@ class PDDBM(Model):
         assert self.g_penalties is None
         assert self.h_penalty == 0.0
         assert self.dbm_weight_decay is None
+        assert self.dbm_l1_weight_decay is None
+        assert not self.use_cd
 
         params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
@@ -417,6 +425,18 @@ class PDDBM(Model):
 
                 tractable_obj = tractable_obj - coeff * T.mean(T.sqr(W))
 
+        if self.dbm_l1_weight_decay:
+
+            for i, t in enumerate(zip(self.dbm_l1_weight_decay, self.dbm.W)):
+
+                coeff, W = t
+
+                coeff = as_floatX(float(coeff))
+                coeff = T.as_tensor_variable(coeff)
+                coeff.name = 'dbm_l1_weight_decay_coeff_'+str(i)
+
+                tractable_obj = tractable_obj - coeff * T.mean(abs(W))
+
         if self.h_penalty != 0.0:
             next_h = self.inference_procedure.infer_H_hat(V = V,
                 H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
@@ -455,14 +475,20 @@ class PDDBM(Model):
             params_to_grads[param] = grad
 
         #add the approximate gradients
-        params_to_approx_grads = self.dbm.get_neg_phase_grads()
+        if self.use_cd:
+            params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = V, H_hat = G_hat)
+        else:
+            params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
         for param in params_to_approx_grads:
             params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
 
         learning_updates = self.get_param_updates(params_to_grads)
 
-        sampling_updates = self.dbm.get_sampling_updates()
+        if self.use_cd:
+            sampling_updates = {}
+        else:
+            sampling_updates = self.dbm.get_sampling_updates()
 
         for key in sampling_updates:
             learning_updates[key] = sampling_updates[key]
