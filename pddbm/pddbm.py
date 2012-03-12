@@ -657,6 +657,11 @@ class InferenceProcedure:
                     step = self.schedule[i-2]
                     summary = '(' + str(step[0])+','+str(step[1])+')'
 
+                for G_hat in obs['G_hat']:
+                    for Gv in get_debug_values(G_hat):
+                        assert Gv.min() >= 0.0
+                        assert Gv.max() <= 1.0
+
                 rval['trunc_KL_'+str(i)+summary] = self.truncated_KL(V, obs).mean()
 
         final_vals = obs_history[-1]
@@ -703,6 +708,11 @@ class InferenceProcedure:
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
+        for G_hat in obs['G_hat']:
+            for Gv in get_debug_values(G_hat):
+                assert Gv.min() >= 0.0
+                assert Gv.max() <= 1.0
+
         s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs).mean()
 
         dbm_obs = self.dbm_observations(obs)
@@ -713,6 +723,7 @@ class InferenceProcedure:
         for s3c_kl_val, dbm_kl_val in get_debug_values(s3c_truncated_KL, dbm_truncated_KL):
             debug_assert( not np.any(np.isnan(s3c_kl_val)))
             debug_assert( not np.any(np.isnan(dbm_kl_val)))
+
 
         warnings.warn("""TODO: double check that this decomposition works--
                         It may be ignoring a subtlety where the math for dbm.truncated_kl is based on
@@ -863,6 +874,10 @@ class InferenceProcedure:
 
 
                 G_hat[number] = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number)
+
+                for Gv in get_debug_values(G_hat[number]):
+                    assert Gv.min() >= 0.0
+                    assert Gv.max() <= 1.0
 
             else:
                 raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
