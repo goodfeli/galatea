@@ -29,6 +29,7 @@ from theano.printing import min_informative_str
 from theano.printing import Print
 from theano.gof.op import debug_assert
 from theano.gof.op import get_debug_values
+from pylearn2.space import VectorSpace
 
 warnings.warn('There is a known bug where for some reason the w field of s3c '
 'gets serialized. Not sure if other things get serialized too but be sure to '
@@ -115,6 +116,7 @@ class PDDBM(Model):
             assert False
 
         self.nvis = s3c.nvis
+        self.input_space = VectorSpace(self.nvis)
 
         self.freeze_s3c_params = freeze_s3c_params
 
