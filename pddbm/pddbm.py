@@ -661,7 +661,7 @@ class InferenceProcedure:
                     summary = '(init)'
                 else:
                     step = self.schedule[i-2]
-                    summary = '(' + str(step[0])+','+str(step[1])+')'
+                    summary = str(step)
 
                 for G_hat in obs['G_hat']:
                     for Gv in get_debug_values(G_hat):
@@ -839,7 +839,13 @@ class InferenceProcedure:
 
         for i, step in enumerate(self.schedule):
 
-            letter, number = step
+            if len(step) == 2:
+                letter, number = step
+                g_new_coeff = None
+            else:
+                letter, number, g_new_coeff = step
+                assert letter == 'g'
+                g_new_coeff = as_floatX(g_new_coeff)
 
             coeff = as_floatX(number)
 
@@ -879,7 +885,15 @@ class InferenceProcedure:
                             "but got "+str(number)+" (of type "+str(type(number)))
 
 
-                G_hat[number] = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number)
+                update = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number)
+                assert update.type.dtype == config.floatX
+
+                if g_new_coeff is not None:
+                    assert G_hat[number].type.dtype == config.floatX
+                    update = damp(old = G_hat[number], new = update, new_coeff = g_new_coeff)
+                    assert update.type.dtype == config.floatX
+
+                G_hat[number] = update
 
                 for Gv in get_debug_values(G_hat[number]):
                     assert Gv.min() >= 0.0
