@@ -931,5 +931,9 @@ class InferenceProcedure:
                                    W_below = W_below, W_above = W_above,
                                    b = b)
 
+    def infer_var_s1_hat(self):
+        return self.s3c_e_step.infer_var_s1_hat()
 
 
+    def infer_var_s0_hat(self):
+        return self.s3c_e_step.infer_var_s0_hat()
