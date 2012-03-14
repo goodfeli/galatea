@@ -1,7 +1,8 @@
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import E_Step
 from pylearn2.models.s3c import Grad_M_Step
-from galatea.pddbm.pddbm import PDDBM
+from galatea.pddbm.pddbm import PDDBM, InferenceProcedure
+from pylearn2.models.rbm import RBM
 from pylearn2.models.dbm import DBM
 from theano import function
 import numpy as np
@@ -44,33 +45,44 @@ class Test_PDDBM_Inference:
         N = 6
         N2 = 7
 
-        #don't give the model an e_step or learning rate so it won't spend years compiling a learn_func
-        self.model = PDDBM(
-                dbm = DBM(
-                            rbms = [
 
-                                ]),
-                s3c = S3C(nvis = D,
-                         nhid = N,
-                         irange = .1,
-                         init_bias_hid = 0.,
-                         init_B = 3.,
-                         min_B = 1e-8,
-                         max_B = 1000.,
-                         init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
-                         init_mu = 1., e_step = None,
-                         m_step = Grad_M_Step(),
-                         min_bias_hid = -1e30, max_bias_hid = 1e30,
-                        )
+        s3c = S3C(nvis = D,
+                 nhid = N,
+                 irange = .1,
+                 init_bias_hid = 0.,
+                 init_B = 3.,
+                 min_B = 1e-8,
+                 max_B = 1000.,
+                 init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
+                 init_mu = 1., e_step = None,
+                 m_step = Grad_M_Step(),
+                 min_bias_hid = -1e30, max_bias_hid = 1e30,
+                )
+
+        rbm = RBM(nvis = N, nhid = N2, irange = .05, init_bias_vis = -1.5, init_bias_hid = 1.5)
+
+        #don't give the model an inference procedure or learning rate so it won't spend years compiling a learn_func
+        self.model = PDDBM(
+                dbm = DBM(  use_cd = 1,
+                            rbms = [ rbm  ]),
+                s3c = s3c
         )
 
         self.model.make_pseudoparams()
 
-        self.e_step = E_Step(h_new_coeff_schedule = [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ])
-        self.e_step.register_model(self.model)
+        self.inference_procedure = InferenceProcedure(
+                    schedule = [ ['s',.1],   ['h',.1],   ['g',0, 0.2],   ['h', 0.2], ['s',0.2],
+                                ['h',0.3], ['g',0,.3],   ['h',0.3], ['s',0.4], ['h',0.4],
+                                ['g',0,.4],   ['h',0.4], ['s',.4], ['h',0.4],
+                                ['g',0,.5],   ['h',0.5], ['s', 0.5], ['h',0.1],
+                                ['s',0.5] ],
+                    clip_reflections = True,
+                    rho = .5 )
+        self.inference_procedure.register_model(self.model)
 
         self.X = X
         self.N = N
+        self.N2 = N2
         self.m = m
 
     """
@@ -218,72 +230,67 @@ class Test_PDDBM_Inference:
         "tests that the gradients with respect to h_i are 0 after doing a mean field update of h_i "
 
         model = self.model
-        e_step = self.e_step
+        ip = self.inference_procedure
         X = self.X
 
         assert X.shape[0] == self.m
 
-        init_H = e_step.init_H_hat(V = X)
-        init_Mu1 = e_step.init_S_hat(V = X)
+        """
+        init_H = ip.init_H_hat(V = X)
+        init_S = ip.init_S_hat(V = X)
+        init_G = ip.init_G_hat(V = X)[0]
 
         prev_setting = config.compute_test_value
         config.compute_test_value= 'off'
-        H, Mu1 = function([], outputs=[init_H, init_Mu1])()
+        H, S, G = function([], outputs=[init_H, init_S, init_G])()
         config.compute_test_value = prev_setting
 
-        H = broadcast(H, self.m)
-        Mu1 = broadcast(Mu1, self.m)
+        H, S, G = [ broadcast(elem, self.m) for elem in [H,S,G] ]
+        """
 
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,H.shape))
-        Mu1 = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,Mu1.shape))
-
+        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
+        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
+        G = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m,self.N2)))
 
         H_var = T.matrix(name='H_var')
         H_var.tag.test_value = H
-        Mu1_var = T.matrix(name='Mu1_var')
-        Mu1_var.tag.test_value = Mu1
+        S_var = T.matrix(name='S_var')
+        S_var.tag.test_value = S
+        G_var = T.matrix(name='G_var')
+        G_var.tag.test_value = G
         idx = T.iscalar()
         idx.tag.test_value = 0
 
-
-        new_H = e_step.infer_H_hat(V = X, H_hat = H_var, S_hat = Mu1_var)
+        new_H = ip.infer_H_hat(V = X, H_hat = H_var, S_hat = S, G1_hat = G_var )
         h_idx = new_H[:,idx]
 
-        h_idx = T.clip(h_idx, 0., 1.)
+        updates_func = function([H_var,S_var,G_var,idx], h_idx, on_unused_input = 'ignore')
 
+        sigma0 = ip.infer_var_s0_hat()
+        Sigma1 = ip.infer_var_s1_hat()
+        mu0 = T.zeros_like(model.s3c.mu)
 
-        updates_func = function([H_var,Mu1_var,idx], h_idx)
+        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+                                                 'S_hat' : S_var,
+                                                 'var_s0_hat' : sigma0,
+                                                 'var_s1_hat' : Sigma1,
+                                                 'G_hat' : ( G_var, ) } )
 
-        sigma0 = 1. / model.alpha
-        Sigma1 = e_step.infer_var_s1_hat()
-        mu0 = T.zeros_like(model.mu)
+        assert len(trunc_kl.type.broadcastable) == 0
 
-        #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
-        # (they don't affect the outcome of this test and some of them are intractable )
-        trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var,  var_s0_hat = sigma0,
-                             var_s1_hat = Sigma1)
-
-        grad_H = T.grad(trunc_kl.sum(), H_var)
+        grad_H = T.grad(trunc_kl, H_var)
 
         assert len(grad_H.type.broadcastable) == 2
 
-        #from theano.printing import min_informative_str
-        #print min_informative_str(grad_H)
-
-        #grad_H = Print('grad_H')(grad_H)
-
-        #grad_H_idx = grad_H[:,idx]
-
-        grad_func = function([H_var, Mu1_var], grad_H)
+        grad_func = function([H_var, S_var, G_var], grad_H)
 
         failed = False
 
         for i in xrange(self.N):
-            rval = updates_func(H, Mu1, i)
+            rval = updates_func(H, S, G, i)
             H[:,i] = rval
 
-            g = grad_func(H,Mu1)[:,i]
+            g = grad_func(H,S,G)[:,i]
 
             assert not np.any(np.isnan(g))
 
@@ -314,7 +321,8 @@ class Test_PDDBM_Inference:
 
                 mask = high_mask * low_mask
 
-                print 'masked failures: ',mask.shape[0],' err ',g_abs_max
+                print 'masking out values of h less than .001 and above .999 because gradient acts weird there'
+                print '# failures passing the range mask: ',mask.shape[0],' err ',g_abs_max
 
                 if mask.sum() > 0:
                     print 'failing h passing the range mask'
@@ -325,7 +333,6 @@ class Test_PDDBM_Inference:
                             +str(g_abs_max)+' after updating h_'+str(i))
 
 
-        #assert not failed
 
 
     def test_value_h(self):
