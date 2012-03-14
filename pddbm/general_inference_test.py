@@ -12,18 +12,31 @@ from theano import config
 model_path = sys.argv[1]
 
 from pylearn2.utils import serial
+from pylearn2.config import yaml_parse
 
 print 'loading model...'
 model = serial.load(model_path)
 print 'done'
 
-batch_size = int(sys.argv[2])
-num_batches = int(sys.argv[3])
-ga_updates = int(sys.argv[4])
-learning_rate = float(sys.argv[5])
+if len(sys.argv) > 2:
+    batch_size = int(sys.argv[2])
+else:
+    batch_size = 100
+if len(sys.argv) > 3:
+    num_batches = int(sys.argv[3])
+else:
+    num_batches = 1
+if len(sys.argv) > 4:
+    ga_updates = int(sys.argv[4])
+else:
+    ga_updates = 100000
+if len(sys.argv) > 5:
+    learning_rate = float(sys.argv[5])
+else:
+    learning_rate = .001
 
 print 'loading dataset...'
-dataset = serial.load('${STL10_PATCHES}')
+dataset = yaml_parse.load(model.dataset_yaml_src)
 print 'done'
 
 print 'defining em functional...'
@@ -79,12 +92,14 @@ grad_G = [ T.grad(obj, G_elem) for G_elem in G ]
 grad_H = T.grad(obj,H)
 grad_S = T.grad(obj,S)
 
-updates = { H : T.clip(H - learning_rate * grad_H, 0., 1.), S : S - learning_rate * grad_S }
+learning_rate_sym = T.scalar()
+
+updates = { H : T.clip(H - learning_rate_sym * grad_H, 0., 1.), S : S - learning_rate_sym * grad_S }
 
 for G_elem, grad_G_elem in zip(G,grad_G):
-    updates[G_elem] = T.clip(G_elem - learning_rate * grad_G_elem, 0., 1.)
+    updates[G_elem] = T.clip(G_elem - learning_rate_sym * grad_G_elem, 0., 1.)
 
-update = function([V], obj, updates = updates )
+update = function([V, learning_rate_sym], obj, updates = updates )
 
 updates = { H : obs['H_hat'], S : obs['S_hat'] }
 
@@ -94,17 +109,20 @@ for G_elem, G_hat_elem in zip(G, obs['G_hat']):
 init = function([V], trunc_kl,  updates = updates )
 print 'done'
 
-print 'loading dataset...'
-dataset = serial.load('${STL10_PATCHES}')
-print 'done'
 
 for i in xrange(num_batches):
     X = dataset.get_batch_design(batch_size)
-    em = init(X)
+    prev_kl = init(X)
 
     print 'batch ',i
-    print em
+    print prev_kl
 
     for j in xrange(ga_updates):
-        print update(X)
+        kl = update(X, learning_rate)
+        print kl
+
+        if kl > prev_kl:
+            learning_rate *= .99
+            print 'scaled learning rate to ',learning_rate
+        prev_kl = kl
 

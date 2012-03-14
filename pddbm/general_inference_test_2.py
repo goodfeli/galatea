@@ -88,18 +88,21 @@ obj = model.inference_procedure.truncated_KL( V, {
     "G_hat" : G
     } )
 
-grad_G = [ T.grad(obj, G_elem) for G_elem in G ]
-grad_H = T.grad(obj,H)
-grad_S = T.grad(obj,S)
+grad_G_sym = [ T.grad(obj, G_elem) for G_elem in G ]
+grad_H_sym = T.grad(obj,H)
+grad_S_sym = T.grad(obj,S)
 
-learning_rate_sym = T.scalar()
 
-updates = { H : T.clip(H - learning_rate_sym * grad_H, 0., 1.), S : S - learning_rate_sym * grad_S }
+grad_H = sharedX( H.get_value())
+grad_S = sharedX( S.get_value())
+grad_G = [ sharedX( G_elem.get_value())  for G_elem in G ]
 
-for G_elem, grad_G_elem in zip(G,grad_G):
-    updates[G_elem] = T.clip(G_elem - learning_rate_sym * grad_G_elem, 0., 1.)
+updates = { grad_H : grad_H_sym, grad_S : grad_S_sym }
 
-update = function([V, learning_rate_sym], obj, updates = updates )
+for grad_G_elem, grad_G_sym_elem in zip(grad_G,grad_G_sym):
+    updates[grad_G_elem] = grad_G_sym_elem
+
+compute_grad = function([V], updates = updates )
 
 updates = { H : obs['H_hat'], S : obs['S_hat'] }
 
@@ -107,22 +110,111 @@ for G_elem, G_hat_elem in zip(G, obs['G_hat']):
     updates[G_elem] = G_hat_elem
 
 init = function([V], trunc_kl,  updates = updates )
+
+obj = function([V], obj)
 print 'done'
 
 
+alpha_list = [ .001, .005, .01, .05, .1 ]
+
+def cache_values():
+
+    global H_cache
+    global S_cache
+    global G_cache
+
+    H_cache = H.get_value()
+    S_cache = S.get_value()
+    G_cache = [ G_elem.get_value() for G_elem in G ]
+
+
+def clip(M):
+    return np.clip(M,1e-7,1.-1e-7)
+
+def goto_alpha(a):
+    global H_cache
+    global S_cache
+    global G_cache
+
+    #print 'a ',a
+
+    assert not np.any(np.isnan(H_cache))
+    piece_of_shit = grad_H.get_value()
+    assert not np.any(np.isnan(piece_of_shit))
+    assert not np.any(np.isinf(piece_of_shit))
+    mul = a * piece_of_shit
+
+    assert not np.any(np.isnan(mul))
+
+    diff = H_cache - mul
+
+    assert not np.any(np.isnan(diff))
+
+    fuck_you = clip( diff )
+
+    assert not np.any(np.isnan(fuck_you))
+
+    #print 'fuck you ',fuck_you.mean(),fuck_you.max(),fuck_you.min()
+
+    H.set_value(fuck_you)
+    #print 'H ',H.get_value().mean(), H.get_value().max(), H.get_value().min()
+    S.set_value(S_cache-a*grad_S.get_value())
+    for G_elem, G_cache_elem, grad_G_elem in zip(G, G_cache, grad_G):
+        G_elem.set_value(clip(G_cache_elem-a*grad_G_elem.get_value()))
+
 for i in xrange(num_batches):
     X = dataset.get_batch_design(batch_size)
-    prev_kl = init(X)
+    kl = init(X)
 
     print 'batch ',i
-    print prev_kl
+    print kl
+
+    orig_H = H.get_value()
+    orig_S = S.get_value()
+    orig_G = [ G_elem.get_value() for G_elem in G ]
 
     for j in xrange(ga_updates):
-        kl = update(X, learning_rate)
-        print kl
+        best_kl, best_alpha, best_alpha_ind = obj(X), 0., -1
 
-        if kl > prev_kl:
-            learning_rate *= .99
-            print 'scaled learning rate to ',learning_rate
-        prev_kl = kl
+        cache_values()
+        compute_grad(X)
 
+
+
+        for ind, alpha in enumerate(alpha_list):
+            goto_alpha(alpha)
+            kl = obj(X)
+            print '\t',alpha,kl
+
+            if kl < best_kl:
+                best_kl = kl
+                best_alpha = alpha
+                best_alpha_ind = ind
+
+        print best_kl
+        assert not np.isnan(best_kl)
+        goto_alpha(best_alpha)
+
+        if best_alpha_ind < 1 and alpha_list[0] > 3e-7:
+            alpha_list = [ alpha / 3. for alpha in alpha_list ]
+        elif best_alpha_ind > len(alpha_list) -2:
+            alpha_list = [ alpha * 2. for alpha in alpha_list ]
+        elif best_alpha_ind == -1 and alpha_list[0] <= 3e-7:
+            break
+
+    H_dist = np.sqrt( np.square( H.get_value() - orig_H ).sum() )
+    S_dist = np.sqrt( np.square( S.get_value() - orig_S ).sum() )
+    G_dist = np.sqrt( sum( [ np.square( G_elem.get_value() - G_orig_elem ).sum() for G_elem, G_orig_elem in zip(G, orig_G) ] ) )
+
+    print 'H moved ',H_dist
+    print 'S moved ',S_dist
+    print 'G moved ',G_dist
+
+    H_diffs = np.abs(H.get_value() - orig_H)
+    S_diffs = np.abs(S.get_value() - orig_S)
+    G_diffs = [ np.abs( G_elem.get_value() - orig_G_elem) for G_elem, orig_G_elem in zip(G, orig_G) ]
+
+    print 'H diffs ',(H_diffs.min(), H_diffs.mean(), H_diffs.max() )
+    print 'S diffs ',(S_diffs.min(), S_diffs.mean(), S_diffs.max() )
+    print 'G diffs ',( min([G_diff_elem.min() for G_diff_elem in G_diffs]), sum([G_diff_elem.mean() for G_diff_elem in G_diffs])/float(len(G)),
+            max([G_diff_elem.max() for G_diff_elem in G_diffs]) )
