@@ -57,7 +57,7 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
-            inference_procedure,
+            inference_procedure = None,
             learning_rate = 1e-3,
             h_penalty = 0.0,
             h_target = None,
@@ -77,6 +77,7 @@ class PDDBM(Model):
                 will become owned by the PDDBM
                 it won't be deleted but many of its fields will change
             inference_procedure: a galatea.pddbm.pddbm.InferenceProcedure
+                                    if None, does not compile a learn_func
             print_interval: number of examples between each status printout
             h_bias_src: either 'dbm' or 's3c'. both the dbm and s3c have a bias
                     term on h-- whose should we use when we build the model?
@@ -140,7 +141,9 @@ class PDDBM(Model):
         s3c.print_interval = None
         dbm.print_interval = None
 
-        inference_procedure.register_model(self)
+
+        if inference_procedure is not None:
+            inference_procedure.register_model(self)
         self.inference_procedure = inference_procedure
 
         self.num_g = len(self.dbm.W)
@@ -352,6 +355,8 @@ class PDDBM(Model):
         """
         V: a symbolic design matrix
         """
+
+        assert self.inference_procedure is not None
 
         #run variational inference on the train set
         hidden_obs = self.inference_procedure.infer(V)
@@ -570,7 +575,8 @@ class PDDBM(Model):
                 self.accum_pos_phase_grad_func = self.make_accum_pos_phase_grad_func(X)
                 self.grad_step_func = self.make_grad_step_func()
             else:
-                self.learn_func = self.make_learn_func(X)
+                if self.inference_procedure is not None:
+                    self.learn_func = self.make_learn_func(X)
 
             final_names = dir(self)
 
