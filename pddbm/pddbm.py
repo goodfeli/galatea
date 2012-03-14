@@ -723,18 +723,12 @@ class InferenceProcedure:
 
         dbm_obs = self.dbm_observations(obs)
 
-        dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], obs = dbm_obs)
+        dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], obs = dbm_obs, no_v_bias = True)
         assert len(dbm_truncated_KL.type.broadcastable) == 0
 
         for s3c_kl_val, dbm_kl_val in get_debug_values(s3c_truncated_KL, dbm_truncated_KL):
             debug_assert( not np.any(np.isnan(s3c_kl_val)))
             debug_assert( not np.any(np.isnan(dbm_kl_val)))
-
-
-        warnings.warn("""TODO: double check that this decomposition works--
-                        It may be ignoring a subtlety where the math for dbm.truncated_kl is based on
-                        a fixed V but the pddbm is actually passing it variational parameters
-                        for distributional V""")
 
         rval = s3c_truncated_KL + dbm_truncated_KL
 
@@ -750,6 +744,8 @@ class InferenceProcedure:
         s3c_presigmoid = self.s3c_e_step.infer_H_hat_presigmoid(V, H_hat, S_hat)
 
         W = self.model.dbm.W[0]
+
+        assert self.model.s3c.bias_hid is self.model.dbm.bias_vis
 
         top_down = T.dot(G1_hat, W.T)
 
