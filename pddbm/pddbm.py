@@ -65,6 +65,7 @@ class PDDBM(Model):
             g_targets = None,
             print_interval = 10000,
             freeze_s3c_params = False,
+            freeze_dbm_params = False,
             dbm_weight_decay = None,
             dbm_l1_weight_decay = None,
             sub_batch = False,
@@ -126,6 +127,7 @@ class PDDBM(Model):
         self.input_space = VectorSpace(self.nvis)
 
         self.freeze_s3c_params = freeze_s3c_params
+        self.freeze_dbm_params = freeze_dbm_params
 
         #don't support some exotic options on s3c
         for option in ['monitor_functional',
@@ -223,10 +225,16 @@ class PDDBM(Model):
         pass
 
     def get_params(self):
+
+        params = set([])
+
         if not self.freeze_s3c_params:
-            return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
-        else:
-            return self.dbm.get_params()
+            params = params.union(set(self.s3c.get_params()))
+
+        if not self.freeze_dbm_params:
+            params = params.union(set(self.dbm.get_params()))
+
+        return list(params)
 
     def make_reset_grad_func(self):
         """
@@ -534,6 +542,14 @@ class PDDBM(Model):
         return rval
 
     def censor_updates(self, updates):
+
+        if self.freeze_s3c_params:
+            for param in self.s3c.get_params():
+                assert param not in updates
+
+        if self.freeze_dbm_params:
+            for param in self.dbm.get_params():
+                assert param not in updates
 
         self.s3c.censor_updates(updates)
         self.dbm.censor_updates(updates)
