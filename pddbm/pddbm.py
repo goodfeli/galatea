@@ -113,9 +113,16 @@ class PDDBM(Model):
             m_step = self.s3c.m_step
             self.B_learning_rate_scale = m_step.B_learning_rate_scale
             self.s3c_W_learning_rate_scale = m_step.W_learning_rate_scale
+            if m_step.p_penalty is not None and m_step.p_penalty != 0.0:
+                raise ValueError("s3c.p_penalty must be none or 0. p is not tractable anymore "
+                        "when s3c is integrated into a pd-dbm.")
+            self.B_penalty = m_step.B_penalty
+            self.alpha_penalty = m_step.alpha_penalty
         else:
             self.B_learning_rate_scale = 1.
             self.s3c_W_learning_rate_scale = 1.
+            self.B_penalty = 0.
+            self.alpha_penalty = 0.
 
         s3c.m_step = None
         self.dbm = dbm
@@ -484,6 +491,13 @@ class PDDBM(Model):
                 penalty = T.mean(abs_err)
 
                 tractable_obj = tractable_obj - self.g_penalties[i] * penalty
+
+
+        if self.B_penalty != 0.0:
+            tractable_obj = tractable_obj - T.mean(self.s3c.B) * self.B_penalty
+
+        if self.alpha_penalty != 0.0:
+            tractable_obj = tractable_obj - T.mean(self.s3c.alpha) * self.alpha_penalty
 
         assert len(tractable_obj.type.broadcastable) == 0
 
