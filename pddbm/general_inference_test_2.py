@@ -52,6 +52,8 @@ if config.compute_test_value != 'off':
 
 model.make_pseudoparams()
 obs = model.inference_procedure.infer(V)
+obs['H_hat'] = T.clip(obs['H_hat'],1e-7,1.-1e-7)
+obs['G_hat'] = tuple([ T.clip(elem,1e-7,1.-1e-7) for elem in obs['G_hat']  ])
 
 from pylearn2.models.s3c import S3C
 
@@ -141,7 +143,9 @@ def goto_alpha(a):
     assert not np.any(np.isnan(H_cache))
     piece_of_shit = grad_H.get_value()
     assert not np.any(np.isnan(piece_of_shit))
-    assert not np.any(np.isinf(piece_of_shit))
+    if np.any(np.isinf(piece_of_shit)):
+        print H.get_value()[np.isinf(piece_of_shit)]
+        assert False
     mul = a * piece_of_shit
 
     assert not np.any(np.isnan(mul))
@@ -162,12 +166,32 @@ def goto_alpha(a):
     for G_elem, G_cache_elem, grad_G_elem in zip(G, G_cache, grad_G):
         G_elem.set_value(clip(G_cache_elem-a*grad_G_elem.get_value()))
 
+def norm_sq(s):
+    return np.square(s.get_value()).sum()
+
+def scale(s, a):
+    s.set_value(s.get_value() * a)
+
+def normalize_grad():
+    n = sum( [ norm_sq(elem) for elem in grad_G ] )
+    n += norm_sq(grad_H)
+    n += norm_sq(grad_S)
+
+    n = np.sqrt(n)
+
+    for elem in grad_G:
+        scale(elem, 1./n)
+    scale(grad_H, 1./n)
+    scale(grad_S, 1./n)
+
 for i in xrange(num_batches):
     X = dataset.get_batch_design(batch_size)
-    kl = init(X)
+    orig_kl = init(X)
+
+    H.set_value(clip(H.get_value()))
 
     print 'batch ',i
-    print kl
+    print orig_kl
 
     orig_H = H.get_value()
     orig_S = S.get_value()
@@ -178,8 +202,7 @@ for i in xrange(num_batches):
 
         cache_values()
         compute_grad(X)
-
-
+        normalize_grad()
 
         for ind, alpha in enumerate(alpha_list):
             goto_alpha(alpha)
@@ -205,6 +228,8 @@ for i in xrange(num_batches):
     H_dist = np.sqrt( np.square( H.get_value() - orig_H ).sum() )
     S_dist = np.sqrt( np.square( S.get_value() - orig_S ).sum() )
     G_dist = np.sqrt( sum( [ np.square( G_elem.get_value() - G_orig_elem ).sum() for G_elem, G_orig_elem in zip(G, orig_G) ] ) )
+
+    print 'kl improved by ',orig_kl-best_kl
 
     print 'H moved ',H_dist
     print 'S moved ',S_dist

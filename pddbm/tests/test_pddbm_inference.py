@@ -85,146 +85,6 @@ class Test_PDDBM_Inference:
         self.N2 = N2
         self.m = m
 
-    """
-        The next two methods are just a copy paste of the S3C tests. Hasn't been ported to PDDBM yet.
-
-    def test_grad_s(self):
-
-        "tests that the gradients with respect to s_i are 0 after doing a mean field update of s_i "
-
-        model = self.model
-        e_step = self.e_step
-        X = self.X
-
-        assert X.shape[0] == self.m
-
-        model.test_batch_size = X.shape[0]
-
-        init_H = e_step.init_H_hat(V = X)
-        init_Mu1 = e_step.init_S_hat(V = X)
-
-        prev_setting = config.compute_test_value
-        config.compute_test_value= 'off'
-        H, Mu1 = function([], outputs=[init_H, init_Mu1])()
-        config.compute_test_value = prev_setting
-
-        H = broadcast(H, self.m)
-        Mu1 = broadcast(Mu1, self.m)
-
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,H.shape))
-        Mu1 = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,Mu1.shape))
-
-
-
-        H_var = T.matrix(name='H_var')
-        H_var.tag.test_value = H
-        Mu1_var = T.matrix(name='Mu1_var')
-        Mu1_var.tag.test_value = Mu1
-        idx = T.iscalar()
-        idx.tag.test_value = 0
-
-
-        S = e_step.infer_S_hat(V = X, H_hat = H_var, S_hat = Mu1_var)
-
-        s_idx = S[:,idx]
-
-        s_i_func = function([H_var,Mu1_var,idx],s_idx)
-
-        sigma0 = 1. / model.alpha
-        Sigma1 = e_step.infer_var_s1_hat()
-        mu0 = T.zeros_like(model.mu)
-
-        #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
-        # (they don't affect the outcome of this test and some of them are intractable )
-        trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var, var_s0_hat = sigma0, var_s1_hat = Sigma1)
-
-        grad_Mu1 = T.grad(trunc_kl.sum(), Mu1_var)
-
-        grad_Mu1_idx = grad_Mu1[:,idx]
-
-        grad_func = function([H_var, Mu1_var, idx], grad_Mu1_idx)
-
-        for i in xrange(self.N):
-            Mu1[:,i] = s_i_func(H, Mu1, i)
-
-            g = grad_func(H,Mu1,i)
-
-            assert not np.any(np.isnan(g))
-
-            g_abs_max = np.abs(g).max()
-
-
-            if g_abs_max > self.tol:
-                raise Exception('after mean field step, gradient of kl divergence wrt mean field parameter should be 0, but here the max magnitude of a gradient element is '+str(g_abs_max)+' after updating s_'+str(i))
-
-    def test_value_s(self):
-
-        "tests that the value of the kl divergence decreases with each update to s_i "
-
-        model = self.model
-        e_step = self.e_step
-        X = self.X
-
-        assert X.shape[0] == self.m
-
-        init_H = e_step.init_H_hat(V = X)
-        init_Mu1 = e_step.init_S_hat(V = X)
-
-        prev_setting = config.compute_test_value
-        config.compute_test_value= 'off'
-        H, Mu1 = function([], outputs=[init_H, init_Mu1])()
-        config.compute_test_value = prev_setting
-
-        H = broadcast(H, self.m)
-        Mu1 = broadcast(Mu1, self.m)
-
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,H.shape))
-        Mu1 = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,Mu1.shape))
-
-
-        H_var = T.matrix(name='H_var')
-        H_var.tag.test_value = H
-        Mu1_var = T.matrix(name='Mu1_var')
-        Mu1_var.tag.test_value = Mu1
-        idx = T.iscalar()
-        idx.tag.test_value = 0
-
-        S = e_step.infer_S_hat( V = X, H_hat = H_var, S_hat = Mu1_var)
-
-        s_idx = S[:,idx]
-
-        s_i_func = function([H_var,Mu1_var,idx],s_idx)
-
-        sigma0 = 1. / model.alpha
-        Sigma1 = e_step.infer_var_s1_hat()
-        mu0 = T.zeros_like(model.mu)
-
-        #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
-        # (they don't affect the outcome of this test and some of them are intractable )
-        trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var, var_s0_hat = sigma0, var_s1_hat = Sigma1)
-
-        trunc_kl_func = function([H_var, Mu1_var], trunc_kl)
-
-        for i in xrange(self.N):
-            prev_kl = trunc_kl_func(H,Mu1)
-
-            Mu1[:,i] = s_i_func(H, Mu1, i)
-
-            new_kl = trunc_kl_func(H,Mu1)
-
-
-            increase = new_kl - prev_kl
-
-
-            mx = increase.max()
-
-            if mx > 1e-3:
-                raise Exception('after mean field step in s, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating s_'+str(i))
-    """
-
-
     def test_grad_h(self):
 
         "tests that the gradients with respect to h_i are 0 after doing a mean field update of h_i "
@@ -234,19 +94,6 @@ class Test_PDDBM_Inference:
         X = self.X
 
         assert X.shape[0] == self.m
-
-        """
-        init_H = ip.init_H_hat(V = X)
-        init_S = ip.init_S_hat(V = X)
-        init_G = ip.init_G_hat(V = X)[0]
-
-        prev_setting = config.compute_test_value
-        config.compute_test_value= 'off'
-        H, S, G = function([], outputs=[init_H, init_S, init_G])()
-        config.compute_test_value = prev_setting
-
-        H, S, G = [ broadcast(elem, self.m) for elem in [H,S,G] ]
-        """
 
         H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
         S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
@@ -333,66 +180,214 @@ class Test_PDDBM_Inference:
                             +str(g_abs_max)+' after updating h_'+str(i))
 
 
+    def test_grad_g(self):
 
+        "tests that the gradients with respect to g_i are 0 after doing a mean field update of g_i "
+
+        model = self.model
+        ip = self.inference_procedure
+        X = self.X
+
+        assert X.shape[0] == self.m
+
+        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
+        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
+        G = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m,self.N2)))
+
+        H_var = T.matrix(name='H_var')
+        H_var.tag.test_value = H
+        S_var = T.matrix(name='S_var')
+        S_var.tag.test_value = S
+        G_var = T.matrix(name='G_var')
+        G_var.tag.test_value = G
+        idx = T.iscalar()
+        idx.tag.test_value = 0
+
+        new_G = ip.infer_G_hat(H_hat = H_var, G_hat = (G_var,) , idx =0)
+        g_idx = new_G[:,idx]
+
+        updates_func = function([H_var,S_var,G_var,idx], g_idx, on_unused_input = 'ignore')
+
+        sigma0 = ip.infer_var_s0_hat()
+        Sigma1 = ip.infer_var_s1_hat()
+        mu0 = T.zeros_like(model.s3c.mu)
+
+        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+                                                 'S_hat' : S_var,
+                                                 'var_s0_hat' : sigma0,
+                                                 'var_s1_hat' : Sigma1,
+                                                 'G_hat' : ( G_var, ) } )
+
+        assert len(trunc_kl.type.broadcastable) == 0
+
+        grad_G = T.grad(trunc_kl, G_var)
+
+        assert len(grad_G.type.broadcastable) == 2
+
+        grad_func = function([H_var, S_var, G_var], grad_G)
+
+        failed = False
+
+        for i in xrange(self.N):
+            rval = updates_func(H, S, G, i)
+            G[:,i] = rval
+
+            g = grad_func(H,S,G)[:,i]
+
+            assert not np.any(np.isnan(g))
+
+            g_abs_max = np.abs(g).max()
+
+            if g_abs_max > self.tol:
+                #print "new values of H"
+                #print H[:,i]
+                #print "gradient on new values of H"
+                #print g
+
+                failed = True
+
+                print 'iteration ',i
+                #print 'max value of new H: ',H[:,i].max()
+                #print 'H for failing g: '
+                failing_g = G[np.abs(g) > self.tol, i]
+                #print failing_h
+
+                #from matplotlib import pyplot as plt
+                #plt.scatter(H[:,i],g)
+                #plt.show()
+
+                #ignore failures extremely close to h=1
+
+                high_mask = failing_g > .001
+                low_mask = failing_g < .999
+
+                mask = high_mask * low_mask
+
+                print 'masking out values of g less than .001 and above .999 because gradient acts weird there'
+                print '# failures passing the range mask: ',mask.shape[0],' err ',g_abs_max
+
+                if mask.sum() > 0:
+                    print 'failing g passing the range mask'
+                    print failing_g[ mask.astype(bool) ]
+                    raise Exception('after mean field step, gradient of kl divergence'
+                            ' wrt freshly updated variational parameter should be 0, '
+                            'but here the max magnitude of a gradient element is '
+                            +str(g_abs_max)+' after updating g_'+str(i))
+
+    def test_grad_s(self):
+
+        "tests that the gradients with respect to s_i are 0 after doing a mean field update of s_i "
+
+        model = self.model
+        ip = self.inference_procedure
+        X = self.X
+
+        assert X.shape[0] == self.m
+
+        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
+        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
+        G = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m,self.N2)))
+
+        H_var = T.matrix(name='H_var')
+        H_var.tag.test_value = H
+        S_var = T.matrix(name='S_var')
+        S_var.tag.test_value = S
+        G_var = T.matrix(name='G_var')
+        G_var.tag.test_value = G
+        idx = T.iscalar()
+        idx.tag.test_value = 0
+
+        new_S = ip.s3c_e_step.infer_S_hat(V = X, H_hat = H_var, S_hat = S_var)
+        s_idx = new_S[:,idx]
+
+        updates_func = function([H_var,S_var,G_var,idx], s_idx, on_unused_input = 'ignore')
+
+        sigma0 = ip.infer_var_s0_hat()
+        Sigma1 = ip.infer_var_s1_hat()
+        mu0 = T.zeros_like(model.s3c.mu)
+
+        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+                                                 'S_hat' : S_var,
+                                                 'var_s0_hat' : sigma0,
+                                                 'var_s1_hat' : Sigma1,
+                                                 'G_hat' : ( G_var, ) } )
+
+        assert len(trunc_kl.type.broadcastable) == 0
+
+        grad_S = T.grad(trunc_kl, S_var)
+
+        assert len(grad_S.type.broadcastable) == 2
+
+        grad_func = function([H_var, S_var, G_var], grad_S)
+
+        failed = False
+
+        for i in xrange(self.N):
+            rval = updates_func(H, S, G, i)
+            S[:,i] = rval
+
+            g = grad_func(H,S,G)[:,i]
+
+            assert not np.any(np.isnan(g))
+
+            g_abs_max = np.abs(g).max()
+
+            if g_abs_max > self.tol:
+                raise Exception('after mean field step, gradient of kl divergence'
+                        ' wrt freshly updated variational parameter should be 0, '
+                        'but here the max magnitude of a gradient element is '
+                        +str(g_abs_max)+' after updating s_'+str(i))
 
     def test_value_h(self):
 
         "tests that the value of the kl divergence decreases with each update to h_i "
 
         model = self.model
-        e_step = self.e_step
+        ip = self.inference_procedure
         X = self.X
 
         assert X.shape[0] == self.m
 
-        init_H = e_step.init_H_hat(V = X)
-        init_Mu1 = e_step.init_S_hat(V = X)
-
-        prev_setting = config.compute_test_value
-        config.compute_test_value= 'off'
-        H, Mu1 = function([], outputs=[init_H, init_Mu1])()
-        config.compute_test_value = prev_setting
-
-        H = broadcast(H, self.m)
-        Mu1 = broadcast(Mu1, self.m)
-
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,H.shape))
-        Mu1 = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,Mu1.shape))
+        H = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N)))
+        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
+        G = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N2)))
 
 
         H_var = T.matrix(name='H_var')
         H_var.tag.test_value = H
-        Mu1_var = T.matrix(name='Mu1_var')
-        Mu1_var.tag.test_value = Mu1
+        S_var = T.matrix(name='S_var')
+        S_var.tag.test_value = S
+        G_var = T.matrix(name='G_var')
+        G_var.tag.test_value = G
         idx = T.iscalar()
         idx.tag.test_value = 0
 
-        newH = e_step.infer_H_hat(V = X, H_hat = H_var, S_hat = Mu1_var)
+        newH = ip.infer_H_hat(V = X, H_hat = H_var, S_hat = S_var, G1_hat = G_var)
 
 
         h_idx = newH[:,idx]
 
 
-        h_i_func = function([H_var,Mu1_var,idx],h_idx)
+        h_i_func = function([H_var,S_var,G_var,idx],h_idx)
 
-        sigma0 = 1. / model.alpha
-        Sigma1 = e_step.infer_var_s1_hat()
-        mu0 = T.zeros_like(model.mu)
+        sigma0 = ip.infer_var_s0_hat()
+        Sigma1 = ip.infer_var_s1_hat()
+        mu0 = T.zeros_like(model.s3c.mu)
 
-        #by truncated KL, I mean that I am dropping terms that don't depend on H and Mu1
-        # (they don't affect the outcome of this test and some of them are intractable )
-        trunc_kl = - model.entropy_hs(H_hat = H_var, var_s0_hat = sigma0, var_s1_hat = Sigma1) + \
-                     model.expected_energy_vhs(V = X, H_hat = H_var, S_hat = Mu1_var, var_s0_hat = sigma0, var_s1_hat = Sigma1)
+        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+                                                 'S_hat' : S_var,
+                                                 'var_s0_hat' : sigma0,
+                                                 'var_s1_hat' : Sigma1,
+                                                 'G_hat' : ( G_var, ) } )
 
-        trunc_kl_func = function([H_var, Mu1_var], trunc_kl)
+        trunc_kl_func = function([H_var, S_var, G_var], trunc_kl)
 
         for i in xrange(self.N):
-            prev_kl = trunc_kl_func(H,Mu1)
+            prev_kl = trunc_kl_func(H,S,G)
 
-            H[:,i] = h_i_func(H, Mu1, i)
-            #we don't update mu, the whole point of the split e step is we don't have to
+            H[:,i] = h_i_func(H, S, G, i)
 
-            new_kl = trunc_kl_func(H,Mu1)
+            new_kl = trunc_kl_func(H,S,G)
 
 
             increase = new_kl - prev_kl
@@ -407,16 +402,153 @@ class Test_PDDBM_Inference:
                 print increase[increase > self.tol]
                 print 'failing H:'
                 print H[increase > self.tol,:]
-                print 'failing Mu1:'
-                print Mu1[increase > self.tol,:]
+                print 'failing S:'
+                print S[increase > self.tol,:]
                 print 'failing V:'
                 print X[increase > self.tol,:]
 
 
                 raise Exception('after mean field step in h, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating h_'+str(i))
 
-    def test_g(self):
-        raise NotImplementedError()
+    def test_value_g(self):
+
+        "tests that the value of the kl divergence decreases with each update to h_i "
+
+        model = self.model
+        ip = self.inference_procedure
+        X = self.X
+
+        assert X.shape[0] == self.m
+
+        H = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N)))
+        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
+        G = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N2)))
+
+
+        H_var = T.matrix(name='H_var')
+        H_var.tag.test_value = H
+        S_var = T.matrix(name='S_var')
+        S_var.tag.test_value = S
+        G_var = T.matrix(name='G_var')
+        G_var.tag.test_value = G
+        idx = T.iscalar()
+        idx.tag.test_value = 0
+
+        newG = ip.infer_G_hat(H_hat = H_var, G_hat = (G_var,), idx = 0)
+
+        g_idx = newG[:,idx]
+
+        g_i_func = function([H_var,S_var,G_var,idx],g_idx, on_unused_input = 'ignore')
+
+        sigma0 = ip.infer_var_s0_hat()
+        Sigma1 = ip.infer_var_s1_hat()
+        mu0 = T.zeros_like(model.s3c.mu)
+
+        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+                                                 'S_hat' : S_var,
+                                                 'var_s0_hat' : sigma0,
+                                                 'var_s1_hat' : Sigma1,
+                                                 'G_hat' : ( G_var, ) } )
+
+        trunc_kl_func = function([H_var, S_var, G_var], trunc_kl)
+
+        for i in xrange(self.N):
+            prev_kl = trunc_kl_func(H,S,G)
+
+            G[:,i] = g_i_func(H, S, G, i)
+
+            new_kl = trunc_kl_func(H,S,G)
+
+
+            increase = new_kl - prev_kl
+
+
+            print 'failures after iteration ',i,': ',(increase > self.tol).sum()
+
+            mx = increase.max()
+
+            if mx > 1e-4:
+                print 'increase amounts of failing examples:'
+                print increase[increase > self.tol]
+                print 'failing H:'
+                print H[increase > self.tol,:]
+                print 'failing S:'
+                print S[increase > self.tol,:]
+                print 'failing V:'
+                print X[increase > self.tol,:]
+
+
+                raise Exception('after mean field step in g, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating g_'+str(i))
+
+    def test_value_s(self):
+
+        "tests that the value of the kl divergence decreases with each update to h_i "
+
+        model = self.model
+        ip = self.inference_procedure
+        X = self.X
+
+        assert X.shape[0] == self.m
+
+        H = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N)))
+        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
+        G = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N2)))
+
+
+        H_var = T.matrix(name='H_var')
+        H_var.tag.test_value = H
+        S_var = T.matrix(name='S_var')
+        S_var.tag.test_value = S
+        G_var = T.matrix(name='G_var')
+        G_var.tag.test_value = G
+        idx = T.iscalar()
+        idx.tag.test_value = 0
+
+        newS = ip.s3c_e_step.infer_S_hat(V = X, H_hat = H_var, S_hat = S_var)
+
+        s_idx = newS[:,idx]
+
+        s_i_func = function([H_var,S_var,G_var,idx],s_idx, on_unused_input = 'ignore')
+
+        sigma0 = ip.infer_var_s0_hat()
+        Sigma1 = ip.infer_var_s1_hat()
+        mu0 = T.zeros_like(model.s3c.mu)
+
+        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+                                                 'S_hat' : S_var,
+                                                 'var_s0_hat' : sigma0,
+                                                 'var_s1_hat' : Sigma1,
+                                                 'G_hat' : ( G_var, ) } )
+
+        trunc_kl_func = function([H_var, S_var, G_var], trunc_kl)
+
+        for i in xrange(self.N):
+            prev_kl = trunc_kl_func(H,S,G)
+
+            S[:,i] = s_i_func(H, S, G, i)
+
+            new_kl = trunc_kl_func(H,S,G)
+
+
+            increase = new_kl - prev_kl
+
+
+            print 'failures after iteration ',i,': ',(increase > self.tol).sum()
+
+            mx = increase.max()
+
+            if mx > 1e-4:
+                print 'increase amounts of failing examples:'
+                print increase[increase > self.tol]
+                print 'failing H:'
+                print H[increase > self.tol,:]
+                print 'failing S:'
+                print S[increase > self.tol,:]
+                print 'failing V:'
+                print X[increase > self.tol,:]
+
+
+                raise Exception('after mean field step in g, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating g_'+str(i))
 
 if __name__ == '__main__':
     obj = Test_PDDBM_Inference()
