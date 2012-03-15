@@ -89,6 +89,11 @@ class PDDBM(Model):
                       if you've already pretrained the rbm, then since this
                       model is basically P(g,h)P(v,s|h) it might make sense
                       to take the biases from the RBM
+            freeze_dbm_params: If True, do not update parameters that are owned
+                    exclusively by the dbm. (i.e., s3c.bias_hid will still be
+                    updated, unless you also freeze_s3c_params)
+            freeze_s3c_params: If True, do not update parameters that are owned
+                    exclusively by s3c. (i.e., dbm.bias_vis will still be updated, unless you also freeze_dbm_params)
         """
 
         super(PDDBM,self).__init__()
@@ -547,11 +552,16 @@ class PDDBM(Model):
 
         if self.freeze_s3c_params:
             for param in self.s3c.get_params():
-                assert param not in updates
+                assert param not in updates or param is self.dbm.bias_vis
 
         if self.freeze_dbm_params:
             for param in self.dbm.get_params():
-                assert param not in updates
+                if param in updates and param is not self.s3c.bias_hid:
+                    assert hasattr(param,'name')
+                    name = 'anon'
+                    if param.name is not None:
+                        name = param.name
+                    raise AssertionError("DBM parameters are frozen but you're trying to update DBM parameter "+name)
 
         self.s3c.censor_updates(updates)
         self.dbm.censor_updates(updates)
