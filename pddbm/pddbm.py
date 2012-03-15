@@ -110,8 +110,12 @@ class PDDBM(Model):
         s3c.e_step.autonomous = False
 
         if self.s3c.m_step is not None:
-            self.B_learning_rate_scale = self.s3c.m_step.B_learning_rate_scale
-            self.W_learning_rate_scale = self.s3c.m_step.W_learning_rate_scale
+            m_step = self.s3c.m_step
+            self.B_learning_rate_scale = m_step.B_learning_rate_scale
+            self.s3c_W_learning_rate_scale = m_step.W_learning_rate_scale
+        else:
+            self.B_learning_rate_scale = 1.
+            self.s3c_W_learning_rate_scale = 1.
 
         s3c.m_step = None
         self.dbm = dbm
@@ -536,7 +540,7 @@ class PDDBM(Model):
             if param is self.s3c.B_driver:
                 learning_rate[param] = as_floatX(self.learning_rate * self.B_learning_rate_scale)
             elif param is self.s3c.W:
-                learning_rate[param] = as_floatX(self.learning_rate * self.W_learning_rate_scale)
+                learning_rate[param] = as_floatX(self.learning_rate * self.s3c_W_learning_rate_scale)
             else:
                 learning_rate[param] = as_floatX(self.learning_rate)
 
