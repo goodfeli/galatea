@@ -1,0 +1,63 @@
+!obj:pylearn2.scripts.train.Train {
+    save_path: "${EXPDIR}/pddbm_mnist/${PYLEARN2_TRAIN_FILE_STEM}.pkl",
+    dataset: &src !obj:pylearn2.datasets.mnist.MNIST {
+                        "which_set" : "train",
+                        "center" : 1
+                     },
+    model: !obj:galatea.pddbm.pddbm.PDDBM {
+        learning_rate : .0001,
+        #dbm_l1_weight_decay : [100.],
+        dbm : !obj:pylearn2.models.dbm.DBM {
+                use_cd : 1,
+                negative_chains : 100,
+                monitor_params : 1,
+                rbms : [ !obj:pylearn2.models.rbm.RBM {
+                                nvis : 1500,
+                                nhid : 1500,
+                                irange : .05,
+                                init_bias_vis : -1.5 } ]
+        },
+        s3c : !obj:pylearn2.models.s3c.S3C {
+               nvis : 784,
+               nhid : 1500,
+               init_bias_hid : -1.5,
+               max_bias_hid : 1e6,
+               min_bias_hid : -8.,
+               irange  : .02,
+               constrain_W_norm : 1,
+               init_B  : 3.,
+               min_B   : .1,
+               max_B   : 1e6,
+               tied_B :  0,
+               init_alpha : 1.,
+               min_alpha : 1e-3,
+               max_alpha : 1e6,
+               init_mu : 1.,
+               monitor_params : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               monitor_functional : 1,
+               m_step: !obj:pylearn2.models.s3c.Grad_M_Step {
+                        
+               }
+        },
+       "inference_procedure" : !obj:galatea.pddbm.pddbm.InferenceProcedure {
+                "schedule" : [ ['s',1.],   ['h',1.],   ['g',0],   ['h', 0.1], ['s',0.1],
+                             ['h',0.1], ['g',0],   ['h',0.1], ['s',0.1],  ['h',0.1],
+                             ['g',0],   ['h',0.1], ['s',0.1], ['h', 0.1], ['g',0],
+                             ['h',0.1], ['g',0],   ['h',0.1], ['s', 0.1], ['h',0.1] ],
+                "monitor_kl" : 0,
+                "clip_reflections" : 1,
+                "rho" : 0.5
+       },
+    },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : *src,
+                        "num_examples" : 100
+                }
+        },
+    "save_freq": 1
+}
+

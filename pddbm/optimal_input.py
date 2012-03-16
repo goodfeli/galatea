@@ -31,6 +31,7 @@ if len(sys.argv) == 5:
                 clip_reflections =  1,
                 rho = 0.5)
             )
+    dataset_yaml_src = l1.dataset_yaml_src
 else:
     pddbm, idx, alpha = sys.argv[1:]
 
@@ -39,6 +40,7 @@ else:
     l1 = pddbm.s3c
     l2 = pddbm.dbm.rbms[0]
     pddbm.make_pseudoparams()
+    dataset_yaml_src = pddbm.dataset_yaml_src
 
 idx = int(idx)
 alpha = float(alpha)
@@ -47,7 +49,8 @@ from pylearn2.utils import sharedX
 import numpy as np
 import theano.tensor as T
 
-h = l2.weights.get_value()[:,idx]
+l2_weights ,= l2.transformer.get_params()
+h = l2_weights.get_value()[:,idx]
 v = np.dot(l1.W.get_value() * l1.mu.get_value(),h)
 
 init = v / np.sqrt(np.square(v).sum())
@@ -82,7 +85,7 @@ while True:
 from pylearn2.utils import image
 from pylearn2.config import yaml_parse
 
-dataset = yaml_parse.load( l1.dataset_yaml_src )
+dataset = yaml_parse.load( dataset_yaml_src )
 
 X = dataset.get_topological_view( X.get_value())
 

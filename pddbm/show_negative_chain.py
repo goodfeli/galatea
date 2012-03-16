@@ -14,6 +14,7 @@ model = serial.load(model_path)
 
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 theano_rng = RandomStreams(42)
+assert hasattr(model.dbm,'V_chains') and model.dbm.V_chains is not None
 design_examples_var = model.s3c.random_design_matrix(batch_size = model.dbm.negative_chains,
         theano_rng = theano_rng, H_sample = model.dbm.V_chains)
 from theano import function

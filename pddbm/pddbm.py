@@ -29,6 +29,7 @@ from theano.printing import min_informative_str
 from theano.printing import Print
 from theano.gof.op import debug_assert
 from theano.gof.op import get_debug_values
+from pylearn2.space import VectorSpace
 
 warnings.warn('There is a known bug where for some reason the w field of s3c '
 'gets serialized. Not sure if other things get serialized too but be sure to '
@@ -56,7 +57,7 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
-            inference_procedure,
+            inference_procedure = None,
             learning_rate = 1e-3,
             h_penalty = 0.0,
             h_target = None,
@@ -64,7 +65,9 @@ class PDDBM(Model):
             g_targets = None,
             print_interval = 10000,
             freeze_s3c_params = False,
+            freeze_dbm_params = False,
             dbm_weight_decay = None,
+            dbm_l1_weight_decay = None,
             sub_batch = False,
             h_bias_src = 'dbm'):
         """
@@ -75,6 +78,7 @@ class PDDBM(Model):
                 will become owned by the PDDBM
                 it won't be deleted but many of its fields will change
             inference_procedure: a galatea.pddbm.pddbm.InferenceProcedure
+                                    if None, does not compile a learn_func
             print_interval: number of examples between each status printout
             h_bias_src: either 'dbm' or 's3c'. both the dbm and s3c have a bias
                     term on h-- whose should we use when we build the model?
@@ -85,23 +89,44 @@ class PDDBM(Model):
                       if you've already pretrained the rbm, then since this
                       model is basically P(g,h)P(v,s|h) it might make sense
                       to take the biases from the RBM
+            freeze_dbm_params: If True, do not update parameters that are owned
+                    exclusively by the dbm. (i.e., s3c.bias_hid will still be
+                    updated, unless you also freeze_s3c_params)
+            freeze_s3c_params: If True, do not update parameters that are owned
+                    exclusively by s3c. (i.e., dbm.bias_vis will still be updated, unless you also freeze_dbm_params)
         """
 
         super(PDDBM,self).__init__()
 
         self.learning_rate = learning_rate
 
+        use_cd = dbm.use_cd
+        self.use_cd = use_cd
+
         self.dbm_weight_decay = dbm_weight_decay
+        self.dbm_l1_weight_decay = dbm_l1_weight_decay
 
         self.s3c = s3c
         s3c.e_step.autonomous = False
 
         if self.s3c.m_step is not None:
-            self.B_learning_rate_scale = self.s3c.m_step.B_learning_rate_scale
-            self.W_learning_rate_scale = self.s3c.m_step.W_learning_rate_scale
+            m_step = self.s3c.m_step
+            self.B_learning_rate_scale = m_step.B_learning_rate_scale
+            self.s3c_W_learning_rate_scale = m_step.W_learning_rate_scale
+            if m_step.p_penalty is not None and m_step.p_penalty != 0.0:
+                raise ValueError("s3c.p_penalty must be none or 0. p is not tractable anymore "
+                        "when s3c is integrated into a pd-dbm.")
+            self.B_penalty = m_step.B_penalty
+            self.alpha_penalty = m_step.alpha_penalty
+        else:
+            self.B_learning_rate_scale = 1.
+            self.s3c_W_learning_rate_scale = 1.
+            self.B_penalty = 0.
+            self.alpha_penalty = 0.
 
         s3c.m_step = None
         self.dbm = dbm
+        self.dbm.use_cd = use_cd
 
         self.rng = np.random.RandomState([1,2,3])
 
@@ -115,8 +140,10 @@ class PDDBM(Model):
             assert False
 
         self.nvis = s3c.nvis
+        self.input_space = VectorSpace(self.nvis)
 
         self.freeze_s3c_params = freeze_s3c_params
+        self.freeze_dbm_params = freeze_dbm_params
 
         #don't support some exotic options on s3c
         for option in ['monitor_functional',
@@ -132,7 +159,9 @@ class PDDBM(Model):
         s3c.print_interval = None
         dbm.print_interval = None
 
-        inference_procedure.register_model(self)
+
+        if inference_procedure is not None:
+            inference_procedure.register_model(self)
         self.inference_procedure = inference_procedure
 
         self.num_g = len(self.dbm.W)
@@ -212,10 +241,16 @@ class PDDBM(Model):
         pass
 
     def get_params(self):
+
+        params = set([])
+
         if not self.freeze_s3c_params:
-            return list(set(self.s3c.get_params()).union(set(self.dbm.get_params())))
-        else:
-            return self.dbm.get_params()
+            params = params.union(set(self.s3c.get_params()))
+
+        if not self.freeze_dbm_params:
+            params = params.union(set(self.dbm.get_params()))
+
+        return list(params)
 
     def make_reset_grad_func(self):
         """
@@ -229,6 +264,8 @@ class PDDBM(Model):
         assert self.g_penalties is None
         assert self.h_penalty == 0.0
         assert self.dbm_weight_decay is None
+        assert self.dbm_l1_weight_decay is None
+        assert not self.use_cd
 
         params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
@@ -343,6 +380,8 @@ class PDDBM(Model):
         V: a symbolic design matrix
         """
 
+        assert self.inference_procedure is not None
+
         #run variational inference on the train set
         hidden_obs = self.inference_procedure.infer(V)
 
@@ -415,6 +454,18 @@ class PDDBM(Model):
 
                 tractable_obj = tractable_obj - coeff * T.mean(T.sqr(W))
 
+        if self.dbm_l1_weight_decay:
+
+            for i, t in enumerate(zip(self.dbm_l1_weight_decay, self.dbm.W)):
+
+                coeff, W = t
+
+                coeff = as_floatX(float(coeff))
+                coeff = T.as_tensor_variable(coeff)
+                coeff.name = 'dbm_l1_weight_decay_coeff_'+str(i)
+
+                tractable_obj = tractable_obj - coeff * T.mean(abs(W))
+
         if self.h_penalty != 0.0:
             next_h = self.inference_procedure.infer_H_hat(V = V,
                 H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
@@ -441,6 +492,13 @@ class PDDBM(Model):
 
                 tractable_obj = tractable_obj - self.g_penalties[i] * penalty
 
+
+        if self.B_penalty != 0.0:
+            tractable_obj = tractable_obj - T.mean(self.s3c.B) * self.B_penalty
+
+        if self.alpha_penalty != 0.0:
+            tractable_obj = tractable_obj - T.mean(self.s3c.alpha) * self.alpha_penalty
+
         assert len(tractable_obj.type.broadcastable) == 0
 
         #take the gradient of the tractable part
@@ -453,14 +511,21 @@ class PDDBM(Model):
             params_to_grads[param] = grad
 
         #add the approximate gradients
-        params_to_approx_grads = self.dbm.get_neg_phase_grads()
+        if self.use_cd:
+            params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = V, H_hat = G_hat)
+        else:
+            params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
         for param in params_to_approx_grads:
-            params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
+            if param in params_to_grads:
+                params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
 
         learning_updates = self.get_param_updates(params_to_grads)
 
-        sampling_updates = self.dbm.get_sampling_updates()
+        if self.use_cd:
+            sampling_updates = {}
+        else:
+            sampling_updates = self.dbm.get_sampling_updates()
 
         for key in sampling_updates:
             learning_updates[key] = sampling_updates[key]
@@ -488,7 +553,7 @@ class PDDBM(Model):
             if param is self.s3c.B_driver:
                 learning_rate[param] = as_floatX(self.learning_rate * self.B_learning_rate_scale)
             elif param is self.s3c.W:
-                learning_rate[param] = as_floatX(self.learning_rate * self.W_learning_rate_scale)
+                learning_rate[param] = as_floatX(self.learning_rate * self.s3c_W_learning_rate_scale)
             else:
                 learning_rate[param] = as_floatX(self.learning_rate)
 
@@ -501,6 +566,19 @@ class PDDBM(Model):
         return rval
 
     def censor_updates(self, updates):
+
+        if self.freeze_s3c_params:
+            for param in self.s3c.get_params():
+                assert param not in updates or param is self.dbm.bias_vis
+
+        if self.freeze_dbm_params:
+            for param in self.dbm.get_params():
+                if param in updates and param is not self.s3c.bias_hid:
+                    assert hasattr(param,'name')
+                    name = 'anon'
+                    if param.name is not None:
+                        name = param.name
+                    raise AssertionError("DBM parameters are frozen but you're trying to update DBM parameter "+name)
 
         self.s3c.censor_updates(updates)
         self.dbm.censor_updates(updates)
@@ -542,7 +620,8 @@ class PDDBM(Model):
                 self.accum_pos_phase_grad_func = self.make_accum_pos_phase_grad_func(X)
                 self.grad_step_func = self.make_grad_step_func()
             else:
-                self.learn_func = self.make_learn_func(X)
+                if self.inference_procedure is not None:
+                    self.learn_func = self.make_learn_func(X)
 
             final_names = dir(self)
 
@@ -627,7 +706,12 @@ class InferenceProcedure:
                     summary = '(init)'
                 else:
                     step = self.schedule[i-2]
-                    summary = '(' + str(step[0])+','+str(step[1])+')'
+                    summary = str(step)
+
+                for G_hat in obs['G_hat']:
+                    for Gv in get_debug_values(G_hat):
+                        assert Gv.min() >= 0.0
+                        assert Gv.max() <= 1.0
 
                 rval['trunc_KL_'+str(i)+summary] = self.truncated_KL(V, obs).mean()
 
@@ -675,21 +759,21 @@ class InferenceProcedure:
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
+        for G_hat in obs['G_hat']:
+            for Gv in get_debug_values(G_hat):
+                assert Gv.min() >= 0.0
+                assert Gv.max() <= 1.0
+
         s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs).mean()
 
         dbm_obs = self.dbm_observations(obs)
 
-        dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], obs = dbm_obs)
+        dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], obs = dbm_obs, no_v_bias = True)
         assert len(dbm_truncated_KL.type.broadcastable) == 0
 
         for s3c_kl_val, dbm_kl_val in get_debug_values(s3c_truncated_KL, dbm_truncated_KL):
             debug_assert( not np.any(np.isnan(s3c_kl_val)))
             debug_assert( not np.any(np.isnan(dbm_kl_val)))
-
-        warnings.warn("""TODO: double check that this decomposition works--
-                        It may be ignoring a subtlety where the math for dbm.truncated_kl is based on
-                        a fixed V but the pddbm is actually passing it variational parameters
-                        for distributional V""")
 
         rval = s3c_truncated_KL + dbm_truncated_KL
 
@@ -705,6 +789,8 @@ class InferenceProcedure:
         s3c_presigmoid = self.s3c_e_step.infer_H_hat_presigmoid(V, H_hat, S_hat)
 
         W = self.model.dbm.W[0]
+
+        assert self.model.s3c.bias_hid is self.model.dbm.bias_vis
 
         top_down = T.dot(G1_hat, W.T)
 
@@ -794,7 +880,13 @@ class InferenceProcedure:
 
         for i, step in enumerate(self.schedule):
 
-            letter, number = step
+            if len(step) == 2:
+                letter, number = step
+                g_new_coeff = None
+            else:
+                letter, number, g_new_coeff = step
+                assert letter == 'g'
+                g_new_coeff = as_floatX(g_new_coeff)
 
             coeff = as_floatX(number)
 
@@ -834,7 +926,19 @@ class InferenceProcedure:
                             "but got "+str(number)+" (of type "+str(type(number)))
 
 
-                G_hat[number] = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number)
+                update = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number)
+                assert update.type.dtype == config.floatX
+
+                if g_new_coeff is not None:
+                    assert G_hat[number].type.dtype == config.floatX
+                    update = damp(old = G_hat[number], new = update, new_coeff = g_new_coeff)
+                    assert update.type.dtype == config.floatX
+
+                G_hat[number] = update
+
+                for Gv in get_debug_values(G_hat[number]):
+                    assert Gv.min() >= 0.0
+                    assert Gv.max() <= 1.0
 
             else:
                 raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
@@ -872,5 +976,9 @@ class InferenceProcedure:
                                    W_below = W_below, W_above = W_above,
                                    b = b)
 
+    def infer_var_s1_hat(self):
+        return self.s3c_e_step.infer_var_s1_hat()
 
 
+    def infer_var_s0_hat(self):
+        return self.s3c_e_step.infer_var_s0_hat()

@@ -553,66 +553,7 @@ Following the S3C inference scheme, we will update
 
 \begin_layout Standard
 We refer to scratch6.lyx from articles/2011/reconstruction_srbm to get the
- left term:
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-1+\log\hat{h}_{i}+\frac{1}{1-\hat{h_{i}}}-\log(1-\hat{h}_{i})-\frac{\hat{h_{i}}}{1-\hat{h_{i}}}-\log(\sigma_{i}^{(1)}\sqrt{2\pi e})+\log(\sigma_{i}^{(0)}\sqrt{2\pi e})-c_{i}-\mu_{i}\alpha_{i}\hat{s}_{i}-W_{:i}^{(1)}\hat{g}^{(1)}=0
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\log\hat{h}_{i}-\log(1-\hat{h}_{i})-\log(\sigma_{i}^{(1)}\sqrt{2\pi e})+\log(\sigma_{i}^{(0)}\sqrt{2\pi e})-c_{i}-\mu_{i}\alpha_{i}\hat{s}_{i}-W_{:i}^{(1)}\hat{g}^{(1)}=0
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\log\frac{\hat{h}_{i}}{1-\hat{h}_{i}}-\log(\sigma_{i}^{(1)}\sqrt{2\pi e})+\log(\sigma_{i}^{(0)}\sqrt{2\pi e})-c_{i}-\mu_{i}\alpha_{i}\hat{s}_{i}-W_{:i}^{(1)}\hat{g}^{(1)}=0
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\frac{\hat{h}_{i}}{1-\hat{h_{i}}}=\exp(\log(\sigma_{i}^{(1)}\sqrt{2\pi e})-\log(\sigma_{i}^{(0)}\sqrt{2\pi e})+c_{i}+\mu_{i}\alpha_{i}\hat{s}_{i}+W_{:i}^{(1)}\hat{g}^{(1)})
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-\begin_inset Formula 
-\[
-\hat{h_{i}}=\sigma(\log(\sigma_{i}^{(1)}\sqrt{2\pi e})-\log(\sigma_{i}^{(0)}\sqrt{2\pi e})+c_{i}+\mu_{i}\alpha_{i}\hat{s}_{i}+W_{:i}^{(1)}\hat{g}^{(1)})
-\]
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-so relative to S3C, all we do is add 
+ left term, so relative to S3C, all we do is add 
 \begin_inset Formula $W_{:i}^{(1)}\hat{g}^{(1)}$
 \end_inset
 
