@@ -14,12 +14,12 @@ assert len(pieces) == 2
 results_dir = pieces[0]
 serial.mkdir(results_dir)
 
-command = 'jobdispatch --duree=48:00:00 --whitespace --mem=40G python /RQusagers/goodfell/galatea/s3c/cluster_svm/fold_point_worker_logistic.py --dataset cifar100 --train '
+command = 'jobdispatch --duree=168:00:00 --whitespace --mem=40G python /RQusagers/goodfell/galatea/s3c/cluster_svm/fold_point_worker_logistic.py --dataset cifar100 --train '
 command += train_file
 command += ' "{{'
 
 options = []
-for C in [.05,.1,.15,.2,.5,1]:
+for C in [.025,.01,.001,.0001,.00001]:#[.05,.1,.15,.2,.5,1]:
     for fold in xrange(5):
         options.append( '--fold %(fold)d -C %(C)f --out %(results_dir)s/%(fold)d_%(C)f.txt' % locals() )
 

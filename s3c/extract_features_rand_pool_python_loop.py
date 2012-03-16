@@ -17,8 +17,8 @@ from pylearn2.datasets.tl_challenge import TL_Challenge
 import sys
 config.floatX = 'float32'
 
-num_superpixels = 7
-num_output_features = 14400
+num_superpixels = 4
+num_output_features = 6400
 num_filters = 1600
 
 rng = np.random.RandomState([1,2,3])
