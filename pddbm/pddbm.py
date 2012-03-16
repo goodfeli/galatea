@@ -511,15 +511,14 @@ class PDDBM(Model):
             params_to_grads[param] = grad
 
         #add the approximate gradients
-        if self.freeze_dbm_params:
-            params_to_approx_grads = {}
-        elif self.use_cd:
+        if self.use_cd:
             params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = V, H_hat = G_hat)
         else:
             params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
         for param in params_to_approx_grads:
-            params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
+            if param in params_to_grads:
+                params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
 
         learning_updates = self.get_param_updates(params_to_grads)
 
