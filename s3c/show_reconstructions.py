@@ -36,10 +36,35 @@ def get_reconstruction_func():
         #PDDBM
 
         mf = model.inference_procedure.infer(V)
-        H = mf['H_hat']
-        S = mf['S_hat']
-        Z = H*S
-        recons = T.dot(Z,model.s3c.W.T)
+
+        x = raw_input('reconstruct from which layer? ')
+
+        if x == '1':
+            H = mf['H_hat']
+            S = mf['S_hat']
+            Z = H*S
+            recons = T.dot(Z,model.s3c.W.T)
+        elif x == '2':
+            ip = model.inference_procedure
+            G1 = mf['G_hat'][0]
+
+            H = ip.dbm_ip.infer_H_hat_one_sided(other_H_hat = G1,
+                    W = 2. * model.dbm.W[0].T,
+                    b = model.dbm.bias_vis)
+
+            x = raw_input('use S from inference (y = yes, n = use mu) ? ')
+            if x == 'y':
+                S = mf['S_hat']
+            elif x == 'n':
+                S = ip.s3c_e_step.init_S_hat(V)
+            else:
+                assert False
+            Z = H*S
+
+            recons = T.dot(Z,model.s3c.W.T)
+
+        else:
+            raise NotImplementedError()
     else:
         #RBM
         H = model.mean_h_given_v(V)
