@@ -38,7 +38,7 @@ model.dbm.H_chains = [ sharedX(init_chain_elem) for init_chain_elem in init_chai
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 theano_rng = RandomStreams(42)
 assert hasattr(model.dbm,'V_chains') and model.dbm.V_chains is not None
-design_examples_var = model.s3c.random_design_matrix(batch_size = model.dbm.negative_chains,
+design_examples_var = model.s3c.random_design_matrix(batch_size = rows * cols,
         theano_rng = theano_rng, H_sample = model.dbm.V_chains)
 print 'compiling sampling function'
 f = function([],design_examples_var, updates = model.dbm.get_sampling_updates())

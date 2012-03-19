@@ -186,7 +186,7 @@ class PDDBM(Model):
                     * self.s3c.mu.get_value(), self.dbm.W[0].get_value())
 
         if x == 1:
-            return self.s3c.W.get_value()
+            return self.s3c.get_weights()
 
         assert False
 
@@ -697,9 +697,20 @@ class InferenceProcedure:
 
         obs_history = self.infer(V, return_history = True)
 
-        if self.monitor_kl:
+        if self.monitor_kl not in [False, 0]:
+            assert self.monitor_kl == True or isinstance(self.monitor_kl, list)
 
-            for i in xrange(1, 2 + len(self.schedule)):
+            if isinstance(self.monitor_kl, list):
+                steps = [ elem for elem in self.monitor_kl]
+                for i in xrange(len(steps)):
+                    assert steps[i] < 2 + len(self.schedule)
+                    if steps[i] < 0:
+                        steps[i] = len(self.schedule) + 2 + steps[i]
+                    assert steps[i] > 0
+            else:
+                steps = xrange(1, 2 + len(self.schedule))
+
+            for i in steps:
                 obs = obs_history[i-1]
 
                 if i == 1:
