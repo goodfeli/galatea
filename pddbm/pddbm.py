@@ -186,7 +186,7 @@ class PDDBM(Model):
                     * self.s3c.mu.get_value(), self.dbm.W[0].get_value())
 
         if x == 1:
-            return self.s3c.W.get_value()
+            return self.s3c.get_weights()
 
         assert False
 
