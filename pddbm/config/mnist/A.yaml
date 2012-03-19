@@ -14,8 +14,8 @@
                 rbms : [ !obj:pylearn2.models.rbm.RBM {
                                 nvis : 1500,
                                 nhid : 1500,
-                                irange : .05,
-                                init_bias_vis : -1.5 } ]
+                                irange : 0,
+                                init_bias_vis : 0. } ]
         },
         s3c : !obj:pylearn2.models.s3c.S3C {
                nvis : 784,
