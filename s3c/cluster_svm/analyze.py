@@ -13,6 +13,9 @@ C_to_results = {}
 
 for name in files:
 
+    if name.find('log') != -1:
+        continue
+
     path = target + '/' + name
 
     f = open(path,'r')
