@@ -64,7 +64,7 @@ from pylearn2.models.s3c import SufficientStatistics
 #stats = SufficientStatistics.from_observations( needed_stats = needed_stats, V = V, ** obs )
 #em_functional = model.em_functional( stats = stats, H_hat = obs['H_hat'], S_hat = obs['S_hat'], var_s0_hat = obs['var_s0_hat'], var_s1_hat = obs['var_s1_hat'])
 
-trunc_kl = model.inference_procedure.truncated_KL(V, obs)
+trunc_kl = model.inference_procedure.truncated_KL(V, obs).sum()
 
 if config.compute_test_value != 'off':
     assert not np.any(np.isnan(trunc_kl.tag.test_value))
@@ -88,7 +88,7 @@ obj = model.inference_procedure.truncated_KL( V, {
     "var_s0_hat" : obs['var_s0_hat'],
     "var_s1_hat" : obs['var_s1_hat'],
     "G_hat" : G
-    } )
+    } ).mean()
 
 grad_G_sym = [ T.grad(obj, G_elem) for G_elem in G ]
 grad_H_sym = T.grad(obj,H)
