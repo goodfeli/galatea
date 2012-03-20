@@ -34,22 +34,27 @@ def get_reconstruction_func():
         recons = T.dot(Z,model.W.T)
     elif hasattr(model,'s3c'):
         #PDDBM
-
-        mf = model.inference_procedure.infer(V)
+        ip = model.inference_procedure
+        mf = ip.infer(V)
 
         x = raw_input('reconstruct from which layer? ')
 
         if x == '1':
             H = mf['H_hat']
-            S = mf['S_hat']
+            x = raw_input('use S from inference (y = yes, n = use mu) ? ')
+            if x == 'y':
+                S = mf['S_hat']
+            elif x == 'n':
+                S = ip.s3c_e_step.init_S_hat(V)
+            else:
+                assert False
             Z = H*S
             recons = T.dot(Z,model.s3c.W.T)
         elif x == '2':
-            ip = model.inference_procedure
             G1 = mf['G_hat'][0]
 
             H = ip.dbm_ip.infer_H_hat_one_sided(other_H_hat = G1,
-                    W = 2. * model.dbm.W[0].T,
+                    W = model.dbm.W[0].T,
                     b = model.dbm.bias_vis)
 
             x = raw_input('use S from inference (y = yes, n = use mu) ? ')
@@ -63,6 +68,7 @@ def get_reconstruction_func():
 
             recons = T.dot(Z,model.s3c.W.T)
 
+            recons = G1
         else:
             raise NotImplementedError()
     else:
@@ -98,6 +104,15 @@ else:
     Xt = dataset.get_topological_view(X)
 
 R = f(X)
+
+mn = R.mean(axis=0)
+d = R - mn
+d = np.abs(d)
+d = d.mean(axis=0)
+print (d.min(),d.mean(),d.max())
+assert False
+
+
 if np.any(np.isnan(R)) or np.any(np.isinf(R)):
     mask = (np.isnan(R).sum(axis=1) + np.isinf(R).sum(axis=1)) > 0
     print float(mask.sum())/float(mask.shape[0])

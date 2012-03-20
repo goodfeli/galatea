@@ -50,7 +50,7 @@ class Test_PDDBM_Misc:
         s3c = S3C(nvis = D,
                  nhid = N,
                  irange = .1,
-                 init_bias_hid = 0.,
+                 init_bias_hid = -1.5,
                  init_B = 3.,
                  min_B = 1e-8,
                  max_B = 1000.,
@@ -60,7 +60,7 @@ class Test_PDDBM_Misc:
                  min_bias_hid = -1e30, max_bias_hid = 1e30,
                 )
 
-        rbm = RBM(nvis = N, nhid = N2, irange = .05, init_bias_vis = -1.5, init_bias_hid = 1.5)
+        rbm = RBM(nvis = N, nhid = N2, irange = .1, init_bias_vis = -1.5, init_bias_hid = 1.5)
 
         #don't give the model an inference procedure or learning rate so it won't spend years compiling a learn_func
         self.model = PDDBM(
@@ -113,13 +113,20 @@ class Test_PDDBM_Misc:
         Sigma1 = ip.infer_var_s1_hat()
         mu0 = T.zeros_like(model.s3c.mu)
 
+        #multiply by m to use sum rather than mean
+        #otherwise larger batch sizes shrink the gradient so errors appear
+        #smaller and larger batch sizes make the unit test easier rather than harder
+        #to falsely pass
         trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+
                                                  'S_hat' : S_var,
                                                  'var_s0_hat' : sigma0,
                                                  'var_s1_hat' : Sigma1,
                                                  'G_hat' : ( G_var, ) } )
 
-        assert len(trunc_kl.type.broadcastable) == 0
+        assert len(trunc_kl.type.broadcastable) == 1
+
+        trunc_kl = trunc_kl.sum()
 
         grad_H = T.grad(trunc_kl, H_var)
 
@@ -154,8 +161,6 @@ class Test_PDDBM_Misc:
         term13 = - T.dot( G_var, self.model.dbm.W[0].T )
 
         analytical = term1 + term2 + term3 + term4 + term5 + term6 + term7 + term8 + term9 + term10 + term11 + term12 + term13
-
-        analytical = analytical / as_floatX(X.shape[0])
 
         grad_analytical = function([H_var, S_var, G_var], analytical)(H,S,G)
 

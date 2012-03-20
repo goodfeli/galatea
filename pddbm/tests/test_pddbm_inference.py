@@ -49,7 +49,7 @@ class Test_PDDBM_Inference:
         s3c = S3C(nvis = D,
                  nhid = N,
                  irange = .1,
-                 init_bias_hid = 0.,
+                 init_bias_hid = -1.5,
                  init_B = 3.,
                  min_B = 1e-8,
                  max_B = 1000.,
@@ -59,7 +59,7 @@ class Test_PDDBM_Inference:
                  min_bias_hid = -1e30, max_bias_hid = 1e30,
                 )
 
-        rbm = RBM(nvis = N, nhid = N2, irange = .05, init_bias_vis = -1.5, init_bias_hid = 1.5)
+        rbm = RBM(nvis = N, nhid = N2, irange = .5, init_bias_vis = -1.5, init_bias_hid = 1.5)
 
         #don't give the model an inference procedure or learning rate so it won't spend years compiling a learn_func
         self.model = PDDBM(
@@ -123,7 +123,9 @@ class Test_PDDBM_Inference:
                                                  'var_s1_hat' : Sigma1,
                                                  'G_hat' : ( G_var, ) } )
 
-        assert len(trunc_kl.type.broadcastable) == 0
+        assert len(trunc_kl.type.broadcastable) == 1
+
+        trunc_kl = trunc_kl.sum()
 
         grad_H = T.grad(trunc_kl, H_var)
 
@@ -212,13 +214,15 @@ class Test_PDDBM_Inference:
         Sigma1 = ip.infer_var_s1_hat()
         mu0 = T.zeros_like(model.s3c.mu)
 
-        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+        trunc_kl = self.m * ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
                                                  'S_hat' : S_var,
                                                  'var_s0_hat' : sigma0,
                                                  'var_s1_hat' : Sigma1,
                                                  'G_hat' : ( G_var, ) } )
 
-        assert len(trunc_kl.type.broadcastable) == 0
+        assert len(trunc_kl.type.broadcastable) == 1
+
+        trunc_kl = trunc_kl.sum()
 
         grad_G = T.grad(trunc_kl, G_var)
 
@@ -312,7 +316,9 @@ class Test_PDDBM_Inference:
                                                  'var_s1_hat' : Sigma1,
                                                  'G_hat' : ( G_var, ) } )
 
-        assert len(trunc_kl.type.broadcastable) == 0
+        assert len(trunc_kl.type.broadcastable) == 1
+
+        trunc_kl = trunc_kl.sum()
 
         grad_S = T.grad(trunc_kl, S_var)
 
@@ -374,7 +380,7 @@ class Test_PDDBM_Inference:
         Sigma1 = ip.infer_var_s1_hat()
         mu0 = T.zeros_like(model.s3c.mu)
 
-        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+        trunc_kl = self.m * ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
                                                  'S_hat' : S_var,
                                                  'var_s0_hat' : sigma0,
                                                  'var_s1_hat' : Sigma1,
@@ -412,7 +418,7 @@ class Test_PDDBM_Inference:
 
     def test_value_g(self):
 
-        "tests that the value of the kl divergence decreases with each update to h_i "
+        "tests that the value of the kl divergence decreases with each update to g_i "
 
         model = self.model
         ip = self.inference_procedure
@@ -444,7 +450,7 @@ class Test_PDDBM_Inference:
         Sigma1 = ip.infer_var_s1_hat()
         mu0 = T.zeros_like(model.s3c.mu)
 
-        trunc_kl = ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
+        trunc_kl = self.m * ip.truncated_KL( V = X, obs = { 'H_hat' : H_var,
                                                  'S_hat' : S_var,
                                                  'var_s0_hat' : sigma0,
                                                  'var_s1_hat' : Sigma1,
@@ -482,7 +488,7 @@ class Test_PDDBM_Inference:
 
     def test_value_s(self):
 
-        "tests that the value of the kl divergence decreases with each update to h_i "
+        "tests that the value of the kl divergence decreases with each update to s_i "
 
         model = self.model
         ip = self.inference_procedure

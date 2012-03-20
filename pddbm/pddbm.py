@@ -775,12 +775,13 @@ class InferenceProcedure:
                 assert Gv.min() >= 0.0
                 assert Gv.max() <= 1.0
 
-        s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs).mean()
+        s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs)
+        assert len(s3c_truncated_KL.type.broadcastable) == 1
 
         dbm_obs = self.dbm_observations(obs)
 
         dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], obs = dbm_obs, no_v_bias = True)
-        assert len(dbm_truncated_KL.type.broadcastable) == 0
+        assert len(dbm_truncated_KL.type.broadcastable) == 1
 
         for s3c_kl_val, dbm_kl_val in get_debug_values(s3c_truncated_KL, dbm_truncated_KL):
             debug_assert( not np.any(np.isnan(s3c_kl_val)))
