@@ -68,6 +68,7 @@ class PDDBM(Model):
             freeze_dbm_params = False,
             dbm_weight_decay = None,
             dbm_l1_weight_decay = None,
+            recons_penalty = None,
             sub_batch = False,
             h_bias_src = 'dbm'):
         """
@@ -105,6 +106,9 @@ class PDDBM(Model):
 
         self.dbm_weight_decay = dbm_weight_decay
         self.dbm_l1_weight_decay = dbm_l1_weight_decay
+
+
+        self.recons_penalty = recons_penalty
 
         self.s3c = s3c
         s3c.e_step.autonomous = False
@@ -499,7 +503,12 @@ class PDDBM(Model):
         if self.alpha_penalty != 0.0:
             tractable_obj = tractable_obj - T.mean(self.s3c.alpha) * self.alpha_penalty
 
+
+        if self.recons_penalty is not None:
+            tractable_obj = tractable_obj - self.recons_penalty * self.simple_recons_error(V, G_hat)
+
         assert len(tractable_obj.type.broadcastable) == 0
+        assert tractable_obj.type.dtype == config.floatX
 
         #take the gradient of the tractable part
         params = self.get_params()
@@ -540,6 +549,25 @@ class PDDBM(Model):
         print "graph size: ",len(rval.maker.env.toposort())
 
         return rval
+
+
+    def simple_recons_error(self, V, G_hat):
+        """
+            makes a single downward meanfield pass from the deepest layer
+            to estimate a reconstruction
+            returns the mean squared error of that reconstruction
+            NOTE: alpha has no effect on this. we might want to do
+            E[ error(V,recons) ] rather than error(V,E[recons]) so
+            that alpha gets encouraged to be small
+        """
+
+        assert len(G_hat) == 1
+        H = T.nnet.sigmoid(
+                T.dot(G_hat[0], self.dbm.W[0].T) + self.dbm.bias_vis)
+        HS = H * self.s3c.mu
+        recons = T.dot(HS, self.s3c.W.T)
+
+        return T.mean(T.sqr(recons - V))
 
     def get_param_updates(self, params_to_grads):
 
@@ -744,6 +772,11 @@ class InferenceProcedure:
             rval['g[%d]_min'%(i,)] = full_min(g)
             rval['g[%d]_mean'%(i,)] = T.mean(g)
             rval['g[%d]_max'%(i,)] = full_max(g)
+
+
+        if self.model.recons_penalty is not None:
+            rval['simple_recons_error'] = self.model.simple_recons_error(V,Gs)
+
 
         return rval
 
