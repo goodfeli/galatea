@@ -32,9 +32,6 @@ class BatchGradientInference:
         """ model must be a PDDBM.
             other models like S3C could be supported in principle but aren't yet."""
 
-
-        model.inference_procedure.schedule = model.inference_procedure.schedule[1:5]
-
         self.model = model
 
         assert hasattr(model,'dbm')
