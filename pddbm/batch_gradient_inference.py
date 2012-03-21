@@ -21,7 +21,7 @@ def norm_sq(s):
 def scale(s, a):
     s.set_value(s.get_value() * a)
 
-class BatchGradientInfernence:
+class BatchGradientInference:
     """ A class for performing inference explicitly via optimization.
     Minimizes the KL divergence by adjusting the variational parameters.
     The method used is batch gradient descent with line searches. This
@@ -31,6 +31,9 @@ class BatchGradientInfernence:
     def __init__(self, model):
         """ model must be a PDDBM.
             other models like S3C could be supported in principle but aren't yet."""
+
+
+        model.inference_procedure.schedule = model.inference_procedure.schedule[1:5]
 
         self.model = model
 
@@ -84,7 +87,7 @@ class BatchGradientInfernence:
             updates[grad_G_elem] = grad_G_sym_elem
 
         print 'batch gradient class compiling gradient function'
-        compute_grad = function([V], updates = updates )
+        self.compute_grad = function([V], updates = updates )
         print 'done'
 
         updates = { H : obs['H_hat'], S : obs['S_hat'] }
@@ -93,11 +96,11 @@ class BatchGradientInfernence:
             updates[G_elem] = G_hat_elem
 
         print 'batch gradient class compiling init function'
-        init = function([V], trunc_kl,  updates = updates )
+        self.init = function([V], trunc_kl,  updates = updates )
         print 'done'
 
         print 'batch gradient class compiling objective function'
-        obj = function([V], obj)
+        self.obj = function([V], obj)
         print 'done'
 
         self.S = S
@@ -133,10 +136,8 @@ class BatchGradientInfernence:
 
         assert not np.any(np.isnan(fuck_you))
 
-        #print 'fuck you ',fuck_you.mean(),fuck_you.max(),fuck_you.min()
 
         self.H.set_value(fuck_you)
-        #print 'H ',H.get_value().mean(), H.get_value().max(), H.get_value().min()
         self.S.set_value(self.S_cache-a*self.grad_S.get_value())
         for G_elem, G_cache_elem, grad_G_elem in zip(self.G, self.G_cache, self.grad_G):
             G_elem.set_value(clip(G_cache_elem-a*grad_G_elem.get_value()))
@@ -167,38 +168,39 @@ class BatchGradientInfernence:
         orig_S = self.S.get_value()
         orig_G = [ G_elem.get_value() for G_elem in self.G ]
 
-        best_kl, best_alpha, best_alpha_ind = self.obj(X), 0., -1
+        while True:
+            best_kl, best_alpha, best_alpha_ind = self.obj(X), 0., -1
 
-        self.cache_values()
-        self.compute_grad(X)
-        self.normalize_grad()
+            self.cache_values()
+            self.compute_grad(X)
+            self.normalize_grad()
 
-        for ind, alpha in enumerate(alpha_list):
-            self.goto_alpha(alpha)
-            kl = self.obj(X)
-            print '\t',alpha,kl
+            for ind, alpha in enumerate(alpha_list):
+                self.goto_alpha(alpha)
+                kl = self.obj(X)
+                print '\t',alpha,kl
 
-            if kl < best_kl:
-                best_kl = kl
-                best_alpha = alpha
-                best_alpha_ind = ind
+                if kl < best_kl:
+                    best_kl = kl
+                    best_alpha = alpha
+                    best_alpha_ind = ind
 
-        print best_kl
-        assert not np.isnan(best_kl)
-        self.goto_alpha(best_alpha)
+            print best_kl
+            assert not np.isnan(best_kl)
+            self.goto_alpha(best_alpha)
 
-        if best_alpha_ind < 1 and alpha_list[0] > 3e-7:
-            alpha_list = [ alpha / 3. for alpha in alpha_list ]
-        elif best_alpha_ind > len(alpha_list) -2:
-            alpha_list = [ alpha * 2. for alpha in alpha_list ]
-        elif best_alpha_ind == -1 and alpha_list[0] <= 3e-7:
-            break
+            if best_alpha_ind < 1 and alpha_list[0] > 3e-7:
+                alpha_list = [ alpha / 3. for alpha in alpha_list ]
+            elif best_alpha_ind > len(alpha_list) -2:
+                alpha_list = [ alpha * 2. for alpha in alpha_list ]
+            elif best_alpha_ind == -1 and alpha_list[0] <= 3e-7:
+                break
 
 
         return { 'orig_S' : orig_S,
                 'orig_H' : orig_H,
                 'orig_G' : orig_G,
-                'G' : self.G.get_value(),
+                'G' : [ G_elem.get_value() for G_elem in self.G ],
                 'H' : self.H.get_value(),
                 'S' : self.S.get_value(),
                 'orig_kl' : orig_kl,
