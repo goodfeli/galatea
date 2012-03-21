@@ -215,7 +215,7 @@ class Test_PDDBM_S3C_Equivalence:
                                                  'S_hat' : S_var,
                                                  'var_s0_hat' : dbm_sigma0,
                                                  'var_s1_hat' : dbm_Sigma1,
-                                                 'G_hat' : ( G_var, ) } )
+                                                 'G_hat' : ( G_var, ) } ).mean()
 
         #just the part related to G (check that it all comes out to 0)
         #dbm_trunc_kl = - entropy_binary_vector( G_var ).mean() - T.dot(G_var.mean(axis=0),self.model.dbm.rbms[0].bias_hid)
