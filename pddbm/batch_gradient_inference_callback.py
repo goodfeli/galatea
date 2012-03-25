@@ -19,6 +19,6 @@ class BatchGradientInferenceCallback(TrainingCallback):
 
         print 'kl failure amount: ',diff
 
-        model.kl_fail_log.append((model.monitor.examples_seen, diff))
+        model.kl_fail_log.append((model.monitor.get_examples_seen(), diff))
 
 
