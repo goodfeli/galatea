@@ -29,60 +29,80 @@ def broadcast(mat, shape_0):
 
 
 class Test_PDDBM_Inference:
-    def __init__(self):
+    def __init__(self, model = None, X = None, tol = 1e-5,
+            init_H = None, init_S = None, init_G = None):
         """ gets a small batch of data
             sets up a PD-DBM model
         """
 
-        self.tol = 1e-5
+        self.tol = tol
 
-        X = np.random.RandomState([1,2,3]).randn(1000,5)
-
-        X -= X.mean()
-        X /= X.std()
+        if X is None:
+            X = np.random.RandomState([1,2,3]).randn(1000,5)
+            X -= X.mean()
+            X /= X.std()
         m, D = X.shape
-        N = 6
-        N2 = 7
+
+        if model is None:
+            N = 6
+            N2 = 7
 
 
-        s3c = S3C(nvis = D,
-                 nhid = N,
-                 irange = .1,
-                 init_bias_hid = -1.5,
-                 init_B = 3.,
-                 min_B = 1e-8,
-                 max_B = 1000.,
-                 init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
-                 init_mu = 1., e_step = None,
-                 m_step = Grad_M_Step(),
-                 min_bias_hid = -1e30, max_bias_hid = 1e30,
-                )
+            s3c = S3C(nvis = D,
+                     nhid = N,
+                     irange = .1,
+                     init_bias_hid = -1.5,
+                     init_B = 3.,
+                     min_B = 1e-8,
+                     max_B = 1000.,
+                     init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
+                     init_mu = 1., e_step = None,
+                     m_step = Grad_M_Step(),
+                     min_bias_hid = -1e30, max_bias_hid = 1e30,
+                    )
 
-        rbm = RBM(nvis = N, nhid = N2, irange = .5, init_bias_vis = -1.5, init_bias_hid = 1.5)
+            rbm = RBM(nvis = N, nhid = N2, irange = .5, init_bias_vis = -1.5, init_bias_hid = 1.5)
 
-        #don't give the model an inference procedure or learning rate so it won't spend years compiling a learn_func
-        self.model = PDDBM(
-                dbm = DBM(  use_cd = 1,
-                            rbms = [ rbm  ]),
-                s3c = s3c
-        )
+            #don't give the model an inference procedure or learning rate so it won't spend years compiling a learn_func
+            self.model = PDDBM(
+                    dbm = DBM(  use_cd = 1,
+                                rbms = [ rbm  ]),
+                    s3c = s3c
+            )
 
-        self.model.make_pseudoparams()
+            self.model.make_pseudoparams()
 
-        self.inference_procedure = InferenceProcedure(
-                    schedule = [ ['s',.1],   ['h',.1],   ['g',0, 0.2],   ['h', 0.2], ['s',0.2],
-                                ['h',0.3], ['g',0,.3],   ['h',0.3], ['s',0.4], ['h',0.4],
-                                ['g',0,.4],   ['h',0.4], ['s',.4], ['h',0.4],
-                                ['g',0,.5],   ['h',0.5], ['s', 0.5], ['h',0.1],
-                                ['s',0.5] ],
-                    clip_reflections = True,
-                    rho = .5 )
-        self.inference_procedure.register_model(self.model)
+            self.inference_procedure = InferenceProcedure(
+                        schedule = [ ['s',.1],   ['h',.1],   ['g',0, 0.2],   ['h', 0.2], ['s',0.2],
+                                    ['h',0.3], ['g',0,.3],   ['h',0.3], ['s',0.4], ['h',0.4],
+                                    ['g',0,.4],   ['h',0.4], ['s',.4], ['h',0.4],
+                                    ['g',0,.5],   ['h',0.5], ['s', 0.5], ['h',0.1],
+                                    ['s',0.5] ],
+                        clip_reflections = True,
+                        rho = .5 )
+            self.inference_procedure.register_model(self.model)
+        else:
+            self.model = model
+            self.inference_procedure = model.inference_procedure
+            N = model.s3c.nhid
+            N2 = model.dbm.rbms[0].nhid
 
         self.X = X
         self.N = N
         self.N2 = N2
         self.m = m
+
+        if init_H is None:
+            self.init_H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
+            self.init_S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
+            self.init_G = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m,self.N2)))
+        else:
+            assert init_S is not None
+            assert init_G is not None
+            self.init_H = init_H
+            self.init_S = init_S
+            self.init_G = init_G
+
 
     def test_grad_h(self):
 
@@ -94,9 +114,9 @@ class Test_PDDBM_Inference:
 
         assert X.shape[0] == self.m
 
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
-        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
-        G = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m,self.N2)))
+        H = self.init_H.copy()
+        S = self.init_S.copy()
+        G = self.init_G.copy()
 
         H_var = T.matrix(name='H_var')
         H_var.tag.test_value = H
@@ -170,7 +190,7 @@ class Test_PDDBM_Inference:
                 mask = high_mask * low_mask
 
                 print 'masking out values of h less than .001 and above .999 because gradient acts weird there'
-                print '# failures passing the range mask: ',mask.shape[0],' err ',g_abs_max
+                print '# failures passing the range mask: ',mask.sum(),' err ',g_abs_max
 
                 if mask.sum() > 0:
                     print 'failing h passing the range mask'
@@ -191,9 +211,9 @@ class Test_PDDBM_Inference:
 
         assert X.shape[0] == self.m
 
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
-        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
-        G = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m,self.N2)))
+        H = self.init_H.copy()
+        S = self.init_S.copy()
+        G = self.init_G.copy()
 
         H_var = T.matrix(name='H_var')
         H_var.tag.test_value = H
@@ -201,13 +221,9 @@ class Test_PDDBM_Inference:
         S_var.tag.test_value = S
         G_var = T.matrix(name='G_var')
         G_var.tag.test_value = G
-        idx = T.iscalar()
-        idx.tag.test_value = 0
-
         new_G = ip.infer_G_hat(H_hat = H_var, G_hat = (G_var,) , idx =0)
-        g_idx = new_G[:,idx]
 
-        updates_func = function([H_var,S_var,G_var,idx], g_idx, on_unused_input = 'ignore')
+        updates_func = function([H_var,S_var,G_var], new_G, on_unused_input = 'ignore')
 
         sigma0 = ip.infer_var_s0_hat()
         Sigma1 = ip.infer_var_s1_hat()
@@ -231,11 +247,10 @@ class Test_PDDBM_Inference:
 
         failed = False
 
-        for i in xrange(self.N):
-            rval = updates_func(H, S, G, i)
-            G[:,i] = rval
+        if True:
+            G = updates_func(H, S, G)
 
-            g = grad_func(H,S,G)[:,i]
+            g = grad_func(H,S,G)
 
             assert not np.any(np.isnan(g))
 
@@ -249,7 +264,6 @@ class Test_PDDBM_Inference:
 
                 failed = True
 
-                print 'iteration ',i
                 #print 'max value of new H: ',H[:,i].max()
                 #print 'H for failing g: '
                 failing_g = G[np.abs(g) > self.tol, i]
@@ -267,7 +281,7 @@ class Test_PDDBM_Inference:
                 mask = high_mask * low_mask
 
                 print 'masking out values of g less than .001 and above .999 because gradient acts weird there'
-                print '# failures passing the range mask: ',mask.shape[0],' err ',g_abs_max
+                print '# failures passing the range mask: ',mask.sum(),' err ',g_abs_max
 
                 if mask.sum() > 0:
                     print 'failing g passing the range mask'
@@ -275,7 +289,7 @@ class Test_PDDBM_Inference:
                     raise Exception('after mean field step, gradient of kl divergence'
                             ' wrt freshly updated variational parameter should be 0, '
                             'but here the max magnitude of a gradient element is '
-                            +str(g_abs_max)+' after updating g_'+str(i))
+                            +str(g_abs_max)+' after updating g')
 
     def test_grad_s(self):
 
@@ -287,9 +301,9 @@ class Test_PDDBM_Inference:
 
         assert X.shape[0] == self.m
 
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m, self.N)))
-        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
-        G = np.cast[config.floatX](self.model.rng.uniform(0.,1.,(self.m,self.N2)))
+        H = self.init_H.copy()
+        S = self.init_S.copy()
+        G = self.init_G.copy()
 
         H_var = T.matrix(name='H_var')
         H_var.tag.test_value = H
@@ -353,10 +367,9 @@ class Test_PDDBM_Inference:
 
         assert X.shape[0] == self.m
 
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N)))
-        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
-        G = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N2)))
-
+        H = self.init_H.copy()
+        S = self.init_S.copy()
+        G = self.init_G.copy()
 
         H_var = T.matrix(name='H_var')
         H_var.tag.test_value = H
@@ -425,9 +438,9 @@ class Test_PDDBM_Inference:
 
         assert X.shape[0] == self.m
 
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N)))
-        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
-        G = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N2)))
+        H = self.init_H.copy()
+        S = self.init_S.copy()
+        G = self.init_G.copy()
 
 
         H_var = T.matrix(name='H_var')
@@ -436,14 +449,11 @@ class Test_PDDBM_Inference:
         S_var.tag.test_value = S
         G_var = T.matrix(name='G_var')
         G_var.tag.test_value = G
-        idx = T.iscalar()
-        idx.tag.test_value = 0
 
         newG = ip.infer_G_hat(H_hat = H_var, G_hat = (G_var,), idx = 0)
 
-        g_idx = newG[:,idx]
 
-        g_i_func = function([H_var,S_var,G_var,idx],g_idx, on_unused_input = 'ignore')
+        g_i_func = function([H_var,S_var,G_var],newG, on_unused_input = 'ignore')
 
         sigma0 = ip.infer_var_s0_hat()
         Sigma1 = ip.infer_var_s1_hat()
@@ -457,18 +467,16 @@ class Test_PDDBM_Inference:
 
         trunc_kl_func = function([H_var, S_var, G_var], trunc_kl)
 
-        for i in xrange(self.N):
+        if True:
             prev_kl = trunc_kl_func(H,S,G)
 
-            G[:,i] = g_i_func(H, S, G, i)
+            G = g_i_func(H, S, G)
 
             new_kl = trunc_kl_func(H,S,G)
 
-
             increase = new_kl - prev_kl
 
-
-            print 'failures after iteration ',i,': ',(increase > self.tol).sum()
+            print 'failures: ',(increase > self.tol).sum()
 
             mx = increase.max()
 
@@ -483,7 +491,7 @@ class Test_PDDBM_Inference:
                 print X[increase > self.tol,:]
 
 
-                raise Exception('after mean field step in g, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating g_'+str(i))
+                raise Exception('after mean field step in g, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating g')
 
     def test_value_s(self):
 
@@ -495,10 +503,9 @@ class Test_PDDBM_Inference:
 
         assert X.shape[0] == self.m
 
-        H = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N)))
-        S = np.cast[config.floatX](self.model.rng.uniform(-5.,5.,(self.m, self.N)))
-        G = np.cast[config.floatX](self.model.rng.uniform(0.,1., (self.m, self.N2)))
-
+        H = self.init_H.copy()
+        S = self.init_S.copy()
+        G = self.init_G.copy()
 
         H_var = T.matrix(name='H_var')
         H_var.tag.test_value = H
@@ -556,9 +563,40 @@ class Test_PDDBM_Inference:
                 raise Exception('after mean field step in g, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating g_'+str(i))
 
 if __name__ == '__main__':
-    obj = Test_PDDBM_Inference()
 
-    #obj.test_grad_h()
-    #obj.test_grad_s()
-    #obj.test_value_s()
-    obj.test_value_h()
+    from pylearn2.utils import serial
+    import sys
+    from pylearn2.config import yaml_parse
+
+    ignore, model_path = sys.argv
+    model = serial.load(model_path)
+    model.set_dtype(config.floatX)
+
+    dataset = yaml_parse.load(model.dataset_yaml_src)
+
+    X = dataset.get_batch_design(100)
+
+    tester = Test_PDDBM_Inference(model = model, X = X, tol = 1e-4)
+
+    tester.test_value_h()
+    tester.test_value_g()
+    tester.test_value_s()
+    tester.test_grad_h()
+    tester.test_grad_g()
+    tester.test_grad_s()
+
+    V = T.matrix()
+    obs = model.inference_procedure.infer(V)
+
+    init_S, init_H, init_G = function([V],[obs['S_hat'],obs['H_hat'],obs['G_hat'][0]])(X)
+
+    tester = Test_PDDBM_Inference(model = model, X = X, tol = 1e-4,
+            init_S = init_S, init_H = init_H, init_G = init_G)
+
+    tester.test_value_h()
+    tester.test_value_g()
+    tester.test_value_s()
+    tester.test_grad_h()
+    tester.test_grad_g()
+    tester.test_grad_s()
+
