@@ -550,22 +550,23 @@ class PDDBM(Model):
         #this is kind of a hack, since I install the function rather
         #than returning it. should clean this up
 
-        new_n = self.n_var_samples + as_floatX(1.)
+        if self.use_diagonal_natural_gradient:
+            new_n = self.n_var_samples + as_floatX(1.)
 
-        var_updates = { self.n_var_samples : new_n }
+            var_updates = { self.n_var_samples : new_n }
 
-        for param in params:
-            grad = params_to_grads[param]
-            mean = self.params_to_means[param]
-            M2 = self.params_to_M2s[param]
+            for param in params:
+                grad = params_to_grads[param]
+                mean = self.params_to_means[param]
+                M2 = self.params_to_M2s[param]
 
-            delta = grad - mean
-            new_mean = mean + delta / new_n
+                delta = grad - mean
+                new_mean = mean + delta / new_n
 
-            var_updates[M2] = M2 + delta * (grad - new_mean)
-            var_updates[mean] = new_mean
+                var_updates[M2] = M2 + delta * (grad - new_mean)
+                var_updates[mean] = new_mean
 
-        self.update_variances = function([V], updates = var_updates)
+            self.update_variances = function([V], updates = var_updates)
 
         #end hacky part
 
