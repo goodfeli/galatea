@@ -767,7 +767,7 @@ class PDDBM(Model):
                 self.accum_pos_phase_grad_func(X[i:i+1,:])
         else:
             self.learn_func(X)
-        if self.monitor.examples_seen % self.print_interval == 0:
+        if self.monitor._examples_seen % self.print_interval == 0:
             print ""
             print "S3C:"
             self.s3c.print_status()
