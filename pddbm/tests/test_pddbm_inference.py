@@ -1,5 +1,4 @@
 from pylearn2.models.s3c import S3C
-from pylearn2.models.s3c import E_Step
 from pylearn2.models.s3c import Grad_M_Step
 from galatea.pddbm.pddbm import PDDBM, InferenceProcedure
 from pylearn2.models.rbm import RBM
