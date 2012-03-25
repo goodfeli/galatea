@@ -13,7 +13,7 @@ class BatchGradientInferenceCallback(TrainingCallback):
             self.X = dataset.get_batch_design(100)
             model.kl_fail_log = []
 
-        results = self.tester(self.X)
+        results = self.tester.run_inference(self.X)
 
         diff = results['orig_kl'] - results['kl']
 

@@ -30,6 +30,7 @@ from theano.printing import Print
 from theano.gof.op import debug_assert
 from theano.gof.op import get_debug_values
 from pylearn2.space import VectorSpace
+from theano.sandbox.scan import scan
 
 warnings.warn('There is a known bug where for some reason the w field of s3c '
 'gets serialized. Not sure if other things get serialized too but be sure to '
@@ -57,6 +58,7 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
+            use_diagonal_natural_gradient = False,
             inference_procedure = None,
             learning_rate = 1e-3,
             h_penalty = 0.0,
@@ -106,6 +108,7 @@ class PDDBM(Model):
 
         self.dbm_weight_decay = dbm_weight_decay
         self.dbm_l1_weight_decay = dbm_l1_weight_decay
+        self.use_diagonal_natural_gradient = use_diagonal_natural_gradient
 
 
         self.recons_penalty = recons_penalty
@@ -205,6 +208,18 @@ class PDDBM(Model):
              for param in self.get_params():
                  self.grads[param] = sharedX(np.zeros(param.get_value().shape))
 
+
+        if self.use_diagonal_natural_gradient:
+            self.params_to_means = {}
+            self.params_to_M2s = {}
+            self.n_var_samples = sharedX(0.0)
+
+            for param in self.get_params():
+                self.params_to_means[param] = \
+                        sharedX(np.zeros(param.get_value().shape))
+                self.params_to_M2s[param] = \
+                        sharedX(np.zeros(param.get_value().shape))
+
         self.test_batch_size = 2
 
         self.redo_theano()
@@ -234,6 +249,18 @@ class PDDBM(Model):
                 from_dbm = self.dbm.get_monitoring_channels(V)
 
                 rval.update(from_dbm)
+
+                if self.use_diagonal_natural_gradient:
+                    for param in self.get_params():
+                        name = 'grad_var_'+param.name
+
+                        params_to_variances = self.get_params_to_variances()
+
+                        var = params_to_variances[param]
+
+                        rval[name+'_min'] = var.min()
+                        rval[name+'_mean'] = var.mean()
+                        rval[name+'_max'] = var.max()
 
             finally:
                 self.deploy_mode()
@@ -525,6 +552,30 @@ class PDDBM(Model):
         for param, grad in zip(params, grads):
             params_to_grads[param] = grad
 
+        #make function for online estimate of variance of grad
+        #this is kind of a hack, since I install the function rather
+        #than returning it. should clean this up
+
+        new_n = self.n_var_samples + as_floatX(1.)
+
+        var_updates = { self.n_var_samples : new_n }
+
+        for param in params:
+            grad = params_to_grads[param]
+            mean = self.params_to_means[param]
+            M2 = self.params_to_M2s[param]
+
+            delta = grad - mean
+            new_mean = mean + delta / new_n
+
+            var_updates[M2] = M2 + delta * (grad - new_mean)
+            var_updates[mean] = new_mean
+
+        self.update_variances = function([V], updates = var_updates)
+
+        #end hacky part
+
+
         #add the approximate gradients
         if self.use_cd:
             params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = V, H_hat = G_hat)
@@ -534,6 +585,18 @@ class PDDBM(Model):
         for param in params_to_approx_grads:
             if param in params_to_grads:
                 params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
+
+        if self.use_diagonal_natural_gradient:
+
+            params_to_variances = self.get_params_to_variances()
+
+            for param in set(self.dbm.W).union(self.dbm.bias_hid):
+
+                grad = params_to_grads[param]
+                var = params_to_variances[param]
+                safe_var = var + as_floatX(.01)
+                scaled_grad = grad / safe_var
+                params_to_grads[param] = scaled_grad
 
         learning_updates = self.get_param_updates(params_to_grads)
 
@@ -632,6 +695,17 @@ class PDDBM(Model):
     def make_pseudoparams(self):
         self.s3c.make_pseudoparams()
 
+
+    def get_params_to_variances(self):
+
+        rval = {}
+
+        for param in self.get_params():
+            M2 = self.params_to_M2s[param]
+            rval[param] = M2 / (self.n_var_samples - as_floatX(1.))
+
+        return rval
+
     def redo_theano(self):
 
         self.s3c.reset_censorship_cache()
@@ -646,6 +720,15 @@ class PDDBM(Model):
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
+            if self.use_diagonal_natural_gradient:
+                updates = { self.n_var_samples : as_floatX(0.0) }
+
+                for param in self.get_params():
+                    updates[self.params_to_means[param]] = \
+                            0. * self.params_to_means[param]
+                    updates[self.params_to_M2s[param]] = \
+                            0. * self.params_to_M2s[param]
+                self.reset_variances = function([],updates= updates)
 
             self.s3c.e_step.register_model(self.s3c)
 
@@ -671,6 +754,11 @@ class PDDBM(Model):
 
 
         assert self.s3c is self.inference_procedure.s3c_e_step.model
+
+        if self.use_diagonal_natural_gradient:
+            self.reset_variances()
+            for i in xrange(X.shape[0]):
+                self.update_variances(X[i:i+1,:])
 
         if self.sub_batch:
             self.reset_grad_func()
