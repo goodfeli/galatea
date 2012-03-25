@@ -225,6 +225,12 @@ class PDDBM(Model):
         self.redo_theano()
 
 
+    def set_dtype(self, dtype):
+
+        assert self.s3c.bias_hid is self.dbm.bias_vis
+        super(PDDBM, self).set_dtype(dtype)
+        self.s3c.bias_hid = self.dbm.bias_vis
+
     def get_monitoring_channels(self, V):
             try:
                 self.compile_mode()

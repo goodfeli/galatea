@@ -68,7 +68,7 @@ def get_reconstruction_func():
 
             recons = T.dot(Z,model.s3c.W.T)
 
-            recons = G1
+            #recons = G1
         else:
             raise NotImplementedError()
     else:
@@ -105,12 +105,12 @@ else:
 
 R = f(X)
 
-mn = R.mean(axis=0)
-d = R - mn
-d = np.abs(d)
-d = d.mean(axis=0)
-print (d.min(),d.mean(),d.max())
-assert False
+#mn = R.mean(axis=0)
+#d = R - mn
+#d = np.abs(d)
+#d = d.mean(axis=0)
+#print (d.min(),d.mean(),d.max())
+#assert False
 
 
 if np.any(np.isnan(R)) or np.any(np.isinf(R)):
