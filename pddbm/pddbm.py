@@ -58,6 +58,7 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
+            monitor_ranges = False,
             use_diagonal_natural_gradient = False,
             inference_procedure = None,
             learning_rate = 1e-3,
@@ -100,6 +101,8 @@ class PDDBM(Model):
         """
 
         super(PDDBM,self).__init__()
+
+        self.monitor_ranges = monitor_ranges
 
         self.learning_rate = learning_rate
 
@@ -556,22 +559,23 @@ class PDDBM(Model):
         #this is kind of a hack, since I install the function rather
         #than returning it. should clean this up
 
-        new_n = self.n_var_samples + as_floatX(1.)
+        if self.use_diagonal_natural_gradient:
+            new_n = self.n_var_samples + as_floatX(1.)
 
-        var_updates = { self.n_var_samples : new_n }
+            var_updates = { self.n_var_samples : new_n }
 
-        for param in params:
-            grad = params_to_grads[param]
-            mean = self.params_to_means[param]
-            M2 = self.params_to_M2s[param]
+            for param in params:
+                grad = params_to_grads[param]
+                mean = self.params_to_means[param]
+                M2 = self.params_to_M2s[param]
 
-            delta = grad - mean
-            new_mean = mean + delta / new_n
+                delta = grad - mean
+                new_mean = mean + delta / new_n
 
-            var_updates[M2] = M2 + delta * (grad - new_mean)
-            var_updates[mean] = new_mean
+                var_updates[M2] = M2 + delta * (grad - new_mean)
+                var_updates[mean] = new_mean
 
-        self.update_variances = function([V], updates = var_updates)
+            self.update_variances = function([V], updates = var_updates)
 
         #end hacky part
 
@@ -866,6 +870,42 @@ class InferenceProcedure:
             rval['g[%d]_min'%(i,)] = full_min(g)
             rval['g[%d]_mean'%(i,)] = T.mean(g)
             rval['g[%d]_max'%(i,)] = full_max(g)
+
+
+        if self.model.monitor_ranges:
+            S_hat = final_vals['S_hat']
+            HS = H_hat * S_hat
+
+            hs_max = T.max(HS,axis=0)
+            hs_min = T.min(HS,axis=0)
+
+            hs_range = hs_max - hs_min
+
+            rval['hs_range_min'] = T.min(hs_range)
+            rval['hs_range_mean'] = T.mean(hs_range)
+            rval['hs_range_max'] = T.max(hs_range)
+
+            h_max = T.max(H_hat,axis=0)
+            h_min = T.min(H_hat,axis=0)
+
+            h_range = h_max - h_min
+
+            rval['h_range_min'] = T.min(h_range)
+            rval['h_range_mean'] = T.mean(h_range)
+            rval['h_range_max'] = T.max(h_range)
+
+            for i, G in enumerate(Gs):
+
+                g_max = T.max(G,axis=0)
+                g_min = T.min(G,axis=0)
+
+                g_range = g_max - g_min
+
+                g_name = 'g[%d]' % (i,)
+
+                rval[g_name+'_range_min'] = T.min(g_range)
+                rval[g_name+'_range_mean'] = T.mean(g_range)
+                rval[g_name+'_range_max'] = T.max(g_range)
 
 
         if self.model.recons_penalty is not None:
