@@ -594,7 +594,7 @@ class PDDBM(Model):
 
                 grad = params_to_grads[param]
                 var = params_to_variances[param]
-                safe_var = var + as_floatX(.01)
+                safe_var = var + as_floatX(.5)
                 scaled_grad = grad / safe_var
                 params_to_grads[param] = scaled_grad
 

@@ -13,14 +13,14 @@
                      },
     model: !obj:galatea.pddbm.pddbm.PDDBM {
         use_diagonal_natural_gradient: 1,
-        learning_rate : .001,
+        learning_rate : .0005,
         dbm: !obj:pylearn2.models.dbm.DBM {
                 negative_chains : 100,
                 monitor_params: 1,
                 rbms : [ !obj:pylearn2.models.rbm.RBM {
                                 nvis: 529,
                                 nhid: 529,
-                                irange: .05,
+                                irange: .1,
                                 init_bias_hid: -1.5
                 } ],
         },
