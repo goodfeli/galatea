@@ -164,6 +164,12 @@ class PDDBM(Model):
                         'the S3C layer, disabling it')
                 setattr(s3c, option, False)
 
+        s3c.monitor_stats = []
+        s3c.e_step.monitor_stats = []
+
+        if s3c.e_step.monitor_kl:
+            s3c.e_step.monitor_kl = False
+
         self.print_interval = print_interval
 
         s3c.print_interval = None
