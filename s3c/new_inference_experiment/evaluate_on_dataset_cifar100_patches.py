@@ -56,6 +56,10 @@ model.e_step = E_Step_Scan(
                 s_new_coeff_schedule = [.1 ] * OVERKILL)
 model.e_step.register_model(model)
 
+#from pylearn2.gui.get_weights_report import get_weights_report
+#pv = get_weights_report(model = model, dataset = dataset)
+#pv.show()
+
 
 from galatea.pddbm.batch_gradient_inference import BatchGradientInference
 
