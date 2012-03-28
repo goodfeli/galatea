@@ -18,6 +18,8 @@ from theano import tensor as T
 
 V = T.matrix()
 
+model.make_pseudoparams()
+
 if hasattr(model,'inference_procedure'):
     ip = model.inference_procedure
     obs = ip.infer(V)
