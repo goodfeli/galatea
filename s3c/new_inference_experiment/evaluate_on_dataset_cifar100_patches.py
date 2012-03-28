@@ -77,6 +77,9 @@ def get_needed_steps(ip, X, target, tol):
         if kls[i] < target + tol:
             return i - 1
     return -1
+#from pylearn2.gui.get_weights_report import get_weights_report
+#pv = get_weights_report(model = model, dataset = dataset)
+#pv.show()
 
 
 from galatea.pddbm.batch_gradient_inference import BatchGradientInference

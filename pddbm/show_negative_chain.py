@@ -49,6 +49,6 @@ for i in xrange(min(model.dbm.negative_chains,rows*cols)):
     patch = examples[i,:,:,:]
     assert not np.any(np.isnan(patch))
     assert not np.any(np.isinf(patch))
-    pv.add_patch(patch, activation = 0.0, rescale = patch_rescale)
+    pv.add_patch( dataset.adjust_for_viewer(patch), activation = 0.0, rescale = False)
 
 pv.show()
