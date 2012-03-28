@@ -25,8 +25,7 @@ class BatchGradientInference:
     methods. """
 
     def __init__(self, model):
-        """ model must be a PDDBM.
-            other models like S3C could be supported in principle but aren't yet."""
+        """ model must be a PDDBM or S3C model """
 
         batch_size = 87
         model._test_batch_size = batch_size
