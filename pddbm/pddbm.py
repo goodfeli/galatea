@@ -582,7 +582,7 @@ class PDDBM(Model):
 
         #add the approximate gradients
         if self.use_cd:
-            params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = V, H_hat = G_hat)
+            params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = H_hat, H_hat = G_hat)
         else:
             params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
