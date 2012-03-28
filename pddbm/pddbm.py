@@ -1169,8 +1169,13 @@ class InferenceProcedure:
         return self.s3c_e_step.infer_var_s0_hat()
 
 
-def get_s3c(pddbm):
-    return pddbm.s3c
+def get_s3c(pddbm, W_learning_rate_scale = None):
+    """ Modifies an s3c object and extracts it from a pddbm """
+    rval =  pddbm.s3c
+    if rval.m_step is not None:
+        if W_learning_rate_scale is not None:
+            rval.m_step.W_learning_rate_scale = W_learning_rate_scale
+    return rval
 
 def get_dbm(pddbm):
     return pddbm.dbm

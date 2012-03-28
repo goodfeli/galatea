@@ -11,7 +11,7 @@ from pylearn2.models.s3c import S3C, Grad_M_Step
 from galatea.s3c.s3c import E_Step_Scan, E_Step_CG_Scan
 
 NUM_EXAMPLES = 100
-OVERKILL = 300
+OVERKILL = 200
 
 X = dataset.get_batch_design(NUM_EXAMPLES)
 
@@ -53,8 +53,30 @@ model.e_step = E_Step_Scan(
                 clip_reflections = True,
                 rho = 0.5,
                 h_new_coeff_schedule = [.1 ] * OVERKILL,
-                s_new_coeff_schedule = [.1 ] * OVERKILL)
+                s_new_coeff_schedule = [.2 ] * OVERKILL)
 model.e_step.register_model(model)
+
+import theano.tensor as T
+from theano import function
+
+def get_needed_steps(ip, X, target, tol):
+
+    V = T.matrix()
+
+    history = ip.infer(V, return_history = True)
+
+    kls = [ ip.truncated_KL(V, history_elem).mean() for history_elem in history ]
+
+    print 'compiling'
+    f = function([V], kls )
+
+    print 'running'
+    kls = f(X)
+
+    for i in xrange(len(kls)):
+        if kls[i] < target + tol:
+            return i - 1
+    return -1
 
 
 from galatea.pddbm.batch_gradient_inference import BatchGradientInference
@@ -94,27 +116,6 @@ def make_ip(alg, s_config, h_config, n):
     rval.register_model(model)
     return rval
 
-import theano.tensor as T
-from theano import function
-
-def get_needed_steps(ip, X, target, tol):
-
-    V = T.matrix()
-
-    history = ip.infer(V, return_history = True)
-
-    kls = [ ip.truncated_KL(V, history_elem).mean() for history_elem in history ]
-
-    print 'compiling'
-    f = function([V], kls )
-
-    print 'running'
-    kls = f(X)
-
-    for i in xrange(len(kls)):
-        if kls[i] < target + tol:
-            return i - 1
-    return -1
 
 import time
 
