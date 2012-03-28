@@ -1167,3 +1167,10 @@ class InferenceProcedure:
 
     def infer_var_s0_hat(self):
         return self.s3c_e_step.infer_var_s0_hat()
+
+
+def get_s3c(pddbm):
+    return pddbm.s3c
+
+def get_dbm(pddbm):
+    return pddbm.dbm
