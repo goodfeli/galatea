@@ -53,7 +53,7 @@ model.e_step = E_Step_Scan(
                 clip_reflections = True,
                 rho = 0.5,
                 h_new_coeff_schedule = [.1 ] * OVERKILL,
-                s_new_coeff_schedule = [.2 ] * OVERKILL)
+                s_new_coeff_schedule = [.3 ] * OVERKILL)
 model.e_step.register_model(model)
 
 import theano.tensor as T
@@ -93,7 +93,7 @@ target = result['kl']
 
 
 s_config_dict = {
-        'hack' : [ .1, .2, .3 ],
+        'hack' : [ .2, .4, .6 ],
         'cg' : [ 1, 2, 3 ]
         }
 
@@ -144,7 +144,7 @@ def time_run( ip, X):
 for alg in ['hack','cg']:
     best_time = 1e30
     for s_config in s_config_dict[alg]:
-        for h_config in [ .1, .2, .3 ]:
+        for h_config in [ .1, .3, .5 ]:
             print 'testing ',alg,' ',s_config,' ',h_config
 
 

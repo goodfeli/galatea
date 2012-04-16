@@ -1,11 +1,13 @@
 import sys
 
-ignore, dataset_desc_path, N_str = sys.argv
+ignore ,= sys.argv
+
+dataset_desc_path = 'cifar100_full.yaml'
 
 from pylearn2.config import yaml_parse
 dataset = yaml_parse.load_path(dataset_desc_path)
 
-N = int(N_str)
+N = 4000
 
 from pylearn2.models.s3c import S3C, Grad_M_Step
 from galatea.s3c.s3c import E_Step_Scan, E_Step_CG_Scan
@@ -52,8 +54,8 @@ model = package_call( S3C, nvis = D, nhid = N, local_rf_src = dataset,
 model.e_step = E_Step_Scan(
                 clip_reflections = True,
                 rho = 0.5,
-                h_new_coeff_schedule = [.1 ] * OVERKILL,
-                s_new_coeff_schedule = [.1 ] * OVERKILL)
+                h_new_coeff_schedule = [.2 ] * OVERKILL,
+                s_new_coeff_schedule = [.5 ] * OVERKILL)
 model.e_step.register_model(model)
 
 
@@ -128,12 +130,6 @@ def time_run( ip, X):
 
     print 'compiling'
     f = function([V],[H,S])
-
-
-    print 'warming up'
-    f(X)
-    f(X)
-    f(X)
 
     print 'running'
     t1 = time.time()

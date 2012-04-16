@@ -1,0 +1,114 @@
+!obj:pylearn2.scripts.train.Train {
+    "dataset": &src !obj:pylearn2.datasets.mnist.MNIST {
+                        "which_set" : "train",
+                        "center" : 0
+                     },
+    "model": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 784,
+               "nhid" : 529,
+               "init_bias_hid" : -1.5,
+               "max_bias_hid" : 1e6,
+               "min_bias_hid" : -8.,
+               "irange"  : .02,
+               "constrain_W_norm" : 1,
+               "init_B"  : 3.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  0,
+               "init_alpha" : 10.,
+               "min_alpha" : 5.,
+               "max_alpha" : 1e6,
+               "init_mu" : 0.,
+               #"local_rf_src" : *src,
+               #"local_rf_stride" : [ 1, 1],
+               #"local_rf_shape" : [ 6, 6],
+               #"random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               "monitor_functional" : 1,
+               "monitor_stats" : [ 'mean_h', 'mean_hs' ],
+               "e_step" : !obj:pylearn2.models.s3c.E_Step {
+                        "h_new_coeff_schedule" : 
+                        [
+#2-6                        
+.1, .1, .1, .1, .1,
+#7-11
+.1, .1, .1, .1, .1,
+#12-16
+.1, .1, .1, .1, .2,
+#17-21
+.2, .2, .2, .3, .3,
+#22-26
+.4, .4, .4, .5, .5,
+#27-31
+.5, .6, .6, .3, .3,
+#32-36
+.3, .3, .7, .3, .3,
+.3,
+.3,
+.4,
+.4,
+.4,
+.4,
+.4,
+.4,
+.4,
+.4,
+.4,
+.4,
+.2,
+.2,
+.2,
+.2],
+                        "s_new_coeff_schedule" : [
+#2-6
+.1, .1, .1, .1, .1,
+#7-11
+.1, .1, .1, .1, .1,
+#12-16
+.1, .1, .1, .1, .1,
+#17-21
+.2, .2, .2, .2, .3,
+#22-26
+.3, .4, .4, .4, .5,
+#27-31
+.5, .5, .6, .5, .25,
+#32-36
+.2, .2, .2, .5, .2,
+#37-41
+.2, .2, .2, .3, .2,
+#42-46
+.4,.4,.1,.1,.1,
+#47-51
+.1,.4,.4,.2,.2,
+#52
+.2
+                ],
+                        #"monitor_s_mag" : 1
+                        monitor_kl : 0
+               },
+               "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
+                        "learning_rate" : .001,
+                        "B_learning_rate_scale" : 1.0,
+                        #note: I think all this stuff is currently ignored by the actual learning algo
+                        "W_learning_rate_scale" : 10.,
+                        "p_penalty" : 0.,
+                        "B_penalty" : 0.,
+                        "alpha_penalty" : 1.
+               },
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 500,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : *src,
+                        "num_examples" : 100
+                }
+        },
+    callbacks: [ galatea.pddbm.batch_gradient_inference_callback.BatchGradientInferenceCallback() ],
+    save_path: "${EXPDIR}/s3c_mnist/${PYLEARN2_TRAIN_FILE_STEM}.pkl",
+    save_freq: 1
+}
+

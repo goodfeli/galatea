@@ -1,11 +1,13 @@
 import sys
 
-ignore, dataset_desc_path, N_str = sys.argv
+ignore, = sys.argv
+
+dataset_desc_path = 'mnist.yaml'
 
 from pylearn2.config import yaml_parse
 dataset = yaml_parse.load_path(dataset_desc_path)
 
-N = int(N_str)
+N = 400
 
 from pylearn2.models.s3c import S3C, Grad_M_Step
 from galatea.s3c.s3c import E_Step_Scan, E_Step_CG_Scan
@@ -68,8 +70,8 @@ target = result['kl']
 
 
 s_config_dict = {
-        'hack' : [ .1, .2, .3 ],
-        'cg' : [ 1, 2, 3 ]
+        'hack' : [ .2  ],
+        'cg' : [  2 ]
         }
 
 TOL = .05
@@ -146,7 +148,7 @@ def time_run( ip, X):
 for alg in ['hack','cg']:
     best_time = 1e30
     for s_config in s_config_dict[alg]:
-        for h_config in [ .1, .2, .3 ]:
+        for h_config in [ .3, .4, .5 ]:
             print 'testing ',alg,' ',s_config,' ',h_config
 
 

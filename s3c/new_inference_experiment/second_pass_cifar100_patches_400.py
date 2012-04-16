@@ -1,11 +1,13 @@
 import sys
 
-ignore, dataset_desc_path, N_str = sys.argv
+ignore,  = sys.argv
+
+dataset_desc_path = 'cifar100_patches.yaml'
 
 from pylearn2.config import yaml_parse
 dataset = yaml_parse.load_path(dataset_desc_path)
 
-N = int(N_str)
+N = 400
 
 from pylearn2.models.s3c import S3C, Grad_M_Step
 from galatea.s3c.s3c import E_Step_Scan, E_Step_CG_Scan
@@ -53,8 +55,33 @@ model.e_step = E_Step_Scan(
                 clip_reflections = True,
                 rho = 0.5,
                 h_new_coeff_schedule = [.1 ] * OVERKILL,
-                s_new_coeff_schedule = [.1 ] * OVERKILL)
+                s_new_coeff_schedule = [.3 ] * OVERKILL)
 model.e_step.register_model(model)
+
+import theano.tensor as T
+from theano import function
+
+def get_needed_steps(ip, X, target, tol):
+
+    V = T.matrix()
+
+    history = ip.infer(V, return_history = True)
+
+    kls = [ ip.truncated_KL(V, history_elem).mean() for history_elem in history ]
+
+    print 'compiling'
+    f = function([V], kls )
+
+    print 'running'
+    kls = f(X)
+
+    for i in xrange(len(kls)):
+        if kls[i] < target + tol:
+            return i - 1
+    return -1
+#from pylearn2.gui.get_weights_report import get_weights_report
+#pv = get_weights_report(model = model, dataset = dataset)
+#pv.show()
 
 
 from galatea.pddbm.batch_gradient_inference import BatchGradientInference
@@ -68,8 +95,8 @@ target = result['kl']
 
 
 s_config_dict = {
-        'hack' : [ .1, .2, .3 ],
-        'cg' : [ 1, 2, 3 ]
+        'hack' : [  .4, .5 ],
+        'cg' : [ 3, 4, 5 ]
         }
 
 TOL = .05
@@ -94,27 +121,6 @@ def make_ip(alg, s_config, h_config, n):
     rval.register_model(model)
     return rval
 
-import theano.tensor as T
-from theano import function
-
-def get_needed_steps(ip, X, target, tol):
-
-    V = T.matrix()
-
-    history = ip.infer(V, return_history = True)
-
-    kls = [ ip.truncated_KL(V, history_elem).mean() for history_elem in history ]
-
-    print 'compiling'
-    f = function([V], kls )
-
-    print 'running'
-    kls = f(X)
-
-    for i in xrange(len(kls)):
-        if kls[i] < target + tol:
-            return i - 1
-    return -1
 
 import time
 
@@ -129,7 +135,6 @@ def time_run( ip, X):
     print 'compiling'
     f = function([V],[H,S])
 
-
     print 'warming up'
     f(X)
     f(X)
@@ -143,10 +148,16 @@ def time_run( ip, X):
     return t2 - t1
 
 
+h_config_dict = {
+        'hack' : [ .5, .6, .7 ],
+        'cg' : [ .1, .3, .5 ]
+        }
+
+
 for alg in ['hack','cg']:
     best_time = 1e30
     for s_config in s_config_dict[alg]:
-        for h_config in [ .1, .2, .3 ]:
+        for h_config in h_config_dict[alg]:
             print 'testing ',alg,' ',s_config,' ',h_config
 
 
