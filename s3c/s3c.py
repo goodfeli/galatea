@@ -31,6 +31,7 @@ import theano.tensor as T
 from theano import function
 from theano import scan
 from pylearn2.models.s3c import reflection_clip
+from pylearn2.models.s3c import E_Step_Scan
 from theano.gof.op import get_debug_values, debug_error_message
 import warnings
 
