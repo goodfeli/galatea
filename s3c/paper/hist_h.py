@@ -60,7 +60,7 @@ plt.hist(y, bins = 20, log = True)
 
 plt.title('Distribution of $\mathbb{E}[h_i] $',fontsize=20)
 plt.xlabel('$ \mathbb{E}[h_i] $', fontsize=18)
-plt.ylabel('log number of occurrences',fontsize=18)
+plt.ylabel('number of occurrences',fontsize=18)
 
 plt.show()
 

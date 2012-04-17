@@ -1,4 +1,3 @@
-#based on 6x6 G
 !obj:pylearn2.scripts.train.Train {
     "dataset": !pkl: &src "${TLC_PATCHES_6x6}",
     "model": !obj:galatea.s3c.s3c.S3C {

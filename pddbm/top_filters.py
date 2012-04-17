@@ -35,6 +35,9 @@ N = l2.nhid
 
 count = 100
 
+if count > N1:
+    count = N1
+
 pv = PatchViewer( (N, count), imgs.shape[1:3], is_color = imgs.shape[3] == 3)
 
 for i in xrange(N):
