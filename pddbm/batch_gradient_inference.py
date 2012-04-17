@@ -27,6 +27,7 @@ class BatchGradientInference:
     def __init__(self, model):
         """ model must be a PDDBM or S3C model """
 
+        self.verbose = False
         batch_size = 87
         model._test_batch_size = batch_size
 
@@ -73,9 +74,11 @@ class BatchGradientInference:
             for G_elem, G_hat_elem in zip(G, obs['G_hat']):
                 updates[G_elem] = G_hat_elem
 
-        print 'batch gradient class compiling init function'
+        if self.verbose:
+            print 'batch gradient class compiling init function'
         self.init = function([V], trunc_kl,  updates = updates )
-        print 'done'
+        if self.verbose:
+            print 'done'
 
 
 
@@ -112,16 +115,19 @@ class BatchGradientInference:
             for grad_G_elem, grad_G_sym_elem in zip(grad_G,grad_G_sym):
                 updates[grad_G_elem] = grad_G_sym_elem
 
-        print 'batch gradient class compiling gradient function'
+        if self.verbose:
+            print 'batch gradient class compiling gradient function'
         self.compute_grad = function([V], updates = updates )
-        print 'done'
+        if self.verbose:
+            print 'done'
 
 
 
-
-        print 'batch gradient class compiling objective function'
+        if self.verbose:
+            print 'batch gradient class compiling objective function'
         self.obj = function([V], obj)
-        print 'done'
+        if self.verbose:
+            print 'done'
 
         self.S = S
         self.H = H
@@ -192,7 +198,8 @@ class BatchGradientInference:
 
         self.H.set_value(clip(self.H.get_value()))
 
-        print orig_kl
+        if self.verbose:
+            print orig_kl
 
         orig_H = self.H.get_value()
         assert orig_H.shape[0] == X.shape[0]
@@ -209,14 +216,16 @@ class BatchGradientInference:
             for ind, alpha in enumerate(alpha_list):
                 self.goto_alpha(alpha)
                 kl = self.obj(X)
-                print '\t',alpha,kl
+                if self.verbose:
+                    print '\t',alpha,kl
 
                 if kl < best_kl:
                     best_kl = kl
                     best_alpha = alpha
                     best_alpha_ind = ind
 
-            print best_kl
+            if self.verbose:
+                print best_kl
             assert not np.isnan(best_kl)
             self.goto_alpha(best_alpha)
 
