@@ -10,7 +10,7 @@ class BatchGradientInferenceCallback(TrainingCallback):
 
         if self.tester is None:
             self.tester = BatchGradientInference(model)
-            self.X = dataset.get_batch_design(100)
+            self.X = dataset.get_batch_design(algorithm.batch_size)
             model.kl_fail_log = []
 
         results = self.tester.run_inference(self.X)
