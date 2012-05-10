@@ -281,6 +281,30 @@ class PDDBM(Model):
 
                 rval = self.s3c.get_monitoring_channels(V)
 
+                # % of DBM W[0] weights that are negative
+                negs = T.sum(T.cast(T.lt(self.dbm.W[0],0.),'float32'))
+                total = np.cast['float32'](self.dbm.rbms[0].nvis * self.dbm.rbms[0].nhid)
+                negprop = negs /total
+                rval['dbm_W[0]_negprop'] = negprop
+
+                #DBM negative chain
+                H_chain = self.dbm.V_chains.mean(axis=0)
+                rval['neg_chain_h_min'] = full_min(H_chain)
+                rval['neg_chain_h_mean'] = H_chain.mean()
+                rval['neg_chain_h_max'] = full_max(H_chain)
+                G_chains = self.dbm.H_chains
+                for i, G_chain in enumerate(G_chains):
+                    G_chain = G_chain.mean(axis=0)
+                    rval['neg_chain_g[%d]_min'%i] = full_min(G_chain)
+                    rval['neg_chain_g[%d]_mean'%i] = G_chain.mean()
+                    rval['neg_chain_g[%d]_max'%i] = full_max(G_chain)
+                rb = self.dbm.rao_blackwellize( self.dbm.V_chains, G_chains)
+                for i, rbg in enumerate(rb):
+                    rbg = rbg.mean(axis=0)
+                    rval['neg_chain_rbg[%d]_min'%i] = full_min(rbg)
+                    rval['neg_chain_rbg[%d]_mean'%i] = rbg.mean()
+                    rval['neg_chain_rbg[%d]_max'%i] = full_max(rbg)
+
                 from_inference_procedure = self.inference_procedure.get_monitoring_channels(V)
 
                 rval.update(from_inference_procedure)
@@ -303,6 +327,11 @@ class PDDBM(Model):
                         rval[name+'_min'] = var.min()
                         rval[name+'_mean'] = var.mean()
                         rval[name+'_max'] = var.max()
+
+                if self.momentum_saturation_example is not None:
+                    rval['momentum'] = self.momentum
+                if self.non_s3c_lr_saturation_example is not None:
+                    rval['non_s3c_lr'] = self.non_s3c_lr
 
             finally:
                 self.deploy_mode()
