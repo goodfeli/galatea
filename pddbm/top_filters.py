@@ -33,7 +33,38 @@ imgs = dataset.get_weights_view(W1.T)
 N1 = l1.nhid
 N = l2.nhid
 
-count = 100
+thresh = .9
+max_count = 0
+total_counts = 0.
+for i in xrange(N):
+    w = W2[:,i]
+
+    wa = np.abs(w)
+
+    total = wa.sum()
+
+    s = np.asarray(sorted(wa))
+
+    count = 1
+
+    while s[-count:].sum() < thresh * total:
+        count += 1
+
+    if count > max_count:
+        max_count = count
+
+    total_counts += count
+ave = total_counts / float(N)
+
+print 'average needed filters',ave
+
+count = max_count
+
+print 'It takes',count,'of',N1,'elements to account for ',(thresh*100.),'\% of the weight in at least one filter'
+
+if count > 100:
+    count = 100
+    print 'Only displaying ',count,' elements though.'
 
 if count > N1:
     count = N1
@@ -43,11 +74,13 @@ pv = PatchViewer( (N, count), imgs.shape[1:3], is_color = imgs.shape[3] == 3)
 for i in xrange(N):
     w = W2[:, i]
 
-    print (w.min(), w.mean(), w.max())
+    wneg = w[w < 0.]
+    wpos = w[w > 0.]
 
     w /= np.abs(w).max()
 
     wa = np.abs(w)
+
 
     to_sort = zip(wa,range(N1), w )
 
@@ -62,8 +95,6 @@ for i in xrange(N):
             act = (mag, 0)
         else:
             act = (0, -mag)
-
-        #print (act, mag)
 
         pv.add_patch( imgs[idx,...], rescale = True, activation = act)
 
