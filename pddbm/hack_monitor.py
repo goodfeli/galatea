@@ -9,7 +9,7 @@ ignore, model_path = sys.argv
 model = serial.load(model_path)
 
 name = 'kl_fail'
-channel = MonitorChannel(None,None,name)
+channel = MonitorChannel(None,model.s3c.W.sum(),name)
 model.monitor.channels[name] = channel
 
 for ex, val in model.kl_fail_log:
