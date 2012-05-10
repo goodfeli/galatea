@@ -572,7 +572,7 @@ class PDDBM(Model):
                 coeff = T.as_tensor_variable(coeff)
                 coeff.name = 'dbm_l1_weight_decay_coeff_'+str(i)
 
-                tractable_obj = tractable_obj - coeff * T.mean(abs(W))
+                tractable_obj = tractable_obj - coeff * T.sum(abs(W))
 
         if self.h_penalty != 0.0:
             next_h = self.inference_procedure.infer_H_hat(V = V,
