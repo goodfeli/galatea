@@ -15,25 +15,26 @@
         learning_rate : .001,
         h_bias_src: "s3c",
         freeze_s3c_params: 1,
+        monitor_ranges: 1,
         dbm: !obj:pylearn2.models.dbm.DBM {
                 negative_chains : 100,
                 monitor_params: 1,
                 rbms : [ !obj:pylearn2.models.rbm.RBM {
                                 nvis: 529,
                                 nhid: 529,
-                                irange: .05,
+                                irange: .01,
                                 init_bias_hid: -1.5
                 } ],
         },
-        s3c: !pkl:"/RQexec/goodfell/s3c_mnist/B1.pkl",
+        s3c: !pkl: "${GOODFELI_TMP}/s3c_mnist/B1E.pkl",
         inference_procedure : !obj:galatea.pddbm.pddbm.InferenceProcedure {
                schedule : [
 #2
- ['s', .1], ['h', .1], ['g',0],
+ ['s', .2], ['h', .2], ['g',0],
 #5
- ['h', .1], ['s', .1], ['h', .1], 
+ ['h', .2], ['s', .2], ['h', .2], 
 #8
- ['g',0], ['h', .1], ['s', .1],
+ ['g',0], ['h', .2], ['s', .1],
 #11
  ['h',0.1],['g', 0],['h', .1],
 #14
@@ -77,22 +78,22 @@
 #69
  ['h', .7], ['g',0], ['h',.7],
 #72
-['s',.3],['h',.3],['g',0],
- ['h',0.3], ['s',.3],['h', .3],
+['s',.7],['h',.7],['g',0],
+ ['h',0.7], ['s',.7],['h', .7],
  #75
- ['g',0], ['h', .3],['s', .3],
+ ['g',0], ['h', .7],['s', .7],
  #78
- ['h',0.4],['g', 0], ['h', .4],
+ ['h',0.7],['g', 0], ['h', .7],
  #81
- ['s',.4], ['h',.4],
+ ['s',.7], ['h',.7],
 #83
-['g',0], ['h',0.4], ['s',.2],
+['g',0], ['h',0.7], ['s',.7],
 #86
- ['h', .4], ['g',0], ['h',.4],
+ ['h', .7], ['g',0], ['h',.7],
 #89
-['s',.2],['h',.4],['g',0],
+['s',.7],['h',.7],['g',0],
 #92
- ['h',0.4],['g', 0], ['h', .4],
+ ['h',0.3],['g', 0], ['h', .3],
  #95
  ['s',.3], ['h',.4],
 #97
@@ -103,8 +104,8 @@
 ['s',.2],['h',.2],['g',0],
                             ],
                 clip_reflections : 1,
-                rho : .5,
-                monitor_kl : [1,-1],
+                rho : 1.,
+                monitor_kl : [1,-1,10],
         },
     },
     algorithm: !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
