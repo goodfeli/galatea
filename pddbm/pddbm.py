@@ -58,11 +58,16 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
+            s3c_mu_learning_rate_scale = 1.,
             monitor_ranges = False,
             use_diagonal_natural_gradient = False,
             inference_procedure = None,
             learning_rate = 1e-3,
+            init_non_s3c_lr = 1e-3,
+            final_non_s3c_lr = 1e-3,
+            non_s3c_lr_saturation_example = None,
             h_penalty = 0.0,
+            s3c_l1_weight_decay = 0.0,
             h_target = None,
             g_penalties = None,
             g_targets = None,
@@ -73,6 +78,9 @@ class PDDBM(Model):
             dbm_l1_weight_decay = None,
             recons_penalty = None,
             sub_batch = False,
+            init_momentum = None,
+            final_momentum = None,
+            momentum_saturation_example = None,
             h_bias_src = 'dbm'):
         """
             s3c: a galatea.s3c.s3c.S3C object
@@ -113,6 +121,15 @@ class PDDBM(Model):
         self.dbm_l1_weight_decay = dbm_l1_weight_decay
         self.use_diagonal_natural_gradient = use_diagonal_natural_gradient
 
+        self.s3c_mu_learning_rate_scale = s3c_mu_learning_rate_scale
+
+        self.init_non_s3c_lr = init_non_s3c_lr
+        self.final_non_s3c_lr = final_non_s3c_lr
+        self.non_s3c_lr_saturation_example = non_s3c_lr_saturation_example
+
+        self.init_momentum =   init_momentum
+        self.final_momentum = final_momentum
+        self.momentum_saturation_example = momentum_saturation_example
 
         self.recons_penalty = recons_penalty
 
@@ -140,8 +157,10 @@ class PDDBM(Model):
 
         self.rng = np.random.RandomState([1,2,3])
 
-        assert dbm.bias_vis.get_value(borrow=True).shape \
-                == s3c.bias_hid.get_value(borrow=True).shape
+        if dbm.bias_vis.get_value(borrow=True).shape \
+                != s3c.bias_hid.get_value(borrow=True).shape:
+                    raise AssertionError("DBM has "+str(dbm.bias_vis.get_value(borrow=True).shape)+\
+                            " visible units but S3C has "+str(s3c.bias_hid.get_value(borrow=True).shape))
         if h_bias_src == 'dbm':
             self.s3c.bias_hid = self.dbm.bias_vis
         elif h_bias_src == 's3c':
@@ -188,6 +207,8 @@ class PDDBM(Model):
         self.g_penalties = g_penalties
         self.g_targets = g_targets
 
+        self.s3c_l1_weight_decay = s3c_l1_weight_decay
+
         self.sub_batch = sub_batch
 
         self.redo_everything()
@@ -228,6 +249,18 @@ class PDDBM(Model):
                         sharedX(np.zeros(param.get_value().shape))
                 self.params_to_M2s[param] = \
                         sharedX(np.zeros(param.get_value().shape))
+
+        if self.momentum_saturation_example is not None:
+            assert not self.use_diagonal_natural_gradient
+            self.params_to_incs = {}
+
+            for param in self.get_params():
+                self.params_to_incs[param] = sharedX(np.zeros(param.get_value().shape))
+
+            self.momentum = sharedX(self.init_momentum)
+
+        if self.non_s3c_lr_saturation_example is not None:
+            self.non_s3c_lr = sharedX(self.init_non_s3c_lr)
 
         self.test_batch_size = 2
 
@@ -538,6 +571,9 @@ class PDDBM(Model):
 
                 tractable_obj = tractable_obj - self.g_penalties[i] * penalty
 
+        if self.s3c_l1_weight_decay != 0.0:
+
+            tractable_obj = tractable_obj - self.s3c_l1_weight_decay * T.mean(abs(self.s3c.W))
 
         if self.B_penalty != 0.0:
             tractable_obj = tractable_obj - T.mean(self.s3c.B) * self.B_penalty
@@ -661,11 +697,24 @@ class PDDBM(Model):
                 learning_rate[param] = as_floatX(self.learning_rate * self.B_learning_rate_scale)
             elif param is self.s3c.W:
                 learning_rate[param] = as_floatX(self.learning_rate * self.s3c_W_learning_rate_scale)
+            elif param is self.s3c.mu:
+                learning_rate[param] = as_floatX(self.learning_rate * self.s3c_mu_learning_rate_scale)
+            elif param not in self.s3c.get_params():
+                if self.non_s3c_lr_saturation_example is not None:
+                    learning_rate[param] = self.non_s3c_lr
+                else:
+                    learning_rate[param] = as_floatX(self.learning_rate)
             else:
                 learning_rate[param] = as_floatX(self.learning_rate)
 
-        for key in params_to_grads:
-            rval[key] = key + learning_rate[key] * params_to_grads[key]
+        if self.momentum_saturation_example is not None:
+            for key in params_to_grads:
+                inc = self.params_to_incs[key]
+                rval[inc] = self.momentum * inc + learning_rate[key] * params_to_grads[key]
+                rval[key] = key + rval[inc]
+        else:
+            for key in params_to_grads:
+                rval[key] = key + learning_rate[key] * params_to_grads[key]
 
         for param in self.get_params():
             assert param in params_to_grads
@@ -764,6 +813,18 @@ class PDDBM(Model):
 
 
         assert self.s3c is self.inference_procedure.s3c_e_step.model
+        if self.momentum_saturation_example is not None:
+            alpha = float(self.monitor.get_examples_seen()) / float(self.momentum_saturation_example)
+            alpha = min( alpha, 1.0)
+            self.momentum.set_value(np.cast[config.floatX](
+                (1.-alpha) * self.init_momentum + alpha * self.final_momentum))
+        if self.non_s3c_lr_saturation_example is not None:
+            alpha = float(self.monitor.get_examples_seen()) / float(self.non_s3c_lr_saturation_example)
+            alpha = min( alpha, 1.0)
+            self.non_s3c_lr.set_value(np.cast[config.floatX](
+                (1.-alpha) * self.init_non_s3c_lr + alpha * self.final_non_s3c_lr))
+
+
 
         if self.use_diagonal_natural_gradient:
             self.reset_variances()
@@ -856,10 +917,13 @@ class InferenceProcedure:
                         assert Gv.min() >= 0.0
                         assert Gv.max() <= 1.0
 
-                rval['trunc_KL_'+str(i)+summary] = self.truncated_KL(V, obs).mean()
+                channel_val = self.truncated_KL(V, obs).mean()
+                assert channel_val.dtype == 'float32'
+                rval['trunc_KL_'+str(i)+summary] = channel_val
 
         final_vals = obs_history[-1]
 
+        S_hat = final_vals['S_hat']
         H_hat = final_vals['H_hat']
         h = T.mean(H_hat, axis=0)
 
@@ -876,6 +940,18 @@ class InferenceProcedure:
             rval['g[%d]_min'%(i,)] = full_min(g)
             rval['g[%d]_mean'%(i,)] = T.mean(g)
             rval['g[%d]_max'%(i,)] = full_max(g)
+
+
+        #norm of gradient with respect to variational params
+        grad_norm_sq = np.cast[config.floatX](0.)
+        kl = self.truncated_KL(V, obs_history[-1]).mean()
+        for var_param in set([ S_hat, H_hat]).union(Gs):
+            grad = T.grad(kl,var_param)
+            grad_norm_sq = grad_norm_sq + T.sum(T.sqr(grad))
+        grad_norm = T.sqrt(grad_norm_sq)
+        rval['var_param_grad_norm'] = grad_norm
+
+
 
 
         if self.model.monitor_ranges:
@@ -914,8 +990,8 @@ class InferenceProcedure:
                 rval[g_name+'_range_max'] = T.max(g_range)
 
 
-        if self.model.recons_penalty is not None:
-            rval['simple_recons_error'] = self.model.simple_recons_error(V,Gs)
+        #if self.model.recons_penalty is not None:
+        rval['simple_recons_error'] = self.model.simple_recons_error(V,Gs)
 
 
         return rval
