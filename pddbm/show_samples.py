@@ -19,7 +19,13 @@ cols = 10
 print 'loading dataset'
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
+print 'HACK'
+from pylearn2.datasets.mnist import MNIST
+dataset = MNIST(which_set = 'test', center = 0, shuffle = True)
+
+
 init_examples = dataset.get_batch_design( rows * cols )
+
 
 print 'init_examples ',(init_examples.min(),init_examples.mean(),init_examples.max())
 

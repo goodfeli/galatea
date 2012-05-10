@@ -1,0 +1,144 @@
+#debugging attempt:
+#       can I fix debug1 by doing exhaustive iteration through the dataset?
+!obj:pylearn2.scripts.train.Train {
+        #save_path: "/kermit",
+        save_path: "${EXPDIR}/pddbm_mnist/${PYLEARN2_TRAIN_FILE_STEM}.pkl",
+        dataset: &src !obj:pylearn2.datasets.mnist.MNIST {
+                        "which_set" : "train",
+                        "center" : 0,
+                        "shuffle" : 1
+                     },
+    model: !obj:galatea.pddbm.pddbm.PDDBM {
+        init_momentum: 0.5,
+        final_momentum: 0.9,
+        momentum_saturation_example: 3e5,
+        learning_rate : &lr .001,
+        init_non_s3c_lr : 0.,
+        final_non_s3c_lr : *lr,
+        non_s3c_lr_saturation_example : 2e6,
+        monitor_ranges: 1,
+        h_bias_src : "s3c",
+        dbm: !obj:pylearn2.models.dbm.DBM {
+                negative_chains : 100,
+                monitor_params: 1,
+                rbms : [ !obj:pylearn2.models.rbm.RBM {
+                                nvis: 100,
+                                nhid: 529,
+                                irange: .05,
+                                init_bias_hid: -1.5
+                } ],
+        },
+        s3c: !obj:pylearn2.models.s3c.S3C {
+               nvis : 784,
+               nhid : 100,
+               init_bias_hid : -1.,
+               max_bias_hid : 1e6,
+               min_bias_hid : -8.,
+               "irange"  : .5,
+               "constrain_W_norm" : 1,
+               "init_B"  : 3.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  0,
+               "init_alpha" : 10.,
+               "min_alpha" : 1e-3,
+               "max_alpha" : 1e6,
+               "init_mu" : .3,
+               #"local_rf_src" : *src,
+               #"local_rf_stride" : [ 1, 1],
+               #"local_rf_shape" : [ 6, 6],
+               #"random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               monitor_params : [ 'B', 'alpha', 'mu', 'W' ],
+               "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
+                        B_learning_rate_scale : 1.0,
+                        W_learning_rate_scale : 10.,
+                        B_penalty : 1.,
+                        alpha_penalty : 0.
+               },
+        },
+        inference_procedure : !obj:galatea.pddbm.pddbm.InferenceProcedure {
+               schedule : [
+#2
+ ['s', .2], ['h', .2], ['g',0],
+#5
+ ['h', .2], ['s', .2], ['h', .1], 
+#8
+ ['g',0], ['h', .1], ['s', .1],
+#11
+ ['h',0.1],['g', 0],['h', .1],
+#14
+ ['s',.1], ['h',.1], ['g',0],
+#17
+ ['h',0.1], ['s',.1],['h', .1],
+ #20
+ ['g',0], ['h', .1],['s', .1],
+ #23
+ ['h',.1],['g', 0], ['h', .1],
+ #26
+ ['s',.1], ['h',.1], ['g',0],
+ #29
+ ['h',0.1], ['s',.2], ['h', .2],
+ #32
+ ['g',0], ['h', .2],['s', .2],
+ #35
+ ['h',0.2],['g', 0],['h', .2],
+ #38
+ ['s',.2], ['h',.2], ['g',0],
+ #41
+ ['h',0.3], ['s',.3],['h', .3],
+ #44
+ ['g',0], ['h', .3],['s', .3],
+ #47
+ ['h',0.4],['g', 0], ['h', .4],
+ #50
+ ['s',.4], ['h',.4],
+#52
+['g',0], ['h',0.5], ['s',.5],
+#55
+ ['h', .5], ['g',0], ['h',.5],
+#58
+['s',.6],['h',.6],['g',0],
+#61
+ ['h',0.3],['g', 0], ['h', .3],
+ #64
+ ['s',.3], ['h',.3],
+#66
+['g',0], ['h',0.3], ['s',.3],
+#69
+ ['h', .3], ['g',0], ['h',.3],
+#72
+['s',.4],['h',.4],['g',0],
+ ['h',0.4], ['s',.4],['h', .3],
+ #75
+ ['g',0], ['h', .3],['s', .3],
+ #78
+ ['h',0.4],['g', 0], ['h', .4],
+ #81
+ ['s',.4], ['h',.4],
+#83
+['g',0], ['h',0.4], ['s',.2],
+#86
+ ['h', .4], ['g',0], ['h',.4],
+#89
+['s',.2],['h',.4],['g',0]
+                            ],
+                clip_reflections : 1,
+                rho : 1.,
+                monitor_kl : []
+        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               batch_size : 100,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" :  !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        dataset: *src,
+                        num_examples: 100
+               }
+        },
+    save_freq: 1,
+    callbacks: [ galatea.pddbm.batch_gradient_inference_callback.BatchGradientInferenceCallback() ]
+}
+
