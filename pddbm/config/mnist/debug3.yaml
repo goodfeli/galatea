@@ -9,6 +9,7 @@
                         "shuffle" : 1
                      },
     model: !obj:galatea.pddbm.pddbm.PDDBM {
+        exhaustive_iteration : True,
         init_momentum: 0.5,
         final_momentum: 0.9,
         momentum_saturation_example: 3e5,

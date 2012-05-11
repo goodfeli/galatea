@@ -31,6 +31,7 @@ from theano.gof.op import debug_assert
 from theano.gof.op import get_debug_values
 from pylearn2.space import VectorSpace
 from theano.sandbox.scan import scan
+from pylearn2.utils.iteration import SequentialSubsetIterator
 
 warnings.warn('There is a known bug where for some reason the w field of s3c '
 'gets serialized. Not sure if other things get serialized too but be sure to '
@@ -58,6 +59,10 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
+            ss_init_h = None,
+            ss_init_scale = None,
+            ss_init_mu = None,
+            exhaustive_iteration = False,
             s3c_mu_learning_rate_scale = 1.,
             monitor_ranges = False,
             use_diagonal_natural_gradient = False,
@@ -110,6 +115,15 @@ class PDDBM(Model):
 
         super(PDDBM,self).__init__()
 
+
+        self.exhaustive_iteration = exhaustive_iteration
+        if self.exhaustive_iteration:
+            self.iterator = None
+
+        self.ss_init_h = ss_init_h
+        self.ss_init_mu = ss_init_mu
+        self.ss_init_scale = ss_init_scale
+
         self.monitor_ranges = monitor_ranges
 
         self.learning_rate = learning_rate
@@ -156,6 +170,14 @@ class PDDBM(Model):
         self.dbm.use_cd = use_cd
 
         self.rng = np.random.RandomState([1,2,3])
+
+        W = dbm.W[0].get_value()
+
+        if ss_init_h is not None:
+            W *= 0.
+            W += (self.rng.uniform(0.,1., W.shape) < ss_init_h) * (ss_init_mu + self.rng.randn( * W.shape ) * ss_init_scale)
+            dbm.W[0].set_value(W)
+
 
         if dbm.bias_vis.get_value(borrow=True).shape \
                 != s3c.bias_hid.get_value(borrow=True).shape:
@@ -210,6 +232,9 @@ class PDDBM(Model):
         self.s3c_l1_weight_decay = s3c_l1_weight_decay
 
         self.sub_batch = sub_batch
+
+
+
 
         self.redo_everything()
 
@@ -836,6 +861,30 @@ class PDDBM(Model):
     #
 
     def learn(self, dataset, batch_size):
+
+        if self.exhaustive_iteration:
+            def make_iterator():
+                self.iterator = dataset.iterator(
+                        mode = 'sequential',
+                        batch_size = batch_size)
+
+            if self.iterator is None:
+                self.batch_size = batch_size
+                self.dataset = dataset
+                self.register_names_to_del(['dataset','iterator'])
+                make_iterator()
+            else:
+                assert dataset is self.dataset
+                assert batch_size == self.batch_size
+                try:
+                    X = self.iterator.next()
+                except StopIteration:
+                    print 'Finished a dataset-epoch'
+                    make_iterator()
+                    X = self.iterator.next()
+        else:
+            X = dataset.get_batch_design(batch_size)
+
         self.learn_mini_batch(dataset.get_batch_design(batch_size))
 
     def learn_mini_batch(self, X):
