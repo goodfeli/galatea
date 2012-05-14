@@ -943,7 +943,8 @@ class PDDBM(Model):
             self.momentum.set_value(np.cast[config.floatX](
                 (1.-alpha) * self.init_momentum + alpha * self.final_momentum))
         if self.non_s3c_lr_saturation_example is not None:
-            alpha = float(self.monitor.get_examples_seen()) / float(self.non_s3c_lr_saturation_example)
+            alpha = (float(self.monitor.get_examples_seen()) - float(self.non_s3c_lr_start)) / (float(self.non_s3c_lr_saturation_example) - float(self.non_s3c_lr_start))
+            alpha = max( alpha, 0.0)
             alpha = min( alpha, 1.0)
             self.non_s3c_lr.set_value(np.cast[config.floatX](
                 (1.-alpha) * self.init_non_s3c_lr + alpha * self.final_non_s3c_lr))
@@ -1116,6 +1117,7 @@ class InferenceProcedure:
 
         #if self.model.recons_penalty is not None:
         rval['simple_recons_error'] = self.model.simple_recons_error(V,Gs)
+
 
 
         return rval
