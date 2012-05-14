@@ -5,6 +5,7 @@ __license__ = "3-clause BSD"
 __maintainer__ = "Ian Goodfellow"
 
 import time
+from pylearn2.expr.nnet import sigmoid_numpy
 from pylearn2.models.model import Model
 from theano import config, function
 import theano.tensor as T
@@ -243,7 +244,21 @@ class PDDBM(Model):
         x = input('which weights you want?')
 
         if x == 2:
-            warnings.warn("HACK!")
+            """
+            W1 = self.s3c.W.get_value()
+            mu = self.s3c.mu.get_value()
+            W1s = W1 * mu
+            W2 = self.dbm.W[0].get_value()
+
+            H = sigmoid_numpy( W2.T + self.dbm.bias_vis.get_value())
+
+            rval = np.dot(H, W1s.T)
+            assert rval.shape[0] == self.s3c.nhid
+            assert rval.shape[1] == self.s3c.nvis
+
+            return rval.T
+            """
+
             return np.dot(self.s3c.W.get_value() \
                     * self.s3c.mu.get_value(), self.dbm.W[0].get_value())
 
