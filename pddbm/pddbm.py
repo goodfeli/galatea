@@ -70,6 +70,7 @@ class PDDBM(Model):
             inference_procedure = None,
             learning_rate = 1e-3,
             init_non_s3c_lr = 1e-3,
+            non_s3c_lr_start = 0,
             final_non_s3c_lr = 1e-3,
             non_s3c_lr_saturation_example = None,
             h_penalty = 0.0,
@@ -140,6 +141,7 @@ class PDDBM(Model):
 
         self.init_non_s3c_lr = init_non_s3c_lr
         self.final_non_s3c_lr = final_non_s3c_lr
+        self.non_s3c_lr_start = non_s3c_lr_start
         self.non_s3c_lr_saturation_example = non_s3c_lr_saturation_example
 
         self.init_momentum =   init_momentum
@@ -295,12 +297,12 @@ class PDDBM(Model):
             self.params_to_incs = {}
 
             for param in self.get_params():
-                self.params_to_incs[param] = sharedX(np.zeros(param.get_value().shape))
+                self.params_to_incs[param] = sharedX(np.zeros(param.get_value().shape), name = param.name+'_inc')
 
-            self.momentum = sharedX(self.init_momentum)
+            self.momentum = sharedX(self.init_momentum, name='momentum')
 
         if self.non_s3c_lr_saturation_example is not None:
-            self.non_s3c_lr = sharedX(self.init_non_s3c_lr)
+            self.non_s3c_lr = sharedX(self.init_non_s3c_lr, name = 'non_s3c_lr')
 
         self.test_batch_size = 2
 
@@ -354,6 +356,14 @@ class PDDBM(Model):
 
                 from_dbm = self.dbm.get_monitoring_channels(V)
 
+                #remove the s3c bias_hid channels from the DBM's output
+                keys_to_del = []
+                for key in from_dbm:
+                    if key.startswith('dbm_bias_hid_'):
+                        keys_to_del.append(key)
+                for key in keys_to_del:
+                    del from_dbm[key]
+
                 rval.update(from_dbm)
 
                 if self.use_diagonal_natural_gradient:
@@ -397,6 +407,10 @@ class PDDBM(Model):
 
         if not self.freeze_dbm_params:
             params = params.union(set(self.dbm.get_params()))
+        else:
+            assert False #temporary debugging assert
+
+        assert self.dbm.bias_hid[0] in params
 
         return list(params)
 
@@ -512,6 +526,8 @@ class PDDBM(Model):
 
         learning_updates = self.get_param_updates(self.grads)
         self.censor_updates(learning_updates)
+
+
 
         print "compiling function..."
         t1 = time.time()
@@ -700,6 +716,7 @@ class PDDBM(Model):
         for param in params_to_approx_grads:
             if param in params_to_grads:
                 params_to_grads[param] = params_to_grads[param] + params_to_approx_grads[param]
+                params_to_grads[param].name = param.name + '_final_approx_grad'
 
         if self.use_diagonal_natural_gradient:
 
@@ -713,7 +730,9 @@ class PDDBM(Model):
                 scaled_grad = grad / safe_var
                 params_to_grads[param] = scaled_grad
 
+        assert self.dbm.bias_hid[0] in params_to_grads
         learning_updates = self.get_param_updates(params_to_grads)
+        assert self.dbm.bias_hid[0] in learning_updates
 
         if self.use_cd:
             sampling_updates = {}
@@ -725,7 +744,14 @@ class PDDBM(Model):
 
         self.censor_updates(learning_updates)
 
-        print "compiling function..."
+
+        #print 'learning updates contains: '
+        #for key in learning_updates:
+        #    print '\t',key
+        #print min_informative_str(learning_updates[self.dbm.bias_hid[0]])
+        #assert False
+
+        print "compiling PD-DBM learn function..."
         t1 = time.time()
         rval = function([V], updates = learning_updates)
         t2 = time.time()
@@ -776,6 +802,7 @@ class PDDBM(Model):
             else:
                 learning_rate[param] = as_floatX(self.learning_rate)
 
+
         if self.momentum_saturation_example is not None:
             for key in params_to_grads:
                 inc = self.params_to_incs[key]
@@ -785,8 +812,12 @@ class PDDBM(Model):
             for key in params_to_grads:
                 rval[key] = key + learning_rate[key] * params_to_grads[key]
 
+
         for param in self.get_params():
             assert param in params_to_grads
+            assert param in rval
+
+        assert self.dbm.bias_hid[0] in rval
 
         return rval
 
