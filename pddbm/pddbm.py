@@ -541,15 +541,16 @@ class PDDBM(Model):
 
 
 
-    def make_learn_func(self, V):
+    def make_learn_func(self, V, Y):
         """
         V: a symbolic design matrix
+        Y: None or a symbolic label matrix, one label per row, one-hot encoding
         """
 
         assert self.inference_procedure is not None
 
         #run variational inference on the train set
-        hidden_obs = self.inference_procedure.infer(V)
+        hidden_obs = self.inference_procedure.infer(V,Y)
 
         #make a restricted dictionary containing only vars s3c knows about
         restricted_obs = {}
@@ -592,7 +593,7 @@ class PDDBM(Model):
         assert len(expected_log_prob_s_given_h.type.broadcastable) == 0
 
 
-        expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat )
+        expected_dbm_energy = self.dbm.expected_energy( V_hat = H_hat, H_hat = G_hat, Y_hat = Y )
         assert len(expected_dbm_energy.type.broadcastable) == 0
 
         test = T.grad(expected_dbm_energy, self.dbm.W[0], consider_constant = constants)
@@ -711,7 +712,7 @@ class PDDBM(Model):
 
         #add the approximate gradients
         if self.use_cd:
-            params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = H_hat, H_hat = G_hat)
+            params_to_approx_grads = self.dbm.get_cd_neg_phase_grads(V = H_hat, H_hat = G_hat, Y = Y)
         else:
             params_to_approx_grads = self.dbm.get_neg_phase_grads()
 
@@ -753,9 +754,14 @@ class PDDBM(Model):
         #print min_informative_str(learning_updates[self.dbm.bias_hid[0]])
         #assert False
 
+        inputs = [ V ]
+
+        if Y is not None:
+            inputs.append(Y)
+
         print "compiling PD-DBM learn function..."
         t1 = time.time()
-        rval = function([V], updates = learning_updates)
+        rval = function(inputs, updates = learning_updates)
         t2 = time.time()
         print "... compilation took "+str(t2-t1)+" seconds"
         print "graph size: ",len(rval.maker.env.toposort())
@@ -881,6 +887,11 @@ class PDDBM(Model):
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
+            if self.dbm.num_classes > 0:
+                Y = T.matrix(name='Y')
+            else:
+                Y = None
+
             if self.use_diagonal_natural_gradient:
                 updates = { self.n_var_samples : as_floatX(0.0) }
 
@@ -936,18 +947,34 @@ class PDDBM(Model):
             else:
                 assert dataset is self.dataset
                 assert batch_size == self.batch_size
-                try:
-                    X = self.iterator.next()
-                except StopIteration:
-                    print 'Finished a dataset-epoch'
-                    make_iterator()
-                    X = self.iterator.next()
+                if self.dbm.num_classes > 0:
+                    try:
+                        X, Y = self.iterator.next()
+                        print 'Y: '
+                        print Y
+                        assert False
+                    except StopIteration:
+                        print 'Finished a dataset-epoch'
+                        make_iterator()
+                        X, Y = self.iterator.next()
+                else:
+                    try:
+                        X = self.iterator.next()
+                    except StopIteration:
+                        print 'Finished a dataset-epoch'
+                        make_iterator()
+                        X = self.iterator.next()
         else:
+            if self.dbm.num_classes > 0:
+                raise NotImplementedError("Random iteration doesn't support using class labels yet")
             X = dataset.get_batch_design(batch_size)
+            Y = None
 
-        self.learn_mini_batch(dataset.get_batch_design(batch_size))
+        self.learn_mini_batch(X,Y)
 
-    def learn_mini_batch(self, X):
+    def learn_mini_batch(self, X, Y = None):
+
+        assert (Y is None) == (self.dbm.num_classes == 0)
 
 
         assert self.s3c is self.inference_procedure.s3c_e_step.model
@@ -966,6 +993,8 @@ class PDDBM(Model):
 
 
         if self.use_diagonal_natural_gradient:
+            if self.dbm.num_classes > 0:
+                raise NotImplementedError()
             self.reset_variances()
             for i in xrange(X.shape[0]):
                 self.update_variances(X[i:i+1,:])
@@ -975,7 +1004,7 @@ class PDDBM(Model):
             for i in xrange(X.shape[0]):
                 self.accum_pos_phase_grad_func(X[i:i+1,:])
         else:
-            self.learn_func(X)
+            self.learn_func(X,Y)
         if self.monitor._examples_seen % self.print_interval == 0:
             print ""
             print "S3C:"
@@ -1201,7 +1230,7 @@ class InferenceProcedure:
 
         return H
 
-    def infer(self, V, return_history = False):
+    def infer(self, V, Y = None, return_history = False):
         """
 
             return_history: if True:
@@ -1213,6 +1242,9 @@ class InferenceProcedure:
                                 returns a dictionary containing the final
                                 variational parameters
         """
+
+        assert Y not in [True,False,0,1] #detect bug where Y gets something that was meant to be return_history
+        assert (Y is None) == (self.model.dbm.num_classes == 0)
 
         alpha = self.model.s3c.alpha
         s3c_e_step = self.s3c_e_step
@@ -1327,7 +1359,7 @@ class InferenceProcedure:
                             "but got "+str(number)+" (of type "+str(type(number)))
 
 
-                update = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number)
+                update = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number, Y_hat = Y)
                 assert update.type.dtype == config.floatX
 
                 if g_new_coeff is not None:
@@ -1351,7 +1383,10 @@ class InferenceProcedure:
         else:
             return history[-1]
 
-    def infer_G_hat(self, H_hat, G_hat, idx):
+    def infer_G_hat(self, H_hat, G_hat, idx, Y_hat = None):
+
+        assert (Y_hat is None) == (self.model.dbm.num_classes == 0)
+
         number = idx
         dbm_ip = self.model.dbm.inference_procedure
 
@@ -1369,7 +1404,11 @@ class InferenceProcedure:
         num_g = self.model.num_g
 
         if number == num_g - 1:
-            return dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
+            if Y_hat is None:
+                return dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
+            else:
+                return dbm_ip.infer_H_hat_two_sided(H_hat_below = H_hat_below, W_below = W_below, b = b,
+                        H_hat_above = Y_hat, W_above = self.model.dbm.W_class)
         else:
             H_hat_above = G_hat[number + 1]
             W_above = W[number+1]
