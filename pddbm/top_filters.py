@@ -62,8 +62,9 @@ count = max_count
 
 print 'It takes',count,'of',N1,'elements to account for ',(thresh*100.),'\% of the weight in at least one filter'
 
-if count > 100:
-    count = 100
+lim = 10
+if count > lim:
+    count = lim
     print 'Only displaying ',count,' elements though.'
 
 if count > N1:
