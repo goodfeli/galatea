@@ -60,6 +60,7 @@ class PDDBM(Model):
     def __init__(self,
             s3c,
             dbm,
+            bayes_B = False,
             ss_init_h = None,
             ss_init_scale = None,
             ss_init_mu = None,
@@ -117,6 +118,7 @@ class PDDBM(Model):
 
         super(PDDBM,self).__init__()
 
+        self.bayes_B = bayes_B
 
         self.exhaustive_iteration = exhaustive_iteration
         if self.exhaustive_iteration:
@@ -892,27 +894,39 @@ class PDDBM(Model):
             self.s3c.e_step.register_model(self.s3c)
 
             if self.sub_batch:
+                if Y is not None:
+                    raise NotImplementedError("sub_batch mode does not support labels yet")
                 self.reset_grad_func = self.make_reset_grad_func()
                 self.accum_pos_phase_grad_func = self.make_accum_pos_phase_grad_func(X)
                 self.grad_step_func = self.make_grad_step_func()
             else:
                 if self.inference_procedure is not None:
-                    self.learn_func = self.make_learn_func(X)
+                    self.learn_func = self.make_learn_func(X,Y)
 
             final_names = dir(self)
 
             self.register_names_to_del([name for name in final_names if name not in init_names])
         finally:
             self.deploy_mode()
-    #
+        #end try block
+    #end redo_theano
 
     def learn(self, dataset, batch_size):
+
+        if self.bayes_B:
+            self.bayes_B = False
+
+            var = dataset.X.var(axis=0)
+
+            assert not self.s3c.tied_B
+            self.s3c.B_driver.set_value( 1. / (var + .01) )
 
         if self.exhaustive_iteration:
             def make_iterator():
                 self.iterator = dataset.iterator(
                         mode = 'sequential',
-                        batch_size = batch_size)
+                        batch_size = batch_size,
+                        targets = self.dbm.num_classes > 0)
 
             if self.iterator is None:
                 self.batch_size = batch_size
