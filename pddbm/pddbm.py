@@ -158,6 +158,7 @@ class PDDBM(Model):
         if self.s3c.m_step is not None:
             m_step = self.s3c.m_step
             self.B_learning_rate_scale = m_step.B_learning_rate_scale
+            self.alpha_learning_rate_scale = m_step.alpha_learning_rate_scale
             self.s3c_W_learning_rate_scale = m_step.W_learning_rate_scale
             if m_step.p_penalty is not None and m_step.p_penalty != 0.0:
                 raise ValueError("s3c.p_penalty must be none or 0. p is not tractable anymore "
@@ -166,6 +167,7 @@ class PDDBM(Model):
             self.alpha_penalty = m_step.alpha_penalty
         else:
             self.B_learning_rate_scale = 1.
+            self.alpha_learning_rate_scale = 1.
             self.s3c_W_learning_rate_scale = 1.
             self.B_penalty = 0.
             self.alpha_penalty = 0.
@@ -317,79 +319,97 @@ class PDDBM(Model):
         super(PDDBM, self).set_dtype(dtype)
         self.s3c.bias_hid = self.dbm.bias_vis
 
-    def get_monitoring_channels(self, V):
-            try:
-                self.compile_mode()
+    def get_monitoring_channels(self, V, Y = None):
 
-                self.s3c.set_monitoring_channel_prefix('s3c_')
+        if Y is None:
+            assert self.dbm.num_classes == 0
+        if self.dbm.num_classes == 0:
+            Y = None
 
-                rval = self.s3c.get_monitoring_channels(V)
+        try:
+            self.compile_mode()
 
-                # % of DBM W[0] weights that are negative
-                negs = T.sum(T.cast(T.lt(self.dbm.W[0],0.),'float32'))
-                total = np.cast['float32'](self.dbm.rbms[0].nvis * self.dbm.rbms[0].nhid)
-                negprop = negs /total
-                rval['dbm_W[0]_negprop'] = negprop
+            self.s3c.set_monitoring_channel_prefix('s3c_')
 
-                #DBM negative chain
-                H_chain = self.dbm.V_chains.mean(axis=0)
-                rval['neg_chain_h_min'] = full_min(H_chain)
-                rval['neg_chain_h_mean'] = H_chain.mean()
-                rval['neg_chain_h_max'] = full_max(H_chain)
-                G_chains = self.dbm.H_chains
-                for i, G_chain in enumerate(G_chains):
-                    G_chain = G_chain.mean(axis=0)
-                    rval['neg_chain_g[%d]_min'%i] = full_min(G_chain)
-                    rval['neg_chain_g[%d]_mean'%i] = G_chain.mean()
-                    rval['neg_chain_g[%d]_max'%i] = full_max(G_chain)
-                rb = self.dbm.rao_blackwellize( self.dbm.V_chains, G_chains)
-                for i, rbg in enumerate(rb):
-                    rbg = rbg.mean(axis=0)
-                    rval['neg_chain_rbg[%d]_min'%i] = full_min(rbg)
-                    rval['neg_chain_rbg[%d]_mean'%i] = rbg.mean()
-                    rval['neg_chain_rbg[%d]_max'%i] = full_max(rbg)
+            rval = self.s3c.get_monitoring_channels(V)
 
-                from_inference_procedure = self.inference_procedure.get_monitoring_channels(V)
+            # % of DBM W[0] weights that are negative
+            negs = T.sum(T.cast(T.lt(self.dbm.W[0],0.),'float32'))
+            total = np.cast['float32'](self.dbm.rbms[0].nvis * self.dbm.rbms[0].nhid)
+            negprop = negs /total
+            rval['dbm_W[0]_negprop'] = negprop
 
-                rval.update(from_inference_procedure)
+            #DBM negative chain
+            H_chain = self.dbm.V_chains.mean(axis=0)
+            rval['neg_chain_h_min'] = full_min(H_chain)
+            rval['neg_chain_h_mean'] = H_chain.mean()
+            rval['neg_chain_h_max'] = full_max(H_chain)
+            if self.dbm.Y_chains is not None:
+                Y_chain = self.dbm.Y_chains.mean(axis=0)
+                rval['neg_chain_y_min'] = full_min(Y_chain)
+                rval['neg_chain_y_mean'] = Y_chain.mean()
+                rval['neg_chain_y_max'] = full_max(Y_chain)
+            G_chains = self.dbm.H_chains
+            for i, G_chain in enumerate(G_chains):
+                G_chain = G_chain.mean(axis=0)
+                rval['neg_chain_g[%d]_min'%i] = full_min(G_chain)
+                rval['neg_chain_g[%d]_mean'%i] = G_chain.mean()
+                rval['neg_chain_g[%d]_max'%i] = full_max(G_chain)
+            rb, rby = self.dbm.rao_blackwellize( self.dbm.V_chains, G_chains, self.dbm.Y_chains)
+            for i, rbg in enumerate(rb):
+                rbg = rbg.mean(axis=0)
+                rval['neg_chain_rbg[%d]_min'%i] = full_min(rbg)
+                rval['neg_chain_rbg[%d]_mean'%i] = rbg.mean()
+                rval['neg_chain_rbg[%d]_max'%i] = full_max(rbg)
+            if rby is not None:
+                rby = rby.mean(axis=0)
+                rval['neg_chain_rby_min'] = full_min(rby)
+                rval['neg_chain_rby_mean'] = rby.mean()
+                rval['neg_chain_rby_max'] = full_max(rby)
+
+            from_inference_procedure = self.inference_procedure.get_monitoring_channels(V,Y)
+
+            rval.update(from_inference_procedure)
 
 
-                self.dbm.set_monitoring_channel_prefix('dbm_')
+            self.dbm.set_monitoring_channel_prefix('dbm_')
 
-                from_dbm = self.dbm.get_monitoring_channels(V)
+            from_dbm = self.dbm.get_monitoring_channels(V)
 
-                #remove the s3c bias_hid channels from the DBM's output
-                keys_to_del = []
-                for key in from_dbm:
-                    if key.startswith('dbm_bias_hid_'):
-                        keys_to_del.append(key)
-                for key in keys_to_del:
-                    del from_dbm[key]
+            #remove the s3c bias_hid channels from the DBM's output
+            keys_to_del = []
+            for key in from_dbm:
+                if key.startswith('dbm_bias_hid_'):
+                    keys_to_del.append(key)
+            for key in keys_to_del:
+                del from_dbm[key]
 
-                rval.update(from_dbm)
+            rval.update(from_dbm)
 
-                if self.use_diagonal_natural_gradient:
-                    for param in self.get_params():
-                        name = 'grad_var_'+param.name
+            if self.use_diagonal_natural_gradient:
+                for param in self.get_params():
+                    name = 'grad_var_'+param.name
 
-                        params_to_variances = self.get_params_to_variances()
+                    params_to_variances = self.get_params_to_variances()
 
-                        var = params_to_variances[param]
+                    var = params_to_variances[param]
 
-                        rval[name+'_min'] = var.min()
-                        rval[name+'_mean'] = var.mean()
-                        rval[name+'_max'] = var.max()
+                    rval[name+'_min'] = var.min()
+                    rval[name+'_mean'] = var.mean()
+                    rval[name+'_max'] = var.max()
 
-                if self.momentum_saturation_example is not None:
-                    rval['momentum'] = self.momentum
-                if self.non_s3c_lr_saturation_example is not None:
-                    rval['non_s3c_lr'] = self.non_s3c_lr
+            if self.momentum_saturation_example is not None:
+                rval['momentum'] = self.momentum
+            if self.non_s3c_lr_saturation_example is not None:
+                rval['non_s3c_lr'] = self.non_s3c_lr
 
-            finally:
-                self.deploy_mode()
+        finally:
+            self.deploy_mode()
 
-            return rval
+        return rval
 
+    def get_output_space(self):
+        return self.dbm.get_output_space()
 
     def compile_mode(self):
         """ If any shared variables need to have batch-size dependent sizes,
@@ -798,6 +818,8 @@ class PDDBM(Model):
         for param in params_to_grads:
             if param is self.s3c.B_driver:
                 learning_rate[param] = as_floatX(self.learning_rate * self.B_learning_rate_scale)
+            elif param is self.s3c.alpha:
+                learning_rate[param] = as_floatX(self.learning_rate * self.alpha_learning_rate_scale)
             elif param is self.s3c.W:
                 learning_rate[param] = as_floatX(self.learning_rate * self.s3c_W_learning_rate_scale)
             elif param is self.s3c.mu:
@@ -947,23 +969,21 @@ class PDDBM(Model):
             else:
                 assert dataset is self.dataset
                 assert batch_size == self.batch_size
-                if self.dbm.num_classes > 0:
-                    try:
-                        X, Y = self.iterator.next()
-                        print 'Y: '
-                        print Y
-                        assert False
-                    except StopIteration:
-                        print 'Finished a dataset-epoch'
-                        make_iterator()
-                        X, Y = self.iterator.next()
-                else:
-                    try:
-                        X = self.iterator.next()
-                    except StopIteration:
-                        print 'Finished a dataset-epoch'
-                        make_iterator()
-                        X = self.iterator.next()
+            if self.dbm.num_classes > 0:
+                try:
+                    X, Y = self.iterator.next()
+                except StopIteration:
+                    print 'Finished a dataset-epoch'
+                    make_iterator()
+                    X, Y = self.iterator.next()
+            else:
+                Y = None
+                try:
+                    X = self.iterator.next()
+                except StopIteration:
+                    print 'Finished a dataset-epoch'
+                    make_iterator()
+                    X = self.iterator.next()
         else:
             if self.dbm.num_classes > 0:
                 raise NotImplementedError("Random iteration doesn't support using class labels yet")
@@ -1004,7 +1024,10 @@ class PDDBM(Model):
             for i in xrange(X.shape[0]):
                 self.accum_pos_phase_grad_func(X[i:i+1,:])
         else:
-            self.learn_func(X,Y)
+            if Y is None:
+                self.learn_func(X)
+            else:
+                self.learn_func(X,Y)
         if self.monitor._examples_seen % self.print_interval == 0:
             print ""
             print "S3C:"
@@ -1052,11 +1075,13 @@ class InferenceProcedure:
 
 
 
-    def get_monitoring_channels(self, V):
+    def get_monitoring_channels(self, V, Y = None):
+
+        assert (Y is None) == (self.model.dbm.num_classes == 0)
 
         rval = {}
 
-        obs_history = self.infer(V, return_history = True)
+        obs_history = self.infer(V, Y, return_history = True)
 
         if self.monitor_kl not in [False, 0]:
             assert self.monitor_kl == True or isinstance(self.monitor_kl, list)
@@ -1085,7 +1110,7 @@ class InferenceProcedure:
                         assert Gv.min() >= 0.0
                         assert Gv.max() <= 1.0
 
-                channel_val = self.truncated_KL(V, obs).mean()
+                channel_val = self.truncated_KL(V, Y, obs).mean()
                 assert channel_val.dtype == 'float32'
                 rval['trunc_KL_'+str(i)+summary] = channel_val
 
@@ -1112,7 +1137,7 @@ class InferenceProcedure:
 
         #norm of gradient with respect to variational params
         grad_norm_sq = np.cast[config.floatX](0.)
-        kl = self.truncated_KL(V, obs_history[-1]).mean()
+        kl = self.truncated_KL(V, Y, obs_history[-1]).mean()
         for var_param in set([ S_hat, H_hat]).union(Gs):
             grad = T.grad(kl,var_param)
             grad_norm_sq = grad_norm_sq + T.sum(T.sqr(grad))
@@ -1184,7 +1209,7 @@ class InferenceProcedure:
 
         return rval
 
-    def truncated_KL(self, V, obs):
+    def truncated_KL(self, V, Y, obs):
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
@@ -1198,7 +1223,7 @@ class InferenceProcedure:
 
         dbm_obs = self.dbm_observations(obs)
 
-        dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], obs = dbm_obs, no_v_bias = True)
+        dbm_truncated_KL = self.dbm_ip.truncated_KL(V = obs['H_hat'], Y = Y, obs = dbm_obs, no_v_bias = True)
         assert len(dbm_truncated_KL.type.broadcastable) == 1
 
         for s3c_kl_val, dbm_kl_val in get_debug_values(s3c_truncated_KL, dbm_truncated_KL):

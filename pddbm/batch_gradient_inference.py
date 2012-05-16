@@ -39,16 +39,23 @@ class BatchGradientInference:
         if not pddbm:
             #hack s3c model to follow pddbm interface
             model.inference_procedure = model.e_step
+            has_labels = False
+        else:
+            has_labels = model.dbm.num_classes > 0
 
 
         V = T.matrix("V")
+        if has_labels:
+            Y = T.matrix("Y")
+        else:
+            Y = None
 
         if config.compute_test_value != 'off':
             V.tag.test_value = np.cast[V.type.dtype](model.get_input_space().get_origin_batch(batch_size))
 
         self.model.make_pseudoparams()
 
-        obs = model.inference_procedure.infer(V)
+        obs = model.inference_procedure.infer(V,Y)
         obs['H_hat'] = T.clip(obs['H_hat'],1e-7,1.-1e-7)
         if pddbm:
             obs['G_hat'] = tuple([ T.clip(elem,1e-7,1.-1e-7) for elem in obs['G_hat']  ])
@@ -56,7 +63,7 @@ class BatchGradientInference:
 
         needed_stats = S3C.expected_log_prob_vhs_needed_stats()
 
-        trunc_kl = model.inference_procedure.truncated_KL(V, obs).mean()
+        trunc_kl = model.inference_procedure.truncated_KL(V, Y, obs).mean()
 
         assert len(trunc_kl.type.broadcastable) == 0
 
@@ -74,9 +81,13 @@ class BatchGradientInference:
             for G_elem, G_hat_elem in zip(G, obs['G_hat']):
                 updates[G_elem] = G_hat_elem
 
+        inputs = [ V ]
+        if has_labels:
+            inputs.append(Y)
+
         if self.verbose:
             print 'batch gradient class compiling init function'
-        self.init = function([V], trunc_kl,  updates = updates )
+        self.init = function(inputs, trunc_kl,  updates = updates )
         if self.verbose:
             print 'done'
 
@@ -97,7 +108,7 @@ class BatchGradientInference:
         if pddbm:
             obs['G_hat'] = G
 
-        obj = self.model.inference_procedure.truncated_KL( V, obs ).mean()
+        obj = self.model.inference_procedure.truncated_KL( V, Y, obs ).mean()
 
         if pddbm:
             grad_G_sym = [ T.grad(obj, G_elem) for G_elem in G ]
@@ -117,7 +128,7 @@ class BatchGradientInference:
 
         if self.verbose:
             print 'batch gradient class compiling gradient function'
-        self.compute_grad = function([V], updates = updates )
+        self.compute_grad = function(inputs, updates = updates )
         if self.verbose:
             print 'done'
 
@@ -125,7 +136,7 @@ class BatchGradientInference:
 
         if self.verbose:
             print 'batch gradient class compiling objective function'
-        self.obj = function([V], obj)
+        self.obj = function(inputs, obj)
         if self.verbose:
             print 'done'
 
@@ -137,6 +148,7 @@ class BatchGradientInference:
             self.G = G
             self.grad_G = grad_G
         self.pddbm = pddbm
+        self.has_labels = has_labels
 
     def cache_values(self):
 
@@ -188,11 +200,19 @@ class BatchGradientInference:
         scale(self.grad_H, 1./n)
         scale(self.grad_S, 1./n)
 
-    def run_inference(self, X):
+    def run_inference(self, X, Y ):
+
+        if (Y is not None) != (self.has_labels):
+            print Y is not None
+            print self.has_labels
+            raise AssertionError()
 
         alpha_list = [ .001, .005, .01, .05, .1 ]
 
-        orig_kl = self.init(X)
+        if self.has_labels:
+            orig_kl = self.init(X,Y)
+        else:
+            orig_kl = self.init(X)
 
         assert self.H.get_value().shape[0] == X.shape[0]
 
@@ -208,14 +228,23 @@ class BatchGradientInference:
             orig_G = [ G_elem.get_value() for G_elem in self.G ]
 
         while True:
-            best_kl, best_alpha, best_alpha_ind = self.obj(X), 0., -1
+            if self.has_labels:
+                best_kl, best_alpha, best_alpha_ind = self.obj(X,Y), 0., -1
+            else:
+                best_kl, best_alpha, best_alpha_ind = self.obj(X), 0., -1
             self.cache_values()
-            self.compute_grad(X)
+            if self.has_labels:
+                self.compute_grad(X,Y)
+            else:
+                self.compute_grad(X)
             self.normalize_grad()
 
             for ind, alpha in enumerate(alpha_list):
                 self.goto_alpha(alpha)
-                kl = self.obj(X)
+                if self.has_labels:
+                    kl = self.obj(X,Y)
+                else:
+                    kl = self.obj(X)
                 if self.verbose:
                     print '\t',alpha,kl
 

@@ -10,10 +10,12 @@ class BatchGradientInferenceCallback(TrainingCallback):
 
         if self.tester is None:
             self.tester = BatchGradientInference(model)
-            self.X = dataset.get_batch_design(algorithm.batch_size)
+            self.X, self.Y = dataset.get_batch_design(algorithm.batch_size, include_labels = True)
+            if not self.tester.has_labels:
+                self.Y = None
             model.kl_fail_log = []
 
-        results = self.tester.run_inference(self.X)
+        results = self.tester.run_inference(self.X, self.Y)
 
         diff = results['orig_kl'] - results['kl']
 
