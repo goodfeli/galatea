@@ -1,0 +1,12 @@
+!obj:galatea.s3c.extract_features.FeatureExtractor {
+    "batch_size" : 1,
+    "model_path" : "/data/lisatmp2/goodfeli/C.pkl",
+    "save_paths" : [ "/data/lisatmp2/C_briaree_4_max.npy" ] ,
+    "pooling_region_counts" : [ 4],
+    "feature_type" : "exp_h",
+    "dataset_family" : galatea.s3c.extract_features.cifar100,
+    "chunk_size" : 10000,
+    "which_set" : "train",
+    "pool_mode" : "max"
+}
+
