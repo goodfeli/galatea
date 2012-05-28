@@ -19,7 +19,7 @@ assert hasattr(model.dbm,'V_chains') and model.dbm.V_chains is not None
 #print model.dbm.V_chains.get_value()
 
 design_examples_var = model.s3c.random_design_matrix(batch_size = model.dbm.negative_chains,
-        theano_rng = theano_rng, H_sample = model.dbm.V_chains)
+        theano_rng = theano_rng, H_sample = model.dbm.V_chains, full_sample = False)
 from theano import function
 print 'compiling sampling function'
 f = function([],design_examples_var)
@@ -55,3 +55,5 @@ for i in xrange(min(model.dbm.negative_chains,rows*cols)):
     pv.add_patch( dataset.adjust_for_viewer(patch), activation = 0.0, rescale = False)
 
 pv.show()
+
+

@@ -73,6 +73,9 @@ class PDDBM(Model):
             init_non_s3c_lr = 1e-3,
             non_s3c_lr_start = 0,
             final_non_s3c_lr = 1e-3,
+            min_shrink = .05,
+            shrink_start = 0,
+            lr_shrink_example_scale = 0.,
             non_s3c_lr_saturation_example = None,
             h_penalty = 0.0,
             s3c_l1_weight_decay = 0.0,
@@ -89,7 +92,8 @@ class PDDBM(Model):
             init_momentum = None,
             final_momentum = None,
             momentum_saturation_example = None,
-            h_bias_src = 'dbm'):
+            h_bias_src = 'dbm',
+            monitor_neg_chain_marginals = False):
         """
             s3c: a galatea.s3c.s3c.S3C object
                 will become owned by the PDDBM
@@ -128,12 +132,18 @@ class PDDBM(Model):
         self.ss_init_mu = ss_init_mu
         self.ss_init_scale = ss_init_scale
 
+        self.min_shrink = np.cast['float32'](float(min_shrink))
+        self.lr_shrink_example_scale = np.cast['float32'](float(lr_shrink_example_scale))
+        self.shrink_start = shrink_start
+
         self.monitor_ranges = monitor_ranges
 
         self.learning_rate = learning_rate
 
         use_cd = dbm.use_cd
         self.use_cd = use_cd
+
+        self.monitor_neg_chain_marginals = monitor_neg_chain_marginals
 
         self.dbm_weight_decay = dbm_weight_decay
         self.dbm_l1_weight_decay = dbm_l1_weight_decay
@@ -240,11 +250,12 @@ class PDDBM(Model):
 
         self.sub_batch = sub_batch
 
-
-
-
         self.redo_everything()
 
+
+
+    def infer(self, V, Y = None, return_history = False):
+        return self.inference_procedure.infer(V,Y,return_history)
 
     def get_weights(self):
         x = input('which weights you want?')
@@ -338,6 +349,21 @@ class PDDBM(Model):
             total = np.cast['float32'](self.dbm.rbms[0].nvis * self.dbm.rbms[0].nhid)
             negprop = negs /total
             rval['dbm_W[0]_negprop'] = negprop
+
+
+            rval['shrink'] = self.shrink
+
+            if self.monitor_neg_chain_marginals:
+                assert self.dbm.negative_chains > 0
+                V_mean_samples = self.s3c.random_design_matrix(batch_size = self.dbm.negative_chains,
+                        H_sample = self.dbm.V_chains,
+                        S_sample = self.s3c.mu.dimshuffle('x',0), full_sample = False)
+                V_mean = V_mean_samples.mean(axis=0)
+                rval['marginal_V_mean_min'] = V_mean.min()
+                rval['marginal_V_mean_mean'] = V_mean.mean()
+                rval['marginal_V_mean_max'] = V_mean.max()
+
+
 
             #DBM negative chain
             H_chain = self.dbm.V_chains.mean(axis=0)
@@ -661,7 +687,7 @@ class PDDBM(Model):
 
             abs_err = abs(err)
 
-            penalty = T.mean(abs_err)
+            penalty = T.sum(abs_err)
 
             tractable_obj =  tractable_obj - self.h_penalty * penalty
 
@@ -832,6 +858,10 @@ class PDDBM(Model):
             else:
                 learning_rate[param] = as_floatX(self.learning_rate)
 
+        self.shrink = sharedX(1.0)
+
+        for param in learning_rate:
+            learning_rate[param] = self.shrink * learning_rate[param]
 
         if self.momentum_saturation_example is not None:
             for key in params_to_grads:
@@ -946,6 +976,7 @@ class PDDBM(Model):
 
     def learn(self, dataset, batch_size):
 
+
         if self.bayes_B:
             self.bayes_B = False
 
@@ -996,6 +1027,10 @@ class PDDBM(Model):
 
         assert (Y is None) == (self.dbm.num_classes == 0)
 
+        self.shrink.set_value( np.cast['float32']( \
+                max(self.min_shrink,
+                    1. / (1. + self.lr_shrink_example_scale * float( \
+                            max(0,self.monitor.get_examples_seen() - float(self.shrink_start)))))))
 
         assert self.s3c is self.inference_procedure.s3c_e_step.model
         if self.momentum_saturation_example is not None:
@@ -1218,7 +1253,7 @@ class InferenceProcedure:
                 assert Gv.min() >= 0.0
                 assert Gv.max() <= 1.0
 
-        s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, obs)
+        s3c_truncated_KL = self.s3c_e_step.truncated_KL(V, Y = None, obs = obs)
         assert len(s3c_truncated_KL.type.broadcastable) == 1
 
         dbm_obs = self.dbm_observations(obs)
@@ -1266,10 +1301,18 @@ class InferenceProcedure:
                             if False:
                                 returns a dictionary containing the final
                                 variational parameters
+            Y:
+                None corresponds to a model that has no labels
+                -1 corresponds to inferring Y in a model that has labels
+                    (each G_hat update will become a G_hat-Y_hat-G_hat update)
+                a theano matrix corresponds to clamping Y to that matrix
         """
 
         assert Y not in [True,False,0,1] #detect bug where Y gets something that was meant to be return_history
         assert (Y is None) == (self.model.dbm.num_classes == 0)
+
+        infer_labels = Y == -1
+
 
         alpha = self.model.s3c.alpha
         s3c_e_step = self.s3c_e_step
@@ -1277,6 +1320,9 @@ class InferenceProcedure:
 
         var_s0_hat = 1. / alpha
         var_s1_hat = s3c_e_step.infer_var_s1_hat()
+
+        if infer_labels:
+            Y = dbm_ip.init_Y_hat(V)
 
         H_hat = s3c_e_step.init_H_hat(V)
         G_hat = dbm_ip.init_H_hat(H_hat)
@@ -1326,13 +1372,17 @@ class InferenceProcedure:
 
         def make_dict():
 
-            return {
+            rval =  {
                     'G_hat' : tuple(G_hat),
                     'H_hat' : H_hat,
                     'S_hat' : S_hat,
                     'var_s0_hat' : var_s0_hat,
                     'var_s1_hat': var_s1_hat,
                     }
+            if infer_labels:
+                rval['Y_hat'] = Y
+
+            return rval
 
         history = [ make_dict() ]
 
@@ -1398,6 +1448,20 @@ class InferenceProcedure:
                     assert Gv.min() >= 0.0
                     assert Gv.max() <= 1.0
 
+                #when inferring labels, turn a G update into a G-Y-G update
+                if infer_labels and number == (len(G_hat) -1):
+                    update = dbm_ip.infer_Y_hat( H_hat = G_hat[-1])
+                    if g_new_coeff is not None:
+                        update = damp(old = Y, new = update, new_coeff = g_new_coeff)
+                    Y = update
+
+                    update = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number, Y_hat = Y)
+                    if g_new_coeff is not None:
+                        assert G_hat[number].type.dtype == config.floatX
+                        update = damp(old = G_hat[number], new = update, new_coeff = g_new_coeff)
+                    G_hat[number] = update
+
+
             else:
                 raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
 
@@ -1432,6 +1496,9 @@ class InferenceProcedure:
             if Y_hat is None:
                 return dbm_ip.infer_H_hat_one_sided(other_H_hat = H_hat_below, W = W_below, b = b)
             else:
+                for Y_hat_v in get_debug_values(Y_hat):
+                    assert Y_hat_v.shape[1] == self.model.dbm.num_classes
+                    assert self.model.dbm.num_classes == 10 #temporary debugging assert, can remove
                 return dbm_ip.infer_H_hat_two_sided(H_hat_below = H_hat_below, W_below = W_below, b = b,
                         H_hat_above = Y_hat, W_above = self.model.dbm.W_class)
         else:

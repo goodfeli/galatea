@@ -1,5 +1,6 @@
 import numpy as np
 from pylearn2.datasets.cifar10 import CIFAR10
+from pylearn2.datasets.cifar100 import CIFAR100
 from theano import config
 from theano import tensor as T
 from theano import function
@@ -58,13 +59,18 @@ map_hs: h*s, computed from joint MAP estimation under q
     cifar10 = False
     stl10 = model.dataset_yaml_src.find('stl10') != -1
     cifar10 = model.dataset_yaml_src.find('cifar10') != -1
-    assert stl10 or cifar10
-    assert not (stl10 and cifar10)
+    cifar100 = model.dataset_yaml_src.find('cifar100') != -1
+    if cifar100:
+        cifar10 = False
+    assert int(cifar10) + int(cifar100) + int(stl10) == 1
 
     print 'loading dataset'
     if cifar10:
         print 'CIFAR10 detected'
         dataset = CIFAR10(which_set = "train")
+    elif cifar100:
+        print 'CIFAR100 detected'
+        dataset = CIFAR100(which_set = 'train')
     elif stl10:
         print 'STL10 detected'
         dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/train.pkl')
@@ -72,7 +78,7 @@ map_hs: h*s, computed from joint MAP estimation under q
 
     size = np.sqrt(model.nvis/3)
 
-    if cifar10:
+    if cifar10 or cifar100:
         pv1 = make_viewer( (X-127.5)/127.5, is_color = True, rescale = False)
     elif stl10:
         pv1 = make_viewer( X/127.5, is_color = True, rescale = False)
@@ -90,6 +96,8 @@ map_hs: h*s, computed from joint MAP estimation under q
     elif size ==6:
         if cifar10:
             pipeline = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_pipeline_2M_6x6.pkl')
+        elif cifar100:
+            pipeline = serial.load('/data/lisa/data/cifar100/cifar100_patches/preprocessor.pkl')
         elif stl10:
             pipeline = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/preprocessor.pkl')
     else:

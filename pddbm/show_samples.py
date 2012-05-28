@@ -19,9 +19,9 @@ cols = 10
 print 'loading dataset'
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
-print 'HACK'
-from pylearn2.datasets.mnist import MNIST
-dataset = MNIST(which_set = 'test', center = 0, shuffle = True)
+#print 'HACK'
+#from pylearn2.datasets.mnist import MNIST
+#dataset = MNIST(which_set = 'test', center = 0, shuffle = True)
 
 
 init_examples = dataset.get_batch_design( rows * cols )
@@ -83,7 +83,7 @@ while True:
         patch = examples[i,:,:,:]
         assert not np.any(np.isnan(patch))
         assert not np.any(np.isinf(patch))
-        pv.add_patch(patch, activation = 0.0, rescale = False)#patch_rescale)
+        pv.add_patch(patch, activation = 0.0, rescale = patch_rescale)
 
     pv.show()
 

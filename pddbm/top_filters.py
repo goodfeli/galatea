@@ -3,6 +3,7 @@
 
 import sys
 from pylearn2.utils import serial
+import numpy as np
 
 if len(sys.argv) == 3:
     l1, l2= sys.argv[1:]
@@ -19,6 +20,18 @@ else:
 W1 = l1.W.get_value()
 l2_weights ,= l2.transformer.get_params()
 W2 = l2_weights.get_value()
+
+print 'Sorting so largest-norm layer 2 weights are plotted at the top'
+norms = np.square(W2).sum(axis=0)
+idxs = [elem[1] for elem in sorted( zip( norms, range(norms.shape[0]) ) ) ]
+
+new = W2.copy()
+
+for i in xrange(len(idxs)):
+    new[:,i] = W2[:,idxs[i]]
+W2 = new
+
+
 
 
 from pylearn2.gui.patch_viewer import PatchViewer
