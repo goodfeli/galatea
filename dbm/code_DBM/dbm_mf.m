@@ -100,6 +100,9 @@ for epoch = epoch:maxepoch
 
   [numcases numdims numbatches]=size(batchdata);
 
+   numcases
+   keyboard
+
   counter=0; 
   rr = randperm(numbatches);  
   batch=0; 

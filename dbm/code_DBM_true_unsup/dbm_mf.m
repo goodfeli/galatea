@@ -111,7 +111,7 @@ for epoch = epoch:maxepoch
 
 %%%%% First fo MF %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    [poshidprobs, pospenprobs] = ...
-         mf(data,vishid,hidbiases,visbiases,hidpen,penbiases);
+         mf_class(data,vishid,hidbiases,visbiases,hidpen,penbiases);
 
 
     bias_hid= repmat(hidbiases,numcases,1);
@@ -129,9 +129,6 @@ for epoch = epoch:maxepoch
 %%%%%%%%% END OF POSITIVE PHASE  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
    negdata_CD1 = 1./(1 + exp(-poshidprobs*vishid' - bias_vis));
-   [I J]=max(targetout,[],2);
-   [I1 J1]=max(targets,[],2);
-   counter=counter+length(find(J==J1));
 
 
 
@@ -201,7 +198,6 @@ for epoch = epoch:maxepoch
    end  
 
   end
-  fprintf(1, 'epoch %4i reconstruction error %6.1f \n Number of misclassified training cases %d (out of 60000) \n', epoch, errsum,60000-counter); 
 
   save  fullmnist_dbm hidpen penbiases vishid hidbiases visbiases epoch;
 
