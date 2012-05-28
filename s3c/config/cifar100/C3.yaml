@@ -1,0 +1,82 @@
+!obj:pylearn2.scripts.train.Train {
+
+    "dataset": !pkl: &src "${PYLEARN2_DATA_PATH}/cifar100/cifar100_patches/data.pkl",
+    "save_path": "${EXPDIR2}/s3c_cifar100_patches/${PYLEARN2_TRAIN_FILE_STEM}.pkl",
+    "model": !obj:pylearn2.models.s3c.S3C {
+               "set_B_to_marginal_precision" : False,
+               "init_momentum" : 0.5,
+               "final_momentum" : 0.9,
+               "momentum_saturation_example" : 3e5,
+               "nvis" : 108,
+               "nhid" : 1600,
+               "init_bias_hid" : -4.,
+               "max_bias_hid" : 0.,
+               "min_bias_hid" : -7.,
+               "irange"  : .02,
+               "constrain_W_norm" : 1,
+               "init_B"  : 15.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  1,
+               "init_alpha" : 1.,
+               "min_alpha" : 1e-3,
+               "max_alpha" : 1e6,
+               "init_mu" : 0.,
+               "random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               #"recycle_q" : 1000,
+               "print_interval" : 10000,
+               "monitor_functional" : 1,
+               "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
+               "e_step" : !obj:galatea.s3c.s3c.E_Step {
+                        "h_new_coeff_schedule" : [
+                                                  #2   3    4   5    6   7    8   9    10   11  12  13   14  15   16   17   18  19   20
+                                                   .1, .10, .1, .1, .10, .10, .1, .10, .20, .2, .2, .30, .3, .30, .40, .40, .4, .40, .4,
+                                                  #21  22   23  24  25   26   27  28   29   30  31  32   33  34   35   36   37  38   39 
+                                                   .4, .20, .4, .4, .40, .40, .4, .40, .40, .4, .4, .40, .4, .20, .40, .40, .4, .40, .4,
+                                                 # 40  41   42  43  44   45   46  47   48   49  50  51   52  53   54   55   56  57   58
+                                                   .4, .20, .4, .4, .40, .40, .4, .10, .40, .4, .4, .20, .4, .40, .40, .40, .4, .20, .4,
+                                                 # 59   60  61  62  63   64   65  66   67   68  69  70   71  72   73   74   75  76   77
+                                                   .4, .40, .4, .4, .40, .20, .4, .40, .40, .4, .4, .20, .4, .40, .40, .20, .4, .40, .4,
+                                                 # 78  79   80  81  82   83   84  85   86   87  88  89   90  91   93
+                                                   .4, .40, .4, .4, .20, .40, .4, .40, .10, .4, .4, .20, .4, .20, .20, .40, .4, .40, .4,
+                                                   .4, .40, .4, .4, .20, .40, .4, .40, .10, .4, .4, .20, .4, .20, .20, .40, .4, .40, .4,
+                                                   .4, .40, .4, .4, .20, .40, .4, .40, .10, .4, .4, .20, .4, .20, .20, .40, .4, .40, .4
+                                                   ],
+                        "s_new_coeff_schedule" : [ .1, .10, .1, .1, .10, .10, .1, .10, .20, .2, .2, .30, .3, .30, .40, .40, .4, .40, .4,
+                                                   .1, .05, .1, .1, .10, .10, .1, .10, .10, .1, .1, .10, .1, .05, .10, .10, .1, .10, .1,
+                                                   .1, .05, .1, .1, .10, .10, .1, .05, .10, .1, .1, .05, .1, .10, .10, .10, .1, .05, .1,
+                                                   .1, .10, .1, .1, .10, .05, .1, .10, .10, .1, .1, .05, .1, .10, .10, .05, .1, .10, .1,
+                                                   .1, .10, .1, .1, .05, .10, .1, .10, .05, .1, .1, .05, .1, .05, .05, .10, .1, .10, .1,
+                                                   .1, .10, .1, .1, .05, .10, .1, .10, .05, .1, .1, .05, .1, .05, .05, .10, .1, .10, .1,
+                                                   .1, .10, .1, .1, .05, .10, .1, .10, .05, .1, .1, .05, .1, .05, .05, .10, .1, .10, .1
+                                                   ],
+                        "rho" : 1.,
+                        "clip_reflections" : 1,
+                        "monitor_ranges" : 1,
+                        "monitor_energy_functional" : 1
+               },
+               "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
+                        "learning_rate" : 1e-3,
+                        "B_learning_rate_scale" : .0092593,
+                        "W_learning_rate_scale" : 10.,
+                        "p_penalty" : 0.,
+                        "B_penalty" : 0.,
+                        "alpha_penalty" : 0.
+               },
+        },
+    algorithm: !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        dataset : *src,
+                        num_examples : 100
+                }
+        },
+    callbacks: [ galatea.pddbm.batch_gradient_inference_callback.BatchGradientInferenceCallback() ],
+    save_freq: 1,
+}
+
