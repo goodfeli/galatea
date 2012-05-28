@@ -62,17 +62,17 @@ else:
 
     def exp_safe(x):
         '''
-        compute the safe exp 
+        compute the safe exp
         '''
         return np.exp(np.minimum(x,EXP_MAX))
-        
+
     def gL_bnll(y,f):
         '''
         The BNLL gradient
         '''
         expnyf = exp_safe(-y*f+1)
         return -y*expnyf / (1.0+expnyf)
-        
+
     def LgL_bnll(y,f):
         '''
         jointly computing the loss and gradient is usually faster
@@ -89,7 +89,7 @@ def ObjFuncIncrement(wb, X, y, currwxb, gamma):
     gwb[:-1] = np.dot(X, gL) / X.shape[1] + gamma*w
     gwb[-1] = np.mean(gL)
     return np.mean(L) + gamma/2.0*np.sum(w**2), gwb
-    
+
 class GrafterMPI:
     '''
     The main grafter class, implemented with MPI support
@@ -98,27 +98,27 @@ class GrafterMPI:
         self.comm = MPI.COMM_WORLD
         self.rank = self.comm.Get_rank()
         self.size = self.comm.Get_size()
-        
-    
+
+
     def safebarrier(self, tag=0, sleep=0.01):
         '''
         This is a better mpi barrier than MPI.comm.barrier(): the original barrier
         may cause idle processes to still occupy the CPU, while this barrier waits.
         '''
         comm = self.comm
-        size = comm.Get_size() 
-        if size == 1: 
-            return 
-        rank = comm.Get_rank() 
-        mask = 1 
-        while mask < size: 
-            dst = (rank + mask) % size 
-            src = (rank - mask + size) % size 
-            req = comm.isend(None, dst, tag) 
-            while not comm.Iprobe(src, tag): 
-                time.sleep(sleep) 
-            comm.recv(None, src, tag) 
-            req.Wait() 
+        size = comm.Get_size()
+        if size == 1:
+            return
+        rank = comm.Get_rank()
+        mask = 1
+        while mask < size:
+            dst = (rank + mask) % size
+            src = (rank - mask + size) % size
+            req = comm.isend(None, dst, tag)
+            while not comm.Iprobe(src, tag):
+                time.sleep(sleep)
+            comm.recv(None, src, tag)
+            req.Wait()
             mask <<= 1
 
 
@@ -201,7 +201,7 @@ class GrafterMPI:
         fm.fastmaxm(self.featSlice[codeLocalid], np.nonzero(self.metabins[metabinid])[0], target)
         if normalize:
             fm.normalizev(target, self.mLocal[codeLocalid, metabinid], self.stdLocal[codeLocalid, metabinid])
-    
+
     def compute_feature_for_code(self, codeLocalid, normalize=True):
         '''
         compute all the features for codeLocalid and store them at featBufferPerCode
@@ -223,7 +223,7 @@ class GrafterMPI:
                              'weights': self.weights,\
                              'b': self.b}, oned_as = 'row')
 
-    def normalize_data(self, m = None, std = None):
+    def normalize_data(self, m = None, std = None, sabotage = False):
         if self.normalized:
             mpi.rootprint('Warning: you are re-normalizing.')
         if m is None or std is None:
@@ -233,18 +233,22 @@ class GrafterMPI:
                     self.compute_feature(i,j,normalize=False)
                     self.mLocal[i,j] = np.mean(self.featBuffer)
                     self.stdLocal[i,j] = np.std(self.featBuffer)+1e-8
+                    if sabotage:
+                        self.mLocal[i,j] *= 0.
+                        self.stdLocal[i,j] *= 0.
+                        self.stdLocal[i,j] += 1.
         else:
             self.mLocal[:] = m
             self.stdLocal[:] = std
         self.normalized = True
-            
+
     def load_data_batch(self, root, batch_size, file_template, labelfile, \
                         rootRead = True, isTest = False, \
-                        local_cache_root = None, read_local_cache = False):
+                        local_cache_root = None, read_local_cache = False, should_normalize = True):
         '''
-        load the data in batches. file_template should be 'filename_{}_{}.mat' 
-        where the batch size and batch id will be filled. The mat file will 
-        contain a variable called 'feat'. labelfile is the file for labels 
+        load the data in batches. file_template should be 'filename_{}_{}.mat'
+        where the batch size and batch id will be filled. The mat file will
+        contain a variable called 'feat'. labelfile is the file for labels
         starting from either 0 or 1 (our code converts the labels to 0 ~ nLabel-1).
         '''
         from scipy import io
@@ -340,20 +344,20 @@ class GrafterMPI:
             matdata = None
         self.comm.Bcast(self.rawlabels, root=0)
         for i in range(self.nData):
-            # we need to make the label matrix a -1/1 matrix 
+            # we need to make the label matrix a -1/1 matrix
             self.labels[self.rawlabels[i],i] = 1
         if not isTest:
             mpi.rootprint('Normalizing training data')
             timer = Timer()
-            self.normalize_data()
+            self.normalize_data(sabotage = not should_normalize)
             mpi.nodeprint('Normalization took {} secs.'.format(timer.lap()))
-           
+
     def append_feature(self,codeid, metabinid):
         '''
-        find the owner of the feature, broadcast it to all the nodes, and append the 
+        find the owner of the feature, broadcast it to all the nodes, and append the
         feature to the currently selected features if necessary.
-        from the owner of the feature, broadcast this feature and append it to the 
-        current selected features. Each instance will update the slice of data it 
+        from the owner of the feature, broadcast this feature and append it to the
+        current selected features. Each instance will update the slice of data it
         is responsible for
         '''
         # find the owner
@@ -367,7 +371,7 @@ class GrafterMPI:
         self.selCodeID[self.nSelFeats] = codeid
         self.selMetabinID[self.nSelFeats] = metabinid
         self.nSelFeats += 1
-    
+
     def append_multiple_features(self, codeidlist, metabinidlist, reset=True):
         '''
         Append a set of features in idxlist to the selected Features.
@@ -379,7 +383,7 @@ class GrafterMPI:
             self.nSelFeats = 0
         for i in range(len(codeidlist)):
             self.append_feature(codeidlist[i],metabinidlist[i])
-        
+
     def select_new_feature_by_grad(self, samplePerRun):
         '''
         the routine to select a new feature by the gradient magnitude
@@ -387,7 +391,7 @@ class GrafterMPI:
         # compute the local gradient magnitude for feature selection
         # gL is a nData*nLabel matrix
         self.gL = np.ascontiguousarray(gL_bnll(self.labels, self.curr_wxb).T, dtype=self.dtype)
-        
+
         if samplePerRun == 1:
             # this might take some time: for each feature, we basically
             # need to regenerate features and compute the dot.
@@ -397,7 +401,7 @@ class GrafterMPI:
                 self.compute_feature_for_code(codeLocalid, normalize=True)
                 #self.localGradMat is a [self.nCodeLocal, self.nMetabins, self.nLabel] matrix
                 self.localGradMat[codeLocalid] = np.dot(self.featBufferPerCode, self.gL)
-            
+
             # for those features that are selected, we need to add their regularizers
             my_features = np.nonzero((self.selCodeID[:self.nSelFeats] >= self.codeRange[0]) & \
                           (self.selCodeID[:self.nSelFeats] < self.codeRange[1]))[0]
@@ -406,7 +410,7 @@ class GrafterMPI:
                 self.localGradMat[self.selCodeID[feat]-self.codeRange[0],self.selMetabinID[feat]] \
                     += self.gamma * self.nData * curr_weight
             self.scoreVec[:] = np.sum(self.localGradMat**2, axis=2)
-    
+
             local_opt_feat_id = self.scoreVec.argmax()
             local_opt_feat_codeid = local_opt_feat_id / self.nMetabins
             local_opt_feat_metabinid = local_opt_feat_id % self.nMetabins
@@ -423,7 +427,7 @@ class GrafterMPI:
                 sampleSize = len(not_selected_ones[0])
             # shuffle
             randlist = np.array(range(len(not_selected_ones[0])), dtype=np.int)
-            np.random.shuffle(randlist)
+            rng.shuffle(randlist)
             temp_feat_codelocalid = not_selected_ones[0][randlist]
             temp_feat_metabinid = not_selected_ones[1][randlist]
             # do things in batches
@@ -444,17 +448,17 @@ class GrafterMPI:
                     local_opt_feat_score = temp_opt_feat_score
                     local_opt_feat_codeid = temp_feat_codelocalid[temp_opt_feat_id+start]+self.codeRange[0]
                     local_opt_feat_metabinid = temp_feat_metabinid[temp_opt_feat_id+start]
-        
+
         self.safebarrier()
         [opt_feat_score, opt_feat_codeid, opt_feat_metabinid] = self.comm.allreduce(\
             [local_opt_feat_score, local_opt_feat_codeid, local_opt_feat_metabinid], \
             op=MPI.MAX)
-        
+
         return opt_feat_score, opt_feat_codeid, opt_feat_metabinid
 
     def retrain_model(self, nActiveSet=None, samplePerRun = 1.0, factr = 10, pgtol = 1e-08, iprint=-1):
         '''
-        train the current model. Since we often have multiple labels, we will ask 
+        train the current model. Since we often have multiple labels, we will ask
         each node to do one optimization
         '''
         loss = 0
@@ -464,7 +468,7 @@ class GrafterMPI:
             gw_reduced = np.zeros((self.nLabel, self.nSelFeats), dtype = self.dtype)
             my_features = np.nonzero((self.selCodeID[:self.nSelFeats] >= self.codeRange[0]) & \
                                      (self.selCodeID[:self.nSelFeats] < self.codeRange[1]))[0]
-            
+
             if samplePerRun == 1:
                 # distributed gradient computation - actually, lookup.
                 for feat in my_features:
@@ -479,7 +483,7 @@ class GrafterMPI:
             # over all the nodes so MPI.SUM will work.
             self.safebarrier()
             self.comm.Allreduce(gw_local, gw_reduced, op = MPI.SUM)
-            
+
         # do approximate model retraining
         for idx in range(self.nLabel):
             if idx % self.size != self.rank:
@@ -495,7 +499,7 @@ class GrafterMPI:
                 else:
                     # we will retrain the model involving the previous 'nActiveSet' number
                     # of features.
-                    # if nActiveSet == 0, this is equivalent to boosting 
+                    # if nActiveSet == 0, this is equivalent to boosting
                     # if nActiveSet > 0, we choose the latest features
                     # if nActiveSet < 0, we choose the features with the largest gradients
                     if nActiveSet >= 0:
@@ -538,14 +542,14 @@ class GrafterMPI:
             self.b[idx] = self.comm.bcast(self.b[idx], root = idx % self.size)
         loss = self.comm.allreduce(loss, op=MPI.SUM)
         return loss
-    
+
     def compute_current_accuracy(self):
         '''
         Using the current w'x+b to predict the accuracy. The label is simply determined
         as the one with the largest wxb value.
-        ''' 
+        '''
         return np.sum( np.argmax(self.curr_wxb, axis=0) == self.rawlabels ) / float(self.nData)
-    
+
     def compute_test_accuracy(self, w, b, confMat = False):
         '''
         compute accuracy for test data
@@ -562,7 +566,7 @@ class GrafterMPI:
             return np.sum(predict==self.rawlabels)/float(self.nData), confMat
         else:
             return np.sum(predict == self.rawlabels) / float(self.nData)
-            
+
     def restore_from_dump_file(self, filename, tester=None, dataOnly = False):
         print 'Not implemented yet.'
         '''
@@ -579,7 +583,7 @@ class GrafterMPI:
         # debug code
         if self.nSelFeats != nSelFeatsDump:
             print 'Warning: {} != {}'.format(self.nSelFeats, nSelFeatsDump)
-        
+
         if not dataOnly:
             self.weights[:,:nSelFeatsDump] = matdata['weights'][:,:nSelFeatsDump]
             self.b[:] = matdata['b'].reshape(self.nLabel)
@@ -599,11 +603,11 @@ class GrafterMPI:
         mpi.rootprint('*'*46)
         mpi.rootprint('*'*15+'whole featureset'+'*'*15)
         mpi.rootprint('*'*46)
-        
+
         if tester is not None:
             # normalize the test data with the stats of the training data
             tester.normalize_data(self.mLocal, self.stdLocal)
-        
+
         timer = Timer()
         timer.reset()
         if self.maxGraftDim != self.nMetabins*self.nCodes:
@@ -625,22 +629,26 @@ class GrafterMPI:
         if tester is not None:
             mpi.rootprint('Current Testing accuracy: {}'.format(tester.compute_test_accuracy(self.weights, self.b)))
 
-    def randomselecttest(self, tester=None, random_iterations=1):
+    def randomselecttest(self, tester=None, random_iterations=1, should_normalize = True):
         '''
         test the performance of random selection
+        modified by Ian Goodfellow to use seeded random number generation so
+        that results are replicable
         '''
         self.comm.barrier()
         mpi.rootprint('*'*46)
         mpi.rootprint('*'*15+'random selection'+'*'*15)
         mpi.rootprint('*'*46)
-        
+
         trainaccu = np.zeros(random_iterations)
         testaccu = np.zeros(random_iterations)
-        
+
+        rng = np.random.RandomState([1,2,3])
+
         if tester is not None:
             # normalize the test data with the stats of the training data
-            tester.normalize_data(self.mLocal, self.stdLocal)
-        
+            tester.normalize_data(self.mLocal, self.stdLocal, sabotage = not should_normalize)
+
         itertimer = Timer()
         for iter in range(random_iterations):
             itertimer.reset()
@@ -648,7 +656,7 @@ class GrafterMPI:
             if self.rank == 0:
                 #decide which features we are going to select
                 allidx = np.array(range(self.nCodes*self.nMetabins),dtype=np.int)
-                np.random.shuffle(allidx)
+                rng.shuffle(allidx)
                 codeidlist = allidx / self.nMetabins
                 metabinidlist = allidx % self.nMetabins
             else:
@@ -656,7 +664,7 @@ class GrafterMPI:
                 metabinidlist = None
             codeidlist = self.comm.bcast(codeidlist, root=0)
             metabinidlist = self.comm.bcast(metabinidlist, root=0)
-            
+
             self.append_multiple_features(codeidlist[:self.maxGraftDim], metabinidlist[:self.maxGraftDim])
             mpi.rootprint('Feature selection took {} secs'.format(itertimer.lap()))
             mpi.rootprint('Training...')
@@ -670,7 +678,7 @@ class GrafterMPI:
                 mpi.rootprint('Current Testing accuracy: {}'.format(testaccu[iter]))
             mpi.rootprint('Testing selection took {} secs'.format(itertimer.lap()))
         self.safebarrier()
-        
+
         mpi.rootprint('*'*15+'Summary'+'*'*15)
         mpi.rootprint('Training accuracy: {} +- {}'.format(np.mean(trainaccu),np.std(trainaccu)))
         mpi.rootprint('Testing accuracy: {} +- {}'.format(np.mean(testaccu),np.std(testaccu)))
@@ -717,13 +725,13 @@ class GrafterMPI:
         mpi.rootprint('dump_every = {}\nnActiveSet={}\ntest_every={}\nsamplePerRun={}'.format(\
                             dump_every, nActiveSet, test_every, samplePerRun))
         self.comm.barrier()
-        
+
         if tester is not None:
             # normalize the test data with the stats of the training data
             tester.normalize_data(self.mLocal, self.stdLocal)
         if fromDumpFile is not None:
             self.restore_from_dump_file(fromDumpFile, tester)
-        
+
         old_loss = 1e10
         timer = Timer()
         itertimer = Timer()
@@ -749,19 +757,19 @@ class GrafterMPI:
                     # print test accuracy
                     test_accuracy = tester.compute_test_accuracy(self.weights, self.b)
                     mpi.rootprint('Current Testing accuracy: {}'.format(test_accuracy))
-                    
+
             self.safebarrier()
             mpi.rootprint('This round took {} secs, total {} secs'.format(timer.lap(), timer.total()))
             mpi.rootprint('ETA {} secs.'.format(timer.total() * (self.maxGraftDim-T)/(T+1.0e-5)))
-            
+
             if dump_every > 0 and (T+1) % dump_every == 0 and dump_file is not None:
                 mpi.rootprint('*'*15 + 'Dumping' + '*'*15)
                 self.dump_current_state(dump_file + str(T)+'.mat')
-        
+
         mpi.rootprint('*'*15+'Finalizing'.format(T)+'*'*15)
         if dump_file is not None:
             self.dump_current_state(dump_file + 'final.mat')
-        
+
 if __name__ == "__main__":
     # Let's moo if it works.
     import utils.moo

@@ -21,6 +21,7 @@ parser.add_argument('-e', '--local_cache_root', default=None, help='local cache 
 parser.add_argument('-l', '--read_local_cache', type=int, default=0, help='whether to read local cache or not')
 parser.add_argument('-c', '--nClass', type=int, default=10, help='number of classes')
 parser.add_argument('-t', '--random_iterations', type=int, default=1, help='number of random iterations')
+parser.add_argument('-s', '--skip_normalization',  default=False, action = 'store_true')
 mpi.rootprint(str(sys.argv))
 args = parser.parse_args(sys.argv[1:])
 
@@ -43,10 +44,11 @@ if args.local_cache_root:
 
 grafter.load_data_batch(args.data_root, args.batch_size, data_file, label_file,\
                         rootRead = True, \
-                        local_cache_root = args.local_cache_root, read_local_cache = args.read_local_cache)
+                        local_cache_root = args.local_cache_root, read_local_cache = args.read_local_cache,
+                        should_normalize = not args.skip_normalization)
 tester.load_data_batch(args.data_root, args.batch_size, test_data_file, test_label_file,\
                        rootRead = True, isTest=True, \
                        local_cache_root = args.local_cache_root, read_local_cache = args.read_local_cache)
 
-grafter.randomselecttest(tester, args.random_iterations)
+grafter.randomselecttest(tester, args.random_iterations, should_normalize = not args.skip_normalization)
 
