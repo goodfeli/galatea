@@ -41,5 +41,7 @@ assert len(ranges.shape) == 1
 from matplotlib import pyplot as plt
 
 plt.scatter(ranges, norms)
+plt.xlabel('range')
+plt.ylabel('norm')
 
 plt.show()
