@@ -683,11 +683,12 @@ class PDDBM(Model):
             next_h = self.inference_procedure.infer_H_hat(V = V,
                 H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
 
-            err = H_hat - self.h_target
+            #err = next_h.mean(axis=0) - self.h_target
 
-            abs_err = abs(err)
+            #abs_err = abs(err)
 
-            penalty = T.sum(abs_err)
+            penalty = T.sum( T.nnet.binary_crossentropy( target = self.h_target,
+                output = next_h.mean(axis=0)) )
 
             tractable_obj =  tractable_obj - self.h_penalty * penalty
 
@@ -697,11 +698,13 @@ class PDDBM(Model):
 
                 g = T.mean(G,axis=0)
 
-                err = g - self.g_targets[i]
+                #err = g - self.g_targets[i]
 
-                abs_err = abs(err)
+                #abs_err = abs(err)
 
-                penalty = T.mean(abs_err)
+                #penalty = T.mean(abs_err)
+
+                penalty = T.sum( T.nnet.binary_crossentropy( target = self.g_targets[i], output = g))
 
                 tractable_obj = tractable_obj - self.g_penalties[i] * penalty
 
