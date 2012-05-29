@@ -12,6 +12,7 @@
 % not been tested to the degree that would be advisable in any important
 % application.  All use of these programs is entirely at the user's own risk.
 
+maxepoch = 100;
 
 test_err=[];
 test_crerr=[];
@@ -45,7 +46,7 @@ N=numcases;
 w1_penhid = hidpen';
 w1_vishid = vishid;
 w2 = hidpen;
-h1_biases = hidbiases; h2_biases = penbiases; 
+h1_biases = hidbiases'; h2_biases = penbiases'; 
 
 w_class = 0.1*randn(numpens,10); 
 topbiases = 0.1*randn(1,10);
@@ -127,6 +128,15 @@ for epoch = 1:maxepoch
       temp_h2( (tt-1)*100+1:tt*100,:) = temp_h2_train(:,:,rr(tt1(tt))); 
       targets( (tt-1)*100+1:tt*100,:) = batchtargets(:,:,rr(tt1(tt))); 
     end  
+
+    %dropout
+    p = 0.1;
+    src = rand(size(data));
+    b = src < p;
+    data = data .* b / p;
+    src = rand(size(temp_h2));
+    b = src < p;
+    temp_h2 = temp_h2 .* b / p;
 
 %%%%%%%% DO CG with 3 linesearches 
 
