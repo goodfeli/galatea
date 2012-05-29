@@ -131,10 +131,10 @@ assert X.shape[0] == 10000
 assert X.shape[1] == 784
 y = dataset.y
 
-testbatchdata = np.zeros((100,784,600))
-testbatchtargets = np.zeros((100,10,600))
-temp_h2_test = np.zeros((100,1000,600))
-for i in xrange(600):
+testbatchdata = np.zeros((100,784,100))
+testbatchtargets = np.zeros((100,10,100))
+temp_h2_test = np.zeros((100,1000,100))
+for i in xrange(100):
     testbatchdata[:,:,i] = dataset.X[i*100:(i+1)*100,:]
     testbatchtargets[:,:,i] = dataset.y[i*100:(i+1)*100,:]
     temp_h2_test[:,:,i] = G[i*100:(i+1)*100,:]
@@ -149,7 +149,9 @@ d = { 'batchdata': batchdata,
       'temp_h2_train' : temp_h2_train,
       'temp_h2_test' : temp_h2_test,
       'vishid' : vishid,
-      'hidpen' : hidpen
+      'hidpen' : hidpen,
+      'hidbiases' : model.s3c.bias_hid.get_value(),
+      'penbiases' : model.dbm.bias_hid[0].get_value()
    }
 io.savemat('pylearn2_dump.mat',d)
 
