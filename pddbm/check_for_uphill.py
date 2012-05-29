@@ -1,4 +1,5 @@
 import sys
+from pylearn2.utils.string_utils import number_aware_alphabetical_key
 
 ignore, model_path = sys.argv
 
@@ -10,9 +11,10 @@ keys = model.monitor.channels.keys()
 
 kls = [ key for key in keys if key.startswith('trunc_KL_') ]
 
-from pylearn2.utils.string_utils import number_aware_alphabetical_key
-
 kls.sort(key = number_aware_alphabetical_key)
+
+
+worst_uphills = {}
 
 for i in xrange(len(model.monitor.channels[kls[0]].val_record)):
     for j in xrange(1,len(kls)):
@@ -27,6 +29,14 @@ for i in xrange(len(model.monitor.channels[kls[0]].val_record)):
 
         if cur_val > prev_val:
             print cur_key,' went uphill by '+str(cur_val - prev_val)+' on step ',str(i)
+            diff = cur_val - prev_val
+            if diff > 1e-4:
+                if cur_key not in worst_uphills or worst_uphills[cur_key] < cur_val:
+                    worst_uphills[cur_key] = diff
 
         if cur_val == prev_val:
             print cur_key,' made no progress on step ',str(i)
+
+print "\n\n\nWorst uphills at each step:"
+for cur_key in sorted(worst_uphills.keys() , key = number_aware_alphabetical_key):
+    print '\t',cur_key,':',worst_uphills[cur_key]
