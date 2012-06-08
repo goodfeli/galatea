@@ -32,7 +32,6 @@ from theano.gof.op import debug_assert
 from theano.gof.op import get_debug_values
 from pylearn2.space import VectorSpace
 from theano.sandbox.scan import scan
-from pylearn2.utils.iteration import SequentialSubsetIterator
 
 warnings.warn('There is a known bug where for some reason the w field of s3c '
 'gets serialized. Not sure if other things get serialized too but be sure to '
@@ -251,11 +250,6 @@ class PDDBM(Model):
         self.sub_batch = sub_batch
 
         self.redo_everything()
-
-
-
-    def infer(self, V, Y = None, return_history = False):
-        return self.inference_procedure.infer(V,Y,return_history)
 
     def get_weights(self):
         x = input('which weights you want?')
@@ -497,24 +491,6 @@ class PDDBM(Model):
 
         return f
 
-
-
-    def make_accum_pos_phase_grad_func(self, V):
-
-        hidden_obs = self.inference_procedure.infer(V)
-
-        obj, constants = self.positive_phase_obj(V, hidden_obs)
-
-        updates = {}
-
-        for param in self.grads:
-            updates[self.grads[param]] = self.grads[param] + T.grad(obj, param, \
-                    consider_constant = constants)
-
-        f = function([V], updates= updates)
-
-        return f
-
     def positive_phase_obj(self, V, hidden_obs):
         """ returns both the objective AND things that should be considered constant
             in order to avoid propagating through inference """
@@ -595,13 +571,13 @@ class PDDBM(Model):
 
         assert self.inference_procedure is not None
 
-        #run variational inference on the train set
-        hidden_obs = self.inference_procedure.infer(V,Y)
+        #obtain the results of variational inference
+        hidden_obs = self.inference_procedure.hidden_obs
 
         #make a restricted dictionary containing only vars s3c knows about
         restricted_obs = {}
         for key in hidden_obs:
-            if key != 'G_hat':
+            if key not in ['G_hat','Y_hat']:
                 restricted_obs[key] = hidden_obs[key]
 
 
@@ -613,7 +589,12 @@ class PDDBM(Model):
                 V = V, **restricted_obs)
 
         #don't backpropagate through inference
-        obs_set = set(hidden_obs.values())
+        no_nones = {}
+        for key in hidden_obs:
+            if key == 'Y_hat' and hidden_obs[key] is None:
+                continue
+            no_nones[key] = hidden_obs[key]
+        obs_set = set(flatten(no_nones.values()))
         stats_set = set(stats.d.values())
         constants = flatten(obs_set.union(stats_set))
 
@@ -808,6 +789,7 @@ class PDDBM(Model):
         if Y is not None:
             inputs.append(Y)
 
+
         print "compiling PD-DBM learn function..."
         t1 = time.time()
         rval = function(inputs, updates = learning_updates)
@@ -939,6 +921,8 @@ class PDDBM(Model):
 
             self.make_pseudoparams()
 
+            self.inference_procedure.redo_theano()
+
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
@@ -1063,8 +1047,10 @@ class PDDBM(Model):
                 self.accum_pos_phase_grad_func(X[i:i+1,:])
         else:
             if Y is None:
+                self.inference_procedure.update_var_params(X)
                 self.learn_func(X)
             else:
+                self.inference_procedure.update_var_params(X,Y)
                 self.learn_func(X,Y)
         if self.monitor._examples_seen % self.print_interval == 0:
             print ""
@@ -1076,41 +1062,43 @@ class PDDBM(Model):
     def get_weights_format(self):
         return self.s3c.get_weights_format()
 
-class InferenceProcedure:
+class MonitorPrereq:
+
+    def __init__(self, ip):
+        self.ip = ip
+
+    def __call__(self, X, Y = None):
+        return self.ip.update_var_params(X,Y)
+
+class InferenceProcedure(Model):
     """
 
     Variational inference
 
+    This is only a Model in order to automatically get access to the Model's
+    pickle mangling abilities.
+
     """
 
-    def __init__(self, schedule,
-                       clip_reflections = False,
-                       monitor_kl = False,
+    def __init__(self,
+                        clip_reflections = False,
                        rho = 0.5):
         """Parameters
         --------------
         schedule:
-            list of steps. each step can consist of one of the following:
-                ['s', <new_coeff>] where <new_coeff> is a number between 0. and 1.
-                    does a damped parallel update of s, putting <new_coeff> on the new value of s
-                ['h', <new_coeff>] where <new_coeff> is a number between 0. and 1.
-                    does a damped parallel update of h, putting <new_coeff> on the new value of h
-                ['g', idx]
-                    does a block update of g[idx]
 
         clip_reflections, rho : if clip_reflections is true, the update to Mu1[i,j] is
             bounded on one side by - rho * Mu1[i,j] and unbounded on the other side
         """
 
-        self.schedule = schedule
+        super(InferenceProcedure, self).__init__()
 
         self.clip_reflections = clip_reflections
-        self.monitor_kl = monitor_kl
-
         self.rho = as_floatX(rho)
 
         self.model = None
 
+        self.monitor_prereq = MonitorPrereq(self)
 
 
     def get_monitoring_channels(self, V, Y = None):
@@ -1119,40 +1107,10 @@ class InferenceProcedure:
 
         rval = {}
 
-        obs_history = self.infer(V, Y, return_history = True)
+        rval['trunc_KL_init'] = self.kl_init
+        rval['trunc_KL_final'] = self.kl_final
 
-        if self.monitor_kl not in [False, 0]:
-            assert self.monitor_kl == True or isinstance(self.monitor_kl, list)
-
-            if isinstance(self.monitor_kl, list):
-                steps = [ elem for elem in self.monitor_kl]
-                for i in xrange(len(steps)):
-                    assert steps[i] < 2 + len(self.schedule)
-                    if steps[i] < 0:
-                        steps[i] = len(self.schedule) + 2 + steps[i]
-                    assert steps[i] > 0
-            else:
-                steps = xrange(1, 2 + len(self.schedule))
-
-            for i in steps:
-                obs = obs_history[i-1]
-
-                if i == 1:
-                    summary = '(init)'
-                else:
-                    step = self.schedule[i-2]
-                    summary = str(step)
-
-                for G_hat in obs['G_hat']:
-                    for Gv in get_debug_values(G_hat):
-                        assert Gv.min() >= 0.0
-                        assert Gv.max() <= 1.0
-
-                channel_val = self.truncated_KL(V, Y, obs).mean()
-                assert channel_val.dtype == 'float32'
-                rval['trunc_KL_'+str(i)+summary] = channel_val
-
-        final_vals = obs_history[-1]
+        final_vals = self.hidden_obs
 
         S_hat = final_vals['S_hat']
         H_hat = final_vals['H_hat']
@@ -1175,15 +1133,12 @@ class InferenceProcedure:
 
         #norm of gradient with respect to variational params
         grad_norm_sq = np.cast[config.floatX](0.)
-        kl = self.truncated_KL(V, Y, obs_history[-1]).mean()
+        kl = self.truncated_KL(V, final_vals, Y).mean()
         for var_param in set([ S_hat, H_hat]).union(Gs):
             grad = T.grad(kl,var_param)
             grad_norm_sq = grad_norm_sq + T.sum(T.sqr(grad))
         grad_norm = T.sqrt(grad_norm_sq)
         rval['var_param_grad_norm'] = grad_norm
-
-
-
 
         if self.model.monitor_ranges:
             S_hat = final_vals['S_hat']
@@ -1225,6 +1180,8 @@ class InferenceProcedure:
         rval['simple_recons_error'] = self.model.simple_recons_error(V,Gs)
 
 
+        for key in rval:
+            rval[key] = (rval[key], (self.monitor_prereq,))
 
         return rval
 
@@ -1232,11 +1189,25 @@ class InferenceProcedure:
         self.model = model
 
         self.s3c_e_step = self.model.s3c.e_step
+        self.s3c_e_step.register_model(model.s3c)
 
         self.s3c_e_step.clip_reflections = self.clip_reflections
         self.s3c_e_step.rho = self.rho
 
         self.dbm_ip = self.model.dbm.inference_procedure
+
+
+        codes = ['s','h','y']
+        for i in xrange(len(self.model.dbm.rbms)):
+            codes.append(('g',i))
+
+        self.new_coeff_lists = {}
+        self.default_new_coeff = {}
+        self.tols = {}
+        for code in codes:
+            self.new_coeff_lists[code] = []
+            self.default_new_coeff[code] = 1.
+            self.tols[code] = 1e-3
 
 
     def dbm_observations(self, obs):
@@ -1247,7 +1218,7 @@ class InferenceProcedure:
 
         return rval
 
-    def truncated_KL(self, V, Y, obs):
+    def truncated_KL(self, V, obs, Y = None):
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
@@ -1293,187 +1264,6 @@ class InferenceProcedure:
 
         return H
 
-    def infer(self, V, Y = None, return_history = False):
-        """
-
-            return_history: if True:
-                                returns a list of dictionaries with
-                                showing the history of the variational
-                                parameters
-                                throughout fixed point updates
-                            if False:
-                                returns a dictionary containing the final
-                                variational parameters
-            Y:
-                None corresponds to a model that has no labels
-                -1 corresponds to inferring Y in a model that has labels
-                    (each G_hat update will become a G_hat-Y_hat-G_hat update)
-                a theano matrix corresponds to clamping Y to that matrix
-        """
-
-        assert Y not in [True,False,0,1] #detect bug where Y gets something that was meant to be return_history
-        assert (Y is None) == (self.model.dbm.num_classes == 0)
-
-        infer_labels = Y == -1
-
-
-        alpha = self.model.s3c.alpha
-        s3c_e_step = self.s3c_e_step
-        dbm_ip = self.dbm_ip
-
-        var_s0_hat = 1. / alpha
-        var_s1_hat = s3c_e_step.infer_var_s1_hat()
-
-        if infer_labels:
-            Y = dbm_ip.init_Y_hat(V)
-
-        H_hat = s3c_e_step.init_H_hat(V)
-        G_hat = dbm_ip.init_H_hat(H_hat)
-        S_hat = s3c_e_step.init_S_hat(V)
-
-        H_hat.name = 'init_H_hat'
-        S_hat.name = 'init_S_hat'
-
-        for Hv in get_debug_values(H_hat):
-
-            if Hv.shape[1] != s3c_e_step.model.nhid:
-                debug_error_message('H prior has wrong # hu, expected %d actual %d'%\
-                        (s3c_e_step.model.nhid,
-                            Hv.shape[1]))
-
-        for Sv in get_debug_values(S_hat):
-            if isinstance(Sv, tuple):
-                warnings.warn("I got a tuple from this and I have no idea why the fuck that happens. Pulling out the single element of the tuple")
-                Sv ,= Sv
-
-            if Sv.shape[1] != s3c_e_step.model.nhid:
-                debug_error_message('prior has wrong # hu, expected %d actual %d'%\
-                        (s3c_e_step.model.nhid,
-                            Sv.shape[1]))
-
-        def check_H(my_H, my_V):
-            if my_H.dtype != config.floatX:
-                raise AssertionError('my_H.dtype should be config.floatX, but they are '
-                        ' %s and %s, respectively' % (my_H.dtype, config.floatX))
-
-            allowed_v_types = ['float32']
-
-            if config.floatX == 'float64':
-                allowed_v_types.append('float64')
-
-            assert my_V.dtype in allowed_v_types
-
-            if config.compute_test_value != 'off':
-                from theano.gof.op import PureOp
-                Hv = PureOp._get_test_value(my_H)
-
-                Vv = my_V.tag.test_value
-
-                assert Hv.shape[0] == Vv.shape[0]
-
-        check_H(H_hat,V)
-
-        def make_dict():
-
-            rval =  {
-                    'G_hat' : tuple(G_hat),
-                    'H_hat' : H_hat,
-                    'S_hat' : S_hat,
-                    'var_s0_hat' : var_s0_hat,
-                    'var_s1_hat': var_s1_hat,
-                    }
-            if infer_labels:
-                rval['Y_hat'] = Y
-
-            return rval
-
-        history = [ make_dict() ]
-
-        for i, step in enumerate(self.schedule):
-
-            if len(step) == 2:
-                letter, number = step
-                g_new_coeff = None
-            else:
-                letter, number, g_new_coeff = step
-                assert letter == 'g'
-                g_new_coeff = as_floatX(g_new_coeff)
-
-            coeff = as_floatX(number)
-
-            coeff = T.as_tensor_variable(coeff)
-
-            coeff.name = 'coeff_step_'+str(i)
-
-            if letter == 's':
-
-                new_S_hat = s3c_e_step.infer_S_hat(V, H_hat, S_hat)
-                new_S_hat.name = 'new_S_hat_step_'+str(i)
-
-                if self.clip_reflections:
-                    clipped_S_hat = reflection_clip(S_hat = S_hat, new_S_hat = new_S_hat, rho = self.rho)
-                else:
-                    clipped_S_hat = new_S_hat
-
-                S_hat = damp(old = S_hat, new = clipped_S_hat, new_coeff = coeff)
-
-                S_hat.name = 'S_hat_step_'+str(i)
-
-            elif letter == 'h':
-
-                new_H = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G_hat[0])
-
-                new_H.name = 'new_H_step_'+str(i)
-
-                H_hat = damp(old = H_hat, new = new_H, new_coeff = coeff)
-                H_hat.name = 'new_H_hat_step_'+str(i)
-
-                check_H(H_hat,V)
-
-            elif letter == 'g':
-
-                if not isinstance(number, int):
-                    raise ValueError("Step parameter for 'g' code must be an integer in [0, # g layers) "
-                            "but got "+str(number)+" (of type "+str(type(number)))
-
-
-                update = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number, Y_hat = Y)
-                assert update.type.dtype == config.floatX
-
-                if g_new_coeff is not None:
-                    assert G_hat[number].type.dtype == config.floatX
-                    update = damp(old = G_hat[number], new = update, new_coeff = g_new_coeff)
-                    assert update.type.dtype == config.floatX
-
-                G_hat[number] = update
-
-                for Gv in get_debug_values(G_hat[number]):
-                    assert Gv.min() >= 0.0
-                    assert Gv.max() <= 1.0
-
-                #when inferring labels, turn a G update into a G-Y-G update
-                if infer_labels and number == (len(G_hat) -1):
-                    update = dbm_ip.infer_Y_hat( H_hat = G_hat[-1])
-                    if g_new_coeff is not None:
-                        update = damp(old = Y, new = update, new_coeff = g_new_coeff)
-                    Y = update
-
-                    update = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number, Y_hat = Y)
-                    if g_new_coeff is not None:
-                        assert G_hat[number].type.dtype == config.floatX
-                        update = damp(old = G_hat[number], new = update, new_coeff = g_new_coeff)
-                    G_hat[number] = update
-
-
-            else:
-                raise ValueError("Invalid inference step code '"+letter+"'. Valid options are 's','h' and 'g'.")
-
-            history.append(make_dict())
-
-        if return_history:
-            return history
-        else:
-            return history[-1]
 
     def infer_G_hat(self, H_hat, G_hat, idx, Y_hat = None):
 
@@ -1517,6 +1307,443 @@ class InferenceProcedure:
 
     def infer_var_s0_hat(self):
         return self.s3c_e_step.infer_var_s0_hat()
+
+    def redo_theano(self):
+
+        assert self.model is not None
+
+        batch_size = self.model.test_batch_size
+
+        init_names = dir(self)
+
+        num_layers = len(self.model.dbm.rbms)
+
+        self.hidden_obs = {}
+        N_H = self.model.s3c.nhid
+        #don't use zeros here, that's not a valid precision and it will screw up
+        #the interactive debugger with NaNs
+        self.hidden_obs['var_s0_hat'] = sharedX(np.ones((N_H,)),'var_s0_hat')
+        self.hidden_obs['var_s1_hat'] = sharedX(np.ones((N_H,)),'var_s1_hat')
+        self.hidden_obs['H_hat'] = sharedX(np.zeros((batch_size,N_H)),'H_hat')
+        self.hidden_obs['S_hat'] = sharedX(np.zeros((batch_size,N_H)),'S_hat')
+        self.kl_init = sharedX(0.0,'kl_init')
+        self.kl_final = sharedX(0.0,'kl_final')
+        G_hat = []
+        layer_sizes = [ rbm.nhid for rbm in self.model.dbm.rbms ]
+        for i, layer_size in enumerate(layer_sizes):
+            G_hat.append( sharedX(np.zeros((batch_size, layer_size)),'G_hat[%d]' % i))
+        self.hidden_obs['G_hat'] = G_hat
+
+        alpha = self.model.s3c.alpha
+        s3c_e_step = self.s3c_e_step
+        dbm_ip = self.dbm_ip
+
+        var_s0_hat = 1. / alpha
+        var_s1_hat = s3c_e_step.infer_var_s1_hat()
+
+        V = T.matrix('V')
+        if config.compute_test_value != 'off':
+            V.tag.test_value = np.cast[config.floatX](np.zeros((batch_size, self.model.s3c.nvis)))
+
+        num_classes = self.model.dbm.num_classes
+        if num_classes > 0:
+            self.hidden_obs['Y_hat'] = sharedX(np.zeros((batch_size,num_classes)))
+            self.staged_obs['Y_hat'] = sharedX(np.zeros((batch_size,num_classes)))
+            init_val = self.dbm.inference_procedure.init_Y_hat()
+            self.initialize_Y_hat = function([],
+                    updates = { self.hidden_obs['Y_hat'] : init_val })
+        else:
+            self.hidden_obs['Y_hat'] = None
+
+        init_H_hat = self.s3c_e_step.init_H_hat(V)
+        init_S_hat = self.s3c_e_step.init_S_hat(V)
+
+
+        #endpoints holds undamped updates to variational parameters,
+        #to make it cheaper to try out several different damping amounts
+        #since we only update one variable at a time, only one element
+        #of this dictionary ever makes sense at a time
+        self.endpoints = {}
+        #staged holds damped updates. only one entry ever makes sense
+        #at any given time. this dictionary exists so we don't need to
+        #compute the damped update twice. once we find an acceptable
+        #damped update, we copy it back to hidden_obs
+        self.staged = {}
+
+        def clone_dict(target):
+            assert 'Y_hat' in self.hidden_obs
+            for key in self.hidden_obs:
+                if self.hidden_obs[key] is None:
+                    target[key] = None
+                elif isinstance(self.hidden_obs[key],list):
+                    target[key] = tuple([
+                        sharedX(var.get_value()) for var in self.hidden_obs[key]])
+                else:
+                    target[key] = sharedX(self.hidden_obs[key].get_value())
+
+        clone_dict(self.endpoints)
+        assert 'Y_hat' in self.endpoints
+        clone_dict(self.staged)
+
+        init_dict = { self.hidden_obs['var_s0_hat'] : var_s0_hat,
+                  self.hidden_obs['var_s1_hat'] : var_s1_hat,
+                  self.hidden_obs['H_hat'] : init_H_hat,
+                  self.hidden_obs['S_hat'] : init_S_hat }
+
+        init_G_hat = self.dbm_ip.init_H_hat(init_H_hat)
+        for G_hat in [ G_hat, self.staged['G_hat'] ]:
+            for var_elem, val_elem in zip(G_hat, init_G_hat):
+                init_dict[var_elem] = val_elem
+
+        self.initialize_inference = function([V], updates = init_dict)
+
+
+        if self.hidden_obs['Y_hat'] is not None:
+            raise NotImplementedError()
+            """I think I need to make two different KL divergence functions, one for if
+            inference is run inferring Y_hat and one for if it is run with Y clamped """
+        init_trunc_kl = self.truncated_KL(V, self.hidden_obs, self.hidden_obs['Y_hat']).mean()
+        self.compute_init_trunc_kl = function([V],
+                init_trunc_kl,
+                updates = { self.kl_init : init_trunc_kl }
+                )
+
+
+
+        #compute_damp_kl is a dictionary mapping codes for hidden layers to
+        #functions that
+        #put an undamped version of an update in endpoints ("compute")
+        #return the kl divergence of a damped version
+
+        #TODO: for now, for simplicity, we do the full computation of
+        #all updates every time through the loop. Later, we should
+        #optimize it so that commonly re-computed subexpressions, like
+        # v^T W, are only computed once and then re-used on each
+        # pass through the loop
+
+        self.compute_damp_kl = {}
+
+
+        codes = ['s','h']
+        codes_to_hiddens = { 's' : self.hidden_obs['S_hat'],
+                            'h' : self.hidden_obs['H_hat'],
+                            'y' : self.hidden_obs['Y_hat']}
+        codes_to_endpoints = { 's' : self.endpoints['S_hat'],
+                            'h' : self.endpoints['H_hat'],
+                            'y' : self.endpoints['Y_hat']}
+        codes_to_staged = { 's' : self.staged['S_hat'],
+                'h': self.staged['H_hat'],
+                'y': self.staged['Y_hat']}
+
+        new_coeff = T.scalar(name = 'new_coeff')
+
+        if config.compute_test_value != 'off':
+            new_coeff.tag.test_value = 1.0
+
+        for i in xrange(num_layers):
+            codes.append(('g',i))
+            codes_to_hiddens[('g',i)] = self.hidden_obs['G_hat'][i]
+            codes_to_endpoints[ ('g',i)] = self.endpoints['G_hat'][i]
+            codes_to_staged[ ('g',i) ] = self.staged['G_hat'][i]
+
+        H_hat = codes_to_hiddens['h']
+        S_hat = codes_to_hiddens['s']
+        G1_hat = codes_to_hiddens[('g',0)]
+        Y_hat = codes_to_hiddens['y']
+        last_G = self.hidden_obs['G_hat'][-1]
+
+        for code in codes:
+
+            #Find the shared variable containing the original value of the variational parameter
+            #to be updated
+            orig_var = codes_to_hiddens[code]
+
+            #Find the shared variable to which we will write the value of the undamped update
+            endpoint_var = codes_to_endpoints[code]
+
+            #Compute the undamped update
+            if code == 's':
+                endpoint_val = s3c_e_step.infer_S_hat(V, H_hat, S_hat)
+                if self.clip_reflections:
+                    endpoint_val = reflection_clip(S_hat = S_hat, new_S_hat = endpoint_val, rho = self.rho)
+            elif code == 'h':
+                endpoint_val = self.infer_H_hat(V = V, H_hat = H_hat, S_hat = S_hat, G1_hat = G1_hat)
+            elif code == 'y':
+                endpoint_val = dbm_ip.infer_Y_hat( H_hat = last_G)
+            else:
+                letter, number = code
+                assert letter == 'g'
+                endpoint_val = self.infer_G_hat( H_hat = H_hat, G_hat = G_hat, idx = number, Y_hat = Y_hat)
+
+            #Compute the damped update
+            damped_val = damp(old = orig_var, new = endpoint_val, new_coeff = new_coeff)
+
+            #Find the shared variable containing the final value of the update
+            staged_var = codes_to_staged[code]
+
+            #Make a variational parameter dictionary containing the staged version of the
+            #parameter we're currently updating and the old version of all other parameters
+            active = {}
+
+            for key in self.hidden_obs:
+                active[key] = self.hidden_obs[key]
+
+            if code == 's':
+                active['S_hat'] = damped_val
+            elif code == 'h':
+                active['H_hat'] = damped_val
+            else:
+                assert code[0] == 'g'
+                patched_g = [ elem for elem in self.hidden_obs['G_hat']]
+                patched_g[code[1]] = damped_val
+                active['G_hat'] = patched_g
+
+            #Compute the KL divergence after the update
+            if self.hidden_obs['Y_hat'] is not None:
+                raise NotImplementedError()
+                """I think I need to make two different KL divergence functions, one for if
+                inference is run inferring Y_hat and one for if it is run with Y clamped """
+            kl = self.truncated_KL(V, active, active['Y_hat']).mean()
+
+            #Write out the undamped update and the damped update
+            updates = {}
+            updates[endpoint_var] = endpoint_val
+            updates[staged_var] = damped_val
+
+            self.compute_damp_kl[code] = function([V, new_coeff], kl, updates = updates )
+
+        self.damp_funcs = {}
+
+        for code in codes:
+
+            #Find the shared variable containing the original value of the variational parameter
+            #to be updated
+            orig_var = codes_to_hiddens[code]
+
+            #Find the shared variable containing the undamped update
+            endpoint_var = codes_to_endpoints[code]
+
+            #Compute the damped update
+            damped_val = damp(old = orig_var, new = endpoint_var, new_coeff = new_coeff)
+
+            #Find the shared variable containing the final value of the update
+            staged_var = codes_to_staged[code]
+
+            #Make a variational parameter dictionary containing the staged version of the
+            #parameter we're currently updating and the old version of all other parameters
+            active = {}
+
+            for key in self.hidden_obs:
+                active[key] = self.hidden_obs[key]
+
+            if code == 's':
+                active['S_hat'] = damped_val
+            elif code == 'h':
+                active['H_hat'] = damped_val
+            else:
+                assert code[0] == 'g'
+                patched_g = [ elem for elem in self.hidden_obs['G_hat']]
+                patched_g[code[1]] = damped_val
+                active['G_hat'] = patched_g
+
+            #Compute the KL divergence after the update
+            if self.hidden_obs['Y_hat'] is not None:
+                raise NotImplementedError()
+                """I think I need to make two different KL divergence functions, one for if
+                inference is run inferring Y_hat and one for if it is run with Y clamped """
+            kl = self.truncated_KL(V, active, active['Y_hat']).mean()
+
+            #Write out the undamped update and the damped update
+            updates = {}
+            updates[staged_var] = damped_val
+
+            self.damp_funcs[code] = function([V, new_coeff], kl, updates = updates )
+
+        self.lock_funcs = {}
+
+        for code in codes:
+            orig_var = codes_to_hiddens[code]
+            staged_var = codes_to_staged[code]
+            diff = full_max(abs(staged_var-orig_var))
+            self.lock_funcs[code] = function([],diff,updates = {orig_var : staged_var } )
+
+        final_names = dir(self)
+
+        self.register_names_to_del([name for name in final_names if name not in init_names])
+
+        for key in self.hidden_obs:
+            value = self.hidden_obs[key]
+            if isinstance(value,list):
+                for elem in value:
+                    if not hasattr(elem, 'get_value'):
+                        print elem
+                        assert False
+            else:
+                assert value is None or hasattr(value,'get_value')
+
+
+
+
+    def update_var_params(self, V, Y = None):
+        """
+
+            V: a numpy matrix of observed values
+            Y:
+                None corresponds to a model that has no labels
+                -1 corresponds to inferring Y in a model that has labels
+                    (each G_hat update will become a G_hat-Y_hat-G_hat update)
+                a numpy matrix corresponds to clamping Y_hat to that matrix
+        """
+
+        assert Y not in [True,False,0,1] #detect bug where Y gets something that was meant to be return_history
+        assert (Y is None) == (self.model.dbm.num_classes == 0)
+
+        infer_labels = Y == -1
+
+        #set H_hat, S_hat and G_hat to their initial values
+        #compute the sigma parameters
+        #TODO: since sigma depends only on the model parameters,
+        #may want to make an option to not compute it if you
+        #know the model parameters haven't change, e.g. during
+        #feature extraction
+        self.initialize_inference(V)
+
+        if infer_labels:
+            self.initialize_Y_hat()
+        elif Y is not None:
+            self.hidden_obs['Y_hat'].set_value(Y)
+
+        num_layers = len(self.model.dbm.rbms)
+
+        h_tol = 1e-3
+        s_tol = 1e-3
+        g_tol = [1e-3] * num_layers
+
+
+        updates = ['s','h']
+        for i in xrange(num_layers):
+            updates.append(('g',i))
+        if infer_labels:
+            updates.append('y')
+
+
+        #for key in self.hidden_obs:
+        #    try:
+        #        if key == 'G_hat':
+        #            G_hat = self.hidden_obs['G_hat']
+        #            for i in xrange(len(G_hat)):
+        #                print 'G_hat[%d]:' %i, G_hat[i].get_value().shape
+        #        else:
+        #            print key,':',self.hidden_obs[key].get_value().shape
+        #    except:
+        #        print "couldn't print",key
+
+        trunc_kl = self.compute_init_trunc_kl(V)
+        #print 'init_kl:',trunc_kl
+
+        def do_update(update_code, idx, kl_before):
+            code = update_code
+            compute_damp_kl = self.compute_damp_kl[code]
+            damp_func = self.damp_funcs[code]
+            lock = self.lock_funcs[code]
+            new_coeff_list = self.new_coeff_lists[code]
+            tol = self.tols[code]
+
+            #print 'iteration',idx,code
+
+            n = len(new_coeff_list)
+            use_default = idx >= n
+            if use_default:
+                #print '\texceeded end of list, growing it'
+                #the topmost layer gets skipped on odd-numbered iterations so we
+                #sometimes have a bunch of unused coefficents sitting around for
+                #that layer. this also means we need to grow it 2 elements instead
+                #of 1
+                len_to_grow = idx - n + 1
+                for i in xrange(len_to_grow):
+                    new_coeff_list.append(self.default_new_coeff[code])
+
+
+            coeff_before = new_coeff_list[idx]
+            #print '\tusing new_coeff of',coeff_before
+
+            coeff = coeff_before
+            new_kl = compute_damp_kl(V, coeff)
+            #print '\tachieved kl of',new_kl
+
+            gave_up = False
+            while new_kl > kl_before:
+                if coeff < .01:
+                    gave_up = True
+                    new_kl = kl_before
+                    break
+                coeff *= .9
+                #print '\tusing new_coeff of',coeff
+                new_kl = damp_func(V,coeff)
+                #print '\tachieved kl of',new_kl
+
+            max_diff = lock()
+
+            converged = gave_up or max_diff < tol
+
+            #print '\tmax diff was ',max_diff
+            #print '\ttol was ',tol
+            #if max_diff < tol:
+            #    print '\tconvergence criterion met'
+
+            alpha = 1e-2
+            new_coeff_list[idx] = alpha * coeff + (1.-alpha) * coeff_before
+            #print '\tupdated damp coeff in list to',new_coeff_list[idx]
+            if use_default:
+                alpha = 1e-3
+                self.default_new_coeff[code] = alpha * coeff + (1.-alpha) * coeff_before
+                #print '\tupdated default to',self.default_new_coeff[code]
+
+            #TODO: more aggressive version that tries for good damping coefficients
+            #      rather than just getting them to go downhill
+
+            return new_kl, converged
+
+
+
+
+        i = 0
+
+        kls = [ trunc_kl ]
+        lookback = 10
+        lookback_tol = .05
+
+        while True:
+            if i % 2 == 0:
+                order = updates
+            else:
+                order = updates[:-1]
+                order.reverse()
+
+            all_should_terminate = True
+
+            for update in order:
+                trunc_kl, should_terminate = do_update(update, i, trunc_kl)
+                all_should_terminate = all_should_terminate and should_terminate
+
+
+            if all_should_terminate:
+                break
+
+            if len(kls) >= lookback and kls[-lookback] < trunc_kl + lookback_tol:
+                print "kl converged after",i,"iterations"
+                break
+
+            kls.append(trunc_kl)
+
+            i += 1
+
+            if i == 500:
+                print "gave up after 500 iterations"
+                break
+
+        self.kl_final.set_value(trunc_kl)
+
 
 
 def get_s3c(pddbm, W_learning_rate_scale = None):
