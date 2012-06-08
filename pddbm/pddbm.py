@@ -1083,7 +1083,8 @@ class InferenceProcedure(Model):
 
     def __init__(self,
                         clip_reflections = False,
-                       rho = 0.5):
+                       rho = 0.5,
+                       list_update_new_coeff = 1e-2):
         """Parameters
         --------------
         schedule:
@@ -1094,6 +1095,7 @@ class InferenceProcedure(Model):
 
         super(InferenceProcedure, self).__init__()
 
+        self.list_update_new_coeff = list_update_new_coeff
         self.clip_reflections = clip_reflections
         self.rho = as_floatX(rho)
 
@@ -1696,7 +1698,7 @@ class InferenceProcedure(Model):
             #if max_diff < tol:
             #    print '\tconvergence criterion met'
 
-            alpha = 1e-2
+            alpha = self.list_update_new_coeff
             new_coeff_list[idx] = alpha * coeff + (1.-alpha) * coeff_before
             #print '\tupdated damp coeff in list to',new_coeff_list[idx]
             if use_default:
