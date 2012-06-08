@@ -45,7 +45,7 @@ class BatchGradientInferenceMonitorHack:
 
             diff = results['orig_kl'] - results['kl']
 
-            print 'kl failure amount: ',diff
+            #print 'kl failure amount: ',diff
         except AssertionError:
             raise
         except Exception, e:
