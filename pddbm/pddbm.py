@@ -26,6 +26,7 @@ from pylearn2.models.s3c import reflection_clip
 from pylearn2.models.s3c import damp
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import SufficientStatistics
+from galatea.pddbm.batch_gradient_inference_monitor_hack import BatchGradientInferenceMonitorHack
 from theano.printing import min_informative_str
 from theano.printing import Print
 from theano.gof.op import debug_assert
@@ -1084,7 +1085,8 @@ class InferenceProcedure(Model):
     def __init__(self,
                         clip_reflections = False,
                        rho = 0.5,
-                       list_update_new_coeff = 1e-2):
+                       list_update_new_coeff = 1e-2,
+                       monitor_kl_fail = False):
         """Parameters
         --------------
         schedule:
@@ -1102,6 +1104,7 @@ class InferenceProcedure(Model):
         self.model = None
 
         self.monitor_prereq = MonitorPrereq(self)
+        self.monitor_kl_fail = monitor_kl_fail
 
 
     def get_monitoring_channels(self, V, Y = None):
@@ -1113,6 +1116,9 @@ class InferenceProcedure(Model):
         rval['trunc_KL_init'] = self.kl_init
         rval['trunc_KL_final'] = self.kl_final
         rval['time_per_ex'] = self.time
+
+        if self.monitor_kl_fail:
+            rval['kl_fail'] = (self.kl_fail_object.kl_fail, (self.kl_fail_object,))
 
         final_vals = self.hidden_obs
 
@@ -1185,7 +1191,10 @@ class InferenceProcedure(Model):
 
 
         for key in rval:
-            rval[key] = (rval[key], (self.monitor_prereq,))
+            #kl_fail already has a prereq, the kl fail test
+            #give the other channels a prereq of inference
+            if not isinstance(rval[key],tuple):
+                rval[key] = (rval[key], (self.monitor_prereq,))
 
         return rval
 
@@ -1314,11 +1323,15 @@ class InferenceProcedure(Model):
 
     def redo_theano(self):
 
+        init_names = dir(self)
+
+        if self.monitor_kl_fail:
+            self.kl_fail_object = BatchGradientInferenceMonitorHack(self.model)
+
         assert self.model is not None
 
         batch_size = self.model.test_batch_size
 
-        init_names = dir(self)
 
         num_layers = len(self.model.dbm.rbms)
 
