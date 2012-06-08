@@ -1110,6 +1110,7 @@ class InferenceProcedure(Model):
 
         rval['trunc_KL_init'] = self.kl_init
         rval['trunc_KL_final'] = self.kl_final
+        rval['time_per_ex'] = self.time
 
         final_vals = self.hidden_obs
 
@@ -1329,6 +1330,7 @@ class InferenceProcedure(Model):
         self.hidden_obs['S_hat'] = sharedX(np.zeros((batch_size,N_H)),'S_hat')
         self.kl_init = sharedX(0.0,'kl_init')
         self.kl_final = sharedX(0.0,'kl_final')
+        self.time = sharedX(0.0, 'time_per_ex')
         G_hat = []
         layer_sizes = [ rbm.nhid for rbm in self.model.dbm.rbms ]
         for i, layer_size in enumerate(layer_sizes):
@@ -1596,6 +1598,8 @@ class InferenceProcedure(Model):
                 a numpy matrix corresponds to clamping Y_hat to that matrix
         """
 
+        t1 = time.time()
+
         assert Y not in [True,False,0,1] #detect bug where Y gets something that was meant to be return_history
         assert (Y is None) == (self.model.dbm.num_classes == 0)
 
@@ -1744,6 +1748,12 @@ class InferenceProcedure(Model):
                 break
 
         self.kl_final.set_value(trunc_kl)
+
+        t2 = time.time()
+
+        time_per_ex = (t2-t1)/float(V.shape[0])
+
+        self.time.set_value(time_per_ex)
 
 
 
