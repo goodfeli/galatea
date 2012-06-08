@@ -22,7 +22,10 @@ from theano import function
 if hasattr(model,'make_pseudoparams'):
     model.make_pseudoparams()
 
+python = False
+
 def get_reconstruction_func():
+    global python
     V = T.matrix()
 
     if hasattr(model,'e_step'):
@@ -35,7 +38,12 @@ def get_reconstruction_func():
     elif hasattr(model,'s3c'):
         #PDDBM
         ip = model.inference_procedure
-        mf = ip.infer(V)
+        if hasattr(ip,'infer'):
+            mf = ip.infer(V)
+        else:
+            ip.redo_theano()
+            mf = ip.hidden_obs
+            python = True
 
         x = raw_input('reconstruct from which layer? ')
 
@@ -102,6 +110,10 @@ if hasattr(dataset, 'get_unprocessed_batch_design'):
 else:
     X = dataset.get_batch_design(50)
     Xt = dataset.get_topological_view(X)
+
+
+if python:
+    model.inference_procedure.update_var_params(X)
 
 R = f(X)
 
