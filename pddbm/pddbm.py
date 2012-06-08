@@ -1086,7 +1086,9 @@ class InferenceProcedure(Model):
                         clip_reflections = False,
                        rho = 0.5,
                        list_update_new_coeff = 1e-2,
-                       monitor_kl_fail = False):
+                       monitor_kl_fail = False,
+                       lookback = 10,
+                       lookback_tol = .05):
         """Parameters
         --------------
         schedule:
@@ -1105,6 +1107,9 @@ class InferenceProcedure(Model):
 
         self.monitor_prereq = MonitorPrereq(self)
         self.monitor_kl_fail = monitor_kl_fail
+
+        self.lookback = lookback
+        self.lookback_tol = lookback_tol
 
 
     def get_monitoring_channels(self, V, Y = None):
@@ -1730,8 +1735,8 @@ class InferenceProcedure(Model):
         i = 0
 
         kls = [ trunc_kl ]
-        lookback = 10
-        lookback_tol = .05
+        lookback = self.lookback
+        lookback_tol = self.lookback_tol
 
         while True:
             if i % 2 == 0:
