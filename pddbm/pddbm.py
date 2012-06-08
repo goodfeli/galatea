@@ -921,7 +921,8 @@ class PDDBM(Model):
 
             self.make_pseudoparams()
 
-            self.inference_procedure.redo_theano()
+            if self.inference_procedure is not None:
+                self.inference_procedure.redo_theano()
 
             X = T.matrix(name='V')
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))

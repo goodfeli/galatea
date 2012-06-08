@@ -102,23 +102,17 @@ class Test_PDDBM_S3C_Equivalence:
 
         rbm = RBM(nvis = N, nhid = N2, irange = .0, init_bias_vis = -1.5, init_bias_hid = 6.)
 
-        #don't give the model an inference procedure or learning rate so it won't spend years compiling a learn_func
+        #don't give it an inference procedure so it won't make a learn_func
         self.model = PDDBM(
                 dbm = DBM(  use_cd = 1,
                             rbms = [ rbm  ]),
                 s3c = s3c_for_pddbm
         )
 
+        self.inference_procedure = InferenceProcedure( clip_reflections = True, rho = 0.5 )
+
         self.model.make_pseudoparams()
 
-        self.inference_procedure = InferenceProcedure(
-                    schedule = [ ['s',.1],   ['h',.1],   ['g',0, 0.2],   ['s', 0.2], ['h',0.2],
-                                ['s',0.3], ['g',0,.3],   ['h',0.3], ['s',0.4], ['h',0.4],
-                                ['g',0,.4],   ['s',0.4],  ['h',0.4],
-                                ['g',0,.5],   ['s',0.5], ['h', 0.5], ['s',0.1],
-                                ['h',0.5] ],
-                    clip_reflections = True,
-                    rho = .5 )
         self.inference_procedure.register_model(self.model)
 
         self.e_step = make_e_step_from_inference_procedure(self.inference_procedure)
