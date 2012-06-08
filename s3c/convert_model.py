@@ -34,7 +34,14 @@ def fix(obj):
 
         if orig_id in fixedobjs:
             print 'done before'
-            setattr(obj,field,fixedobjs[orig_id])
+            try:
+                setattr(obj,field,fixedobjs[orig_id])
+            except Exception, e:
+                print "couldn't set "+field+" on "+str(obj)
+                print "of type "+str(type(obj))
+                print "exception was: "
+                print e
+                setattr(obj,field,None)
         elif hasattr(field_obj, 'get_value'):
             print 'converting'
             field_obj = shared(field_obj.get_value(borrow=False))

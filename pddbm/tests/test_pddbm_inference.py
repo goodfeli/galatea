@@ -73,11 +73,6 @@ class Test_PDDBM_Inference:
             self.model.make_pseudoparams()
 
             self.inference_procedure = InferenceProcedure(
-                        schedule = [ ['s',.1],   ['h',.1],   ['g',0, 0.2],   ['h', 0.2], ['s',0.2],
-                                    ['h',0.3], ['g',0,.3],   ['h',0.3], ['s',0.4], ['h',0.4],
-                                    ['g',0,.4],   ['h',0.4], ['s',.4], ['h',0.4],
-                                    ['g',0,.5],   ['h',0.5], ['s', 0.5], ['h',0.1],
-                                    ['s',0.5] ],
                         clip_reflections = True,
                         rho = .5 )
             self.inference_procedure.register_model(self.model)
@@ -140,7 +135,8 @@ class Test_PDDBM_Inference:
                                                  'S_hat' : S_var,
                                                  'var_s0_hat' : sigma0,
                                                  'var_s1_hat' : Sigma1,
-                                                 'G_hat' : ( G_var, ) } )
+                                                 'G_hat' : ( G_var, ) },
+                                                 Y = None)
 
         assert len(trunc_kl.type.broadcastable) == 1
 
