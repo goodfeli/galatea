@@ -1,5 +1,5 @@
 from pylearn2.training_callbacks.training_callback import TrainingCallback
-from galatea.pddbm.batch_gradient_inference import BatchGradientInference
+from galatea.pddbm.batch_gradient_inference_theano import BatchGradientInference
 import numpy as np
 
 class BatchGradientInferenceCallback(TrainingCallback):
@@ -22,8 +22,6 @@ class BatchGradientInferenceCallback(TrainingCallback):
             diff = results['orig_kl'] - results['kl']
 
             print 'kl failure amount: ',diff
-        except AssertionError:
-            raise
         except Exception, e:
             print "BatchGradientInferenceCallback failed "
             print e
