@@ -144,6 +144,7 @@ class FeatureExtractor:
         print 'loading model'
         model_path = self.model_path
         self.model = serial.load(model_path)
+        self.model.make_pseudoparams()
         self.model.set_dtype('float32')
         self.size = int(np.sqrt(self.model.nvis/3))
 
