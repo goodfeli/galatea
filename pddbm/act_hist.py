@@ -28,10 +28,16 @@ if not has_labels:
     Y = None
     Yv = None
 
-obs = model.inference_procedure.infer(X,Y)
+python = not hasattr(model.inference_procedure,'infer')
+if python:
+    model.inference_procedure.redo_theano()
+    obs = model.inference_procedure.hidden_obs
+else:
+    obs = model.inference_procedure.infer(X,Y)
 
 var = obs[var]
 if idx is not None:
+    assert isinstance(var,list) or isinstance(var,tuple)
     var = var[idx]
 
 inputs = [ X ]
@@ -40,9 +46,15 @@ if has_labels:
     inputs.append(Y)
     input_vals.append(Yv)
 
-f = function(inputs, var)
+f = function(inputs, var, on_unused_input = 'ignore')
+
+if python:
+    model.inference_procedure.update_var_params(*input_vals)
+    assert var.ndim == 2
 
 var_val = f(*input_vals)
+assert var.ndim == 2
+assert len(var_val.shape) == 2
 
 acts = var_val.mean(axis=0)
 
