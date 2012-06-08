@@ -1288,7 +1288,7 @@ class InferenceProcedure:
 
         return rval
 
-    def truncated_KL(self, V, Y, obs):
+    def truncated_KL(self, V, obs, Y = None):
         """ KL divergence between variational and true posterior, dropping terms that don't
             depend on the variational parameters """
 
