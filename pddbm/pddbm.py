@@ -1668,6 +1668,7 @@ class InferenceProcedure(Model):
 
         def do_update(update_code, idx, kl_before):
             code = update_code
+            not_g = isinstance(code,str)
             compute_damp_kl = self.compute_damp_kl[code]
             damp_func = self.damp_funcs[code]
             lock = self.lock_funcs[code]
@@ -1696,8 +1697,15 @@ class InferenceProcedure(Model):
             new_kl = compute_damp_kl(V, coeff)
             #print '\tachieved kl of',new_kl
 
+            if not not_g:
+                #we never damp g updates
+                #they're meant to be optimal undamped
+                #in practice, they seem to occasionally go uphill a bit
+                assert coeff == 1.0
+                assert new_kl < kl_before + 1e-3
+
             gave_up = False
-            while new_kl > kl_before:
+            while new_kl > kl_before and not_g:
                 if coeff < .01:
                     gave_up = True
                     new_kl = kl_before
