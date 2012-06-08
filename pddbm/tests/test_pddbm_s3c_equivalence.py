@@ -27,12 +27,14 @@ def broadcast(mat, shape_0):
 
 def make_e_step_from_inference_procedure(ip):
 
+    #we used to
     #transcribe the pd-dbm inference schedule
     #because dbm weights are fixed to 0, inference on g
     #has no effect and we can just omit it
     #we can only allow alternating s and h updates starting with s
     #because that's how the S3C E step is implemented
 
+    """
     h_new_coeff_schedule = []
     s_new_coeff_schedule = []
 
@@ -51,6 +53,15 @@ def make_e_step_from_inference_procedure(ip):
                 h_new_coeff_schedule.append(elem[1])
                 seeking = 's'
 
+    """
+
+    #now the pddbm no longer uses a fixed schedule but s3c
+    #still does so we just give s3c an arbitrary schedule
+    #(the one used for the PDDBM in the old version of the
+    #test)
+
+    h_new_coeff_schedule = [ .1, .2, .3, .4, .4, .5, .5 ]
+    s_new_coeff_schedule = [ .1, .2, .3, .4, .4, .5, .1 ]
 
     clip_reflections = ip.clip_reflections
     rho = ip.rho
@@ -114,6 +125,7 @@ class Test_PDDBM_S3C_Equivalence:
         self.model.make_pseudoparams()
 
         self.inference_procedure.register_model(self.model)
+        self.inference_procedure.redo_theano()
 
         self.e_step = make_e_step_from_inference_procedure(self.inference_procedure)
 
@@ -252,10 +264,16 @@ class Test_PDDBM_S3C_Equivalence:
     def test_inference_equivalence(self):
 
         s3c_obs = self.e_step.variational_inference(self.X)
-        pddbm_obs = self.inference_procedure.infer(self.X)
+        pddbm_obs = self.inference_procedure.hidden_obs
+
+        self.inference_procedure.update_var_params(self.X)
 
         s3c_H, s3c_S, pddbm_H, pddbm_S = function([],[s3c_obs['H_hat'],
             s3c_obs['S_hat'], pddbm_obs['H_hat'], pddbm_obs['S_hat']])()
+
+        raise AssertionError("""Known failure: PDDBM and S3C don't currently have
+                equivalent inference implementations so their inference procedures
+                get different results""")
 
         assert np.allclose(s3c_H,pddbm_H)
         assert np.allclose(s3c_S, pddbm_S)
