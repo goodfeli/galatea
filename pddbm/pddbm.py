@@ -121,6 +121,7 @@ class PDDBM(Model):
         """
 
         super(PDDBM,self).__init__()
+        self.test_batch_size = 2
 
         self.bayes_B = bayes_B
 
@@ -291,6 +292,8 @@ class PDDBM(Model):
                  self.grads[param] = sharedX(np.zeros(param.get_value().shape))
 
 
+        self.V = sharedX( np.zeros((self.test_batch_size,self.s3c.nvis)), name = 'V')
+
         if self.use_diagonal_natural_gradient:
             self.params_to_means = {}
             self.params_to_M2s = {}
@@ -314,7 +317,6 @@ class PDDBM(Model):
         if self.non_s3c_lr_saturation_example is not None:
             self.non_s3c_lr = sharedX(self.init_non_s3c_lr, name = 'non_s3c_lr')
 
-        self.test_batch_size = 2
 
         self.redo_theano()
 
@@ -564,13 +566,13 @@ class PDDBM(Model):
 
 
 
-    def make_learn_func(self, V, Y):
+    def make_learn_func(self, Y):
         """
-        V: a symbolic design matrix
         Y: None or a symbolic label matrix, one label per row, one-hot encoding
         """
 
         assert self.inference_procedure is not None
+        V = self.V
 
         #obtain the results of variational inference
         hidden_obs = self.inference_procedure.hidden_obs
@@ -785,7 +787,7 @@ class PDDBM(Model):
         #print min_informative_str(learning_updates[self.dbm.bias_hid[0]])
         #assert False
 
-        inputs = [ V ]
+        inputs = [  ]
 
         if Y is not None:
             inputs.append(Y)
@@ -817,7 +819,7 @@ class PDDBM(Model):
         HS = H * self.s3c.mu
         recons = T.dot(HS, self.s3c.W.T)
 
-        return T.mean(T.sqr(recons - V))
+        return T.mean(T.sum(T.sqr(recons - V),axis=1))
 
     def get_param_updates(self, params_to_grads):
 
@@ -925,7 +927,7 @@ class PDDBM(Model):
             if self.inference_procedure is not None:
                 self.inference_procedure.redo_theano()
 
-            X = T.matrix(name='V')
+            X = self.V
             X.tag.test_value = np.cast[config.floatX](self.rng.randn(self.test_batch_size,self.nvis))
 
             if self.dbm.num_classes > 0:
@@ -953,7 +955,7 @@ class PDDBM(Model):
                 self.grad_step_func = self.make_grad_step_func()
             else:
                 if self.inference_procedure is not None:
-                    self.learn_func = self.make_learn_func(X,Y)
+                    self.learn_func = self.make_learn_func(Y)
 
             final_names = dir(self)
 
@@ -1048,12 +1050,13 @@ class PDDBM(Model):
             for i in xrange(X.shape[0]):
                 self.accum_pos_phase_grad_func(X[i:i+1,:])
         else:
+            self.V.set_value(X)
             if Y is None:
-                self.inference_procedure.update_var_params(X)
-                self.learn_func(X)
+                self.inference_procedure.update_var_params()
+                self.learn_func()
             else:
-                self.inference_procedure.update_var_params(X,Y)
-                self.learn_func(X,Y)
+                self.inference_procedure.update_var_params(Y)
+                self.learn_func(Y)
         if self.monitor._examples_seen % self.print_interval == 0:
             print ""
             print "S3C:"
@@ -1364,9 +1367,7 @@ class InferenceProcedure(Model):
         var_s0_hat = 1. / alpha
         var_s1_hat = s3c_e_step.infer_var_s1_hat()
 
-        V = T.matrix('V')
-        if config.compute_test_value != 'off':
-            V.tag.test_value = np.cast[config.floatX](np.zeros((batch_size, self.model.s3c.nvis)))
+        V = self.model.V
 
         num_classes = self.model.dbm.num_classes
         if num_classes > 0:
@@ -1418,7 +1419,7 @@ class InferenceProcedure(Model):
             for var_elem, val_elem in zip(G_hat, init_G_hat):
                 init_dict[var_elem] = val_elem
 
-        self.initialize_inference = function([V], updates = init_dict)
+        self.initialize_inference = function([], updates = init_dict)
 
 
         if self.hidden_obs['Y_hat'] is not None:
@@ -1426,7 +1427,7 @@ class InferenceProcedure(Model):
             """I think I need to make two different KL divergence functions, one for if
             inference is run inferring Y_hat and one for if it is run with Y clamped """
         init_trunc_kl = self.truncated_KL(V, self.hidden_obs, self.hidden_obs['Y_hat']).mean()
-        self.compute_init_trunc_kl = function([V],
+        self.compute_init_trunc_kl = function([],
                 init_trunc_kl,
                 updates = { self.kl_init : init_trunc_kl }
                 )
@@ -1533,7 +1534,7 @@ class InferenceProcedure(Model):
             updates[endpoint_var] = endpoint_val
             updates[staged_var] = damped_val
 
-            self.compute_damp_kl[code] = function([V, new_coeff], kl, updates = updates )
+            self.compute_damp_kl[code] = function([new_coeff], kl, updates = updates )
 
         self.damp_funcs = {}
 
@@ -1580,7 +1581,7 @@ class InferenceProcedure(Model):
             updates = {}
             updates[staged_var] = damped_val
 
-            self.damp_funcs[code] = function([V, new_coeff], kl, updates = updates )
+            self.damp_funcs[code] = function([new_coeff], kl, updates = updates )
 
         self.lock_funcs = {}
 
@@ -1607,11 +1608,12 @@ class InferenceProcedure(Model):
 
 
 
-    def update_var_params(self, V, Y = None):
+    def update_var_params(self, V = None, Y = None):
         """
 
             V: a numpy matrix of observed values
-            Y:
+                if None, use the value already loaded in self.model.V
+            Y:  (need to come up with a code saying not to reload to to use)
                 None corresponds to a model that has no labels
                 -1 corresponds to inferring Y in a model that has labels
                     (each G_hat update will become a G_hat-Y_hat-G_hat update)
@@ -1619,6 +1621,9 @@ class InferenceProcedure(Model):
         """
 
         t1 = time.time()
+
+        if V is not None:
+            self.model.V.set_value(V)
 
         assert Y not in [True,False,0,1] #detect bug where Y gets something that was meant to be return_history
         assert (Y is None) == (self.model.dbm.num_classes == 0)
@@ -1631,7 +1636,7 @@ class InferenceProcedure(Model):
         #may want to make an option to not compute it if you
         #know the model parameters haven't change, e.g. during
         #feature extraction
-        self.initialize_inference(V)
+        self.initialize_inference()
 
         if infer_labels:
             self.initialize_Y_hat()
@@ -1663,7 +1668,7 @@ class InferenceProcedure(Model):
         #    except:
         #        print "couldn't print",key
 
-        trunc_kl = self.compute_init_trunc_kl(V)
+        trunc_kl = self.compute_init_trunc_kl()
         #print 'init_kl:',trunc_kl
 
         def do_update(update_code, idx, kl_before):
@@ -1694,7 +1699,7 @@ class InferenceProcedure(Model):
             #print '\tusing new_coeff of',coeff_before
 
             coeff = coeff_before
-            new_kl = compute_damp_kl(V, coeff)
+            new_kl = compute_damp_kl( coeff)
             #print '\tachieved kl of',new_kl
 
             if not not_g:
@@ -1712,7 +1717,7 @@ class InferenceProcedure(Model):
                     break
                 coeff *= .9
                 #print '\tusing new_coeff of',coeff
-                new_kl = damp_func(V,coeff)
+                new_kl = damp_func(coeff)
                 #print '\tachieved kl of',new_kl
 
             max_diff = lock()
@@ -1779,7 +1784,7 @@ class InferenceProcedure(Model):
 
         t2 = time.time()
 
-        time_per_ex = (t2-t1)/float(V.shape[0])
+        time_per_ex = (t2-t1)/float(self.model.V.get_value().shape[0])
 
         self.time.set_value(time_per_ex)
 
