@@ -26,6 +26,7 @@ from pylearn2.models.s3c import reflection_clip
 from pylearn2.models.s3c import damp
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import SufficientStatistics
+from pylearn2.optimization.linear_cg import linear_cg
 from galatea.pddbm.batch_gradient_inference_monitor_hack import BatchGradientInferenceMonitorHack
 from theano.printing import min_informative_str
 from theano.printing import Print
@@ -1093,7 +1094,8 @@ class InferenceProcedure(Model):
                        lookback = 10,
                        lookback_tol = .05,
                        default_new_h_coeff = 1.,
-                       default_new_s_coeff = 1.):
+                       default_new_s_coeff = 1.,
+                       s_cg_steps = 0):
         """Parameters
         --------------
         schedule:
@@ -1119,6 +1121,7 @@ class InferenceProcedure(Model):
         self.default_new_h_coeff = default_new_h_coeff
         self.default_new_s_coeff = default_new_s_coeff
 
+        self.s_cg_steps = s_cg_steps
 
     def get_monitoring_channels(self, V, Y = None):
 
@@ -1277,6 +1280,17 @@ class InferenceProcedure(Model):
 
         return rval
 
+
+    def infer_S_hat_cg(self, V, H_hat, S_hat, var_s0_hat, var_s1_hat, max_iters):
+        alpha = self.model.s3c.alpha
+
+        obj = self.s3c_e_step.truncated_KL( V = V, obs = locals() ).mean()
+
+        new_S_hat = linear_cg( fn = obj, params = S_hat, max_iters = max_iters)
+
+        return new_S_hat
+
+
     def infer_H_hat(self, V, H_hat, S_hat, G1_hat):
         """
             G1_hat: variational parameters for the g layer closest to h
@@ -1411,6 +1425,22 @@ class InferenceProcedure(Model):
 
         init_H_hat = self.s3c_e_step.init_H_hat(V)
         init_S_hat = self.s3c_e_step.init_S_hat(V)
+
+        if self.s_cg_steps > 0:
+            new_S_hat = self.infer_S_hat_cg(V, max_iters = self.s_cg_steps,
+                    H_hat = self.hidden_obs['H_hat'],
+                    var_s0_hat = self.hidden_obs['var_s0_hat'],
+                    var_s1_hat = self.hidden_obs['var_s1_hat'],
+                    S_hat = self.hidden_obs['S_hat'])
+            max_diff = full_max(new_S_hat - self.hidden_obs['S_hat'])
+            post_cg_obs = {}
+            for key in self.hidden_obs:
+                post_cg_obs[key] = self.hidden_obs[key]
+            post_cg_obs['S_hat'] = new_S_hat
+            new_kl = self.truncated_KL(V, post_cg_obs, self.hidden_obs['Y_hat']).mean()
+            cg_outputs = [ new_kl, max_diff ]
+            cg_updates = { self.hidden_obs['S_hat'] : new_S_hat }
+            self.do_cg_update = function([],cg_outputs, updates = cg_updates)
 
 
         #endpoints holds undamped updates to variational parameters,
@@ -1703,12 +1733,18 @@ class InferenceProcedure(Model):
 
         def do_update(update_code, idx, kl_before):
             code = update_code
+            tol = self.tols[code]
+
+            if code == 's' and self.s_cg_steps > 0:
+                new_kl, max_diff = self.do_cg_update()
+
+                return new_kl, max_diff < tol
+
             not_g = isinstance(code,str)
             compute_damp_kl = self.compute_damp_kl[code]
             damp_func = self.damp_funcs[code]
             lock = self.lock_funcs[code]
             new_coeff_list = self.new_coeff_lists[code]
-            tol = self.tols[code]
 
             #print 'iteration',idx,code
 
