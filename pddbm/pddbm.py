@@ -1346,6 +1346,23 @@ class InferenceProcedure(Model):
 
         init_names = dir(self)
 
+
+        #patch old models to have all the configurable fields
+        def supply_default(fieldname, val):
+            if not hasattr(self, fieldname):
+                setattr(self, fieldname, val)
+
+        supply_default('monitor_kl_fail',False)
+        supply_default('lookback',10)
+        supply_default('lookback_tol',.05)
+        supply_default('default_new_h_coeff',1.)
+        supply_default('default_new_s_coeff',1.)
+        supply_default('list_update_new_coeff',1e-2)
+
+        #patch old models to not damp g
+        self.new_coeff_lists[('g',0)] = []
+        self.default_new_coeff[('g',0)] = 1.
+
         if self.monitor_kl_fail:
             self.kl_fail_object = BatchGradientInferenceMonitorHack(self.model)
 
