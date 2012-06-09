@@ -1091,7 +1091,9 @@ class InferenceProcedure(Model):
                        list_update_new_coeff = 1e-2,
                        monitor_kl_fail = False,
                        lookback = 10,
-                       lookback_tol = .05):
+                       lookback_tol = .05,
+                       default_new_h_coeff = 1.,
+                       default_new_s_coeff = 1.):
         """Parameters
         --------------
         schedule:
@@ -1113,6 +1115,9 @@ class InferenceProcedure(Model):
 
         self.lookback = lookback
         self.lookback_tol = lookback_tol
+
+        self.default_new_h_coeff = default_new_h_coeff
+        self.default_new_s_coeff = default_new_s_coeff
 
 
     def get_monitoring_channels(self, V, Y = None):
@@ -1227,7 +1232,15 @@ class InferenceProcedure(Model):
         self.tols = {}
         for code in codes:
             self.new_coeff_lists[code] = []
-            self.default_new_coeff[code] = 1.
+            if isinstance(code,tuple):
+                self.default_new_coeff[code] = 1.
+            elif code == 'h':
+                self.default_new_coeff[code] = self.default_new_h_coeff
+            elif code == 's':
+                self.default_new_coeff[code] = self.default_new_s_coeff
+            else:
+                assert code == 'y'
+                self.default_new_coeff[code] = 1.
             self.tols[code] = 1e-3
 
 
