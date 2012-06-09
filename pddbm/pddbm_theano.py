@@ -1189,7 +1189,7 @@ class InferenceProcedure:
                         assert Gv.min() >= 0.0
                         assert Gv.max() <= 1.0
 
-                channel_val = self.truncated_KL(V, Y, obs).mean()
+                channel_val = self.truncated_KL(V, obs, Y).mean()
                 assert channel_val.dtype == 'float32'
                 rval['trunc_KL_'+str(i)+summary] = channel_val
 
@@ -1216,7 +1216,7 @@ class InferenceProcedure:
 
         #norm of gradient with respect to variational params
         grad_norm_sq = np.cast[config.floatX](0.)
-        kl = self.truncated_KL(V, Y, obs_history[-1]).mean()
+        kl = self.truncated_KL(V, obs_history[-1], Y).mean()
         for var_param in set([ S_hat, H_hat]).union(Gs):
             grad = T.grad(kl,var_param)
             grad_norm_sq = grad_norm_sq + T.sum(T.sqr(grad))
