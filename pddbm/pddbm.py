@@ -1094,7 +1094,10 @@ class InferenceProcedure(Model):
                        lookback_tol = .05,
                        default_new_h_coeff = 1.,
                        default_new_s_coeff = 1.,
-                       s_cg_steps = 0):
+                       s_cg_steps = 0,
+                       default_tol = 1e-3,
+                       aggressive = False,
+                       repeat_h = False):
         """Parameters
         --------------
         schedule:
@@ -1105,9 +1108,13 @@ class InferenceProcedure(Model):
 
         super(InferenceProcedure, self).__init__()
 
+        self.aggressive = aggressive
+        self.repeat_h = repeat_h
         self.list_update_new_coeff = list_update_new_coeff
         self.clip_reflections = clip_reflections
         self.rho = as_floatX(rho)
+
+        self.default_tol = default_tol
 
         self.model = None
 
@@ -1131,6 +1138,8 @@ class InferenceProcedure(Model):
         rval['trunc_KL_init'] = self.kl_init
         rval['trunc_KL_final'] = self.kl_final
         rval['time_per_ex'] = self.time
+        rval['niter'] = self.niter
+        rval['backtracks_per_iter'] = self.backtracks_per_iter
 
         if self.monitor_kl_fail:
             rval['kl_fail'] = (self.kl_fail_object.kl_fail, (self.kl_fail_object,))
@@ -1224,7 +1233,6 @@ class InferenceProcedure(Model):
 
         self.dbm_ip = self.model.dbm.inference_procedure
 
-
         codes = ['s','h','y']
         for i in xrange(len(self.model.dbm.rbms)):
             codes.append(('g',i))
@@ -1243,7 +1251,7 @@ class InferenceProcedure(Model):
             else:
                 assert code == 'y'
                 self.default_new_coeff[code] = 1.
-            self.tols[code] = 1e-3
+            self.tols[code] = self.default_tol
 
 
     def dbm_observations(self, obs):
@@ -1371,6 +1379,9 @@ class InferenceProcedure(Model):
         supply_default('default_new_h_coeff',1.)
         supply_default('default_new_s_coeff',1.)
         supply_default('list_update_new_coeff',1e-2)
+        supply_default('s_cg_steps', 0)
+        supply_default('aggressive', False)
+        supply_default('repeat_h', False)
 
         #patch old models to not damp g
         self.new_coeff_lists[('g',0)] = []
@@ -1396,6 +1407,8 @@ class InferenceProcedure(Model):
         self.hidden_obs['S_hat'] = sharedX(np.zeros((batch_size,N_H)),'S_hat')
         self.kl_init = sharedX(0.0,'kl_init')
         self.kl_final = sharedX(0.0,'kl_final')
+        self.niter = sharedX(0.0,'niter')
+        self.backtracks_per_iter = sharedX(0.0,'nbacktrack')
         self.time = sharedX(0.0, 'time_per_ex')
         G_hat = []
         layer_sizes = [ rbm.nhid for rbm in self.model.dbm.rbms ]
@@ -1409,6 +1422,10 @@ class InferenceProcedure(Model):
 
         var_s0_hat = 1. / alpha
         var_s1_hat = s3c_e_step.infer_var_s1_hat()
+
+        if not hasattr(self.model,'V'):
+            #patch old pkl files
+            self.model.V = sharedX( np.zeros((self.model.test_batch_size,self.model.s3c.nvis)), name = 'V')
 
         V = self.model.V
 
@@ -1730,6 +1747,8 @@ class InferenceProcedure(Model):
         trunc_kl = self.compute_init_trunc_kl()
         #print 'init_kl:',trunc_kl
 
+        self.nbacktrack = 0
+
         def do_update(update_code, idx, kl_before):
             code = update_code
             tol = self.tols[code]
@@ -1767,23 +1786,34 @@ class InferenceProcedure(Model):
             new_kl = compute_damp_kl( coeff)
             #print '\tachieved kl of',new_kl
 
+            gave_up = False
             if not not_g:
                 #we never damp g updates
                 #they're meant to be optimal undamped
                 #in practice, they seem to occasionally go uphill a bit
-                assert coeff == 1.0
+                if coeff != 1.0:
+                    print coeff
+                    assert False
                 assert new_kl < kl_before + 1e-3
-
-            gave_up = False
-            while new_kl > kl_before and not_g:
-                if coeff < .01:
-                    gave_up = True
-                    new_kl = kl_before
-                    break
-                coeff *= .9
-                #print '\tusing new_coeff of',coeff
-                new_kl = damp_func(coeff)
-                #print '\tachieved kl of',new_kl
+            elif self.aggressive:
+                coeffs = [ 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 ]
+                kls = [ damp_func(coeff) for coeff in coeffs ]
+                new_kl = max(kls)
+                for kl, coeff in zip(kls, coeffs):
+                    if kl == new_kl:
+                        new_kl = damp_func(coeff)
+                        break
+            else:
+                while new_kl > kl_before and not_g:
+                    self.nbacktrack += 1
+                    if coeff < .01:
+                        gave_up = True
+                        new_kl = kl_before
+                        break
+                    coeff *= .9
+                    #print '\tusing new_coeff of',coeff
+                    new_kl = damp_func(coeff)
+                    #print '\tachieved kl of',new_kl
 
             max_diff = lock()
 
@@ -1826,11 +1856,27 @@ class InferenceProcedure(Model):
             all_should_terminate = True
 
             for update in order:
-                trunc_kl, should_terminate = do_update(update, i, trunc_kl)
+                if update == 'h' and self.repeat_h:
+                    should_terminate = False
+                    repeats = 0
+                    kls = []
+                    while not should_terminate:
+                        trunc_kl, should_terminate = do_update(update, i, trunc_kl)
+                        repeats += 1
+                        kls.append(trunc_kl)
+                        if len(kls) > 10 and kls[-10] < trunc_kl + .05:
+                            break
+                    print '\trepeat_h count: ',repeats
+                else:
+                    trunc_kl, should_terminate = do_update(update, i, trunc_kl)
                 all_should_terminate = all_should_terminate and should_terminate
 
+            #this must go before the break, so that at the end i gives
+            #the number of completed iterations
+            i += 1
 
             if all_should_terminate:
+                print 'var params converged after',i,'iterations'
                 break
 
             if len(kls) >= lookback and kls[-lookback] < trunc_kl + lookback_tol:
@@ -1839,13 +1885,15 @@ class InferenceProcedure(Model):
 
             kls.append(trunc_kl)
 
-            i += 1
 
             if i == 500:
                 print "gave up after 500 iterations"
                 break
 
         self.kl_final.set_value(trunc_kl)
+
+        self.niter.set_value( i )
+        self.backtracks_per_iter.set_value( float(self.nbacktrack) / float(i) )
 
         t2 = time.time()
 
