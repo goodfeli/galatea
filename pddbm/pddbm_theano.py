@@ -1033,6 +1033,8 @@ class PDDBM(Model):
 
     def learn_mini_batch(self, X, Y = None):
 
+        assert False #bring down the job so the profiler output gets written out
+
         assert (Y is None) == (self.dbm.num_classes == 0)
 
         self.shrink.set_value( np.cast['float32']( \
