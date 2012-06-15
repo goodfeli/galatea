@@ -34,7 +34,15 @@ model.use_cd = False
 model.negative_chains = rows * cols
 model.dbm.redo_everything() #this just redoes the chains
 
-hidden_obs = model.inference_procedure.infer(sharedX(init_examples))
+
+ip = model.inference_procedure
+python = not hasattr(ip,'infer')
+if python:
+    ip.redo_theano()
+    hidden_obs = ip.hidden_obs
+    ip.update_var_params(init_examples)
+else:
+    hidden_obs = ip.infer(sharedX(init_examples))
 
 from theano import function
 from theano.tensor.shared_randomstreams import RandomStreams
