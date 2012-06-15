@@ -37,8 +37,7 @@ from theano.sandbox.scan import scan
 
 warnings.warn('There is a known bug where for some reason the w field of s3c '
 'gets serialized. Not sure if other things get serialized too but be sure to '
-'call make_pseudoparams on everything you unpickle. I wish theano was not '
-'such a piece of shit!')
+'call make_pseudoparams on everything you unpickle.')
 
 def flatten(collection):
     rval = set([])
