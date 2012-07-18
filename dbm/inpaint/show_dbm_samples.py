@@ -23,6 +23,10 @@ G.tag.test_value = np.zeros((2,dbm.rbms[1].nhid),dtype=G.dtype)
 H = T.matrix()
 H.tag.test_value = np.zeros((2,dbm.rbms[0].nhid),dtype=G.dtype)
 ip = dbm.inference_procedure
+vhW = dbm.W[0]
+gaussian = hasattr(dbm,'beta')
+if gaussian:
+    vhW = vhW * dbm.beta.dimshuffle(0,'x')
 Hprime = theano_rng.binomial(
         size = H.shape,
         n = 1,
@@ -30,7 +34,7 @@ Hprime = theano_rng.binomial(
         p = ip.infer_H_hat_two_sided(
             H_hat_below = X,
             H_hat_above = G,
-            W_below = dbm.W[0],
+            W_below = vhW,
             W_above = dbm.W[1],
             b = dbm.bias_hid[0]))
 Gprime = theano_rng.binomial(
@@ -49,6 +53,13 @@ Xprime = theano_rng.binomial(
             other_H_hat = Hprime,
             W = dbm.W[0].T,
             b = dbm.bias_vis))
+if gaussian:
+    Xprime = theano_rng.normal(
+            size = X.shape,
+            avg = T.dot(Hprime, dbm.W[0].T) + \
+                 dbm.bias_vis,
+            std = 1./dbm.beta,
+            dtype = X.dtype)
 
 f = function([G,H,X],[Gprime,Hprime,Xprime])
 
