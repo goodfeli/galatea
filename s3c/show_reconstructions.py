@@ -79,6 +79,25 @@ def get_reconstruction_func():
             #recons = G1
         else:
             raise NotImplementedError()
+    elif hasattr(model,'rbms'):
+        ip = model.inference_procedure
+        if ip.layer_schedule is None:
+            ip.layer_schedule = [ 0, 1 ] * 10
+        obs = ip.infer(V)
+        H = obs['H_hat']
+        H, G = H #only supports two layers for now
+
+        x = raw_input('Reconstruct from which layer? (0/1)')
+
+        if x == '0':
+            H_hat = H
+        else:
+            assert x == '1'
+            print 'Doing one downward pass with double weights going into H'
+            print 'Alternately, one might want to hold G fixed and run mean field on H and V'
+            H_hat = ip.infer_H_hat_one_sided(other_H_hat = G, W = 2 *model.W[1].T, b = model.bias_hid[0])
+        recons = ip.infer_H_hat_one_sided(other_H_hat = H_hat, W = model.W[0].T, b = model.bias_vis)
+
     else:
         #RBM
         H = model.mean_h_given_v(V)
@@ -159,6 +178,9 @@ if global_rescale:
     Xt /= scale
     Rt /= scale
     scale = 1.
+
+Xt = dataset.adjust_for_viewer(Xt)
+Rt = dataset.adjust_for_viewer(Rt)
 
 for i in xrange(X.shape[0]):
     x = Xt[i,:]
