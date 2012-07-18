@@ -83,6 +83,7 @@ def get_reconstruction_func():
         ip = model.inference_procedure
         if ip.layer_schedule is None:
             ip.layer_schedule = [ 0, 1 ] * 10
+        assert not hasattr(model,'beta') #inference procedure doesn't handle gDBM correctly, and recons formula below is wrong
         obs = ip.infer(V)
         H = obs['H_hat']
         H, G = H #only supports two layers for now
