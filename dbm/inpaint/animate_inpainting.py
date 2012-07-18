@@ -84,8 +84,9 @@ for i in xrange(m):
 
     #mark the masked areas as red
     mask_patch = drop_mask[i,:,:,0]
-    assert np.all(mask_patch == drop_mask[i,:,:,1])
-    assert np.all(mask_patch == drop_mask[i,:,:,2])
+    if drop_mask.shape[-1] > 1:
+        assert np.all(mask_patch == drop_mask[i,:,:,1])
+        assert np.all(mask_patch == drop_mask[i,:,:,2])
     red_channel = patch[:,:,0]
     green_channel = patch[:,:,1]
     blue_channel = patch[:,:,2]

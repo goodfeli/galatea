@@ -260,13 +260,16 @@ class DBM_Inpaint_Binary(UnsupervisedCost):
         return ave_cost
 
 class MaskGen:
-    def __init__(self, drop_prob, balance, n_channels):
+    def __init__(self, drop_prob, balance, n_channels = 1):
         self.__dict__.update(locals())
         del self.self
 
     def __call__(self, X):
         assert X.dtype == 'float32'
         theano_rng = RandomStreams(20120712)
+
+        if not hasattr(self,'n_channels'):
+            self.n_channels = 1
 
         m = X.shape[0]
         n = X.shape[1] / self.n_channels
