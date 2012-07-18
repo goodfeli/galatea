@@ -95,10 +95,11 @@ class DBM_Inpaint_Binary(UnsupervisedCost):
             vhW = dbm.beta.dimshuffle(0,'x') * vhW
             assert vhW.ndim == 2
 
-        if gaussian:
+        if not gaussian:
             X_hat = X * (1-drop_mask) + drop_mask * T.nnet.sigmoid(dbm.bias_vis)
         else:
             X_hat = X * (1-drop_mask) + drop_mask * dbm.bias_vis
+
         H_hat = ip.infer_H_hat_one_sided(
                     other_H_hat = X_hat,
                     W = vhW * 2.,
