@@ -27,7 +27,7 @@ W2 = l2_weights.get_value()
 
 print 'Sorting so largest-norm layer 2 weights are plotted at the top'
 norms = np.square(W2).sum(axis=0)
-idxs = [elem[1] for elem in sorted( zip( norms, range(norms.shape[0]) ) ) ]
+idxs = [elem[1] for elem in sorted( zip( -norms, range(norms.shape[0]) ) ) ]
 
 new = W2.copy()
 
