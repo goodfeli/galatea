@@ -13,8 +13,12 @@ if len(sys.argv) == 3:
 else:
     model = serial.load(sys.argv[1])
     dataset_yaml_src = model.dataset_yaml_src
-    l1 = model.s3c
-    l2 = model.dbm.rbms[0]
+    try:
+        l1 = model.s3c
+        l2 = model.dbm.rbms[0]
+    except:
+        l1 , l2 = model.rbms
+        l1.W ,= l1.transformer.get_params()
 
 
 W1 = l1.W.get_value()

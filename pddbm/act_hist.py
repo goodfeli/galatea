@@ -13,7 +13,8 @@ else:
     idx = int(idx)
 
 model = serial.load(model_path)
-model.make_pseudoparams()
+if hasattr(model,'make_pseudoparams'):
+    model.make_pseudoparams()
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
@@ -22,7 +23,10 @@ Xv , Yv = dataset.get_batch_design(100, include_labels = True)
 X = T.matrix()
 Y = T.matrix()
 
-has_labels = model.dbm.num_classes > 0
+try:
+    has_labels = model.dbm.num_classes > 0
+except:
+    has_labels = model.num_classes > 0
 
 if not has_labels:
     Y = None
@@ -33,6 +37,8 @@ if python:
     model.inference_procedure.redo_theano()
     obs = model.inference_procedure.hidden_obs
 else:
+    if model.inference_procedure.layer_schedule is None:
+        model.inference_procedure.layer_schedule = [0,1] * 10
     obs = model.inference_procedure.infer(X,Y)
 
 var = obs[var]

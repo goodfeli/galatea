@@ -10,7 +10,8 @@ patch_rescale = True
 model_path = sys.argv[1]
 
 model = serial.load(model_path)
-model.make_pseudoparams()
+if hasattr(model,'make_pseudoparams'):
+    model.make_pseudoparams()
 
 
 rows = 10
