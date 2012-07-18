@@ -260,7 +260,7 @@ class DBM_Inpaint_Binary(UnsupervisedCost):
         return ave_cost
 
 class MaskGen:
-    def __init__(self, drop_prob, balance):
+    def __init__(self, drop_prob, balance, n_channels):
         self.__dict__.update(locals())
         del self.self
 
@@ -268,13 +268,16 @@ class MaskGen:
         assert X.dtype == 'float32'
         theano_rng = RandomStreams(20120712)
 
+        m = X.shape[0]
+        n = X.shape[1] / self.n_channels
+
         if self.drop_prob > 0:
             p = self.drop_prob
         else:
             p = theano_rng.uniform(size = (X.shape[0],),
                 low=0.0, high=1.0,  dtype= X.dtype).dimshuffle(0,'x')
         drop_mask = theano_rng.binomial(
-                    size = X.shape,
+                    size = (m,n),
                     p = p,
                     n = 1,
                     dtype = X.dtype)
@@ -286,5 +289,8 @@ class MaskGen:
                     n = 1,
                     dtype = X.dtype).dimshuffle(0,'x')
             drop_mask = (1-drop_mask)*flip + drop_mask * (1-flip)
+
+        if self.n_channels > 1:
+            drop_mask = T.concatenate( [ drop_mask] * self.n_channels, axis=1)
 
         return drop_mask
