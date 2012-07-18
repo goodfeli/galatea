@@ -37,6 +37,10 @@ except:
     cost = DBM_Inpaint_Binary(mask_gen = mask_gen, n_iter = n_iter)
     cost.mask_gen = mask_gen
 
+
+if model.dataset_yaml_src.find('cifar') != -1:
+    mask_gen.n_channels = 3
+
 X = T.matrix()
 
 denoising = cost(model,X,return_locals=True)
@@ -56,9 +60,7 @@ if model.dataset_yaml_src.find('train') != -1:
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
-rows = 30
-cols = 1
-m = rows * cols
+m = 10
 
 X = dataset.get_batch_design(100)
 
@@ -68,14 +70,25 @@ print 'empirical drop prob:',drop_mask.mean()
 X_sequence = outputs[1:]
 
 
-X, drop_mask = [ dataset.get_topological_view(mat)
+Xt, drop_mask = [ dataset.get_topological_view(mat)
         for mat in [X, drop_mask] ]
-X = dataset.adjust_for_viewer(X)
+
+rows = m
+mapback = hasattr(dataset, 'mapback_for_viewer')
+
+cols = 2+len(X_sequence)
+if mapback:
+    rows = 2 * m
+    M = dataset.get_topological_view(dataset.mapback_for_viewer(X))
+    M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in X_sequence ]
+X = dataset.adjust_for_viewer(Xt)
 X_sequence = [ dataset.adjust_for_viewer(dataset.get_topological_view(mat)) for mat in X_sequence ]
 
-pv = PatchViewer( (rows, cols*(2+len(X_sequence))), (X.shape[1], X.shape[2]), is_color = True)
+
+pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
 
 for i in xrange(m):
+
     #add original patch
     patch = X[i,:,:,:]
     if patch.shape[-1] != 3:
@@ -104,5 +117,21 @@ for i in xrange(m):
         if patch.shape[-1] != 3:
             patch = np.concatenate( (patch,patch,patch), axis=2)
         pv.add_patch(patch, rescale = False)
+
+    if mapback:
+        patch = M[i,:,:,:]
+        if patch.shape[-1] != 3:
+            patch = np.concatenate( (patch,patch,patch),axis=2)
+        pv.add_patch(patch, rescale = False)
+
+        #dummy placeholder, we can't actually visualize the masking in original space
+        pv.add_patch(patch * 0, rescale = False)
+
+        #add filled-in patch
+        for j in xrange(len(M_sequence)):
+            patch = M_sequence[j][i,:,:,:]
+            if patch.shape[-1] != 3:
+                patch = np.concatenate( (patch,patch,patch), axis=2)
+            pv.add_patch(patch, rescale = False)
 
 pv.show()

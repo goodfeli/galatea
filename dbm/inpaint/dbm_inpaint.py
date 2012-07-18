@@ -69,6 +69,11 @@ class DBM_Inpaint_Binary(UnsupervisedCost):
 
     def __call__(self, model, X, drop_mask = None, return_locals = False):
 
+        if not hasattr(model,'cost'):
+            model.cost = self
+        if not hasattr(model,'mask_gen'):
+            model.mask_gen = self.mask_gen
+
         dbm = model
         assert len(dbm.rbms) == 2
 
