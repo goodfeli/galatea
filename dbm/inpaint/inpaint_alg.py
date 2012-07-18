@@ -21,7 +21,8 @@ class SetupBatch:
 
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=1000, batches_per_iter=10,
-                 monitoring_batches=-1, monitoring_dataset=None):
+                 monitoring_batches=-1, monitoring_dataset=None,
+                 max_iter = 5):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -122,7 +123,7 @@ class InpaintAlgorithm(object):
                             objective = obj,
                             params = model.get_params(),
                             param_constrainers = [ model.censor_updates ],
-                            max_iter = 5)
+                            max_iter = self.max_iter)
         self.optimizer.verbose = True
         self.X = X
 
