@@ -50,6 +50,8 @@ imgs = dataset.get_weights_view(W1.T)
 N1 = l1.nhid
 N = l2.nhid
 
+N = min(N,1000)
+
 thresh = .9
 max_count = 0
 total_counts = 0.
