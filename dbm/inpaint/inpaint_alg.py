@@ -22,7 +22,7 @@ class SetupBatch:
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=1000, batches_per_iter=10,
                  monitoring_batches=-1, monitoring_dataset=None,
-                 max_iter = 5):
+                 max_iter = 5, suicide = False):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -147,4 +147,6 @@ class InpaintAlgorithm(object):
             self.update_mask()
             self.optimizer.minimize()
             model.monitor.report_batch( batch_size )
+            if self.suicide:
+                return False
         return True
