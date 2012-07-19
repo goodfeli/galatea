@@ -63,7 +63,7 @@ S_hat = init_chain_hid[-1]
 
 assert hasattr(model.dbm,'V_chains') and model.dbm.V_chains is not None
 design_examples_var = model.s3c.random_design_matrix(batch_size = rows * cols,
-        theano_rng = theano_rng, H_sample = model.dbm.V_chains)
+        theano_rng = theano_rng, H_sample = model.dbm.V_chains, full_sample = False)
 print 'compiling sampling function'
 f = function([],design_examples_var)
 g = function([],model.s3c.random_design_matrix(batch_size = rows * cols,
