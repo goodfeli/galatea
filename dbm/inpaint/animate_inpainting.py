@@ -38,9 +38,6 @@ except:
     cost.mask_gen = mask_gen
 
 
-if model.dataset_yaml_src.find('cifar') != -1:
-    mask_gen.n_channels = 3
-
 X = T.matrix()
 
 denoising = cost(model,X,return_locals=True)
@@ -97,7 +94,7 @@ for i in xrange(m):
 
     #mark the masked areas as red
     mask_patch = drop_mask[i,:,:,0]
-    if drop_mask.shape[-1] > 1:
+    if drop_mask.shape[-1] > 1 and mask_gen.n_channels > 1:
         assert np.all(mask_patch == drop_mask[i,:,:,1])
         assert np.all(mask_patch == drop_mask[i,:,:,2])
     red_channel = patch[:,:,0]
@@ -106,6 +103,16 @@ for i in xrange(m):
     red_channel[mask_patch == 1] = 1.
     green_channel[mask_patch == 1] = -1.
     blue_channel[mask_patch == 1] = -1.
+    if drop_mask.shape[-1] > 1 and mask_gen.n_channels == 1:
+        mask_patch = drop_mask[i,:,:,1]
+        red_channel[mask_patch == 1] = -1
+        green_channel[mask_patch == 1] = 1
+        blue_channel[mask_patch == 1] = -1
+        mask_patch = drop_mask[i,:,:,2]
+        red_channel[mask_patch == 1] = -1
+        green_channel[mask_patch == 1] = -1
+        blue_channel[mask_patch == 1] = 1
+
     patch[:,:,0] = red_channel
     patch[:,:,1] = green_channel
     patch[:,:,2] = blue_channel
