@@ -20,7 +20,7 @@ class SetupBatch:
         return {}
 
 class InpaintAlgorithm(object):
-    def __init__(self, mask_gen, cost, batch_size=1000, batches_per_iter=10,
+    def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
                  monitoring_batches=-1, monitoring_dataset=None,
                  max_iter = 5, suicide = False):
         """
@@ -58,6 +58,9 @@ class InpaintAlgorithm(object):
         """
         self.model = model
 
+        if self.batch_size is None:
+            self.batch_size = model.force_batch_size
+
         model.cost = self.cost
         model.mask_gen = self.mask_gen
 
@@ -68,8 +71,19 @@ class InpaintAlgorithm(object):
         #but the shared variable needs to stay allocated during the time that the
         #monitor is working, and we don't want the monitor to increase the memory
         #overhead. So we make the monitor work off of the same shared variable
-        X = sharedX( dataset.get_batch_design(2) , 'X')
-        drop_mask = sharedX( np.cast[X.dtype] ( X.get_value() > 0.5 ), 'Y')
+        space = model.get_input_space()
+        X = sharedX( space.get_origin_batch(2) , 'X')
+        self.space = space
+        rng = np.random.RandomState([2012,7,20])
+        test_mask = space.get_origin_batch(2)
+        test_mask = rng.randint(0,2,test_mask.shape)
+        if hasattr(self.mask_gen,'sync_channels') and self.mask_gen.sync_channels:
+            if test_mask.ndim != 4:
+                raise NotImplementedError()
+            test_mask = test_mask[:,:,:,0]
+            assert test_mask.ndim == 3
+        drop_mask = sharedX( np.cast[X.dtype] ( test_mask), name = 'drop_mask')
+        assert drop_mask.ndim == test_mask.ndim
         updates = { drop_mask : self.mask_gen(X) }
         self.update_mask = function([], updates = updates)
 
@@ -143,7 +157,11 @@ class InpaintAlgorithm(object):
                         model.force_batch_size)
 
         for i in xrange(self.batches_per_iter):
-            self.X.set_value(dataset.get_batch_design(self.batch_size))
+
+            if self.X.ndim == 2:
+                self.X.set_value(dataset.get_batch_design(batch_size))
+            else:
+                self.X.set_value(dataset.get_batch_topo(batch_size))
             self.update_mask()
             self.optimizer.minimize()
             model.monitor.report_batch( batch_size )
