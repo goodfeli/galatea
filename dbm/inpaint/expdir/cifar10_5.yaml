@@ -1,0 +1,60 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+                        preprocessed_dataset: !pkl: "/data/lisa/data/cifar10/pylearn2_whitened/train.pkl",
+                        preprocessor: !pkl: "/data/lisa/data/cifar10/pylearn2_whitened/preprocessor.pkl"
+                        },
+    model: !obj:pylearn2.models.dbm.DBM {
+              init_beta : 1.,
+              rbms: [
+                     !obj:pylearn2.models.rbm.RBM {
+                     init_bias_vis: 0.0,
+                     init_bias_hid: 0.0,
+                     nvis : &nvis 3072,
+                     nhid : &nh 4056,
+                     transformer: !obj:pylearn2.linear.matrixmul.make_local_rfs {
+                                dataset: *data,
+                                nhid: *nh,
+                                rf_shape: [8,8],
+                                stride: [2,2],
+                                irange: 0.05,
+                                draw_patches: 0
+                        }
+                     },
+                     !obj:pylearn2.models.rbm.RBM {
+                     nvis : *nh,
+                     nhid : 8000,
+                     irange : 0.01,
+                     }
+                     ],
+             use_cd : 1, #this is just to tell it not to do negative chains
+    },
+    algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               batch_size : 100,
+               batches_per_iter : 10,
+               monitoring_batches : 1,
+               monitoring_dataset : *data,
+               max_iter: 1,
+               cost : !obj:galatea.dbm.inpaint.dbm_inpaint.DBM_Inpaint_Binary {
+                        n_iter : 10,
+                        weight_decay : 0.0,
+                        reweight : 0,
+                        reweight_correctly: 0,
+                        recons_penalty: 0.,
+                        inpaint_penalty: 1.,
+                        h_contractive_penalty: 0.,
+                        g_contractive_penalty: 0.,
+                        h_penalty : 0.0,
+                        h_target: .1,
+                        g_penalty: 0.0,
+                        g_target: .1
+               },
+               mask_gen : !obj:galatea.dbm.inpaint.dbm_inpaint.MaskGen {
+                        drop_prob: 0.5,
+                        balance: 1,
+                        n_channels: 3
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_NAME}.pkl",
+    save_freq : 1
+}
+
