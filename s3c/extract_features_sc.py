@@ -122,6 +122,7 @@ for which_set in ['train', 'test']:
 class FeatureExtractor:
     def __init__(self, batch_size, dict_file, lamda, pooling_region_counts,
            save_paths,  dataset_family, which_set,
+           one_sided = False,
            chunk_size = None, restrict = None):
 
         if chunk_size is not None and restrict is not None:
@@ -132,6 +133,7 @@ class FeatureExtractor:
         self.dict_file = dict_file
         self.lamda = lamda
         self.restrict = restrict
+        self.one_sided = one_sided
 
         assert len(pooling_region_counts) == len(save_paths)
 
@@ -219,15 +221,18 @@ class FeatureExtractor:
         print 'defining features'
         Z = T.matrix('Z')
 
-        pos = T.clip(Z,0.,1e30)
-        neg = T.clip(-Z,0.,1e30)
+        if self.one_sided:
+            feat = abs(Z)
+        else:
+            pos = T.clip(Z,0.,1e30)
+            neg = T.clip(-Z,0.,1e30)
 
-        feat = T.concatenate((pos, neg), axis=1)
+            feat = T.concatenate((pos, neg), axis=1)
 
         print 'compiling theano function'
         f = function([Z],feat)
 
-        nfeat = self.W.shape[1] * 2
+        nfeat = self.W.shape[1] * (2 - self.one_sided)
         if not (nfeat == 1600 or nfeat == 3200):
             print nfeat
             assert False
