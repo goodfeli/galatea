@@ -9,13 +9,16 @@ from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
 
 ignore, model_path = sys.argv
+m = 10
 model = serial.load(model_path)
+model.set_batch_size(m)
 
 try:
     mask_gen = model.mask_gen
     cost = model.cost
     cost.mask_gen = mask_gen
 except:
+    raise
     try:
         drop_prob = model.dbm_inpaint_drop_prob
         n_iter = model.dbm_inpaint_n_iter
@@ -37,8 +40,8 @@ except:
     cost = DBM_Inpaint_Binary(mask_gen = mask_gen, n_iter = n_iter)
     cost.mask_gen = mask_gen
 
-
-X = T.matrix()
+space = model.get_input_space()
+X = space.make_theano_batch()
 
 denoising = cost(model,X,return_locals=True)
 
@@ -46,7 +49,10 @@ drop_mask = denoising['drop_mask']
 outputs = [ drop_mask ]
 history = denoising['history']
 for elem in history:
-    outputs.append(elem['X_hat'])
+    try:
+        outputs.append(elem['X_hat'])
+    except:
+        outputs.append(elem['V_hat'])
 
 f = function([X],outputs)
 
@@ -57,9 +63,11 @@ if model.dataset_yaml_src.find('train') != -1:
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
-m = 10
 
-X = dataset.get_batch_design(100)
+if X.ndim == 2:
+    X = dataset.get_batch_design(m)
+else:
+    X = dataset.get_batch_topo(m)
 
 outputs = f(X)
 drop_mask = outputs[0]
@@ -67,8 +75,11 @@ print 'empirical drop prob:',drop_mask.mean()
 X_sequence = outputs[1:]
 
 
-Xt, drop_mask = [ dataset.get_topological_view(mat)
+if X.ndim == 2:
+    Xt, drop_mask = [ dataset.get_topological_view(mat)
         for mat in [X, drop_mask] ]
+else:
+    Xt = X
 
 rows = m
 mapback = hasattr(dataset, 'mapback_for_viewer')
@@ -79,7 +90,9 @@ if mapback:
     M = dataset.get_topological_view(dataset.mapback_for_viewer(X))
     M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in X_sequence ]
 X = dataset.adjust_for_viewer(Xt)
-X_sequence = [ dataset.adjust_for_viewer(dataset.get_topological_view(mat)) for mat in X_sequence ]
+if X_sequence[0].ndim == 2:
+    X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
+X_sequence = [ dataset.adjust_for_viewer(mat) for mat in X_sequence ]
 
 
 pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
