@@ -21,9 +21,9 @@
                         kernel_cols: 7,
                         pool_rows: 2,
                         pool_cols: 2,
-                        irange: .05,
+                        irange: .1,
                         layer_name: 'h0',
-                        init_bias: 0.
+                        init_bias: -2.
                }
               ]
     },

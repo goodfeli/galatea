@@ -30,11 +30,12 @@ def max_pool_python(z, pool_shape):
     return p, h
 
 
-def max_pool(z, pool_shape):
+def max_pool_raw(z, pool_shape):
     #random max pooling implemented with set_subtensor
     #could also do this using the stuff in theano.sandbox.neighbours
     #might want to benchmark the two approaches, see how each does on speed/memory
     #on cpu and gpu
+    #this method is not numerically stable, use max_pool instead
 
     batch_size, zr, zc, ch = z.shape
 
@@ -72,6 +73,62 @@ def max_pool(z, pool_shape):
 
     return p, h
 
+def max_pool(z, pool_shape):
+    #random max pooling implemented with set_subtensor
+    #could also do this using the stuff in theano.sandbox.neighbours
+    #might want to benchmark the two approaches, see how each does on speed/memory
+    #on cpu and gpu
+    #here I stabilized the softplus with 4 calls to T.maximum and 5 elemwise
+    #subs. this is 10% slower than the unstable version, and the gradient
+    #is 40% slower. on GPU both the forward prop and backprop are more like
+    #100% slower!
+    #might want to dry doing a reshape, a T.nnet.softplus, and a reshape
+    #instead
+
+
+    batch_size, zr, zc, ch = z.shape
+
+    r, c = pool_shape
+
+    zpart = []
+
+    mx = None
+
+    for i in xrange(r):
+        zpart.append([])
+        for j in xrange(c):
+            cur_part = z[:,i:zr:r,j:zc:c,:]
+            zpart[i].append( cur_part )
+            if mx is None:
+                mx = cur_part
+            else:
+                mx = T.maximum(mx,cur_part)
+
+    pt = []
+
+    for i in xrange(r):
+        pt.append( [ T.exp(z_ij-mx) for z_ij in zpart[i] ] )
+
+    off_pt = T.exp(0.-mx)
+    denom = off_pt
+
+    for i in xrange(r):
+        for j in xrange(c):
+            denom = denom + pt[i][j]
+
+    p = 1. - off_pt / denom
+
+    hpart = []
+    for i in xrange(r):
+        hpart.append( [ pt_ij / denom for pt_ij in pt[i] ] )
+
+    h = T.alloc(0., batch_size, zr, zc, ch)
+
+    for i in xrange(r):
+        for j in xrange(c):
+            h = T.set_subtensor(h[:,i:zr:r,j:zc:c,:],hpart[i][j])
+
+    return p, h
 
 def check_correctness(f):
     rng = np.random.RandomState([2012,7,19])
@@ -96,8 +153,12 @@ def check_correctness(f):
 
     assert p_np.shape == pv.shape
     assert h_np.shape == hv.shape
+    if not np.allclose(h_np,hv):
+        print (h_np.min(),h_np.max())
+        print (hv.min(),hv.max())
+        assert False
     assert np.allclose(p_np,pv)
-    assert np.allclose(h_np,hv)
+    print 'Correct'
 
 def profile(f):
     rng = np.random.RandomState([2012,7,19])
@@ -169,9 +230,11 @@ def profile_grad(f):
     print 'final: ',sum(results)/float(trials)
 
 if __name__ == '__main__':
-    #check_correctness(max_pool_subtensor)
-    #profile(max_pool_subtensor)
+    check_correctness(max_pool)
+    profile(max_pool)
+    profile(max_pool_raw)
     profile_grad(max_pool)
+    profile_grad(max_pool_raw)
 
 
 
