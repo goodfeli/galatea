@@ -1,0 +1,34 @@
+
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+    "model": !obj:pylearn2.models.rbm.GaussianBinaryRBM {
+                     "nvis" : &nvis 192,
+                     "nhid" : 400,
+                     irange : 0.15,
+                     init_bias_hid: -2.,
+                     "energy_function_class" : !obj:pylearn2.energy_functions.rbm_energy.grbm_type_1 {},
+                     learn_sigma : True,
+                     init_sigma : 3.,
+                     min_sigma: .1,
+                     max_sigma: 100.,
+                     "mean_vis" : False,
+                     "sigma_lr_scale" : 1e-2
+
+        },
+    algorithm: !obj:galatea.dnce.dnce_alg.DNCE_Algorithm {
+               batch_size : 1000,
+               noise_per_clean: 60,
+               batches_per_iter : 10,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               noise: !obj:galatea.dnce.noise.AdditiveMaskedDiagonalMND {
+                                prob: .1,
+                                init_beta : 1.,
+                                 nvis : *nvis,
+                        },
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_NAME}.pkl",
+    save_freq : 1
+}
+
+

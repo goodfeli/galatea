@@ -55,7 +55,10 @@ class BatchGradientInference:
 
         self.model.make_pseudoparams()
 
-        obs = model.inference_procedure.infer(V,Y)
+        obs = {}
+        for key in model.inference_procedure.hidden_obs:
+            obs[key] = model.inference_procedure.hidden_obs[key]
+
         obs['H_hat'] = T.clip(obs['H_hat'],1e-7,1.-1e-7)
         if pddbm:
             obs['G_hat'] = tuple([ T.clip(elem,1e-7,1.-1e-7) for elem in obs['G_hat']  ])
@@ -63,23 +66,18 @@ class BatchGradientInference:
 
         needed_stats = S3C.expected_log_prob_vhs_needed_stats()
 
-        trunc_kl = model.inference_procedure.truncated_KL(V, Y, obs).mean()
+        trunc_kl = model.inference_procedure.truncated_KL(V,  obs, Y).mean()
 
         assert len(trunc_kl.type.broadcastable) == 0
 
         if pddbm:
-            G = [ sharedX(np.zeros((batch_size, rbm.nhid), dtype='float32')) for rbm in model.dbm.rbms ]
+            G = model.inference_procedure.hidden_obs['G_hat']
             h_dim = model.s3c.nhid
         else:
             h_dim = model.nhid
-        H = sharedX(np.zeros((batch_size, h_dim), dtype='float32'))
-        S = sharedX(np.zeros((batch_size, h_dim), dtype='float32'))
+        H = model.inference_procedure.hidden_obs['H_hat']
+        S = model.inference_procedure.hidden_obs['H_hat']
 
-        updates = { H : obs['H_hat'], S : obs['S_hat'] }
-
-        if pddbm:
-            for G_elem, G_hat_elem in zip(G, obs['G_hat']):
-                updates[G_elem] = G_hat_elem
 
         inputs = [ V ]
         if has_labels:
@@ -87,7 +85,7 @@ class BatchGradientInference:
 
         if self.verbose:
             print 'batch gradient class compiling init function'
-        self.init = function(inputs, trunc_kl,  updates = updates )
+        self.init_kl = function(inputs, trunc_kl)
         if self.verbose:
             print 'done'
 
@@ -98,17 +96,17 @@ class BatchGradientInference:
                     var_s0_hat = obs['var_s0_hat'], var_s1_hat = obs['var_s1_hat'])
 
 
-        obs = {
-                "H_hat" : H,
-                "S_hat" : S,
-                "var_s0_hat" : obs['var_s0_hat'],
-                "var_s1_hat" : obs['var_s1_hat'],
-                }
+        #obs = {
+        #        "H_hat" : H,
+        #        "S_hat" : S,
+        #        "var_s0_hat" : obs['var_s0_hat'],
+        #        "var_s1_hat" : obs['var_s1_hat'],
+        #        }
 
         if pddbm:
             obs['G_hat'] = G
 
-        obj = self.model.inference_procedure.truncated_KL( V, Y, obs ).mean()
+        obj = self.model.inference_procedure.truncated_KL( V, obs, Y ).mean()
 
         if pddbm:
             grad_G_sym = [ T.grad(obj, G_elem) for G_elem in G ]
@@ -209,14 +207,16 @@ class BatchGradientInference:
 
         alpha_list = [ .001, .005, .01, .05, .1 ]
 
-        if self.has_labels:
-            orig_kl = self.init(X,Y)
-        else:
-            orig_kl = self.init(X)
+        self.model.inference_procedure.update_var_params(X,Y)
 
         assert self.H.get_value().shape[0] == X.shape[0]
 
         self.H.set_value(clip(self.H.get_value()))
+
+        if self.has_labels:
+            orig_kl = self.init_kl(X,Y)
+        else:
+            orig_kl = self.init_kl(X)
 
         if self.verbose:
             print orig_kl
@@ -228,16 +228,20 @@ class BatchGradientInference:
             orig_G = [ G_elem.get_value() for G_elem in self.G ]
 
         while True:
+
             if self.has_labels:
                 best_kl, best_alpha, best_alpha_ind = self.obj(X,Y), 0., -1
             else:
                 best_kl, best_alpha, best_alpha_ind = self.obj(X), 0., -1
+            #assert best_kl <= orig_kl
             self.cache_values()
             if self.has_labels:
                 self.compute_grad(X,Y)
             else:
                 self.compute_grad(X)
             self.normalize_grad()
+
+            prev_best_kl = best_kl
 
             for ind, alpha in enumerate(alpha_list):
                 self.goto_alpha(alpha)
@@ -255,7 +259,9 @@ class BatchGradientInference:
 
             if self.verbose:
                 print best_kl
+
             assert not np.isnan(best_kl)
+            #assert best_kl <= prev_best_kl
             self.goto_alpha(best_alpha)
 
             if best_alpha_ind < 1 and alpha_list[0] > 3e-7:

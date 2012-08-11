@@ -1,0 +1,30 @@
+
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:pylearn2.datasets.mnist.MNIST {
+                        which_set : 'train',
+                        binarize : True,
+                        one_hot: True,
+                        shuffle: True },
+    model: !obj:pylearn2.models.rbm.RBM {
+                     nvis : &nvis 784,
+                     init_bias_hid: -1.5,
+                     nhid : 400,
+                     irange : 0.05,
+                     init_bias_vis_marginals: *data,
+        },
+    algorithm: !obj:galatea.dnce.dnce_alg.DNCE_Algorithm {
+               batch_size : 500,
+               batches_per_iter : 10,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               noise: !obj:galatea.dnce.noise.BitFlip {
+                                prob: .001,
+                                 nvis : *nvis,
+                        },
+              noise_per_clean : 30
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_NAME}.pkl",
+    save_freq : 1
+}
+
+

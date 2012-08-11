@@ -9,19 +9,21 @@ class BatchGradientInferenceCallback(TrainingCallback):
 
     def __call__(self, model, dataset, algorithm):
 
-        try:
-            if self.tester is None:
-                self.tester = BatchGradientInference(model)
-                self.X, self.Y = dataset.get_batch_design(algorithm.batch_size, include_labels = True)
-                if not self.tester.has_labels:
-                    self.Y = None
-                model.kl_fail_log = []
+        if self.tester is None:
+            self.tester = BatchGradientInference(model)
+            self.X, self.Y = dataset.get_batch_design(algorithm.batch_size, include_labels = True)
+            if not self.tester.has_labels:
+                self.Y = None
+            model.kl_fail_log = []
 
+        try:
             results = self.tester.run_inference(self.X, self.Y)
 
             diff = results['orig_kl'] - results['kl']
 
             print 'kl failure amount: ',diff
+        except AssertionError:
+            raise
         except Exception, e:
             print "BatchGradientInferenceCallback failed "
             print e

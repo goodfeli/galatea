@@ -1,0 +1,9 @@
+!obj:galatea.pddbm.extract_features_hack.FeatureExtractor {
+            batch_size : 1,
+            model_path : /data/lisatmp2/goodfeli/pddbm_mnist/reboot_6BS_interm.pkl,
+            pooling_region_counts : [ 3 ],
+            save_paths : [ /data/lisatmp2/goodfeli/hack.npy ],
+            feature_type : "exp_h,exp_g",
+            dataset_family : galatea.pddbm.extract_features.cifar100,
+            which_set : "train",
+        }

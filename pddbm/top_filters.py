@@ -13,8 +13,12 @@ if len(sys.argv) == 3:
 else:
     model = serial.load(sys.argv[1])
     dataset_yaml_src = model.dataset_yaml_src
-    l1 = model.s3c
-    l2 = model.dbm.rbms[0]
+    try:
+        l1 = model.s3c
+        l2 = model.dbm.rbms[0]
+    except:
+        l1 , l2 = model.rbms
+        l1.W ,= l1.transformer.get_params()
 
 
 W1 = l1.W.get_value()
@@ -23,7 +27,7 @@ W2 = l2_weights.get_value()
 
 print 'Sorting so largest-norm layer 2 weights are plotted at the top'
 norms = np.square(W2).sum(axis=0)
-idxs = [elem[1] for elem in sorted( zip( norms, range(norms.shape[0]) ) ) ]
+idxs = [elem[1] for elem in sorted( zip( -norms, range(norms.shape[0]) ) ) ]
 
 new = W2.copy()
 
@@ -45,6 +49,8 @@ imgs = dataset.get_weights_view(W1.T)
 
 N1 = l1.nhid
 N = l2.nhid
+
+N = min(N,1000)
 
 thresh = .9
 max_count = 0

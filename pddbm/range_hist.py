@@ -13,7 +13,8 @@ else:
     idx = int(idx)
 
 model = serial.load(model_path)
-model.make_pseudoparams()
+if hasattr(model,'make_pseudoparams'):
+    model.make_pseudoparams()
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
@@ -22,16 +23,28 @@ Xv , Yv = dataset.get_batch_design(100, include_labels = True)
 X = T.matrix()
 Y = T.matrix()
 
-has_labels = model.dbm.num_classes > 0
+try:
+    has_labels = model.dbm.num_classes > 0
+except:
+    has_labels = model.num_classes > 0
 
 if not has_labels:
     Y = None
     Yv = None
 
-obs = model.inference_procedure.infer(X,Y)
+ip = model.inference_procedure
+python = not hasattr(ip,'infer')
+if python:
+    ip.redo_theano()
+    obs = ip.hidden_obs
+else:
+    if hasattr(ip,'layer_schedule') and ip.layer_schedule is None:
+        ip.layer_schedule = [0,1] * 10
+    obs = ip.infer(X,Y)
 
 var = obs[var]
 if idx is not None:
+    assert isinstance(var,list) or isinstance(var,tuple)
     var = var[idx]
 
 inputs = [ X ]
@@ -40,8 +53,10 @@ if has_labels:
     inputs.append(Y)
     input_vals.append(Yv)
 
-f = function(inputs, var)
+f = function(inputs, var, on_unused_input = 'ignore')
 
+if python:
+    ip.update_var_params(*input_vals)
 var_val = f(*input_vals)
 
 maxes = var_val.max(axis=0)

@@ -22,7 +22,10 @@ from theano import function
 if hasattr(model,'make_pseudoparams'):
     model.make_pseudoparams()
 
+python = False
+
 def get_reconstruction_func():
+    global python
     V = T.matrix()
 
     if hasattr(model,'e_step'):
@@ -35,7 +38,12 @@ def get_reconstruction_func():
     elif hasattr(model,'s3c'):
         #PDDBM
         ip = model.inference_procedure
-        mf = ip.infer(V)
+        if hasattr(ip,'infer'):
+            mf = ip.infer(V)
+        else:
+            ip.redo_theano()
+            mf = ip.hidden_obs
+            python = True
 
         x = raw_input('reconstruct from which layer? ')
 
@@ -71,6 +79,26 @@ def get_reconstruction_func():
             #recons = G1
         else:
             raise NotImplementedError()
+    elif hasattr(model,'rbms'):
+        ip = model.inference_procedure
+        if ip.layer_schedule is None:
+            ip.layer_schedule = [ 0, 1 ] * 10
+        assert not hasattr(model,'beta') #inference procedure doesn't handle gDBM correctly, and recons formula below is wrong
+        obs = ip.infer(V)
+        H = obs['H_hat']
+        H, G = H #only supports two layers for now
+
+        x = raw_input('Reconstruct from which layer? (0/1)')
+
+        if x == '0':
+            H_hat = H
+        else:
+            assert x == '1'
+            print 'Doing one downward pass with double weights going into H'
+            print 'Alternately, one might want to hold G fixed and run mean field on H and V'
+            H_hat = ip.infer_H_hat_one_sided(other_H_hat = G, W = 2 *model.W[1].T, b = model.bias_hid[0])
+        recons = ip.infer_H_hat_one_sided(other_H_hat = H_hat, W = model.W[0].T, b = model.bias_vis)
+
     else:
         #RBM
         H = model.mean_h_given_v(V)
@@ -102,6 +130,10 @@ if hasattr(dataset, 'get_unprocessed_batch_design'):
 else:
     X = dataset.get_batch_design(50)
     Xt = dataset.get_topological_view(X)
+
+
+if python:
+    model.inference_procedure.update_var_params(X)
 
 R = f(X)
 
@@ -147,6 +179,9 @@ if global_rescale:
     Xt /= scale
     Rt /= scale
     scale = 1.
+
+Xt = dataset.adjust_for_viewer(Xt)
+Rt = dataset.adjust_for_viewer(Rt)
 
 for i in xrange(X.shape[0]):
     x = Xt[i,:]

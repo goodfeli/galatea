@@ -22,12 +22,23 @@ function test_acc = cifar100_final_worker(C, features_path, test_features_path)
 	
 	fprintf(1,'loading features\n')
 	X = load(features_path);
-	X = double(X.X);
+	try
+		X = X.X;
+	catch
+		X = [X.X_chunk_0; X.X_chunk_1;...
+X.X_chunk_2; X.X_chunk_3; X.X_chunk_4; X.X_chunk_5; X.X_chunk_6;...
+X.X_chunk_7; X.X_chunk_8; X.X_chunk_9];
+	end
+	X = double(X);
 	fprintf(1,'augmenting features\n')
 	X = [ X, ones(size(X,1),1) ];
 
 	testX = load(test_features_path);
-	testX = testX.X;
+	try
+		testX = testX.X;
+	catch
+		testX = [testX.X_chunk_0; testX.X_chunk_1];
+	end
 	testX = [ testX, ones(size(testX,1),1) ];
 
 	fprintf(1,'checking train y\n')
@@ -40,8 +51,8 @@ function test_acc = cifar100_final_worker(C, features_path, test_features_path)
 
 
 	if size(X,1) ~= 50000
-		size(train_X,1)
-		fold
+		size(X,1)
+		size(X)
 		die die die
 	end
 	
