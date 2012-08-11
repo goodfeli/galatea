@@ -26,7 +26,7 @@ if len(sys.argv) > 3:
 else:
     memreq = '12G'
 
-command = 'jobdispatch --duree=48:00:00 --whitespace --mem=%(memreq)s /RQusagers/goodfell/cifar100_fold_point_worker ' % locals()
+command = 'jobdispatch --duree=48:00:00 --whitespace --mem=%(memreq)s /RQusagers/goodfell/cifar10_fold_point_worker ' % locals()
 command += ' "{{'
 
 if len(sys.argv) > 2:
