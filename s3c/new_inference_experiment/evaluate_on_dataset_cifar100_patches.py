@@ -11,7 +11,8 @@ from pylearn2.models.s3c import S3C, Grad_M_Step
 from galatea.s3c.s3c import E_Step_Scan, E_Step_CG_Scan
 
 NUM_EXAMPLES = 100
-OVERKILL = 200
+#OVERKILL = 200  used this for first pass, got results for hack, but then cg method ran out of memory
+OVERKILL = 100
 
 X = dataset.get_batch_design(NUM_EXAMPLES)
 
@@ -141,7 +142,7 @@ def time_run( ip, X):
     return t2 - t1
 
 
-for alg in ['hack','cg']:
+for alg in ['cg']: #already got results for hack, re-running as just cg
     best_time = 1e30
     for s_config in s_config_dict[alg]:
         for h_config in [ .1, .3, .5 ]:

@@ -117,7 +117,7 @@ for which_set in ['train', 'test']:
 class FeatureExtractor:
     def __init__(self, batch_size, alpha, pooling_region_counts,
            save_paths, num_bases, dataset_family, which_set,
-           chunk_size = None, restrict = None):
+           chunk_size = None, restrict = None, one_sided = False):
 
         if chunk_size is not None and restrict is not None:
             raise NotImplementedError("Currently restrict is used internally to "
@@ -127,6 +127,7 @@ class FeatureExtractor:
         self.restrict = restrict
         self.num_filters = num_bases
         self.alpha = alpha
+        self.one_sided = one_sided
 
 
         assert len(pooling_region_counts) == len(save_paths)
@@ -221,17 +222,20 @@ class FeatureExtractor:
         Z = T.dot(V, self.W)
 
         alpha = self.alpha
-        pos = T.clip(Z,alpha,1e30) - alpha
-        neg = T.clip(-Z,alpha,1e30) - alpha
+        if self.one_sided:
+            feat = T.clip(abs(Z),alpha,1e30)-alpha
+        else:
+            pos = T.clip(Z,alpha,1e30) - alpha
+            neg = T.clip(-Z,alpha,1e30) - alpha
 
-        feat = T.concatenate((pos, neg), axis=1)
+            feat = T.concatenate((pos, neg), axis=1)
 
         assert feat.dtype == 'float32'
         print 'compiling theano function'
         f = function([V],feat)
 
 
-        nfeat = self.W.get_value().shape[1] * 2
+        nfeat = self.W.get_value().shape[1] * (2-self.one_sided)
 
         if config.device.startswith('gpu') and nfeat >= 4000:
             f = halver(f, nfeat)

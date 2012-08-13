@@ -47,7 +47,6 @@ function valid_acc = cifar10_fold_point_worker(fold, C, features_path)
 		end
 	end
 
-
 	if size(train_X,1) ~= 40000
 		die die die
 	end
@@ -67,7 +66,6 @@ function valid_acc = cifar10_fold_point_worker(fold, C, features_path)
 		die die die
 	end
 
-
 	clear X
 
 	fprintf(1,'training svm\n')
@@ -80,7 +78,5 @@ function valid_acc = cifar10_fold_point_worker(fold, C, features_path)
 	pred_y = mask * [1:size(cls,2)]';
 
 	valid_acc = mean(pred_y == valid_y);
-
-
 
 end

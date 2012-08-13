@@ -64,7 +64,7 @@ class BatchGradientInference:
 
         needed_stats = S3C.expected_log_prob_vhs_needed_stats()
 
-        trunc_kl = model.inference_procedure.truncated_KL(V, obs, Y).mean()
+        trunc_kl = model.inference_procedure.truncated_KL(V, obs = obs, Y = Y).mean()
 
         assert len(trunc_kl.type.broadcastable) == 0
 
@@ -109,7 +109,7 @@ class BatchGradientInference:
         if pddbm:
             obs['G_hat'] = G
 
-        obj = self.model.inference_procedure.truncated_KL( V, obs, Y ).mean()
+        obj = self.model.inference_procedure.truncated_KL( V, obs = obs, Y = Y ).mean()
 
         if pddbm:
             grad_G_sym = [ T.grad(obj, G_elem) for G_elem in G ]
@@ -201,7 +201,7 @@ class BatchGradientInference:
         scale(self.grad_H, 1./n)
         scale(self.grad_S, 1./n)
 
-    def run_inference(self, X, Y ):
+    def run_inference(self, X, Y = None ):
 
         if (Y is not None) != (self.has_labels):
             print Y is not None
