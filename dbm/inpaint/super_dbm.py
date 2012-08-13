@@ -1,11 +1,14 @@
 from pylearn2.models.model import Model
 from pylearn2.space import Conv2DSpace
+from pylearn2.space import VectorSpace
 from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
 import theano.tensor as T
 import numpy as np
 from galatea.dbm.inpaint.probabilistic_max_pooling import max_pool
 from theano.gof.op import get_debug_values
+from theano.printing import Print
+import warnings
 
 class SuperDBM(Model):
 
@@ -25,8 +28,15 @@ class SuperDBM(Model):
         self.force_batch_size = batch_size
 
     def get_params(self):
+
+        for param in self.visible_layer.get_params():
+            assert param.name is not None
         rval = self.visible_layer.get_params()
         for layer in self.hidden_layers:
+            for param in layer.get_params():
+                if param.name is None:
+                    print type(layer)
+                    assert False
             rval = rval.union(layer.get_params())
         return rval
 
@@ -43,6 +53,11 @@ class SuperDBM(Model):
 
     def get_input_space(self):
         return self.visible_layer.space
+
+    def get_lr_scalers(self):
+        warnings.warn("get_lr_scalers is hardcoded")
+        return { self.hidden_layers[0].transformer._filters : 1./(26.**2),
+                 self.hidden_layers[0].b : 1. / (26. ** 2)  }
 
     def get_weights(self):
         if len(self.hidden_layers) == 1:
