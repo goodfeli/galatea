@@ -136,6 +136,7 @@ class InpaintAlgorithm(object):
         self.optimizer = BatchGradientDescent(
                             objective = obj,
                             params = model.get_params(),
+                            lr_scalers = model.get_lr_scalers(),
                             param_constrainers = [ model.censor_updates ],
                             max_iter = self.max_iter)
         self.optimizer.verbose = True
