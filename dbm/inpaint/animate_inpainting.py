@@ -11,7 +11,8 @@ from pylearn2.gui.patch_viewer import PatchViewer
 ignore, model_path = sys.argv
 m = 10
 model = serial.load(model_path)
-model.set_batch_size(m)
+if hasattr(model,'set_batch_size'):
+    model.set_batch_size(m)
 
 try:
     mask_gen = model.mask_gen
