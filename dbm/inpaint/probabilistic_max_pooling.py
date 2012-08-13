@@ -84,7 +84,14 @@ def max_pool(z, pool_shape):
     #100% slower!
     #might want to dry doing a reshape, a T.nnet.softplus, and a reshape
     #instead
+    #another way to implement the stabilization is with the max pooling operator
+    #(you'd still need to do maximum with 0)
 
+
+    #timing hack
+    #return T.nnet.sigmoid(z[:,0:z.shape[1]/pool_shape[0],0:z.shape[2]/pool_shape[1],:]), T.nnet.sigmoid(z)
+
+    z_name = z.name
 
     batch_size, zr, zc, ch = z.shape
 
@@ -98,25 +105,40 @@ def max_pool(z, pool_shape):
         zpart.append([])
         for j in xrange(c):
             cur_part = z[:,i:zr:r,j:zc:c,:]
+            cur_part.name = z_name + '[%d,%d]' % (i,j)
             zpart[i].append( cur_part )
             if mx is None:
-                mx = cur_part
+                mx = T.maximum(0.,cur_part)
+                mx.name = 'max(0,'+cur_part.name+')'
             else:
+                mx_name = 'max('+cur_part.name+','+mx.name+')'
                 mx = T.maximum(mx,cur_part)
+                mx.name = mx_name
+    mx.name = 'local_max('+z_name+')'
 
     pt = []
 
     for i in xrange(r):
-        pt.append( [ T.exp(z_ij-mx) for z_ij in zpart[i] ] )
+        pt.append([])
+        for j in xrange(c):
+            z_ij = zpart[i][j]
+            safe = z_ij - mx
+            safe.name = 'safe_z(%s)' % z_ij.name
+            cur_pt = T.exp(safe)
+            cur_pt.name = 'pt(%s)' % z_ij.name
+            pt[-1].append( cur_pt )
 
     off_pt = T.exp(0.-mx)
+    off_pt.name = 'p_tilde_off(%s)' % z_name
     denom = off_pt
 
     for i in xrange(r):
         for j in xrange(c):
             denom = denom + pt[i][j]
+    denom.name = 'denom(%s)' % z_name
 
     p = 1. - off_pt / denom
+    p.name = 'p(%s)' % z_name
 
     hpart = []
     for i in xrange(r):
@@ -127,6 +149,8 @@ def max_pool(z, pool_shape):
     for i in xrange(r):
         for j in xrange(c):
             h = T.set_subtensor(h[:,i:zr:r,j:zc:c,:],hpart[i][j])
+
+    h.name = 'h(%s)' % z_name
 
     return p, h
 
