@@ -3,7 +3,7 @@ import numpy as np
 from galatea.cond.neighbs import cifar10neighbs
 
 
-m = 100
+m = 10
 r = 6
 c = 6
 dataset = CIFAR10(which_set = 'train', one_hot = True, gcn = 55.)
