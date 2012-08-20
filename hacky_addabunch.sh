@@ -72,3 +72,12 @@ git add */*/*/*/*/*/*.pdf
 git add */*/*/*/*/*/*/*.pdf
 git add */*/*/*/*/*/*/*/*.pdf
 git add */*/*/*/*/*/*/*/*/*.pdf
+git add */*.lyx
+git add */*/*.lyx
+git add */*/*/*.lyx
+git add */*/*/*/*.lyx
+git add */*/*/*/*/*.lyx
+git add */*/*/*/*/*/*.lyx
+git add */*/*/*/*/*/*/*.lyx
+git add */*/*/*/*/*/*/*/*.lyx
+git add */*/*/*/*/*/*/*/*/*.lyx
