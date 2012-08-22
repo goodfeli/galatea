@@ -1,0 +1,390 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+What happens to the variational bound when we grow an undirected model?
+\end_layout
+
+\begin_layout Standard
+Supppose we have a model
+\begin_inset Formula 
+\[
+P_{1}(v)=\sum_{h}\frac{1}{Z_{1}}\exp(-E_{1}(v,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and we want to upgrade this to a model
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P_{2}(v)=\sum_{h,g}\frac{1}{Z_{2}}\exp(-E_{1}(v,h)-E_{2}(h,g))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In the latter case, the variational bound is loose by
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+D_{KL}(Q(h,g)\Vert P(h,g\mid v))=-H_{Q}(h,g)-\mathbb{E}_{Q}\log P(h,g\mid v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H_{Q}(h)-H_{Q(g)}-\mathbb{E}_{Q}\log P(h,g,v)+\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H_{Q}(h)-H_{Q}(g)-\mathbb{E}_{Q}\log\exp(-E_{1}(v,h)-E_{2}(g,h))+\log Z_{2}+\log\sum_{h}\sum_{g}\exp(-E_{1}(v,h)-E_{2}(g,h))-\log Z_{2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H_{Q}(h)-H_{Q}(g)-\mathbb{E}_{Q}\log\exp(-E_{1}(v,h)-E_{2}(g,h))+\log\sum_{h}\sum_{g}\exp(-E_{1}(v,h)-E_{2}(g,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H_{Q}(h)-H_{Q}(g)+\mathbb{E}_{Q(h)}E_{1}(v,h)+\mathbb{E}_{Q(h)}\mathbb{E}_{Q(g)}E_{2}(g,h)+\log\sum_{h}\exp(-E_{1}(v,h))\sum_{g}\exp(-E_{2}(g,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=D_{KL}(Q(h)\Vert P_{1}(h\mid v))-H_{q}(g)+\mathbb{E}_{Q(h)}\mathbb{E}_{Q(g)}E_{2}(g,h)+\log\sum_{h}\exp(-E_{1}(v,h))\sum_{g}\exp(-E_{2}(g,h))-\log\sum_{h}\exp(-E_{1}(v,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=D_{KL}(Q(h)\Vert P_{1}(h\mid v))+\mathbb{E}_{Q(h)}D_{KL}(Q(g)\Vert P(g\mid h))+\log\sum_{h}\exp(-E_{1}(v,h))\sum_{g}\exp(-E_{2}(g,h))-\log\sum_{h}\exp(-E_{1}(v,h))-\mathbb{E}_{Q(h)}\log\sum_{g}\exp(-E_{2}(g,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Should probably check the above.
+ But basically the KL can go up, down, or stay the same.
+\end_layout
+
+\begin_layout Standard
+Come to think of it, this doesn't make a lot of sense.
+ I'm holding 
+\begin_inset Formula $Q$
+\end_inset
+
+ fixed as I grow the model, but we definitely expect 
+\begin_inset Formula $Q$
+\end_inset
+
+ to change.
+\end_layout
+
+\begin_layout Section
+Same for a directed model, where by grow we mean add more children, like
+ in auxS3C
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P_{1}(v)=\sum_{h}P(h,v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P_{2}(v)=\sum_{h,u}P(h,u,v)=\sum_{h,u}P(h)P(v\mid h)P(u\mid h)=\sum_{h}P(h)P(v\mid h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Adding 
+\begin_inset Formula $u$
+\end_inset
+
+ didn't change what the model represents in terms of 
+\begin_inset Formula $P(h,v)$
+\end_inset
+
+ or more specifically 
+\begin_inset Formula $P(v)$
+\end_inset
+
+.
+ So 
+\begin_inset Formula $P(h|v)$
+\end_inset
+
+ is the same in both models.
+\end_layout
+
+\begin_layout Standard
+But is the variational learning procedure?
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+D_{KL}(Q(h,u)\Vert P(h,u\mid v)=-H_{Q}(h,u)-\mathbb{E}_{Q}\log P(h,u\mid v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H_{Q}(h)-H_{q}(u)-\mathbb{E}_{Q}\log P(h\mid v)P(u\mid h,v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H_{Q}(h)-H_{q}(u)-\mathbb{E}_{Q}\log P(h\mid v)P(u\mid h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H_{Q}(h)-H_{Q}(u)-\mathbb{E}_{Q}\log P(h\mid v)-\mathbb{E}_{Q}\log P(u\mid h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=D_{KL}(Q(h)\Vert P(h\mid v))+\mathbb{E}_{h\sim Q}D_{KL}(Q(u)\Vert P(u\mid h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+For a fixed 
+\begin_inset Formula $Q(u)$
+\end_inset
+
+, the term on the right should depend on 
+\begin_inset Formula $Q$
+\end_inset
+
+.
+ For example, if you picked a 
+\begin_inset Formula $Q(u)$
+\end_inset
+
+ that gives 
+\begin_inset Formula $u$
+\end_inset
+
+ a large mean, then the lowest average KL divergence is obtained by picking
+ a 
+\begin_inset Formula $Q(h)$
+\end_inset
+
+ that makes 
+\begin_inset Formula $P(u\mid h)$
+\end_inset
+
+ large.
+ It seems like the main way to minimize this would be make 
+\begin_inset Formula $Q(h)$
+\end_inset
+
+ more deterministic, so that 
+\begin_inset Formula $P(u\mid h)$
+\end_inset
+
+ stays close to 
+\begin_inset Formula $\mathbb{E}_{Q(u)}[u]$
+\end_inset
+
+ for all values of 
+\begin_inset Formula $h$
+\end_inset
+
+ that are likely under 
+\begin_inset Formula $Q(h)$
+\end_inset
+
+, and to pick 
+\begin_inset Formula $Q(u)$
+\end_inset
+
+ so that the values of 
+\begin_inset Formula $h$
+\end_inset
+
+ that make 
+\begin_inset Formula $P(u\mid h)$
+\end_inset
+
+ land in the right place also make 
+\begin_inset Formula $P(v\mid h)$
+\end_inset
+
+ land in the right place.
+\end_layout
+
+\begin_layout Standard
+Also, would it make sense to do all the learning in the non-augmented model
+ and just update the 
+\begin_inset Formula $u$
+\end_inset
+
+ weights to preserve orthogonality? This would have a tighter variational
+ bound on 
+\begin_inset Formula $P(v)$
+\end_inset
+
+.
+ Could this mean it doesn't converge since 
+\begin_inset Formula $Q$
+\end_inset
+
+ is following a different objective than 
+\begin_inset Formula $\theta$
+\end_inset
+
+?
+\end_layout
+
+\end_body
+\end_document
