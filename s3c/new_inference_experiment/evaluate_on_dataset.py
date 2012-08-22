@@ -57,7 +57,7 @@ model.e_step = E_Step_Scan(
 model.e_step.register_model(model)
 
 
-from galatea.pddbm.batch_gradient_inference import BatchGradientInference
+from galatea.pddbm.batch_gradient_inference_theano import BatchGradientInference
 
 heavy_inference = BatchGradientInference(model)
 
@@ -103,7 +103,7 @@ def get_needed_steps(ip, X, target, tol):
 
     history = ip.infer(V, return_history = True)
 
-    kls = [ ip.truncated_KL(V, history_elem).mean() for history_elem in history ]
+    kls = [ ip.truncated_KL(V, obs = history_elem, Y = None).mean() for history_elem in history ]
 
     print 'compiling'
     f = function([V], kls )
