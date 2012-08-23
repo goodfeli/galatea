@@ -386,5 +386,586 @@ Also, would it make sense to do all the learning in the non-augmented model
 ?
 \end_layout
 
+\begin_layout Standard
+I might work better if this was a little more concrete.
+ So let's get the form of the optimal 
+\begin_inset Formula $Q(u)$
+\end_inset
+
+ holding 
+\begin_inset Formula $Q(h)$
+\end_inset
+
+ fixed.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(u)\propto\exp\left(\mathbb{E}_{h\sim Q}\log P(v,h,u)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp(\mathbb{E}_{h\sim Q}\log P(h)+\mathbb{E}_{h\sim Q}\log P(v\mid h)+\mathbb{E}_{h\sim Q}\log P(u\mid h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Everything that doesn't depend on 
+\begin_inset Formula $u$
+\end_inset
+
+ fold into the proportionality constant.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp(\mathbb{E}_{h\sim Q}\log P(u\mid h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp(\mathbb{E}_{h\sim Q}\log\Pi_{i}P(u_{i}\mid h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp(\sum_{i}\mathbb{E}_{h\sim Q}\log P(u_{i}\mid h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So 
+\begin_inset Formula $Q(u)$
+\end_inset
+
+ is independent even if I don't define it to be that way.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(u_{i})\propto\exp\left(\mathbb{E}_{h\sim Q}\log P(u_{i}\mid h)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(u_{i})\propto\exp\left(\mathbb{E}_{h\sim Q}\log\exp\left(\frac{1}{2}\beta_{u}(u_{i}-W_{i:}^{(u)}h)^{2}\right)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(u_{i})\propto\exp\left(\mathbb{E}_{h\sim Q}\frac{1}{2}\beta_{u}(u_{i}-W_{i:}^{(u)}h)^{2}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(u_{i})\propto\exp\left(\frac{1}{2}\beta_{u}(\mathbb{E}_{h\sim Q}u_{i}^{2}-2u_{i}W_{i:}^{(u)}h)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(u_{i})\propto\exp\left(\frac{1}{2}\beta_{u}(u_{i}^{2}-2u_{i}W_{i:}^{(u)}\hat{h})\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(u_{i})=\mathcal{N}(u_{i}\mid W_{i:}^{(u)}\hat{h},\beta_{i}^{(u)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+OK, so it is just what you'd expect.
+\end_layout
+
+\begin_layout Standard
+Now to look at the extra term in the KL divergence:
+\end_layout
+
+\begin_layout Standard
+
+\family roman
+\series medium
+\shape up
+\size normal
+\emph off
+\bar no
+\strikeout off
+\uuline off
+\uwave off
+\noun off
+\color none
+\begin_inset Formula 
+\[
+\mathbb{E}_{h\sim Q}D_{KL}(Q(u)\Vert P(u\mid h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\mathbb{E}_{h\sim Q}\sum_{i}D_{KL}(Q(u_{i})\Vert P(u_{i}\mid h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\mathbb{E}_{h\sim Q}\sum_{i}\frac{1}{2}\beta_{i}^{(u)}(W_{i:}^{(u)}\hat{h}-W_{i:}^{(u)}h)^{2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\mathbb{E}_{h\sim Q}\sum_{i}\frac{1}{2}\beta_{i}^{(u)}\left((W_{i:}^{(u)}\hat{h})^{2}-2W_{i:}^{(u)}\hat{h}W_{i:}^{(u)}h+(W_{i:}^{(u)}h)^{2}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\frac{1}{2}\beta_{i}^{(u)}\left((W_{i:}^{(u)}\hat{h})^{2}-2W_{i:}^{(u)}\hat{h}W_{i:}^{(u)}\mathbb{E}_{h\sim Q}h+\mathbb{E}_{h\sim Q}(W_{i:}^{(u)}h)^{2}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\frac{1}{2}\beta_{i}^{(u)}\left((W_{i:}^{(u)}\hat{h})^{2}-2W_{i:}^{(u)}\hat{h}W_{i:}^{(u)}\hat{h}+\mathbb{E}_{h\sim Q}(W_{i:}^{(u)}h)^{2}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\frac{1}{2}\beta_{i}^{(u)}\left(-(W_{i:}^{(u)}\hat{h})^{2}+\mathbb{E}_{h\sim Q}(W_{i:}^{(u)}h)^{2}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\frac{1}{2}\beta_{i}^{(u)}\left(-(W_{i:}^{(u)}\hat{h})^{2}+\sum_{j}W_{ij}^{(u)2}\hat{h}_{j}+\sum_{k\neq j}W_{ij}^{(u)}W_{ik}^{(u)}\hat{h}_{i}\hat{h}_{j}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\frac{1}{2}\beta_{i}^{(u)}\left(\sum_{j}W_{ij}^{(u)2}(\hat{h}_{j}-\hat{h}_{j}^{2})\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\frac{1}{2}\beta_{i}^{(u)}\left(\sum_{j}W_{ij}^{(u)2}(\hat{h}_{j}-\hat{h}_{j}^{2})\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\hat{h}_{i}(1-\hat{h}_{i})\sum_{j}\beta_{j}^{(u)}W_{ji}^{(u)2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is the amount that the bound worsens by.
+\end_layout
+
+\begin_layout Section
+Update equations for (h,s)
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(h_{i})\propto\exp\left(\mathbb{E}_{h_{j\neq i},u\sim Q}\log P(h,v,u)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i},u\sim Q}\left[\log P(h)+\log P(v\mid h)+\log P(u|h))\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[\log P(h)+\log P(v\mid h)+\mathbb{E}_{u\sim Q}\log P(u|h))\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[\log\tilde{P}(h_{i})+\log\tilde{P}(v\mid h)+\mathbb{E}_{u\sim Q}\log\tilde{P}(u|h))\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}^{(v)}(v_{k}-W_{k:}^{(v)}h)^{2}-\mathbb{E}_{u\sim Q}\frac{1}{2}\sum_{k}\beta_{k}^{(u)}(u_{k}-W_{k:}^{(u)}h)^{2}\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}^{(v)}(v_{k}-W_{k:}^{(v)}h)^{2}-\mathbb{E}_{u\sim Q}\frac{1}{2}\sum_{k}\beta_{k}^{(u)}(u_{k}^{2}-2u_{k}W_{k:}^{(u)}h+(W_{k:}^{(u)}h)^{2})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}^{(v)}(v_{k}-W_{k:}^{(v)}h)^{2}-\mathbb{E}_{u\sim Q}\frac{1}{2}\sum_{k}\beta_{k}^{(u)}(-2u_{k}W_{k:}^{(u)}h+(W_{k:}^{(u)}h)^{2})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}^{(v)}(v_{k}-W_{k:}^{(v)}h)^{2}-\frac{1}{2}\sum_{k}\beta_{k}^{(u)}(-2\hat{u}_{k}W_{k:}^{(u)}h+(W_{k:}^{(u)}h)^{2})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}^{(v)}(v_{k}^{2}-2v_{k}W_{k:}^{(v)}h+(W_{k:}^{(v)}h)^{2})-\frac{1}{2}\sum_{k}\beta_{k}^{(u)}(-2\hat{u}_{k}W_{k:}^{(u)}h+(W_{k:}^{(u)}h)^{2})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}^{(v)}(-2v_{k}W_{k:}^{(v)}h+(W_{k:}^{(v)}h)^{2})-\frac{1}{2}\sum_{k}\beta_{k}^{(u)}(-2\hat{u}_{k}W_{k:}^{(u)}h+(W_{k:}^{(u)}h)^{2})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $a=[v,u]$
+\end_inset
+
+,
+\begin_inset Formula $\beta=[\beta^{(v)},\beta^{(u)}],$
+\end_inset
+
+ and 
+\begin_inset Formula $W=[W^{(v)};W^{(u)}]$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}(-2a_{k}W_{k:}h+(W_{k:}h)^{2})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}(-2a_{k}W_{ki}h_{i}+(W_{k:}h)^{2})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}(-2a_{k}W_{ki}h_{i}+\sum_{l}W_{kl}^{2}h_{l}+\sum_{m\neq l}W_{kl}W_{km}h_{l}h_{m})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(\mathbb{E}_{h_{j\neq i}\sim Q}\left[b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}(-2a_{k}W_{ki}h_{i}+W_{ki}^{2}h_{i}+2\sum_{l\neq i}W_{kl}W_{ki}h_{l}h_{i})\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(b_{i}h_{i}-\frac{1}{2}\sum_{k}\beta_{k}(-2a_{k}W_{ki}h_{i}+W_{ki}^{2}h_{i}+2\sum_{l\neq i}W_{kl}W_{ki}\hat{h}_{l}h_{i})\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(b_{i}h_{i}-\sum_{k}\beta_{k}(-a_{k}W_{ki}h_{i}+\frac{1}{2}W_{ki}^{2}h_{i}+\sum_{l\neq i}W_{kl}W_{ki}\hat{h}_{l}h_{i})\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(b_{i}h_{i}+a^{T}\beta W_{:i}h_{i}-\frac{1}{2}W_{:i}^{T}\beta W_{:i}h_{i}+h_{i}\sum_{l\neq i}\hat{h}_{l}W_{:l}^{T}\beta W_{:i}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Using the orthogonality assumption (That 
+\begin_inset Formula $W_{:i}\beta W_{:j}=0$
+\end_inset
+
+ 
+\begin_inset Formula $\forall i\neq j$
+\end_inset
+
+) we obtain
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp\left(b_{i}h_{i}+a^{T}\beta W_{:i}h_{i}-\frac{1}{2}W_{:i}^{T}\beta W_{:i}h_{i}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sigma\left(b_{i}h_{i}+a^{T}\beta W_{:i}h_{i}-\frac{1}{2}W_{:i}^{T}\beta W_{:i}h_{i}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Active TODO
+\end_layout
+
+\begin_layout Standard
+TODO--isn't it weird that we can make the increase in KL arbitrarily small
+ by shrinking 
+\begin_inset Formula $\beta_{u}$
+\end_inset
+
+?
+\end_layout
+
+\begin_layout Standard
+TODO--what do the gradients of the two bounds look like? for a fixed 
+\begin_inset Formula $Q$
+\end_inset
+
+ is there actually a benefit to following the tighter one?
+\end_layout
+
+\begin_layout Section
+Orthogonality
+\end_layout
+
+\begin_layout Standard
+It doesn't matter whether the rows of 
+\begin_inset Formula $W$
+\end_inset
+
+ are orthogonal, so we can have as many visible units as we want.
+ This means we can train undercomplete models if we want.
+ We just need to add enough auxiliary visible units that the orthogonal
+ column constraint isn't too restrictive.
+\end_layout
+
+\begin_layout Standard
+What does matter for inference being feasible is 
+\begin_inset Formula $W_{:i}^{T}\beta W_{:j}=0\forall i\neq j$
+\end_inset
+
+.
+ I'm not sure what the best way to avoid overparameterizing the model is.
+\end_layout
+
 \end_body
 \end_document
