@@ -9,7 +9,12 @@ patch_rescale = True
 
 model_path = sys.argv[1]
 
-model = serial.load(model_path)
+if sys.argv[1].endswith('.mat'):
+    from pylearn2.models.dbm import load_matlab_dbm
+    model = load_matlab_dbm(sys.argv[1])
+    model.dataset_yaml_src = "!obj:pylearn2.datasets.mnist.MNIST { which_set : 'train' }"
+else:
+    model = serial.load(model_path)
 if hasattr(model,'make_pseudoparams'):
     model.make_pseudoparams()
 

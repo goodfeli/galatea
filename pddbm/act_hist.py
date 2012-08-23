@@ -13,6 +13,7 @@ else:
     idx = int(idx)
 
 model = serial.load(model_path)
+#model.set_dtype('float32')
 if hasattr(model,'make_pseudoparams'):
     model.make_pseudoparams()
 
@@ -26,18 +27,26 @@ Y = T.matrix()
 try:
     has_labels = model.dbm.num_classes > 0
 except:
-    has_labels = model.num_classes > 0
+    try:
+        has_labels = model.num_classes > 0
+    except:
+        has_labels = False
 
 if not has_labels:
     Y = None
     Yv = None
 
+if hasattr(model,'e_step'):
+    model.inference_procedure = model.e_step
+
 python = not hasattr(model.inference_procedure,'infer')
+print type(model.inference_procedure)
+print dir(model.inference_procedure)
 if python:
     model.inference_procedure.redo_theano()
     obs = model.inference_procedure.hidden_obs
 else:
-    if model.inference_procedure.layer_schedule is None:
+    if hasattr(model.inference_procedure,'layer_schedule') and model.inference_procedure.layer_schedule is None:
         model.inference_procedure.layer_schedule = [0,1] * 10
     obs = model.inference_procedure.infer(X,Y)
 

@@ -11,7 +11,12 @@ if len(sys.argv) == 3:
     dataset_yaml_src = l1.dataset_yaml_src
     l2 = serial.load(l2)
 else:
-    model = serial.load(sys.argv[1])
+    if sys.argv[1].endswith('.mat'):
+        from pylearn2.models.dbm import load_matlab_dbm
+        model = load_matlab_dbm(sys.argv[1])
+        model.dataset_yaml_src = "!obj:pylearn2.datasets.mnist.MNIST { which_set : 'train' }"
+    else:
+        model = serial.load(sys.argv[1])
     dataset_yaml_src = model.dataset_yaml_src
     try:
         l1 = model.s3c
@@ -50,7 +55,7 @@ imgs = dataset.get_weights_view(W1.T)
 N1 = l1.nhid
 N = l2.nhid
 
-N = min(N,1000)
+N = min(N,10)
 
 thresh = .9
 max_count = 0
