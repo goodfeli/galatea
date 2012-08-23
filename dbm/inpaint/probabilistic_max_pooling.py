@@ -78,6 +78,16 @@ def max_pool(z, pool_shape):
     #could also do this using the stuff in theano.sandbox.neighbours
     #might want to benchmark the two approaches, see how each does on speed/memory
     #on cpu and gpu
+    #note: actually theano.sandbox.neighbours is probably a bad idea. it treats
+    #the images as being one channel, and emits all channels and positions into
+    #a 2D array. so I'd need to index each channel separately and join the channels
+    #back together, with a reshape. I expect joining num_channels is more expensive
+    #then incsubtensoring pool_rows*pool_cols, simply because we tend to have small
+    #pooling regions and a lot of channels, but I guess this worth testing.
+    #actually I might be able to do it fast with reshape-see galatea/cond/neighbs.py
+    #however, at some point the grad for this was broken. check that calling grad
+    #on images2neibs doesn't raise an exception before sinking too much time
+    #into this.
     #here I stabilized the softplus with 4 calls to T.maximum and 5 elemwise
     #subs. this is 10% slower than the unstable version, and the gradient
     #is 40% slower. on GPU both the forward prop and backprop are more like
