@@ -30,7 +30,7 @@ def max_pool_python(z, pool_shape):
     return p, h
 
 
-def max_pool_raw(z, pool_shape):
+def max_pool_raw_graph(z, pool_shape):
     #random max pooling implemented with set_subtensor
     #could also do this using the stuff in theano.sandbox.neighbours
     #might want to benchmark the two approaches, see how each does on speed/memory
@@ -73,7 +73,7 @@ def max_pool_raw(z, pool_shape):
 
     return p, h
 
-def max_pool(z, pool_shape):
+def max_pool_stable_graph(z, pool_shape):
     #random max pooling implemented with set_subtensor
     #could also do this using the stuff in theano.sandbox.neighbours
     #might want to benchmark the two approaches, see how each does on speed/memory
@@ -102,6 +102,8 @@ def max_pool(z, pool_shape):
     #return T.nnet.sigmoid(z[:,0:z.shape[1]/pool_shape[0],0:z.shape[2]/pool_shape[1],:]), T.nnet.sigmoid(z)
 
     z_name = z.name
+    if z_name is None:
+        z_name = 'anon_z'
 
     batch_size, zr, zc, ch = z.shape
 
@@ -115,13 +117,17 @@ def max_pool(z, pool_shape):
         zpart.append([])
         for j in xrange(c):
             cur_part = z[:,i:zr:r,j:zc:c,:]
-            cur_part.name = z_name + '[%d,%d]' % (i,j)
+            if z_name is not None:
+                cur_part.name = z_name + '[%d,%d]' % (i,j)
             zpart[i].append( cur_part )
             if mx is None:
                 mx = T.maximum(0.,cur_part)
-                mx.name = 'max(0,'+cur_part.name+')'
+                if cur_part.name is not None:
+                    mx.name = 'max(0,'+cur_part.name+')'
             else:
-                mx_name = 'max('+cur_part.name+','+mx.name+')'
+                max_name = None
+                if cur_part.name is not None:
+                    mx_name = 'max('+cur_part.name+','+mx.name+')'
                 mx = T.maximum(mx,cur_part)
                 mx.name = mx_name
     mx.name = 'local_max('+z_name+')'
@@ -164,7 +170,81 @@ def max_pool(z, pool_shape):
 
     return p, h
 
+def max_pool(z, pool_shape):
+    #random max pooling implemented with set_subtensor
+    #could also do this using the stuff in theano.sandbox.neighbours
+    #might want to benchmark the two approaches, see how each does on speed/memory
+    #on cpu and gpu
+    #note: actually theano.sandbox.neighbours is probably a bad idea. it treats
+    #the images as being one channel, and emits all channels and positions into
+    #a 2D array. so I'd need to index each channel separately and join the channels
+    #back together, with a reshape. I expect joining num_channels is more expensive
+    #then incsubtensoring pool_rows*pool_cols, simply because we tend to have small
+    #pooling regions and a lot of channels, but I guess this worth testing.
+    #actually I might be able to do it fast with reshape-see galatea/cond/neighbs.py
+    #however, at some point the grad for this was broken. check that calling grad
+    #on images2neibs doesn't raise an exception before sinking too much time
+    #into this.
+    #here I stabilized the softplus with 4 calls to T.maximum and 5 elemwise
+    #subs. this is 10% slower than the unstable version, and the gradient
+    #is 40% slower. on GPU both the forward prop and backprop are more like
+    #100% slower!
+    #might want to dry doing a reshape, a T.nnet.softplus, and a reshape
+    #instead
+    #another way to implement the stabilization is with the max pooling operator
+    #(you'd still need to do maximum with 0)
+
+
+    #timing hack
+    #return T.nnet.sigmoid(z[:,0:z.shape[1]/pool_shape[0],0:z.shape[2]/pool_shape[1],:]), T.nnet.sigmoid(z)
+
+    z_name = z.name
+    if z_name is None:
+        z_name = 'anon_z'
+
+    batch_size, zr, zc, ch = z.shape
+
+    r, c = pool_shape
+
+    flat_z = []
+
+    for i in xrange(r):
+        for j in xrange(c):
+            cur_part = z[:,i:zr:r,j:zc:c,:]
+            assert cur_part.ndim == 4
+            if z_name is not None:
+                cur_part.name = z_name + '[%d,%d]' % (i,j)
+            flat_z.append( cur_part.dimshuffle(0,1,2,3,'x') )
+
+    flat_z.append(T.zeros_like(flat_z[-1]))
+
+    stacked_z = T.concatenate( flat_z, axis = 4)
+
+    batch_size, rows, cols, channels, outcomes = stacked_z.shape
+    reshaped_z = stacked_z.reshape((batch_size * rows * cols * channels, outcomes))
+
+    dist = T.nnet.softmax(reshaped_z)
+
+    dist = dist.reshape((batch_size, rows, cols, channels, outcomes))
+
+    p = 1. - dist[:,:,:,:,len(flat_z)-1]
+    p.name = 'p(%s)' % z_name
+
+    h = T.alloc(0., batch_size, zr, zc, ch)
+
+    idx = 0
+    for i in xrange(r):
+        for j in xrange(c):
+            h = T.set_subtensor(h[:,i:zr:r,j:zc:c,:],
+                    dist[:,:,:,:,idx])
+            idx += 1
+
+    h.name = 'h(%s)' % z_name
+
+    return p, h
+
 def check_correctness(f):
+    print 'checking correctness of',f
     rng = np.random.RandomState([2012,7,19])
     batch_size = 5
     rows = 32
@@ -195,6 +275,7 @@ def check_correctness(f):
     print 'Correct'
 
 def profile(f):
+    print 'profiling ',f
     rng = np.random.RandomState([2012,7,19])
     batch_size = 80
     rows = 26
@@ -230,6 +311,7 @@ def profile(f):
     print 'final: ',sum(results)/float(trials)
 
 def profile_grad(f):
+    print 'profiling gradient of ',f
     rng = np.random.RandomState([2012,7,19])
     batch_size = 80
     rows = 26
@@ -265,10 +347,14 @@ def profile_grad(f):
 
 if __name__ == '__main__':
     check_correctness(max_pool)
+    check_correctness(max_pool_raw_graph)
+    check_correctness(max_pool_stable_graph)
+    profile(max_pool_raw_graph)
+    profile(max_pool_stable_graph)
     profile(max_pool)
-    profile(max_pool_raw)
+    profile_grad(max_pool_raw_graph)
+    profile_grad(max_pool_stable_graph)
     profile_grad(max_pool)
-    profile_grad(max_pool_raw)
 
 
 
