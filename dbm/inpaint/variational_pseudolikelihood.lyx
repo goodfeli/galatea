@@ -1,0 +1,635 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Basic idea
+\end_layout
+
+\begin_layout Standard
+Typically we use deterministic approximations like variational inference
+ to get around intractable posteriors, and sampling-based approximations
+ to to get around intractable partition functions.
+ What if we used a deterministic approximation for both?
+\end_layout
+
+\begin_layout Standard
+Here I try to use pseudolikelihood to get around the intractable partition
+ function and variational inference to get around the intractable posterior.
+\end_layout
+
+\begin_layout Section
+Review of variational
+\end_layout
+
+\begin_layout Standard
+Variational inference is based on the decomposition
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\log p(v)=L(q(h))+KL(q(h)\Vert p(h\mid v))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+L(q(h))=\int q(h)\log\frac{p(v,h)}{q(h)}dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+KL(q(h)\Vert p(h\mid v)=\int q(h)\log\frac{q(h)}{p(h\mid v)}dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Just to be sure I understand everything, I want to try verifying this myself:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\int q(h)\log\frac{p(v,h)}{q(h)}dh+\int q(h)\log\frac{q(h)}{p(h\mid v)}dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(v,h)dh-\int q(h)\log q(h)dh+\int q(h)\log q(h)dh-\int q(h)\log p(h\mid v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(v,h)dh-\int q(h)\log p(h\mid v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(h\mid v)p(v)dh-\int q(h)\log p(h\mid v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(h\mid v)dh+\int q(h)\log p(v)dh-\int q(h)\log p(h\mid v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\log p(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Pseudolikelihood
+\end_layout
+
+\begin_layout Standard
+In the kinds of models I consider, there generally won't be any marginal
+ independence between the elements of 
+\begin_inset Formula $v$
+\end_inset
+
+, so the pseudolikelihood will be based on a product of all the terms:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+s(\theta)=\Pi_{i}p(v_{i}\mid v_{-i};\theta)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\log s(\theta)=\sum_{i}\log p(v_{i}\mid v_{-i};\theta)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Variational pseudolikelihood bound
+\end_layout
+
+\begin_layout Standard
+I think that
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\log p(v_{i}\mid v_{-i})=L(q(h))+KL(q(h)\Vert p(h\mid v))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+L(q(h))=\int q(h)\log\frac{p(v_{i},h\mid v_{-i})}{q(h)}dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let's verify this:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\int q(h)\log\frac{p(v_{i},h\mid v_{-i})}{q(h)}dh+\int q(h)\log\frac{q(h)}{p(h\mid v)}dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(v_{i},h\mid v_{-i})dh-\int q(h)\log q(h)dh+\int q(h)\log q(h)dh-\int q(h)\log p(h\mid v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(v_{i},h\mid v_{-i})dh-\int q(h)\log p(h\mid v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(h\mid v)p(v_{i}\mid v_{-i})dh-\int q(h)\log p(h\mid v)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(v_{i}\mid v_{-i})dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\log p(v_{i}\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+OK, so this bound is correct.
+ Also, note that the proof never assumes 
+\begin_inset Formula $i$
+\end_inset
+
+ is just one index; this works for any subset of variables.
+\end_layout
+
+\begin_layout Section
+Bounding the bound
+\end_layout
+
+\begin_layout Standard
+Unfortunately, 
+\begin_inset Formula $L(q(h))$
+\end_inset
+
+ isn't tractable anymore, because we have to run inference on 
+\begin_inset Formula $v_{-i}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+L(q(h))=\int q(h)\log\frac{p(v_{i},h\mid v_{-i})}{q(h)}dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int q(h)\log p(v_{i},h\mid v_{-i})dh-\int q(h)\log q(h)dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let's consider the first term only:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\int q(h)\log p(v_{i},h\mid v_{-i})dh=\int q(h)\log\frac{p(v,h)}{p(v_{-i})}dh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So overall
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+L(q(h))=\int q(h)\log p(v,h)dh-\log p(v_{-i})-\int q(h)\log q(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+All we've done is get the old variational bound back, and stuck a
+\begin_inset Formula $-\log p(v_{-i})$
+\end_inset
+
+ in it.
+\end_layout
+
+\begin_layout Standard
+Decomposing 
+\begin_inset Formula $-\log p(v_{-i})$
+\end_inset
+
+ into L and KL isn't helpful, there will be a minus sign on both terms so
+ we can't just discard the KL term to obtain a lower bound on the likelihood
+ as before.
+ Instead we'd get an upper bound.
+\end_layout
+
+\begin_layout Standard
+Does our work so far buy us anything at all?
+\end_layout
+
+\begin_layout Standard
+Well, it makes the partition functions cancel:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+L(q(h))=\int q(h)\log\frac{1}{Z}\exp\left(-E(v,h)\right)dh-\log\frac{1}{Z}\int\exp\left(-E(v,h)\right)dv_{i}dh-\int q(h)\log q(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\int q(h)E(v,h)dh-\log\int\exp\left(-E(v,h)\right)dv_{i}dh-\int q(h)\log q(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Interesting side observation: suppose 
+\begin_inset Formula $v$
+\end_inset
+
+ is D-dimensional.
+ Then the total variational pseudolikelihood is going to be 
+\begin_inset Formula $D$
+\end_inset
+
+ times the variational pseudolikelihood, but replacing 
+\begin_inset Formula $-D\log Z$
+\end_inset
+
+ with 
+\begin_inset Formula $-\sum_{i=1}^{D}\log\int\exp(-E(v,h))dv_{i}dh$
+\end_inset
+
+.
+ ie, we're replacing the log of a volume integral with the average log of
+ 
+\begin_inset Formula $D$
+\end_inset
+
+ different univariate integrals.
+ That this happens to the partition function doesn't really surprise me
+ given how pseudolikelihood is set up.
+ I guess the part that surprises me is that the pseudolikelihood only changes
+ the negative phase.
+ I wonder if that happens with straight up pseudolikelihood, or if this
+ is a side effect of me using the variational bound.
+ Wait, doesn't this also mean that for discrete variables the replacement
+ for the partition function will be way too small? If 
+\begin_inset Formula $v_{i}$
+\end_inset
+
+ has k values then we'll average together 
+\begin_inset Formula $D$
+\end_inset
+
+ logs, each log being of a sum of 
+\begin_inset Formula $k$
+\end_inset
+
+ terms, and use this to replace a log of a sum of 
+\begin_inset Formula $k^{D}$
+\end_inset
+
+terms.
+\end_layout
+
+\begin_layout Section
+A bad variational scheme for RBMs
+\end_layout
+
+\begin_layout Standard
+Divide 
+\begin_inset Formula $v$
+\end_inset
+
+ into 
+\begin_inset Formula $v_{1}$
+\end_inset
+
+ and 
+\begin_inset Formula $v_{2}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\log P(v_{1}\mid v_{2})+\log P(v_{2}\mid v_{1})=2\log P(v)-\log P(v_{1})-\log P(v_{2})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=2\log P(v)-\sum_{i=1}^{2}[L_{i}(Q_{i},v_{i})+KL(Q_{i}||P(v_{-i},h|v_{i})]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Suppose we obtain 
+\begin_inset Formula $Q_{i}$
+\end_inset
+
+ by minimizing the corresponding KL term, and then arbitrarily throw out
+ the KL term and train on
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+2\log P(v)-\sum_{i=1}^{2}L_{i}(Q_{i},v_{i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=2\log P(v)-\sum_{i=1}^{2}\sum_{h}\sum_{v_{-i}}q_{i}(h,v_{-i})\log\frac{p(v,h)}{q_{i}(h,v_{-i})}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=2\log P(v)-\sum_{i=1}^{2}\sum_{h}\sum_{v_{-i}}q_{i}(h,v_{-i})\log p(v,h)+\sum_{i=1}^{2}\sum_{h}\sum_{v_{-i}}q_{i}(h,v_{-i})\log q_{i}(h,v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Look at the term on the right.
+ We actually want to minimize the entropy of the latent variables (both
+ 
+\begin_inset Formula $h$
+\end_inset
+
+ and the inpainted visible units) when doing inpainting.
+\end_layout
+
+\begin_layout Standard
+The partition functions cancel:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-2F(v)+\sum_{i=1}^{2}\sum_{h}\sum_{v_{-i}}q_{i}(h,v_{-i})E(v,h)+\sum_{i=1}^{2}\sum_{h}\sum_{v_{-i}}q_{i}(h,v_{-i})\log q_{i}(h,v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is implemented as dbm_inpaint.py:RBM_Bad_Variational, and it doesn't
+ work at all, whether I backprop through q or not.
+\end_layout
+
+\end_body
+\end_document

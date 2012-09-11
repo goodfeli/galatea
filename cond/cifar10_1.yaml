@@ -1,0 +1,51 @@
+work in progress, need to figure out how to set it up to monitor test error
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                which_set : 'train',
+                gcn: 55.
+                        },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 100,
+              niter: 1, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
+                rows: 32,
+                cols: 32,
+                channels: 3,
+                init_beta: 1.,
+                init_mu: 0.
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                        output_channels: 30,
+                        kernel_rows: 7,
+                        kernel_cols: 7,
+                        pool_rows: 2,
+                        pool_cols: 2,
+                        irange: .05,
+                        layer_name: 'h0',
+                        init_bias: -2.
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                        output_channels: 100,
+                        kernel_rows: 4,
+                        kernel_cols: 4,
+                        pool_rows: 2,
+                        pool_cols: 2,
+                        irange: .01,
+                        layer_name: 'h1',
+                        init_bias: -3.
+               },
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.ExhaustiveSGD {
+               learning_rate : 1.,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               cost : !obj:galatea.cond.cost.TrainingCost {
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_NAME}.pkl",
+    save_freq : 1
+}
+
