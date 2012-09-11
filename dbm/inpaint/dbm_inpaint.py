@@ -1,9 +1,11 @@
 from pylearn2.costs.cost import UnsupervisedCost
+import theano
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import theano.tensor as T
 from theano.printing import Print
 import numpy as np
 import warnings
+from galatea.theano_upgrades import block_gradient
 
 class DBM_Inpaint_Binary(UnsupervisedCost):
     def __init__(self,
@@ -99,6 +101,8 @@ class DBM_Inpaint_Binary(UnsupervisedCost):
             X_hat = X * (1-drop_mask) + drop_mask * T.nnet.sigmoid(dbm.bias_vis)
         else:
             X_hat = X * (1-drop_mask) + drop_mask * dbm.bias_vis
+
+        X_hat = block_gradient(X_hat)
 
         H_hat = ip.infer_H_hat_one_sided(
                     other_H_hat = X_hat,
