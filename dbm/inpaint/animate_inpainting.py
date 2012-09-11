@@ -7,6 +7,7 @@ import theano.tensor as T
 from theano import function
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
+from galatea.ui import get_choice
 
 ignore, model_path = sys.argv
 m = 10
@@ -57,9 +58,10 @@ for elem in history:
 
 f = function([X],outputs)
 
-
-if model.dataset_yaml_src.find('train') != -1:
-    print 'test hack'
+print 'use test set?'
+choice = get_choice({ 'y' : 'yes', 'n' : 'no' })
+if choice == 'y':
+    assert model.dataset_yaml_src.find('train') != -1
     model.dataset_yaml_src = model.dataset_yaml_src.replace('train','test')
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
