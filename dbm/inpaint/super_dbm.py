@@ -1,4 +1,5 @@
 from pylearn2.models.model import Model
+import theano
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
 from pylearn2.utils import sharedX
@@ -8,6 +9,7 @@ import numpy as np
 from galatea.dbm.inpaint.probabilistic_max_pooling import max_pool
 from theano.gof.op import get_debug_values
 from theano.printing import Print
+from galatea.theano_upgrades import block_gradient
 import warnings
 
 class SuperDBM(Model):
@@ -68,11 +70,11 @@ class SuperDBM(Model):
     def get_weights_topo(self):
         return self.hidden_layers[0].get_weights_topo()
 
-    def do_inpainting(self, V, drop_mask, return_history = False):
+    def do_inpainting(self, V, drop_mask, return_history = False, noise = False):
 
         history = []
 
-        V_hat = self.visible_layer.init_inpainting_state(V,drop_mask)
+        V_hat = self.visible_layer.init_inpainting_state(V,drop_mask,noise)
 
         H_hat = []
         for i in xrange(0,len(self.hidden_layers)-1):
@@ -199,11 +201,41 @@ class SuperDBM(Model):
         else:
             return H_hat
 
+    def make_layer_to_state(self, num_examples):
+
+        """ Makes and returns a dictionary mapping layers to states.
+            By states, we mean here a real assignment, not a mean field state.
+            For example, for a layer containing binary random variables, the
+            state will be a shared variable containing values in {0,1}, not
+            [0,1].
+            The visible layer will be included.
+            Uses a dictionary so it is easy to unambiguously index a layer
+            without needing to remember rules like vis layer = 0, hiddens start
+            at 1, etc.
+        """
+
+        # Make a list of all layers
+        layers = [self.visible_layer] + self.hidden_layers
+
+        rng = np.random.RandomState([2012,9,11])
+
+        states = [ layer.make_state(num_examples, rng) for layer in layers ]
+
+        rval = dict(zip(layers, states))
+
 
 class SuperDBM_Layer(Model):
 
     def upward_state(self, total_state):
         return total_state
+
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+
+        raise NotImplementedError("%s doesn't implement make_state" %
+                type(self))
 
 class SuperDBM_HidLayer(SuperDBM_Layer):
 
@@ -233,7 +265,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         if self.beta in updates:
             updates[self.beta] = T.clip(updates[self.beta],1.,1e6)
 
-    def init_inpainting_state(self, V, drop_mask):
+    def init_inpainting_state(self, V, drop_mask, noise = False):
 
         """for Vv, drop_mask_v in get_debug_values(V, drop_mask):
             assert Vv.ndim == 4
@@ -246,6 +278,14 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         """
 
         masked_mu = self.mu * drop_mask
+        masked_mu = block_gradient(masked_mu)
+
+        if noise:
+            theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
+            masked_mu += theano_rng.normal(avg = 0.,
+                    std = 1., size = masked_mu.shape,
+                    dtype = masked_mu.dtype)
+
         masked_V  = V  * (1-drop_mask)
         rval = masked_mu + masked_V
         return rval
@@ -279,6 +319,24 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         upward_state = V * self.beta
         return upward_state
 
+    def make_state(self, num_examples, numpy_rng):
+
+        rows, cols = self.space.shape
+        channels = self.space.nchannels
+
+        sample = numpy_rng.randn(num_examples, rows, cols, channels)
+
+        sample *= 1./np.sqrt(self.beta.get_value())
+        sample += self.mu.get_value()
+
+        rval = sharedX(sample)
+
+        return rval
+
+
+
+
+
 class ConvMaxPool(SuperDBM_HidLayer):
     def __init__(self,
             output_channels,
@@ -288,11 +346,13 @@ class ConvMaxPool(SuperDBM_HidLayer):
             pool_cols,
             irange,
             layer_name,
-            init_bias = 0.):
+            init_bias = 0.,
+            border_mode = 'valid'):
         self.__dict__.update(locals())
         del self.self
 
         self.b = sharedX( np.zeros((output_channels,)) + init_bias, name = layer_name + '_b')
+        assert border_mode in ['full','valid']
 
     def set_input_space(self, space):
         assert isinstance(space, Conv2DSpace)
@@ -313,7 +373,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         self.transformer = make_random_conv2D(self.irange, input_space = space,
                 output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
-                batch_size = self.dbm.batch_size)
+                batch_size = self.dbm.batch_size, border_mode = self.border_mode)
         self.transformer._filters.name = self.layer_name + '_W'
         W ,= self.transformer.get_params()
         assert W.name is not None
@@ -340,7 +400,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
             state_below = 2. * state_below
             state_below.name = self.layer_name + '_'+iter_name + '_2state'
         z = self.transformer.lmul(state_below) + self.b
-        z.name = self.layer_name + '_' + iter_name + '_z'
+        if self.layer_name is not None and iter_name is not None:
+            z.name = self.layer_name + '_' + iter_name + '_z'
         p,h = max_pool(z, (self.pool_rows, self.pool_cols))
 
         return p, h

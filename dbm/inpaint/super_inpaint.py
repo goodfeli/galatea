@@ -14,6 +14,8 @@ in the max pooling into a unit test, etc.""")
 class SuperInpaint(UnsupervisedCost):
     def __init__(self,
                     mask_gen = None,
+                    noise = False,
+                    both_directions = False
                     #inpaint_penalty = 1.,
                     #weight_decay = None,
                     #balance = False,
@@ -73,6 +75,13 @@ class SuperInpaint(UnsupervisedCost):
         rval['g_range_max'] = g_range.max()
         """
 
+        hist = self(model, X, drop_mask, True)
+
+        for ii, state in enumerate(hist):
+            print state
+            rval['obj_after_' + str(ii)] = self.cost_from_state(state,
+                    model, X, drop_mask)
+
         return rval
 
     def __call__(self, model, X, drop_mask = None, return_locals = False):
@@ -96,20 +105,46 @@ class SuperInpaint(UnsupervisedCost):
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        history = dbm.do_inpainting(X, drop_mask, return_history = True)
+        if not hasattr(self,'noise'):
+            self.noise = False
+
+        history = dbm.do_inpainting(X, drop_mask, return_history = True, noise = self.noise)
 
         final_state = history[-1]
 
-        V_hat = final_state['V_hat']
-
-        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat, drop_mask)
-
-        total_cost = inpaint_cost
+        total_cost = self.cost_from_state(final_state, dbm, X, drop_mask)
 
         if return_locals:
             return locals()
 
         return total_cost
+
+    def cost_from_state(self, state, dbm, X, drop_mask):
+
+        V_hat = state['V_hat']
+
+        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat, drop_mask)
+
+        if not hasattr(self, 'both_directions'):
+            self.both_directions = False
+
+        if self.both_directions:
+            new_drop_mask = 1. - drop_mask
+
+            new_history = dbm.do_inpainting(X, new_drop_mask, return_history = True, noise = self.noise)
+
+            new_final_state = new_history[-1]
+
+            new_V_hat = new_final_state['V_hat']
+
+            new_inpaint_cost = dbm.visible_layer.recons_cost(X, new_V_hat, new_drop_mask)
+            inpaint_cost = 0.5 * inpaint_cost + 0.5 * new_inpaint_cost
+
+        total_cost = inpaint_cost
+
+
+        return total_cost
+
 
 class MaskGen:
     def __init__(self, drop_prob, balance, sync_channels = True):
