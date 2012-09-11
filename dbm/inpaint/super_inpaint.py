@@ -75,10 +75,9 @@ class SuperInpaint(UnsupervisedCost):
         rval['g_range_max'] = g_range.max()
         """
 
-        hist = self(model, X, drop_mask, True)
+        hist = self(model, X, drop_mask, return_locals = True)['history']
 
         for ii, state in enumerate(hist):
-            print state
             rval['obj_after_' + str(ii)] = self.cost_from_state(state,
                     model, X, drop_mask)
 
