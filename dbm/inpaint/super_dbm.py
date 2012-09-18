@@ -147,7 +147,6 @@ class SuperDBM(Model):
 
     def mf(self, V, return_history = False):
 
-
         H_hat = []
         for i in xrange(0,len(self.hidden_layers)-1):
             #do double weights update for_layer_i
@@ -234,10 +233,140 @@ class SuperDBM(Model):
 
         return rval
 
+    def get_sampling_updates(self, layer_to_state, theano_rng):
+        """
+            layer_to_state: a dictionary mapping the SuperDBM_Layer instances
+                            contained in self to shared variables representing
+                            batches of samples of them.
+                            (you can allocate one by calling
+                            self.make_layer_to_state)
+            theano_rng: a MRG_RandomStreams object
+            returns a dictionary mapping each shared variable to an expression
+                     to update it. Repeatedly applying these updates does MCMC
+                     sampling.
+        """
+
+        assert len(self.hidden_layers) > 0 # I guess we could make a model with
+                                           # no latent layers if we really want
+
+        rval = {}
+
+        #Sample the visible layer
+
+        state_above = layer_to_state[self.hidden_layers[0]]
+        state_above = self.hidden_layers[0].downward_state(state_above)
+
+        vis_sample = self.visible_layer.get_sampling_updates(
+                state_above = state_above,
+                theano_rng = theano_rng)
+
+        vis_state = layer_to_state[self.visible_layer]
+
+        if isinstance(vis_state, (list, tuple)):
+            for state, sample in zip(vis_state, vis_sample):
+                rval[state] = sample
+        else:
+            rval[vis_state] = vis_sample
+
+        for i in xrange(len(self.hidden_layers)):
+            # Iteration i does the Gibbs step for hidden_layers[i]
+
+            # Get the sampled state of the layer below so we can condition
+            # on it in our Gibbs update
+            if i == 0:
+                layer_below = self.visible_layer
+            else:
+                layer_below = self.hidden_layers[i-1]
+
+            state_below = rval[layer_below]
+            # We want to sample from each conditional distribution
+            # ***sequentially*** so we must use the updated version
+            # of the state for the layers whose updates we have
+            # calculcated already. If we used the raw value from
+            # layer_to_state
+            # then we would sample from each conditional
+            # ***simultaneously*** which does not implement MCMC
+            # sampling.
+            if isinstance(state_below, (list,tuple)):
+                state_below = tuple(
+                        [rval[old_state] for old_state in state_below])
+            else:
+                state_below = rval[state_below]
+
+            state_below = layer_below.upward_state(state_below)
+
+            # Get the sampled state of the layer above so we can condition
+            # on it in our Gibbs step
+            if i + 1 < len(self.hidden_layers):
+                layer_above = self.hidden_layers[i + 1]
+                state_above = layer_to_state[layer_above]
+                state_above = layer_above.downward_state(state_above)
+            else:
+                state_above = None
+
+            # Compute the Gibbs sampling update
+            # Sample the state of this layer conditioned
+            # on its Markov blanket (the layer above and
+            # layer below)
+            this_layer = self.hidden_layers[i]
+            this_sample = this_layer.get_sampling_updates(
+                    state_below = state_below,
+                    state_above = state_above,
+                    theano_rng = theano_rng)
+
+            # Store the update in the dictionary, accounting for
+            # composite states
+            this_state = layer_to_state[this_layer]
+            if isinstance(this_state, (list, tuple)):
+                for state, sample in zip(this_state, this_sample):
+                    rval[state] = sample
+            else:
+                rval[this_state] = this_sample
+
+        # Check that we updated all the samples
+        states = set()
+        for layer in layer_to_state:
+            state_s = layer_to_state[layer]
+            if isinstance(state_s, (list,tuple)):
+                for state in state_s:
+                    assert state in rval
+                states.add(state)
+            else:
+                assert state_s in rval
+                states.add(state_s)
+        # Check that we're not trying to update anything else
+        for state in rval:
+            assert state in states
+
+        return rval
+
 
 class SuperDBM_Layer(Model):
 
     def upward_state(self, total_state):
+        """
+            Takes total_state and turns it into the state that layer_above should
+            see when computing P( layer_above | this_layer).
+
+            So far this has two uses:
+                If this layer consists of a detector sub-layer h that is pooled
+                into a pooling layer p, then total_state = (p,h) but
+                layer_above should only see p.
+
+                If the conditional P( layer_above | this_layer) depends on
+                parameters of this_layer, sometimes you can play games with
+                the state to avoid needing the layers to communicate. So far
+                the only instance of this usage is when the visible layer
+                is N( Wh, beta). This makes the hidden layer be
+                sigmoid( v beta W + b). Rather than having the hidden layer
+                explicitly know about beta, we can just pass v beta as
+                the upward state.
+
+            Note: this method should work both for computing sampling updates
+            and for computing mean field updates. So far I haven't encountered
+            a case where it needs to do different things for those two
+            contexts.
+        """
         return total_state
 
     def make_state(self, num_examples, numpy_rng):
@@ -246,6 +375,30 @@ class SuperDBM_Layer(Model):
         """
 
         raise NotImplementedError("%s doesn't implement make_state" %
+                type(self))
+
+    def get_sampling_updates(self, state_below = None, state_above = None,
+            theano_rng = None):
+        """
+
+            state_below is layer_below.upward_state(full_state_below)
+            where full_state_below is the same kind of object as you get
+            out of layer_below.make_state
+
+            state_above is layer_above.downward_state(full_state_above)
+
+            theano_rng is an MRG_RandomStreams instance
+
+            Returns an expression for samples of this layer's state,
+            conditioned on the layers above and below
+            Should be valid as an update to the shared variable returned
+            by self.make_state
+
+            Note: this can return multiple expressions if this layer's
+            total state consists of more than one shared variable
+        """
+
+        raise NotImplementedError("%s doesn't implement get_sampling_updates" %
                 type(self))
 
 class SuperDBM_HidLayer(SuperDBM_Layer):
@@ -460,16 +613,23 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         h_state = sharedX( default_h)
 
+        t2 = time.time()
+
         f = function([default_h_theano], updates = {
             p_state : p_sample,
             h_state : h_sample
             })
 
+        t3 = time.time()
+
         f(default_h)
 
-        t2 = time.time()
+        t4 = time.time()
 
-        print str(self)+'.make_state took',t2-t1
+        print str(self)+'.make_state took',t4-t1
+        print '\tcompose time:',t2-t1
+        print '\tcompile time:',t3-t2
+        print '\texecute time:',t4-t3
 
         return p_state, h_state
 
