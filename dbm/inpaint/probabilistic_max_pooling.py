@@ -4,6 +4,8 @@ from theano import config
 from theano import function
 import time
 from pylearn2.utils import sharedX
+from theano.printing import Print
+from theano.sandbox.rng_mrg import MRG_RandomStreams
 
 def max_pool_python(z, pool_shape):
 
@@ -73,7 +75,7 @@ def max_pool_raw_graph(z, pool_shape):
 
     return p, h
 
-def max_pool_stable_graph(z, pool_shape):
+def max_pool_stable_graph(z, pool_shape, theano_rng = None):
     #random max pooling implemented with set_subtensor
     #could also do this using the stuff in theano.sandbox.neighbours
     #might want to benchmark the two approaches, see how each does on speed/memory
@@ -153,7 +155,8 @@ def max_pool_stable_graph(z, pool_shape):
             denom = denom + pt[i][j]
     denom.name = 'denom(%s)' % z_name
 
-    p = 1. - off_pt / denom
+    off_prob = off_pt / denom
+    p = 1. - off_prob
     p.name = 'p(%s)' % z_name
 
     hpart = []
@@ -168,9 +171,115 @@ def max_pool_stable_graph(z, pool_shape):
 
     h.name = 'h(%s)' % z_name
 
+    if theano_rng is None:
+        return p, h
+    else:
+        events = []
+        for i in xrange(r):
+            for j in xrange(c):
+                events.append(hpart[i][j])
+        events.append(off_prob)
+
+        events = [ event.dimshuffle(0,1,2,3,'x') for event in events ]
+
+        events = tuple(events)
+
+        stacked_events = T.concatenate( events, axis = 4)
+
+        batch_size, rows, cols, channels, outcomes = stacked_events.shape
+        reshaped_events = stacked_events.reshape((batch_size * rows * cols * channels, outcomes))
+
+        multinomial = theano_rng.multinomial(pvals = reshaped_events, dtype = p.dtype)
+
+        reshaped_multinomial = multinomial.reshape((batch_size, rows, cols, channels, outcomes))
+
+        h_sample = T.alloc(0., batch_size, zr, zc, ch)
+
+        idx = 0
+        for i in xrange(r):
+            for j in xrange(c):
+                h_sample = T.set_subtensor(h_sample[:,i:zr:r,j:zc:c,:],
+                        reshaped_multinomial[:,:,:,:,idx])
+                idx += 1
+
+        p_sample = 1 - reshaped_multinomial[:,:,:,:,-1]
+
+        return p, h, p_sample, h_sample
+
+def max_pool_softmax_with_bias_op(z, pool_shape):
+    #random max pooling implemented with set_subtensor
+    #could also do this using the stuff in theano.sandbox.neighbours
+    #might want to benchmark the two approaches, see how each does on speed/memory
+    #on cpu and gpu
+    #note: actually theano.sandbox.neighbours is probably a bad idea. it treats
+    #the images as being one channel, and emits all channels and positions into
+    #a 2D array. so I'd need to index each channel separately and join the channels
+    #back together, with a reshape. I expect joining num_channels is more expensive
+    #then incsubtensoring pool_rows*pool_cols, simply because we tend to have small
+    #pooling regions and a lot of channels, but I guess this worth testing.
+    #actually I might be able to do it fast with reshape-see galatea/cond/neighbs.py
+    #however, at some point the grad for this was broken. check that calling grad
+    #on images2neibs doesn't raise an exception before sinking too much time
+    #into this.
+    #here I stabilized the softplus with 4 calls to T.maximum and 5 elemwise
+    #subs. this is 10% slower than the unstable version, and the gradient
+    #is 40% slower. on GPU both the forward prop and backprop are more like
+    #100% slower!
+    #might want to dry doing a reshape, a T.nnet.softplus, and a reshape
+    #instead
+    #another way to implement the stabilization is with the max pooling operator
+    #(you'd still need to do maximum with 0)
+
+
+    #timing hack
+    #return T.nnet.sigmoid(z[:,0:z.shape[1]/pool_shape[0],0:z.shape[2]/pool_shape[1],:]), T.nnet.sigmoid(z)
+
+    z_name = z.name
+    if z_name is None:
+        z_name = 'anon_z'
+
+    batch_size, zr, zc, ch = z.shape
+
+    r, c = pool_shape
+
+    flat_z = []
+
+    for i in xrange(r):
+        for j in xrange(c):
+            cur_part = z[:,i:zr:r,j:zc:c,:]
+            assert cur_part.ndim == 4
+            if z_name is not None:
+                cur_part.name = z_name + '[%d,%d]' % (i,j)
+            flat_z.append( cur_part.dimshuffle(0,1,2,3,'x') )
+
+    flat_z.append(T.zeros_like(flat_z[-1]))
+
+    stacked_z = T.concatenate( flat_z, axis = 4)
+
+    batch_size, rows, cols, channels, outcomes = stacked_z.shape
+    reshaped_z = stacked_z.reshape((batch_size * rows * cols * channels, outcomes))
+
+    dist = T.nnet.softmax_with_bias(reshaped_z,T.zeros_like(reshaped_z[0,:]))
+
+    dist = dist.reshape((batch_size, rows, cols, channels, outcomes))
+
+    p = 1. - dist[:,:,:,:,-1]
+    p.name = 'p(%s)' % z_name
+
+    h = T.alloc(0., batch_size, zr, zc, ch)
+
+    idx = 0
+    for i in xrange(r):
+        for j in xrange(c):
+            h = T.set_subtensor(h[:,i:zr:r,j:zc:c,:],
+                    dist[:,:,:,:,idx])
+            idx += 1
+
+    h.name = 'h(%s)' % z_name
+
     return p, h
 
-def max_pool(z, pool_shape):
+def max_pool_softmax_op(z, pool_shape):
     #random max pooling implemented with set_subtensor
     #could also do this using the stuff in theano.sandbox.neighbours
     #might want to benchmark the two approaches, see how each does on speed/memory
@@ -243,6 +352,8 @@ def max_pool(z, pool_shape):
 
     return p, h
 
+max_pool = max_pool_stable_graph
+
 def check_correctness(f):
     print 'checking correctness of',f
     rng = np.random.RandomState([2012,7,19])
@@ -274,6 +385,65 @@ def check_correctness(f):
     assert np.allclose(p_np,pv)
     print 'Correct'
 
+def check_sample_correctishness(f):
+    print 'checking correctness of',f
+    rng = np.random.RandomState([2012,7,19])
+    batch_size = 5
+    rows = 32
+    cols = 30
+    channels = 3
+    pool_rows = 2
+    pool_cols = 3
+    zv = rng.randn( batch_size, rows, cols, channels ).astype(config.floatX)
+
+    z_th = T.TensorType( broadcastable=(False,False,False,False), dtype = config.floatX)()
+    z_th.name = 'z_th'
+
+    theano_rng = MRG_RandomStreams(rng.randint(2147462579))
+    p_th, h_th, p_sth, h_sth = f( z_th, (pool_rows, pool_cols), theano_rng )
+
+    prob_func = function([z_th],[p_th,h_th])
+    pv, hv = prob_func(zv)
+
+    sample_func = function([z_th],[p_sth, h_sth])
+
+    acc_p = 0. * pv
+    acc_h = 0. * hv
+
+    for i in xrange(10000):
+        ps, hs = sample_func(zv)
+
+        assert ps.shape == pv.shape
+        assert hs.shape == hv.shape
+
+        acc_p += ps
+        acc_h += hs
+
+        est_p = acc_p / float(i+1)
+        est_h = acc_h / float(i+1)
+
+        pd = np.abs(est_p-pv)
+        hd = np.abs(est_h-hv)
+
+    # don't really know how tight this should be
+    assert max(pd.max(), hd.max()) < .02
+
+    # Do exhaustive checks on just the last sample
+    assert np.all( (ps ==0) + (ps == 1) )
+    assert np.all( (hs == 0) + (hs == 1) )
+
+    for k in xrange(batch_size):
+        for i in xrange(ps.shape[1]):
+            for j in xrange(ps.shape[2]):
+                for l in xrange(channels):
+                    p = ps[k,i,j,l]
+                    h = hs[k,i*pool_rows:(i+1)*pool_rows,j*pool_cols:(j+1)*pool_cols,l]
+                    assert h.shape == (pool_rows, pool_cols)
+                    assert p == h.max()
+
+
+    print 'Correctish (cant tell if samples are perfectly "correct")'
+
 def profile(f):
     print 'profiling ',f
     rng = np.random.RandomState([2012,7,19])
@@ -293,6 +463,43 @@ def profile(f):
     p_th, h_th = f( z_shared, (pool_rows, pool_cols) )
 
     func = function([],updates = { p_shared : p_th, h_shared : h_th} )
+
+    print 'warming up'
+    for i in xrange(10):
+        func()
+
+    trials = 10
+    results = []
+
+    for i in xrange(trials):
+        t1 = time.time()
+        for j in xrange(10):
+            func()
+        t2 = time.time()
+        print t2 - t1
+        results.append(t2-t1)
+    print 'final: ',sum(results)/float(trials)
+
+def profile_samples(f):
+    print 'profiling samples',f
+    rng = np.random.RandomState([2012,7,19])
+    theano_rng = MRG_RandomStreams(rng.randint(2147462579))
+    batch_size = 80
+    rows = 26
+    cols = 27
+    channels = 30
+    pool_rows = 2
+    pool_cols = 3
+    zv = rng.randn( batch_size, rows, cols, channels ).astype(config.floatX)
+
+    #put the inputs + outputs in shared variables so we don't pay GPU transfer during test
+    p_shared = sharedX(zv[:,0:rows:pool_rows,0:cols:pool_cols,:])
+    h_shared = sharedX(zv)
+    z_shared = sharedX(zv)
+
+    p_th, h_th, ps_th, hs_th = f( z_shared, (pool_rows, pool_cols), theano_rng )
+
+    func = function([],updates = { p_shared : ps_th, h_shared : hs_th} )
 
     print 'warming up'
     for i in xrange(10):
@@ -346,15 +553,20 @@ def profile_grad(f):
     print 'final: ',sum(results)/float(trials)
 
 if __name__ == '__main__':
-    check_correctness(max_pool)
-    check_correctness(max_pool_raw_graph)
+    check_correctness(max_pool_softmax_op)
+    check_correctness(max_pool_softmax_with_bias_op)
+    #check_correctness(max_pool_raw_graph)
     check_correctness(max_pool_stable_graph)
-    profile(max_pool_raw_graph)
+    check_sample_correctishness(max_pool_stable_graph)
+    #profile(max_pool_raw_graph)
     profile(max_pool_stable_graph)
-    profile(max_pool)
+    profile_samples(max_pool_stable_graph)
+    profile(max_pool_softmax_op)
+    profile(max_pool_softmax_with_bias_op)
     profile_grad(max_pool_raw_graph)
     profile_grad(max_pool_stable_graph)
-    profile_grad(max_pool)
+    profile_grad(max_pool_softmax_op)
+    profile_grad(max_pool_softmax_with_bias_op)
 
 
 
