@@ -76,11 +76,30 @@ class SuperInpaint(UnsupervisedCost):
         rval['g_range_max'] = g_range.max()
         """
 
-        hist = self(model, X, drop_mask, return_locals = True)['history']
+        if drop_mask.ndim < X.ndim:
+            if self.mask_gen is not None:
+                assert self.mask_gen.sync_channels
+            if X.ndim != 4:
+                raise NotImplementedError()
+            drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        for ii, state in enumerate(hist):
-            rval['obj_after_' + str(ii)] = self.cost_from_state(state,
-                    model, X, drop_mask)
+        scratch = self(model, X, drop_mask, return_locals = True)
+
+        history = scratch['history']
+        new_history = scratch['new_history']
+        new_drop_mask = scratch['new_drop_mask']
+
+        for ii, packed in enumerate(zip(history, new_history)):
+            state, new_state = packed
+            rval['obj_after_' + str(ii)] = self.cost_from_states(state,
+                    new_state,
+                    model, X, drop_mask, new_drop_mask)
+
+            if ii > 0:
+                prev_state = history[ii-1]
+                V_hat = state['V_hat']
+                prev_V_hat = prev_state['V_hat']
+                rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
 
         return rval
 
@@ -109,17 +128,25 @@ class SuperInpaint(UnsupervisedCost):
             self.noise = False
 
         history = dbm.do_inpainting(X, drop_mask, return_history = True, noise = self.noise)
-
         final_state = history[-1]
 
-        total_cost = self.cost_from_state(final_state, dbm, X, drop_mask)
+        new_drop_mask = None
+        new_history = [ None for state in history ]
+
+        if self.both_directions:
+            new_drop_mask = 1. - drop_mask
+            new_history = dbm.do_inpainting(X, new_drop_mask, return_history = True, noise = self.noise)
+
+        new_final_state = new_history[-1]
+
+        total_cost = self.cost_from_states(final_state, new_final_state, dbm, X, drop_mask, new_drop_mask)
 
         if return_locals:
             return locals()
 
         return total_cost
 
-    def cost_from_state(self, state, dbm, X, drop_mask):
+    def cost_from_states(self, state, new_state, dbm, X, drop_mask, new_drop_mask):
 
         V_hat = state['V_hat']
 
@@ -128,19 +155,15 @@ class SuperInpaint(UnsupervisedCost):
         if not hasattr(self, 'both_directions'):
             self.both_directions = False
 
-        if self.both_directions:
-            new_drop_mask = 1. - drop_mask
+        if new_state is not None:
 
-            new_history = dbm.do_inpainting(X, new_drop_mask, return_history = True, noise = self.noise)
-
-            new_final_state = new_history[-1]
-
-            new_V_hat = new_final_state['V_hat']
+            new_V_hat = new_state['V_hat']
 
             new_inpaint_cost = dbm.visible_layer.recons_cost(X, new_V_hat, new_drop_mask)
             inpaint_cost = 0.5 * inpaint_cost + 0.5 * new_inpaint_cost
 
         total_cost = inpaint_cost
+        total_cost.name = 'total_cost(V_hat = %s)' % V_hat.name
 
 
         return total_cost
