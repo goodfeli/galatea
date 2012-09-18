@@ -11,6 +11,13 @@ from theano.gof.op import get_debug_values
 from theano.printing import Print
 from galatea.theano_upgrades import block_gradient
 import warnings
+from theano import function
+from theano.sandbox.rng_mrg import MRG_RandomStreams
+import time
+
+warnings.warn('super_dbm changing the recursion limit')
+import sys
+sys.setrecursionlimit(50000)
 
 class SuperDBM(Model):
 
@@ -72,6 +79,7 @@ class SuperDBM(Model):
 
     def do_inpainting(self, V, drop_mask, return_history = False, noise = False):
 
+
         history = []
 
         V_hat = self.visible_layer.init_inpainting_state(V,drop_mask,noise)
@@ -116,6 +124,7 @@ class SuperDBM(Model):
                     layer_above = self.hidden_layers[0],
                     V = V,
                     drop_mask = drop_mask)
+            V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
 
             for j in xrange(1,len(H_hat),2):
                 layer_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
@@ -223,6 +232,8 @@ class SuperDBM(Model):
 
         rval = dict(zip(layers, states))
 
+        return rval
+
 
 class SuperDBM_Layer(Model):
 
@@ -282,7 +293,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
         if noise:
             theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
-            masked_mu += theano_rng.normal(avg = 0.,
+            masked_mu = theano_rng.normal(avg = 0.,
                     std = 1., size = masked_mu.shape,
                     dtype = masked_mu.dtype)
 
@@ -339,7 +350,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
 class ConvMaxPool(SuperDBM_HidLayer):
     def __init__(self,
-            output_channels,
+             output_channels,
             kernel_rows,
             kernel_cols,
             pool_rows,
@@ -360,8 +371,13 @@ class ConvMaxPool(SuperDBM_HidLayer):
         self.input_rows, self.input_cols = space.shape
         self.input_channels = space.nchannels
 
-        self.h_rows = self.input_rows - self.kernel_rows + 1
-        self.h_cols = self.input_cols - self.kernel_cols + 1
+        if self.mode == 'valid':
+            self.h_rows = self.input_rows - self.kernel_rows + 1
+            self.h_cols = self.input_cols - self.kernel_cols + 1
+        else:
+            assert self.mode == 'full'
+            self.h_rows = self.input_rows + self.kernel_rows - 1
+            self.h_cols = self.input_cols + self.kernel_cols - 1
 
         assert self.h_rows % self.pool_rows == 0
         assert self.h_cols % self.pool_cols == 0
@@ -417,6 +433,46 @@ class ConvMaxPool(SuperDBM_HidLayer):
         raw = self.transformer._filters.get_value()
 
         return np.transpose(raw,(outp,rows,cols,inp))
+
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+
+        t1 = time.time()
+
+        default_h = self.h_space.get_origin_batch(self.dbm.batch_size) + \
+                self.b.get_value()
+
+        default_h_theano = self.h_space.make_theano_batch()
+
+        default_h = default_h.astype(default_h_theano.dtype)
+
+        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
+
+        p_exp, h_exp, p_sample, h_sample = max_pool(
+                z = default_h_theano,
+                pool_shape = (self.pool_rows, self.pool_cols),
+                theano_rng = theano_rng)
+
+        p_state = sharedX( self.output_space.get_origin_batch(
+            self.dbm.batch_size))
+
+        h_state = sharedX( default_h)
+
+        f = function([default_h_theano], updates = {
+            p_state : p_sample,
+            h_state : h_sample
+            })
+
+        f(default_h)
+
+        t2 = time.time()
+
+        print str(self)+'.make_state took',t2-t1
+
+        return p_state, h_state
+
 
 class Softmax(SuperDBM_HidLayer):
     def __init__(self, n_classes, irange):

@@ -38,6 +38,7 @@ class SuperInpaint(UnsupervisedCost):
 
     def get_monitoring_channels(self, model, X, Y = None, drop_mask = None):
 
+
         rval = {}
 
         """
