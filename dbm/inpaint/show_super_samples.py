@@ -10,6 +10,7 @@ _, model_path = sys.argv
 
 print 'Loading model...'
 model = serial.load(model_path)
+model.update_layer_input_spaces()
 
 dataset_yaml_src = model.dataset_yaml_src
 
@@ -69,5 +70,6 @@ while True:
         sample_func()
 
     vis_batch = vis_sample.get_value()
+    show()
 
 

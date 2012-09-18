@@ -31,10 +31,22 @@ class SuperDBM(Model):
         assert len(hidden_layers) >= 1
         for layer in hidden_layers:
             layer.dbm = self
+        self.update_layer_input_spaces()
+        self.force_batch_size = batch_size
+
+    def update_layer_input_spaces(self):
+        """
+            Tells each layer what its input space should be.
+            This is mostly used by the __init__ method, but it's useful to be
+            able to call it again on deserialized models, in case you fixed
+            a big in some layer's set_input_space method since the model was
+            serialized.
+        """
+        visible_layer = self.visible_layer
+        hidden_layers = self.hidden_layers
         self.hidden_layers[0].set_input_space(visible_layer.space)
         for i in xrange(1,len(hidden_layers)):
             hidden_layers[i].set_input_space(hidden_layers[i-1].get_output_space())
-        self.force_batch_size = batch_size
 
     def get_params(self):
 
@@ -252,12 +264,13 @@ class SuperDBM(Model):
         rval = {}
 
         #Sample the visible layer
-
-        state_above = layer_to_state[self.hidden_layers[0]]
-        state_above = self.hidden_layers[0].downward_state(state_above)
+        first_hid = self.hidden_layers[0]
+        state_above = layer_to_state[first_hid]
+        state_above = first_hid.downward_state(state_above)
 
         vis_sample = self.visible_layer.get_sampling_updates(
                 state_above = state_above,
+                layer_above = first_hid,
                 theano_rng = theano_rng)
 
         vis_state = layer_to_state[self.visible_layer]
@@ -278,7 +291,7 @@ class SuperDBM(Model):
             else:
                 layer_below = self.hidden_layers[i-1]
 
-            state_below = rval[layer_below]
+            state_below = layer_to_state[layer_below]
             # We want to sample from each conditional distribution
             # ***sequentially*** so we must use the updated version
             # of the state for the layers whose updates we have
@@ -292,6 +305,7 @@ class SuperDBM(Model):
                         [rval[old_state] for old_state in state_below])
             else:
                 state_below = rval[state_below]
+                assert state_below is not None
 
             state_below = layer_below.upward_state(state_below)
 
@@ -303,6 +317,7 @@ class SuperDBM(Model):
                 state_above = layer_above.downward_state(state_above)
             else:
                 state_above = None
+                layer_above = None
 
             # Compute the Gibbs sampling update
             # Sample the state of this layer conditioned
@@ -312,6 +327,7 @@ class SuperDBM(Model):
             this_sample = this_layer.get_sampling_updates(
                     state_below = state_below,
                     state_above = state_above,
+                    layer_above = layer_above,
                     theano_rng = theano_rng)
 
             # Store the update in the dictionary, accounting for
@@ -319,8 +335,10 @@ class SuperDBM(Model):
             this_state = layer_to_state[this_layer]
             if isinstance(this_state, (list, tuple)):
                 for state, sample in zip(this_state, this_sample):
+                    assert hasattr(state,'get_value')
                     rval[state] = sample
             else:
+                assert hasattr(this_state,'get_value')
                 rval[this_state] = this_sample
 
         # Check that we updated all the samples
@@ -330,13 +348,17 @@ class SuperDBM(Model):
             if isinstance(state_s, (list,tuple)):
                 for state in state_s:
                     assert state in rval
-                states.add(state)
+                    states.add(state)
             else:
                 assert state_s in rval
                 states.add(state_s)
         # Check that we're not trying to update anything else
         for state in rval:
-            assert state in states
+            assert hasattr(state,'get_value')
+            if state not in states:
+                print 'oops, you seem to be trying to update',state
+                print 'but this does not seem to be a sampled state'
+                assert False
 
         return rval
 
@@ -378,6 +400,7 @@ class SuperDBM_Layer(Model):
                 type(self))
 
     def get_sampling_updates(self, state_below = None, state_above = None,
+            layer_above = None,
             theano_rng = None):
         """
 
@@ -465,6 +488,21 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
         return rval
 
+    def get_sampling_updates(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+
+        assert state_below is None
+        msg = layer_above.downward_message(state_above)
+        mu = self.mu
+
+        z = msg + mu
+
+        rval = theano_rng.normal(size = z.shape, avg = z, dtype = z.dtype,
+                       std = 1. / T.sqrt(self.beta) )
+
+        return rval
+
     def recons_cost(self, V, V_hat, drop_mask = None):
 
         assert V.ndim == V_hat.ndim
@@ -479,6 +517,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         return masked_cost.mean()
 
     def upward_state(self, total_state):
+        assert total_state is not None
         V = total_state
         upward_state = V * self.beta
         return upward_state
@@ -493,11 +532,9 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         sample *= 1./np.sqrt(self.beta.get_value())
         sample += self.mu.get_value()
 
-        rval = sharedX(sample)
+        rval = sharedX(sample, name = 'v_sample_shared')
 
         return rval
-
-
 
 
 
@@ -524,11 +561,11 @@ class ConvMaxPool(SuperDBM_HidLayer):
         self.input_rows, self.input_cols = space.shape
         self.input_channels = space.nchannels
 
-        if self.mode == 'valid':
+        if self.border_mode == 'valid':
             self.h_rows = self.input_rows - self.kernel_rows + 1
             self.h_cols = self.input_cols - self.kernel_cols + 1
         else:
-            assert self.mode == 'full'
+            assert self.border_mode == 'full'
             self.h_rows = self.input_rows + self.kernel_rows - 1
             self.h_cols = self.input_cols + self.kernel_cols - 1
 
@@ -574,6 +611,19 @@ class ConvMaxPool(SuperDBM_HidLayer):
         p,h = max_pool(z, (self.pool_rows, self.pool_cols))
 
         return p, h
+
+    def get_sampling_updates(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+
+        if state_above is not None:
+            raise NotImplementedError()
+
+        z = self.transformer.lmul(state_below) + self.b
+        p, h, p_sample, h_sample = max_pool(z,
+                (self.pool_rows, self.pool_cols), theano_rng)
+
+        return p_sample, h_sample
 
     def downward_message(self, downward_state):
         return self.transformer.lmul_T(downward_state)
@@ -630,6 +680,9 @@ class ConvMaxPool(SuperDBM_HidLayer):
         print '\tcompose time:',t2-t1
         print '\tcompile time:',t3-t2
         print '\texecute time:',t4-t3
+
+        p_state.name = 'p_sample_shared'
+        h_state.name = 'h_sample_shared'
 
         return p_state, h_state
 
