@@ -13,7 +13,9 @@ class SetupBatch:
     def __call__(self, * args):
         X = args[0]
         if len(args) > 1:
-            warnings.warn('got more arguments than expected')
+            X, y = args
+            assert y is None
+        print 'prereq got X with shape ',X.shape
         self.alg.setup_batch(X)
 
     def __getstate__(self):
