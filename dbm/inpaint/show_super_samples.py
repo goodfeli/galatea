@@ -46,7 +46,22 @@ vis_sample.set_value(vis_batch)
 
 theano_rng = MRG_RandomStreams(2012+9+18)
 
+# Do one round of clamped sampling so the seed data gets to have an influence
+# The sampling is bottom-to-top so if we don't do an initial round where we
+# explicitly clamp vis_sample, its initial value gets discarded with no influence
+sampling_updates = model.get_sampling_updates(layer_to_state, theano_rng,
+        layer_to_clamp = { model.visible_layer : True } )
+
+t1 = time.time()
+sample_func = function([], updates=sampling_updates)
+t2 = time.time()
+print 'Clamped sampling function compilation took',t2-t1
+sample_func()
+
+
+# Now compile the full sampling update
 sampling_updates = model.get_sampling_updates(layer_to_state, theano_rng)
+assert layer_to_state[model.visible_layer] in sampling_updates
 
 t1 = time.time()
 sample_func = function([], updates=sampling_updates)
@@ -55,16 +70,19 @@ t2 = time.time()
 print 'Sampling function compilation took',t2-t1
 
 while True:
-    print 'Displaying samples. How many steps to take next? (q to quit)'
+    print 'Displaying samples. How many steps to take next? (q to quit, ENTER=1)'
     while True:
         x = raw_input()
         if x == 'q':
             quit()
-        try:
-            x = int(x)
-            break
-        except:
-            print 'Invalid input, try again'
+        if x == '':
+            x = 1
+        else:
+            try:
+                x = int(x)
+                break
+            except:
+                print 'Invalid input, try again'
 
     for i in xrange(x):
         sample_func()

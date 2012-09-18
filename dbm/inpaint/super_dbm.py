@@ -245,7 +245,8 @@ class SuperDBM(Model):
 
         return rval
 
-    def get_sampling_updates(self, layer_to_state, theano_rng):
+    def get_sampling_updates(self, layer_to_state, theano_rng,
+            layer_to_clamp = None):
         """
             layer_to_state: a dictionary mapping the SuperDBM_Layer instances
                             contained in self to shared variables representing
@@ -253,27 +254,52 @@ class SuperDBM(Model):
                             (you can allocate one by calling
                             self.make_layer_to_state)
             theano_rng: a MRG_RandomStreams object
+            layer_to_clamp: (optional) a dictionary mapping layers to bools
+                            if a layer is not in the dictionary, defaults to False
+                            True indicates that this layer should be clamped, so
+                            we are sampling from a conditional distribution rather
+                            than the joint
             returns a dictionary mapping each shared variable to an expression
                      to update it. Repeatedly applying these updates does MCMC
                      sampling.
+
+            Note: this does Gibbs sampling, starting with the visible layer, and
+            then working upward. If you initialize the visible sample with data,
+            it will be discarded with no influence, since the visible layer is
+            the first layer to be sampled
+            sampled. To start Gibbs sampling from data you must do at least one
+            sampling step explicitly clamping the visible units.
         """
 
         assert len(self.hidden_layers) > 0 # I guess we could make a model with
                                            # no latent layers if we really want
 
+        if layer_to_clamp is None:
+            layer_to_clamp = {}
+
+        for key in layer_to_clamp:
+            assert key is self.visible_layer or key in self.hidden_layers
+
+        for layer in [ self.visible_layer ] + self.hidden_layers:
+            if layer not in layer_to_clamp:
+                layer_to_clamp[layer] = False
+
         rval = {}
 
         #Sample the visible layer
-        first_hid = self.hidden_layers[0]
-        state_above = layer_to_state[first_hid]
-        state_above = first_hid.downward_state(state_above)
-
-        vis_sample = self.visible_layer.get_sampling_updates(
-                state_above = state_above,
-                layer_above = first_hid,
-                theano_rng = theano_rng)
-
         vis_state = layer_to_state[self.visible_layer]
+        if layer_to_clamp[self.visible_layer]:
+            vis_sample = vis_state
+        else:
+            first_hid = self.hidden_layers[0]
+            state_above = layer_to_state[first_hid]
+            state_above = first_hid.downward_state(state_above)
+
+            vis_sample = self.visible_layer.get_sampling_updates(
+                    state_above = state_above,
+                    layer_above = first_hid,
+                    theano_rng = theano_rng)
+
 
         if isinstance(vis_state, (list, tuple)):
             for state, sample in zip(vis_state, vis_sample):
@@ -333,6 +359,8 @@ class SuperDBM(Model):
             # Store the update in the dictionary, accounting for
             # composite states
             this_state = layer_to_state[this_layer]
+            if layer_to_clamp[this_layer]:
+                this_sample = this_state
             if isinstance(this_state, (list, tuple)):
                 for state, sample in zip(this_state, this_sample):
                     assert hasattr(state,'get_value')
@@ -359,6 +387,32 @@ class SuperDBM(Model):
                 print 'oops, you seem to be trying to update',state
                 print 'but this does not seem to be a sampled state'
                 assert False
+        # Check that clamping worked
+        # (We want rval to be the identity mapping here, so that the update
+        # computations above can always use rval to refer to the state of
+        # variables that have already been visited by the bottom-to-top
+        # traversal)
+        for layer in layer_to_clamp:
+            if layer_to_clamp[layer]:
+                state = layer_to_state[layer]
+                if isinstance(state,(list,tuple)):
+                    for elem in state:
+                        assert rval[elem] is elem
+                else:
+                    assert rval[state] is state
+        # Now that we know that clamping was respected, we actually want
+        # to strip out the identity mapping, and just not have updates for
+        # the clamped variables. This is so theano.function doesn't waste
+        # time computing no-ops (not sure if theano would optimize these
+        # out or not)
+        for layer in layer_to_clamp:
+            if layer_to_clamp[layer]:
+                state = layer_to_state[layer]
+                if isinstance(state,(list,tuple)):
+                    for elem in state:
+                        del rval[elem]
+                else:
+                    del rval[state]
 
         return rval
 
