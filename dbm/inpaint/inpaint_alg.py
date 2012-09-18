@@ -85,6 +85,7 @@ class InpaintAlgorithm(object):
             test_mask = test_mask[:,:,:,0]
             assert test_mask.ndim == 3
         drop_mask = sharedX( np.cast[X.dtype] ( test_mask), name = 'drop_mask')
+        self.drop_mask = drop_mask
         assert drop_mask.ndim == test_mask.ndim
         updates = { drop_mask : self.mask_gen(X) }
         self.update_mask = function([], updates = updates)
@@ -101,10 +102,12 @@ class InpaintAlgorithm(object):
                                 mode="sequential",
                                 batch_size=self.batch_size,
                                 num_batches=self.monitoring_batches)
+            assert X.name is not None
             channels = model.get_monitoring_channels(X,Y)
             if not isinstance(channels, dict):
                 raise TypeError("model.get_monitoring_channels must return a "
                                 "dictionary, but it returned " + str(channels))
+            assert X.name is not None
             wtf = self.cost.get_monitoring_channels(model, X = X, drop_mask = drop_mask)
             for key in wtf:
                 channels[key] = wtf[key]
@@ -122,7 +125,10 @@ class InpaintAlgorithm(object):
                     assert len(J) == 2
                     J, prereqs = J
                 else:
-                    prereqs = None
+                    prereqs = []
+
+                prereqs = list(prereqs)
+                prereqs.append(prereq)
 
                 if Y is not None:
                     ipt = (X,Y)
