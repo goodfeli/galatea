@@ -77,6 +77,7 @@ while True:
             quit()
         if x == '':
             x = 1
+            break
         else:
             try:
                 x = int(x)
