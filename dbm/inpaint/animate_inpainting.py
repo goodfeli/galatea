@@ -18,9 +18,9 @@ if hasattr(model,'set_batch_size'):
 try:
     mask_gen = model.mask_gen
     cost = model.cost
+    print 'used cost from model'
     cost.mask_gen = mask_gen
 except:
-    raise
     try:
         drop_prob = model.dbm_inpaint_drop_prob
         n_iter = model.dbm_inpaint_n_iter
@@ -39,7 +39,16 @@ except:
             balance = False
 
     mask_gen = MaskGen(drop_prob = drop_prob, balance = balance)
-    cost = DBM_Inpaint_Binary(mask_gen = mask_gen, n_iter = n_iter)
+    from galatea.dbm.inpaint.super_dbm import SuperDBM
+    if isinstance(model, SuperDBM):
+        from super_inpaint import SuperInpaint
+        from super_inpaint import MaskGen
+        mask_gen = MaskGen(drop_prob = drop_prob, balance = True, sync_channels = True)
+        cost = SuperInpaint(mask_gen = mask_gen)
+        print 'made superdbm cost'
+    else:
+        print 'model is ',type(model)
+        cost = DBM_Inpaint_Binary(mask_gen = mask_gen, n_iter = n_iter)
     cost.mask_gen = mask_gen
 
 space = model.get_input_space()
@@ -54,7 +63,9 @@ for elem in history:
     try:
         outputs.append(elem['X_hat'])
     except:
-        outputs.append(elem['V_hat'])
+        V_hat = elem['V_hat']
+        outputs.append(V_hat)
+
 
 f = function([X],outputs)
 
@@ -90,12 +101,18 @@ mapback = hasattr(dataset, 'mapback_for_viewer')
 cols = 2+len(X_sequence)
 if mapback:
     rows = 2 * m
-    M = dataset.get_topological_view(dataset.mapback_for_viewer(X))
-    M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in X_sequence ]
-X = dataset.adjust_for_viewer(Xt)
+    if X.ndim != 2:
+        design_X = dataset.get_design_matrix(topo = X)
+        design_X_sequence = [ dataset.get_design_matrix(mat) for mat in X_sequence ]
+    else:
+        design_X = X
+        design_X_sequence = X_sequence
+    M = dataset.get_topological_view(dataset.mapback_for_viewer(design_X))
+    M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in design_X_sequence ]
+X = dataset.adjust_to_be_viewed_with(Xt,Xt)
 if X_sequence[0].ndim == 2:
     X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
-X_sequence = [ dataset.adjust_for_viewer(mat) for mat in X_sequence ]
+X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt) for mat in X_sequence ]
 
 
 pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
@@ -107,6 +124,7 @@ for i in xrange(m):
     if patch.shape[-1] != 3:
         patch = np.concatenate( (patch,patch,patch), axis=2)
     pv.add_patch(patch, rescale = False)
+    orig_patch = patch
 
     #mark the masked areas as red
     mask_patch = drop_mask[i,:,:,0]
@@ -137,6 +155,16 @@ for i in xrange(m):
     #add filled-in patch
     for j in xrange(len(X_sequence)):
         patch = X_sequence[j][i,:,:,:]
+        this_drop_mask = drop_mask[i,:,:,:]
+        if ((1-this_drop_mask)*(patch - orig_patch)).max() > 0.:
+            keep_mask = 1-this_drop_mask
+            keep_patch = keep_mask * patch
+            keep_orig = keep_mask* orig_patch
+            diffs = keep_patch - keep_orig
+            patch = diffs
+            print 'OH NO!'
+            print patch.shape
+
         if patch.shape[-1] != 3:
             patch = np.concatenate( (patch,patch,patch), axis=2)
         pv.add_patch(patch, rescale = False)
