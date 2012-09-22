@@ -797,6 +797,13 @@ class ConvMaxPool(SuperDBM_HidLayer):
         assert W.name is not None
         return self.transformer.get_params().union([self.b])
 
+    def get_lr_scalers(self):
+        warnings.warn("get_lr_scalers is hardcoded to 1/(# conv positions)")
+        h_rows, h_cols = self.h_space.shape
+        num_h = float(h_rows * h_cols)
+        return { self.transformer._filters : 1./num_h,
+                 self.b : 1. / num_h  }
+
     def upward_state(self, total_state):
         p,h = total_state
         return p
@@ -927,5 +934,6 @@ class Softmax(SuperDBM_HidLayer):
 
     def downward_message(self, downward_state):
         return T.dot(downward_state, self.W.T)
+
 
 
