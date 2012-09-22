@@ -133,6 +133,8 @@ class SuperInpaint(UnsupervisedCost):
         new_drop_mask = None
         new_history = [ None for state in history ]
 
+        if not hasattr(self, 'both_directions'):
+            self.both_directions = False
         if self.both_directions:
             new_drop_mask = 1. - drop_mask
             new_history = dbm.do_inpainting(X, new_drop_mask, return_history = True, noise = self.noise)
