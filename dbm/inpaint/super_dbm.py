@@ -76,9 +76,21 @@ class SuperDBM(Model):
         return self.visible_layer.space
 
     def get_lr_scalers(self):
-        warnings.warn("get_lr_scalers is hardcoded")
-        return { self.hidden_layers[0].transformer._filters : 1./(26.**2),
-                 self.hidden_layers[0].b : 1. / (26. ** 2)  }
+        rval = {}
+
+        params = self.get_params()
+
+        for layer in self.hidden_layers + [ self.visible_layer ]:
+            contrib = layer.get_lr_scalers()
+
+            # No two layers can contend to scale a parameter
+            assert not any([key in rval for key in contrib])
+            # Don't try to scale anything that's not a parameter
+            assert all([key in params for key in contrib])
+
+            rval.update(contrib)
+
+        return rval
 
     def get_weights(self):
         if len(self.hidden_layers) == 1:
@@ -91,6 +103,8 @@ class SuperDBM(Model):
 
     def do_inpainting(self, V, drop_mask, return_history = False, noise = False):
 
+        orig_V = V
+        orig_drop_mask = drop_mask
 
         history = []
 
@@ -109,8 +123,6 @@ class SuperDBM(Model):
             H_hat.append( self.hidden_layers[-1].mf_update(
                 state_above = None,
                 state_below = self.visible_layer.upward_state(V_hat)))
-
-
 
         def update_history():
             history.append( { 'V_hat' : V_hat, 'H_hat' : H_hat } )
@@ -152,10 +164,14 @@ class SuperDBM(Model):
             update_history()
         #end for i
 
+        # debugging, make sure V didn't get changed in this function
+        assert V is orig_V
+        assert drop_mask is orig_drop_mask
+
         if return_history:
             return history
         else:
-             return V_hat
+            return V_hat
 
     def mf(self, V, return_history = False):
 
