@@ -6,20 +6,23 @@ import time
 from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 
+rows = 10
+cols = 10
+m = rows * cols
+
 _, model_path = sys.argv
 
 print 'Loading model...'
 model = serial.load(model_path)
+model.set_batch_size(m)
 model.update_layer_input_spaces()
+
 
 dataset_yaml_src = model.dataset_yaml_src
 
 print 'Loading data (used for setting up visualization and seeding gibbs chain) ...'
 dataset = yaml_parse.load(dataset_yaml_src)
 
-rows = 10
-cols = 10
-m = rows * cols
 
 vis_batch = dataset.get_batch_topo(m)
 
@@ -35,8 +38,14 @@ def show():
         pv.add_patch(display_batch[i,:,:,:], rescale = False)
     pv.show()
 
+
+beta = model.visible_layer.beta.get_value()
+#model.visible_layer.beta.set_value(beta * 100.)
+print 'beta: ',(beta.min(), beta.mean(), beta.max())
+
 print 'showing seed data...'
 show()
+
 
 # Make shared variables representing the sampling state of the model
 layer_to_state = model.make_layer_to_state(m)
