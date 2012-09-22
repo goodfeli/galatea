@@ -39,8 +39,26 @@ class ZCA_Dataset(DenseDesignMatrix):
 
         return rval
 
+    def adjust_to_be_viewed_with(self, X, other):
+
+        #rval = X - self.mn
+        #rval /= (self.mx-self.mn)
+
+        #rval *= 2.
+        #rval -= 1.
+
+        #rval = np.clip(rval,-1.,1.)
+
+        rval = X.copy()
+
+        for i in xrange(rval.shape[0]):
+            rval[i,:] /= np.abs(other[i,:]).max()
+
+        return rval
+
     def mapback_for_viewer(self, X):
 
+        assert X.ndim == 2
         rval = self.preprocessor.inverse(X)
         rval = self.preprocessed_dataset.adjust_for_viewer(rval)
 
