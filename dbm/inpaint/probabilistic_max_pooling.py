@@ -363,7 +363,7 @@ def check_correctness(f):
     channels = 3
     pool_rows = 2
     pool_cols = 3
-    zv = rng.randn( batch_size, rows, cols, channels ).astype(config.floatX)
+    zv = rng.randn( batch_size, rows, cols, channels ).astype(config.floatX) * 2. - 3.
 
     p_np, h_np = max_pool_python( zv, (pool_rows, pool_cols) )
 
@@ -394,7 +394,7 @@ def check_sample_correctishness(f):
     channels = 3
     pool_rows = 2
     pool_cols = 3
-    zv = rng.randn( batch_size, rows, cols, channels ).astype(config.floatX)
+    zv = rng.randn( batch_size, rows, cols, channels ).astype(config.floatX) * 2. - 3.
 
     z_th = T.TensorType( broadcastable=(False,False,False,False), dtype = config.floatX)()
     z_th.name = 'z_th'
@@ -410,6 +410,20 @@ def check_sample_correctishness(f):
     acc_p = 0. * pv
     acc_h = 0. * hv
 
+    # make sure the test gets good coverage, ie, that it includes many different
+    # activation probs for both detector and pooling layer
+    buckets = 10
+    bucket_width = 1. / float(buckets)
+    for i in xrange(buckets):
+        lower_lim = i * bucket_width
+        upper_lim = (i+1) * bucket_width
+
+        assert np.any( (pv >= lower_lim) * (pv < upper_lim) )
+        assert np.any( (hv >= lower_lim) * (hv < upper_lim) )
+
+    assert upper_lim == 1.
+
+
     for i in xrange(10000):
         ps, hs = sample_func(zv)
 
@@ -419,14 +433,51 @@ def check_sample_correctishness(f):
         acc_p += ps
         acc_h += hs
 
-        est_p = acc_p / float(i+1)
-        est_h = acc_h / float(i+1)
+    est_p = acc_p / float(i+1)
+    est_h = acc_h / float(i+1)
 
-        pd = np.abs(est_p-pv)
-        hd = np.abs(est_h-hv)
+    pd = np.abs(est_p-pv)
+    hd = np.abs(est_h-hv)
+
+    """
+    # plot maps of the estimation error, this is to see if it has some spatial pattern
+    # this is useful for detecting bugs like not handling the border correctly, etc.
+    from pylearn2.gui.patch_viewer import PatchViewer
+
+    pv = PatchViewer((pd.shape[0],pd.shape[3]),(pd.shape[1],pd.shape[2]),is_color = False)
+    for i in xrange(pd.shape[0]):
+        for j in xrange(pd.shape[3]):
+            pv.add_patch( (pd[i,:,:,j] / pd.max() )* 2.0 - 1.0, rescale = False)
+    pv.show()
+
+    pv = PatchViewer((hd.shape[0],hd.shape[3]),(hd.shape[1],hd.shape[2]),is_color = False)
+    for i in xrange(hd.shape[0]):
+        for j in xrange(hd.shape[3]):
+            pv.add_patch( (hd[i,:,:,j] / hd.max() )* 2.0 - 1.0, rescale = False)
+    pv.show()
+    """
+
+    """
+    plot expectation to estimate versus error in estimation
+    expect bigger errors for values closer to 0.5
+
+    from matplotlib import pyplot as plt
+
+    #nelem = reduce( lambda x, y : x*y, pd.shape)
+    #plt.scatter( pv.reshape(nelem), pd.reshape(nelem))
+    #plt.show()
+
+    nelem = reduce( lambda x, y : x*y, hd.shape)
+    plt.scatter( hv.reshape(nelem), hd.reshape(nelem))
+    plt.show()
+    """
 
     # don't really know how tight this should be
-    assert max(pd.max(), hd.max()) < .02
+    # but you can try to pose an equivalent problem
+    # and implement it in another way
+    # using a numpy implementation in softmax_acc.py
+    # I got a max error of .17
+    assert max(pd.max(), hd.max()) < .17
 
     # Do exhaustive checks on just the last sample
     assert np.all( (ps ==0) + (ps == 1) )
@@ -555,18 +606,18 @@ def profile_grad(f):
 if __name__ == '__main__':
     check_correctness(max_pool_softmax_op)
     check_correctness(max_pool_softmax_with_bias_op)
-    #check_correctness(max_pool_raw_graph)
+    check_correctness(max_pool_raw_graph)
     check_correctness(max_pool_stable_graph)
     check_sample_correctishness(max_pool_stable_graph)
     #profile(max_pool_raw_graph)
-    profile(max_pool_stable_graph)
-    profile_samples(max_pool_stable_graph)
-    profile(max_pool_softmax_op)
-    profile(max_pool_softmax_with_bias_op)
-    profile_grad(max_pool_raw_graph)
-    profile_grad(max_pool_stable_graph)
-    profile_grad(max_pool_softmax_op)
-    profile_grad(max_pool_softmax_with_bias_op)
+    #profile(max_pool_stable_graph)
+    #profile_samples(max_pool_stable_graph)
+    #profile(max_pool_softmax_op)
+    #profile(max_pool_softmax_with_bias_op)
+    #profile_grad(max_pool_raw_graph)
+    #profile_grad(max_pool_stable_graph)
+    #profile_grad(max_pool_softmax_op)
+    #profile_grad(max_pool_softmax_with_bias_op)
 
 
 
