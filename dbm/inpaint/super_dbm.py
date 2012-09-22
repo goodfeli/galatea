@@ -585,20 +585,77 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
             cols,
             channels,
             init_beta,
-            init_mu):
+            init_mu,
+            tie_beta = None,
+            tie_mu = None):
+        """
+            Implements a visible layer that is conditionally gaussian with
+            diagonal variance. The layer lives in a Conv2DSpace.
+
+            rows, cols, channels: the shape of the space
+
+            init_beta: the initial value of the precision parameter
+            init_mu: the initial value of the mean parameter
+
+            tie_beta: None or a string specifying how to tie beta
+                      'locations' = tie beta across locations, ie
+                                    beta should be a vector with one
+                                    elem per channel
+            tie_mu: None or a string specifying how to tie mu
+                    'locations' = tie mu across locations, ie
+                                  mu should be a vector with one
+                                  elem per channel
+
+        """
 
         self.__dict__.update(locals())
         del self.self
 
         self.space = Conv2DSpace(shape = [rows,cols], nchannels = channels)
         self.input_space = self.space
-        self.beta = sharedX( self.space.get_origin() + init_beta,name = 'beta')
-        self.mu = sharedX( self.space.get_origin() + init_mu, name = 'mu')
+
+        origin = self.space.get_origin()
+
+        beta_origin = origin.copy()
+        assert tie_beta in [ None, 'locations']
+        if tie_beta == 'locations':
+            beta_origin = beta_origin[0,0,:]
+        self.beta = sharedX( beta_origin + init_beta,name = 'beta')
+        assert self.beta.ndim == beta_origin.ndim
+
+        mu_origin = origin.copy()
+        assert tie_mu in [None, 'locations']
+        if tie_mu == 'locations':
+            mu_origin = mu_origin[0,0,:]
+        self.mu = sharedX( mu_origin + init_mu, name = 'mu')
+        assert self.mu.ndim == mu_origin.ndim
 
     def get_params(self):
         return set([self.beta, self.mu])
 
-    def censor_update(self, updates):
+    def get_lr_scalers(self):
+        rval = {}
+        warn = False
+
+        rows, cols = self.space.shape
+        num_loc = float(rows * cols)
+
+        assert self.tie_beta in [None, 'locations']
+        if self.tie_beta == 'locations':
+            warn = True
+            rval[self.beta] = 1./num_loc
+
+        assert self.tie_mu in [None, 'locations']
+        if self.tie_mu == 'locations':
+            warn = True
+            rval[self.mu] = 1./num_loc
+
+        if warn:
+            warnings.warn("beta/mu lr_scalars hardcoded to 1/sharing")
+
+        return rval
+
+    def censor_updates(self, updates):
         if self.beta in updates:
             updates[self.beta] = T.clip(updates[self.beta],1.,1e6)
 
