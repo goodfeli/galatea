@@ -35,6 +35,8 @@ while True:
     p,h = f()
     print 'p range: ',(p.min(),p.max())
     print 'h range: ',(h.min(),h.max())
+    print 'p mean: ',p.mean()
+    print 'h mean: ',h.mean()
     print 'p shape: ',p.shape
     print 'h shape: ',h.shape
     assert p.shape[0] == 1
@@ -64,10 +66,11 @@ while True:
 
     pv.add_patch(dataset.adjust_for_viewer(x),rescale=False)
 
-    mu = model.visible_layer.mu.get_value()
+    origin = model.visible_layer.space.get_origin()
+    mu = origin + model.visible_layer.mu.get_value()
     print 'mu range: ',(mu.min(),mu.max())
     pv.add_patch(mu,rescale=True)
-    beta = model.visible_layer.beta.get_value()
+    beta = origin + model.visible_layer.beta.get_value()
     print 'beta range: ',(beta.min(),beta.max())
     beta -= beta.min()
     beta /= max(1e-9,beta.max())
