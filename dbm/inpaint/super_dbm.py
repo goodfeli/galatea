@@ -237,6 +237,86 @@ class SuperDBM(Model):
         else:
             return H_hat
 
+    def score_matching(self, X):
+        """
+
+        Returns the score matching objective for this model on a batch of
+        examples X.
+
+        Note:
+        Score matching is also implemented in pylearn2.costs.ebm_estimation.
+        However, that implementation is generic and based on scan. This
+        method tries to look up an efficient model-specific implementation.
+        Also, the version in ebm_estimation assumes X is a matrix, but here
+        it is a theano batch in the visible layer's Space.
+
+        Note:
+        This method is used in conjunction with the
+        pylearn2.costs.cost.make_method_cost function, so it should
+        mimic the call signature of UnsupervisedCost.__call__
+        (there is no "model" argument here because "model" is now "self").
+        This means that it is important that the variable be named X and
+        not V in order for named argument calls to MethodCost objects to work.
+        """
+
+        # eventually we should try to look up the right implementation
+        # for now we just check if it is the only case I have implemented
+
+        if isinstance(self.visible_layer, GaussianConvolutionalVisLayer) and \
+            len(self.hidden_layers) == 1 and \
+            isinstance(self.hidden_layers[0], ConvMaxPool):
+
+            # see uper_dbm_score_matching.lyx
+
+            warnings.warn("super_dbm score matching is untested."
+                    "the math in the lyx file has not been verified."
+                    "there is no test that the code matches the lyx file.")
+
+            vis = self.visible_layer
+            hid, = self.hidden_layers
+
+            V = X
+            assert V.ndim == 4
+
+            P, H = hid.mf_update(state_below = V,
+                    state_above = None,
+                    double_weights = False,
+                    iter_name = 'rbm')
+
+            assert H is hid.downward_state( (P,H) )
+
+            recons = hid.downward_message(H) + vis.mu
+            assert recons.ndim == 4
+
+            beta = vis.beta
+
+            # this should be non-negative
+            hid_stuff = H * (1. - H)
+            #hid_stuff = Print('hid_stuff',attrs=['min'])(hid_stuff)
+
+            # this should be non-negative
+            vis_stuff =  hid.transformer.lmul_sq_T(hid_stuff)
+            #vis_stuff = Print('vis_stuff',attrs=['min'])(vis_stuff)
+
+            sq_beta = T.sqr(beta)
+
+            # this should be non-negative
+            first_term_presum = sq_beta *(0.5* T.square(V-recons)+vis_stuff)
+            #first_term_presum = Print('first_term_presum',attrs=['min'])(first_term_presum)
+            first_term = first_term_presum.sum(axis=(1,2,3)).mean()
+            assert first_term.ndim == 0
+
+            second_term = - beta.sum()
+            #second_term = Print('second_term')(second_term)
+
+            return first_term + second_term
+        #end if gconv + convmaxpool
+        raise NotImplementedError()
+    #end score matching
+
+
+
+
     def make_layer_to_state(self, num_examples):
 
         """ Makes and returns a dictionary mapping layers to states.
