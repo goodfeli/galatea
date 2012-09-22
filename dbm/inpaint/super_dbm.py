@@ -678,7 +678,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
             theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
             masked_mu = theano_rng.normal(avg = 0.,
                     std = 1., size = masked_mu.shape,
-                    dtype = masked_mu.dtype)
+                    dtype = masked_mu.dtype) * drop_mask
 
         masked_V  = V  * (1-drop_mask)
         rval = masked_mu + masked_V
