@@ -108,11 +108,12 @@ if mapback:
         design_X = X
         design_X_sequence = X_sequence
     M = dataset.get_topological_view(dataset.mapback_for_viewer(design_X))
+    print (M.min(), M.max())
     M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in design_X_sequence ]
-X = dataset.adjust_to_be_viewed_with(Xt,Xt)
+X = dataset.adjust_to_be_viewed_with(Xt,Xt,per_example=True)
 if X_sequence[0].ndim == 2:
     X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
-X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt) for mat in X_sequence ]
+X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt,per_example=True) for mat in X_sequence ]
 
 
 pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
@@ -176,7 +177,7 @@ for i in xrange(m):
         pv.add_patch(patch, rescale = False)
 
         #dummy placeholder, we can't actually visualize the masking in original space
-        pv.add_patch(patch * 0, rescale = False)
+        pv.add_patch(patch * 0, rescale = False, warn_blank_patch = False)
 
         #add filled-in patch
         for j in xrange(len(M_sequence)):

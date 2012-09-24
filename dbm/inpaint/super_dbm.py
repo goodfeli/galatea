@@ -31,16 +31,13 @@ class SuperDBM(Model):
         assert len(hidden_layers) >= 1
         for layer in hidden_layers:
             layer.dbm = self
-        self.update_layer_input_spaces()
+        self._update_layer_input_spaces()
         self.force_batch_size = batch_size
 
-    def update_layer_input_spaces(self):
+    def _update_layer_input_spaces(self):
         """
             Tells each layer what its input space should be.
-            This is mostly used by the __init__ method, but it's useful to be
-            able to call it again on deserialized models, in case you fixed
-            a big in some layer's set_input_space method since the model was
-            serialized.
+            Note: this usually resets the layer's parameters!
         """
         visible_layer = self.visible_layer
         hidden_layers = self.hidden_layers
@@ -236,6 +233,19 @@ class SuperDBM(Model):
             return history
         else:
             return H_hat
+
+    def reconstruct(self, V):
+
+        H = self.mf(V)[0]
+
+        downward_state = self.hidden_layers[0].downward_state(H)
+
+        recons = self.visible_layer.inpaint_update(
+                layer_above = self.hidden_layers[0],
+                state_above = downward_state,
+                drop_mask = None, V = None)
+
+        return recons
 
     def score_matching(self, X):
         """
@@ -584,8 +594,9 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
             rows,
             cols,
             channels,
-            init_beta,
-            init_mu,
+            init_beta = 1.,
+            min_beta = 1.,
+            init_mu = 0.,
             tie_beta = None,
             tie_mu = None):
         """
@@ -595,6 +606,8 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
             rows, cols, channels: the shape of the space
 
             init_beta: the initial value of the precision parameter
+            min_beta: clip beta so it is at least this big (default 1)
+
             init_mu: the initial value of the mean parameter
 
             tie_beta: None or a string specifying how to tie beta
@@ -657,7 +670,8 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
     def censor_updates(self, updates):
         if self.beta in updates:
-            updates[self.beta] = T.clip(updates[self.beta],1.,1e6)
+            updates[self.beta] = T.clip(updates[self.beta],
+                    self.min_beta,1e6)
 
     def init_inpainting_state(self, V, drop_mask, noise = False):
 
@@ -684,6 +698,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         rval = masked_mu + masked_V
         return rval
 
+
     def inpaint_update(self, state_above, layer_above, drop_mask, V):
 
         msg = layer_above.downward_message(state_above)
@@ -691,7 +706,10 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
         z = msg + mu
 
-        rval = drop_mask * z + (1-drop_mask) * V
+        if drop_mask is not None:
+            rval = drop_mask * z + (1-drop_mask) * V
+        else:
+            rval = z
 
         return rval
 
@@ -754,8 +772,18 @@ class ConvMaxPool(SuperDBM_HidLayer):
             pool_cols,
             irange,
             layer_name,
+            mirror_weights = False,
             init_bias = 0.,
             border_mode = 'valid'):
+        """
+
+        mirror_weights:
+            if true, initializes kernel i to be the negation of kernel i - 1
+                I found this helps resolve a problem where the initial kernels often
+                had a tendency to take grey inputs and turn them a different color,
+                such as red
+
+        """
         self.__dict__.update(locals())
         del self.self
 
@@ -763,6 +791,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
         assert border_mode in ['full','valid']
 
     def set_input_space(self, space):
+        """ Note: this resets parameters!"""
         assert isinstance(space, Conv2DSpace)
         self.input_space = space
         self.input_rows, self.input_cols = space.shape
@@ -776,7 +805,9 @@ class ConvMaxPool(SuperDBM_HidLayer):
             self.h_rows = self.input_rows + self.kernel_rows - 1
             self.h_cols = self.input_cols + self.kernel_cols - 1
 
-        assert self.h_rows % self.pool_rows == 0
+        if not( self.h_rows % self.pool_rows == 0):
+            raise ValueError("h_rows = %d, pool_rows = %d. Should be divisible but remainder is %d" %
+                    (self.h_rows, self.pool_rows, self.h_rows % self.pool_rows))
         assert self.h_cols % self.pool_cols == 0
 
         self.h_space = Conv2DSpace( shape = (self.h_rows, self.h_cols), nchannels = self.output_channels)
@@ -788,6 +819,14 @@ class ConvMaxPool(SuperDBM_HidLayer):
                 output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
                 batch_size = self.dbm.batch_size, border_mode = self.border_mode)
         self.transformer._filters.name = self.layer_name + '_W'
+
+        if self.mirror_weights:
+            filters = self.transformer._filters
+            v = filters.get_value()
+            for i in xrange(1, v.shape[0], 2):
+                v[i, :, :, :] = - v[i-1,:, :, :].copy()
+            filters.set_value(v)
+
         W ,= self.transformer.get_params()
         assert W.name is not None
 

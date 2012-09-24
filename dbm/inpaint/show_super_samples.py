@@ -5,6 +5,8 @@ from pylearn2.gui.patch_viewer import PatchViewer
 import time
 from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
+import numpy as np
+import warnings
 
 rows = 10
 cols = 10
@@ -15,7 +17,6 @@ _, model_path = sys.argv
 print 'Loading model...'
 model = serial.load(model_path)
 model.set_batch_size(m)
-model.update_layer_input_spaces()
 
 
 dataset_yaml_src = model.dataset_yaml_src
@@ -26,16 +27,45 @@ dataset = yaml_parse.load(dataset_yaml_src)
 
 vis_batch = dataset.get_batch_topo(m)
 
+"""
+sample from greyscale data to see how the model injects color
+warnings.warn('hack!')
+mean = vis_batch.mean(axis=3)
+for ch in xrange(3):
+    vis_batch[:,:,:,ch] = mean
+"""
+
 _, patch_rows, patch_cols, channels = vis_batch.shape
 
 assert _ == m
 
-pv = PatchViewer((rows,cols), (patch_rows,patch_cols), is_color = (channels==3))
+mapback = hasattr(dataset, 'mapback_for_viewer')
+
+pv = PatchViewer((rows,cols*(1+mapback)), (patch_rows,patch_cols), is_color = (channels==3))
 
 def show():
-    for i in xrange(m):
-        display_batch = dataset.adjust_for_viewer(vis_batch)
-        pv.add_patch(display_batch[i,:,:,:], rescale = False)
+    """
+    for ch in xrange(3):
+        v_ch = vis_batch[:,:,:,ch]
+        pos_ch = vis_batch[:,:,:,ch] * (vis_batch[:,:,:,ch] > 0.)
+        abs_ch = np.abs(vis_batch[:,:,:,ch])
+        print ch, (v_ch.min(), v_ch.mean(), v_ch.max())
+        print ch, 'abs', (abs_ch.min(), abs_ch.mean(), abs_ch.max())
+        print ch, 'pos', (pos_ch.min(), pos_ch.mean(), pos_ch.max())
+    """
+    display_batch = dataset.adjust_for_viewer(vis_batch)
+    if mapback:
+        design_vis_batch = vis_batch
+        if design_vis_batch.ndim != 2:
+            design_vis_batch = dataset.get_design_matrix(design_vis_batch)
+        mapped_batch_design = dataset.mapback_for_viewer(design_vis_batch)
+        mapped_batch = dataset.get_topological_view(mapped_batch_design)
+    for i in xrange(rows):
+        row_start = cols * i
+        for j in xrange(cols):
+            pv.add_patch(display_batch[row_start+j,:,:,:], rescale = False)
+            if mapback:
+                pv.add_patch(mapped_batch[row_start+j,:,:,:], rescale = False)
     pv.show()
 
 
