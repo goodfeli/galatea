@@ -75,7 +75,15 @@ def max_pool_raw_graph(z, pool_shape):
 
     return p, h
 
-def max_pool_stable_graph(z, pool_shape, theano_rng = None):
+def max_pool_stable_graph(z, pool_shape, top_down = None, theano_rng = None):
+    """
+
+    top_down: like z, but applied to the pooling units
+              I think I handle things slightly different than Honglak does
+              Need to check this, but I think he adds top_down to all the
+              detector unit inputs.
+              Instead, I subtract it from the energy of the "off" unit
+    """
     #random max pooling implemented with set_subtensor
     #could also do this using the stuff in theano.sandbox.neighbours
     #might want to benchmark the two approaches, see how each does on speed/memory
@@ -115,6 +123,11 @@ def max_pool_stable_graph(z, pool_shape, theano_rng = None):
 
     mx = None
 
+    if top_down is None:
+        t = 0.
+    else:
+        t = - top_down
+
     for i in xrange(r):
         zpart.append([])
         for j in xrange(c):
@@ -123,9 +136,9 @@ def max_pool_stable_graph(z, pool_shape, theano_rng = None):
                 cur_part.name = z_name + '[%d,%d]' % (i,j)
             zpart[i].append( cur_part )
             if mx is None:
-                mx = T.maximum(0.,cur_part)
+                mx = T.maximum(t, cur_part)
                 if cur_part.name is not None:
-                    mx.name = 'max(0,'+cur_part.name+')'
+                    mx.name = 'max(-top_down,'+cur_part.name+')'
             else:
                 max_name = None
                 if cur_part.name is not None:
@@ -146,7 +159,7 @@ def max_pool_stable_graph(z, pool_shape, theano_rng = None):
             cur_pt.name = 'pt(%s)' % z_ij.name
             pt[-1].append( cur_pt )
 
-    off_pt = T.exp(0.-mx)
+    off_pt = T.exp(t - mx)
     off_pt.name = 'p_tilde_off(%s)' % z_name
     denom = off_pt
 
