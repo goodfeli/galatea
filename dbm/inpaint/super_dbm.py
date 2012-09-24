@@ -110,11 +110,23 @@ class SuperDBM(Model):
         H_hat = []
         for i in xrange(0,len(self.hidden_layers)-1):
             #do double weights update for_layer_i
-            raise NotImplementedError()
+            if i == 0:
+                H_hat.append(self.hidden_layers[i].mf_update(
+                    state_above = None,
+                    double_weights = True,
+                    state_below = self.visible_layer.upward_state(V),
+                    iter_name = '0'))
+            else:
+                H_hat.append(self.hidden_layers[i].mf_update(
+                    state_above = None,
+                    double_weights = True,
+                    state_below = self.hidden_layers[i-1].upward_state(H_hat[i-1]),
+                    iter_name = '0'))
+        #last layer does not need its weights doubled, even on the first pass
         if len(self.hidden_layers) > 1:
             H_hat.append( self.hidden_layers[-1].mf_update(
                 state_above = None,
-                layer_above = None,
+                #layer_above = None,
                 state_below = self.hidden_layers[-1].upward_state(H_hat[-1])))
         else:
             H_hat.append( self.hidden_layers[-1].mf_update(
@@ -134,11 +146,14 @@ class SuperDBM(Model):
                     state_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
                 if j == len(H_hat) - 1:
                     state_above = None
+                    layer_above = None
                 else:
                     state_above = self.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = self.hidden_layers[j+1]
                 H_hat[j] = self.hidden_layers[j].mf_update(
                         state_below = state_below,
-                        state_above = state_above)
+                        state_above = state_above,
+                        layer_above = layer_above)
 
             V_hat = self.visible_layer.inpaint_update(
                     state_above = self.hidden_layers[0].downward_state(H_hat[0]),
@@ -148,7 +163,7 @@ class SuperDBM(Model):
             V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
 
             for j in xrange(1,len(H_hat),2):
-                layer_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
+                state_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
                 if j == len(H_hat) - 1:
                     state_above = None
                 else:
@@ -209,21 +224,27 @@ class SuperDBM(Model):
                         state_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
                     if j == len(H_hat) - 1:
                         state_above = None
+                        layer_above = None
                     else:
                         state_above = self.hidden_layers[j+1].downward_state(H_hat[j+1])
+                        layer_above = self.hidden_layers[j+1]
                     H_hat[j] = self.hidden_layers[j].mf_update(
                             state_below = state_below,
-                            state_above = state_above)
+                            state_above = state_above,
+                            layer_above = layer_above)
 
                 for j in xrange(1,len(H_hat),2):
-                    layer_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
+                    state_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
                     if j == len(H_hat) - 1:
+                        state_above = None
                         state_above = None
                     else:
                         state_above = self.hidden_layers[j+1].downward_state(H_hat[j+1])
+                        layer_above = self.hidden_layers[j+1]
                     H_hat[j] = self.hidden_layers[j].mf_update(
                             state_below = state_below,
-                            state_above = state_above)
+                            state_above = state_above,
+                            layer_above = layer_above)
                     #end ifelse
                 #end for j
                 history.append(H_hat)
@@ -687,15 +708,18 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
         masked_mu = self.mu * drop_mask
         masked_mu = block_gradient(masked_mu)
+        masked_mu.name = 'masked_mu'
 
         if noise:
             theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
             masked_mu = theano_rng.normal(avg = 0.,
                     std = 1., size = masked_mu.shape,
                     dtype = masked_mu.dtype) * drop_mask
+            masked_mu.name = 'masked_noise'
 
         masked_V  = V  * (1-drop_mask)
         rval = masked_mu + masked_V
+        rval.name = 'init_inpainting_state'
         return rval
 
 
@@ -705,11 +729,14 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         mu = self.mu
 
         z = msg + mu
+        z.name = 'inpainting_z_[unknown_iter]'
 
         if drop_mask is not None:
             rval = drop_mask * z + (1-drop_mask) * V
         else:
             rval = z
+
+        rval.name = 'inpainted_V[unknown_iter]'
 
         return rval
 
@@ -851,9 +878,21 @@ class ConvMaxPool(SuperDBM_HidLayer):
         p,h = total_state
         return h
 
-    def mf_update(self, state_below, state_above, double_weights = False, iter_name = None):
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+
+        # debugging crap, remove when done with it
+        if self.layer_name == 'h1':
+            assert state_below.name.startswith('h0_p')
+
+        if iter_name is None:
+            iter_name = 'anon'
+
         if state_above is not None:
-            raise NotImplementedError()
+            assert layer_above is not None
+            msg = layer_above.downward_message(state_above)
+            msg.name = 'msg_from_'+layer_above.layer_name+'_to_'+self.layer_name+'['+iter_name+']'
+        else:
+            msg = None
         assert hasattr(state_below,'ndim') and state_below.ndim == 4
         if double_weights:
             state_below = 2. * state_below
@@ -861,7 +900,10 @@ class ConvMaxPool(SuperDBM_HidLayer):
         z = self.transformer.lmul(state_below) + self.b
         if self.layer_name is not None and iter_name is not None:
             z.name = self.layer_name + '_' + iter_name + '_z'
-        p,h = max_pool(z, (self.pool_rows, self.pool_cols))
+        p,h = max_pool(z, (self.pool_rows, self.pool_cols), msg)
+
+        p.name = self.layer_name + '_p_' + iter_name
+        h.name = self.layer_name + '_h_' + iter_name
 
         return p, h
 
@@ -870,11 +912,11 @@ class ConvMaxPool(SuperDBM_HidLayer):
             theano_rng = None):
 
         if state_above is not None:
-            raise NotImplementedError()
+            msg = layer_above.downward_message(state_above)
 
         z = self.transformer.lmul(state_below) + self.b
         p, h, p_sample, h_sample = max_pool(z,
-                (self.pool_rows, self.pool_cols), theano_rng)
+                (self.pool_rows, self.pool_cols), msg, theano_rng)
 
         return p_sample, h_sample
 
