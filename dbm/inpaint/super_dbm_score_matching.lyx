@@ -1,0 +1,863 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+The score matching objective
+\end_layout
+
+\begin_layout Standard
+The score matching objective on a training set is given by equation 4 of
+ Kevin Swersky's paper, 
+\begin_inset Quotes eld
+\end_inset
+
+On Autoencoders and Score Matching for Energy Based Models
+\begin_inset Quotes erd
+\end_inset
+
+, here in the git repo as smPaper.pdf.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\psi_{i}(p_{\theta}(v))^{2}+\frac{\partial\psi_{i}(p_{\theta}(v))}{\partial v_{i}}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula 
+\[
+\psi_{i}(p(v))=-\frac{\partial F(v)}{\partial v_{i}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+so
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}(\frac{\partial}{\partial v_{i}}F(v))^{2}-\frac{\partial^{2}F(v)}{\partial v_{i}^{2}}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Convolutional RBM energy
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h)=\frac{1}{2}(v-Wh)^{T}\beta(v-Wh)-b^{T}h-\frac{1}{2}h^{T}W^{T}\beta Wh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{2}v^{T}\beta v-v^{T}\beta Wh-b^{T}h
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Here we're assuming the convolution is applied to a fixed-sized image, so
+ that we can represent all the convolution maps by reshaping them to vectors,
+ and the convolution operator with a matrix 
+\begin_inset Formula $W$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Convolutional RBM free energy
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p(v)=\frac{1}{Z}\exp(-F(v))=\frac{1}{Z}\sum_{h}\exp(-E(v,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\exp(-F(v))=\sum_{h}\exp(-E(v,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-F(v)=\log\sum_{h}\exp(-E(v,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=-\log\sum_{h}\exp(-\frac{1}{2}v^{T}\beta v+v^{T}\beta Wh+b^{T}h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We need to bring in some of the structure now.
+ Specifically, there are constraints on the domain of 
+\begin_inset Formula $h$
+\end_inset
+
+.
+ It is divided into 
+\begin_inset Formula $k$
+\end_inset
+
+ different groups 
+\begin_inset Formula $g$
+\end_inset
+
+ .
+ Each 
+\begin_inset Formula $g$
+\end_inset
+
+ is the receptive field of a different pooling unit.
+ Let 
+\begin_inset Formula $!i$
+\end_inset
+
+ index the columns corresponding to 
+\begin_inset Formula $g^{(i)}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=-\log\sum_{g}\exp(-\frac{1}{2}v^{T}\beta v+\sum_{i=1}^{k}(v^{T}\beta W)_{!i}g^{(i)}+b_{!i}^{T}g^{(i)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=-\log\exp(-\frac{1}{2}v^{T}\beta v)\Pi_{i=1}^{k}\sum_{g^{(i)}}\exp((v^{T}\beta W)_{!i}g^{(i)}+b_{!i}^{T}g^{(i)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=\frac{1}{2}v^{T}\beta v-\sum_{i=1}^{k}\log\sum_{g^{(i)}}\exp((v^{T}\beta W)_{!i}g^{(i)}+b_{!i}^{T}g^{(i)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=\frac{1}{2}v^{T}\beta v-\sum_{i=1}^{k}\log\sum_{g^{(i)}}\exp(v^{T}\beta W{}_{!i}g^{(i)}+b_{!i}^{T}g^{(i)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now let's bring in some more structure.
+ In each group, either no elements are on, or one element is on.
+ Let 
+\begin_inset Formula $n$
+\end_inset
+
+ define the group size.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=\frac{1}{2}v^{T}\beta v-\sum_{i=1}^{k}\log\left[1+\sum_{i=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+First derivative
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial v_{i}}F(v)=\frac{\partial}{\partial v_{i}}\left[\frac{1}{2}v^{T}\beta v-\sum_{i=1}^{k}\log\left[1+\sum_{i=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\right]\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial v_{i}}F(v)=v_{i}\beta_{i}-\frac{\partial}{\partial v_{i}}\left[\sum_{i=1}^{k}\log\left[1+\sum_{i=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\right]\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial v_{i}}F(v)=v_{i}\beta_{i}-\sum_{i=1}^{k}\frac{\partial}{\partial v_{i}}\log\left[1+\sum_{i=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial v_{i}}F(v)=v_{i}\beta_{i}-\sum_{i=1}^{k}\frac{\frac{\partial}{\partial v_{i}}\left[1+\sum_{i=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\right]}{1+\sum_{i=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Oops, I was already using 
+\begin_inset Formula $i$
+\end_inset
+
+for a summation inside the expression.
+ I should be taking the derivative with respect to 
+\begin_inset Formula $v_{l}$
+\end_inset
+
+I guess.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial v_{l}}F(v)=v_{l}\beta_{l}-\sum_{i=1}^{k}\frac{\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\beta_{l}W_{l!ij}g_{j}^{(i)}}{1+\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Second derivative
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{l}^{2}}F(v)=\frac{\partial}{\partial v_{l}}\left[v_{l}\beta_{l}-\sum_{i=1}^{k}\frac{\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\beta_{l}W_{l!ij}g_{j}^{(i)}}{1+\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{l}^{2}}F(v)=\beta_{l}-\sum_{i=1}^{k}\frac{\partial}{\partial v_{l}}\left[\frac{\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\beta_{l}W_{l!ij}g_{j}^{(i)}}{1+\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $f_{i}(v)=\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\beta_{l}W_{l!ij}g_{j}^{(i)}$
+\end_inset
+
+ and 
+\begin_inset Formula $q_{i}(v)=1+\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{l}^{2}}F(v)=\beta_{l}-\sum_{i=1}^{k}\frac{q_{i}(v)f_{i}'(v)-f_{i}(v)q_{i}'(v)}{q_{i}^{2}(v)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $f_{i}'(v)=\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})(\beta_{l}W_{l!ij}g_{j}^{(i)})^{2}$
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $q_{i}'(v)=\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})\beta_{l}W_{l!ij}g_{j}^{(i)}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $q_{i}(v)f_{i}'(v)=\sum_{j=1}^{n}\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})(\beta_{l}W_{l!ij}g_{j}^{(i)})^{2}+\sum_{k=1}^{n}\exp(v^{T}\beta W{}_{!ik}g_{k}^{(i)}+b_{!ik}^{T}g_{k}^{(i)})\exp(v^{T}\beta W{}_{!ij}g_{j}^{(i)}+b_{!ij}^{T}g_{j}^{(i)})(\beta_{l}W_{l!ij}g_{j}^{(i)})^{2}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is getting nasty.
+ Maybe I should consider simplifying the first derivative or the free energy
+ function more first?
+\end_layout
+
+\begin_layout Section
+A simpler case
+\end_layout
+
+\begin_layout Standard
+Suppose we are doing an RBM with a softmax hidden layer.
+ This is to get some experience with a related but simpler case, in hopes
+ it will give me an idea for how to re-arrange the above math less nastily.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=-\log\sum_{h}\exp(-\frac{1}{2}v^{T}\beta v+v^{T}\beta Wh+b^{T}h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=-\log\sum_{i}\exp(-\frac{1}{2}v^{T}\beta v+v^{T}\beta W_{:i}+b_{i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(v)=\frac{1}{2}v^{T}\beta v-\log\sum_{i}\exp(v^{T}\beta W_{:i}+b_{i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial v_{j}}=\frac{1}{2}\beta_{j}v_{j}-\frac{\sum_{i}\exp(v^{T}\beta W_{:i}+b_{i})\beta_{jj}W_{ji}}{\sum_{i}\exp(v^{T}\beta W_{:i}+b_{i})}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\frac{\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})\beta_{jj}^{2}W_{jk}^{2}-\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})\beta_{jj}^{2}W_{ji}W_{jk}}{\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\beta_{j}^{2}\frac{\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})W_{jk}^{2}-\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})W_{ji}W_{jk}}{\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\beta_{j}^{2}\frac{\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})(W_{jk}^{2}-W_{ji}W_{jk})}{\sum_{i}\sum_{k}\exp(v^{T}\beta W_{:i}+b_{i})\exp(v^{T}\beta W_{:k}+b_{k})}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\beta_{j}^{2}\frac{\sum_{i}\exp(v^{T}\beta W_{:i}+b_{i})\sum_{k}\exp(v^{T}\beta W_{:k}+b_{k})(W_{jk}^{2}-W_{ji}W_{jk})}{\left(\sum_{i}\exp(v^{T}\beta W_{:i}+b_{i})\right)\left(\sum_{k}\exp(v^{T}\beta W_{:k}+b_{k})\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\beta_{j}^{2}\sum_{i}\frac{\exp(v^{T}\beta W_{:i}+b_{i})}{\sum_{i'}\exp(v^{T}\beta W_{:i'}+b_{i'})}\sum_{k}\frac{\exp(v^{T}\beta W_{:k}+b_{k})}{\sum_{k'}\exp(v^{T}\beta W_{:k'}+b_{k'})}(W_{jk}^{2}-W_{ji}W_{jk})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\beta_{j}^{2}\sum_{i}p_{\mathrm{softmax}}(i;v^{T}\beta W+b)\sum_{k}p_{\mathrm{softmax}}(k;v^{T}\beta W+b)(W_{jk}^{2}-W_{ji}W_{jk})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\beta_{j}^{2}\mathbb{E}_{i\sim p_{\mathrm{softmax}}(i;v^{T}\beta W+b)}\left[\mathbb{E}_{k\sim p_{\mathrm{softmax}}(k;v^{T}\beta W+b)}[W_{jk}^{2}-W_{ji}W_{jk}]\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial^{2}}{\partial v_{j}^{2}}=\frac{1}{2}\beta_{j}-\beta_{j}^{2}\mathrm{Var}_{i\sim p_{\mathrm{softmax}}(i;v^{T}\beta W+b)}(W_{ji})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Another attempt
+\end_layout
+
+\begin_layout Standard
+After getting the variance popping out in section 6, I remembed that Kevin's
+ paper gives some results in terms of the variance.
+ This might help me skip a lot of the nasty algebra I was getting bogged
+ down with in section 5.
+\end_layout
+
+\begin_layout Standard
+Kevin's corollary 1 requires putting the energy function in this form:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h)=\frac{1}{2}(v-\mu(h))^{T}\Omega(h)(v-\mu(h))+g(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The convolutional RBM energy function is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h)=\frac{1}{2}(v-Wh)^{T}\beta(v-Wh)-b^{T}h-\frac{1}{2}h^{T}W^{T}\beta Wh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+so
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mu(h)=Wh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\Omega(h)=\beta
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+g(h)=-b^{T}h-\frac{1}{2}h^{T}W^{T}\beta Wh
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Kevin's corollary gives
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}(\Omega(h)\mathbb{E}_{P(h\mid v)}(v_{i}-\mu(h)))^{2}+\mathrm{Var}_{p(h\mid v)}[\Omega(h))v-\mu(h)]_{i}-\mathbb{E}_{p(h\mid v)}[\Omega(h)]_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}(\beta_{ii}\mathbb{E}_{P(h\mid v)}(v_{i}-Wh))^{2}+\mathrm{Var}_{p(h\mid v)}[\beta(v-Wh)]_{i}-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{ii}^{2}(v_{i}-W\hat{h})^{2}+\mathbb{E}_{p(h\mid v)}[(\beta(v-Wh))^{2}]_{i}-\mathbb{E}_{p(h\mid v)}[\beta(v-Wh)]_{i}^{2}-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{ii}^{2}(v_{i}-W\hat{h})^{2}+\mathbb{E}_{p(h\mid v)}[(\beta(v-Wh))^{2}]_{i}-(\beta(v-W\hat{h}))_{i}^{2}-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}-\frac{1}{2}\beta_{ii}^{2}(v_{i}-W\hat{h})^{2}+\mathbb{E}_{p(h\mid v)}[(\beta(v-Wh))^{2}]_{i}-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}-\frac{1}{2}\beta_{ii}^{2}(v_{i}-W\hat{h})^{2}+\beta_{i}^{2}\mathbb{E}_{p(h\mid v)}[(v_{i}-W_{i:}h)^{2}]-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}-\frac{1}{2}\beta_{ii}^{2}(v_{i}-W\hat{h})^{2}+\beta_{i}^{2}\mathbb{E}_{p(h\mid v)}[v_{i}^{2}-2v_{i}W_{i:}h+h^{T}W_{i:}^{T}W_{i:}h]-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}-\frac{1}{2}\beta_{ii}^{2}(v_{i}-W_{i:}\hat{h})^{2}+\beta_{i}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+\mathbb{E}_{p(h\mid v)}[h^{T}W_{i:}^{T}W_{i:}h])-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}-\frac{1}{2}\beta_{ii}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+(W_{i:}\hat{h})^{2})+\beta_{i}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+\mathbb{E}_{p(h\mid v)}[h^{T}W_{i:}^{T}W_{i:}h])-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{i}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+2\mathbb{E}_{p(h\mid v)}[h^{T}W_{i:}^{T}W_{i:}h]-(W_{i:}\hat{h})^{2})-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{i}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+\sum_{j}\sum_{k}W_{ij}W_{ik}(2E[h_{j}h_{k}]-\hat{h}_{j}\hat{h}_{k})-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{i}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+\sum_{j}\sum_{k}W_{ij}W_{ik}(2\hat{h}_{j}\hat{h}_{k}-\hat{h}_{j}\hat{h}_{k})-\sum_{j}W_{ij}^{2}\hat{h}_{j}^{2}+\sum_{j}W_{ij}^{2}\hat{h}_{j}-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{i}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+\sum_{j}\sum_{k}W_{ij}W_{ik}\hat{h}_{j}\hat{h}_{k}-\sum_{j}W_{ij}W_{ik}\hat{h}_{j}^{2}+\sum_{j}W_{ij}W_{ik}\hat{h}-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{i}^{2}(v_{i}^{2}-2v_{i}W_{i:}\hat{h}+(W_{i:}\hat{h})^{2})-\sum_{j}W_{ij}W_{ik}\hat{h}_{j}^{2}+\sum_{j}W_{ij}W_{ik}\hat{h}-\beta_{ii}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\sum_{i=1}^{D}\frac{1}{2}\beta_{i}^{2}(v_{i}-W_{i:}\hat{h})^{2}+\sum_{j}\beta_{i}^{2}W_{ij}W_{ik}\hat{h}(1-\hat{h})-\beta_{i}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\frac{1}{2}(v-W\hat{h})^{T}\beta\beta(v-Wh)+\sum_{i}\beta_{i}^{2}\sum_{j}W_{ij}^{2}\hat{h}_{j}(1-\hat{h}_{j})-\beta_{i}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+J(\theta)=\mathbb{E}_{\hat{p}(v)}\left[\frac{1}{2}(v-W\hat{h})^{T}\beta\beta(v-Wh)+\sum_{i}\beta_{i}^{2}\sum_{j}W_{ij}^{2}\hat{h}_{j}(1-\hat{h}_{j})-\beta_{i}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The squaring of beta bothers me a little in both the first term and the
+ second term.
+\end_layout
+
+\end_body
+\end_document
