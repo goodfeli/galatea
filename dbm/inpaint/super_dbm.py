@@ -913,6 +913,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         if state_above is not None:
             msg = layer_above.downward_message(state_above)
+        else:
+            msg = None
 
         z = self.transformer.lmul(state_below) + self.b
         p, h, p_sample, h_sample = max_pool(z,
