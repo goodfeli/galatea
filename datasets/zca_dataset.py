@@ -5,7 +5,8 @@ class ZCA_Dataset(DenseDesignMatrix):
 
     def __init__(self,
             preprocessed_dataset,
-            preprocessor):
+            preprocessor,
+            convert_to_one_hot = True):
 
         self.preprocessed_dataset = preprocessed_dataset
         self.preprocessor = preprocessor
@@ -13,7 +14,15 @@ class ZCA_Dataset(DenseDesignMatrix):
 
         self.X = preprocessed_dataset.X
         self.view_converter = preprocessed_dataset.view_converter
-        self.y = None
+        self.y = preprocessed_dataset.y
+
+        if convert_to_one_hot:
+            assert self.y.min() == 0
+            nclass = self.y.max() + 1
+            y = np.zeros((self.y.shape[0], nclass), dtype='float32')
+            for i in xrange(self.y.shape[0]):
+                y[i,self.y[i]] = 1.
+            self.y = y
 
         self.mn = self.X.min()
         self.mx = self.X.max()
@@ -21,6 +30,9 @@ class ZCA_Dataset(DenseDesignMatrix):
         print 'inverting...'
         preprocessor.invert()
         print '...done inverting'
+
+    def has_targets(self):
+        return self.preprocessed_dataset.has_targets()
 
     def adjust_for_viewer(self, X):
 
