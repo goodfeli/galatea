@@ -1,5 +1,6 @@
 from pylearn2.models.model import Model
 import theano
+from pylearn2.space import Space
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
 from pylearn2.utils import sharedX
@@ -14,6 +15,7 @@ import warnings
 from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import time
+from pylearn2.costs.cost import SupervisedCost
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
@@ -30,9 +32,13 @@ class SuperDBM(Model):
         del self.self
         assert len(hidden_layers) >= 1
         for layer in hidden_layers:
+            assert not hasattr(layer, 'dbm') or layer.dbm is None
             layer.dbm = self
         self._update_layer_input_spaces()
         self.force_batch_size = batch_size
+
+    def get_output_space(self):
+        return self.hidden_layers[-1].get_output_space()
 
     def _update_layer_input_spaces(self):
         """
@@ -44,6 +50,19 @@ class SuperDBM(Model):
         self.hidden_layers[0].set_input_space(visible_layer.space)
         for i in xrange(1,len(hidden_layers)):
             hidden_layers[i].set_input_space(hidden_layers[i-1].get_output_space())
+
+    def add_layers(self, layers):
+        """
+            Add new layers on top of the existing hidden layers
+        """
+
+        hidden_layers = self.hidden_layers
+        assert len(hidden_layers) > 0
+        for layer in layers:
+            layer.set_input_space(hidden_layers[-1].get_output_space())
+            hidden_layers.append(layer)
+            assert not hasattr(layer, 'dbm') or layer.dbm is None
+            layer.dbm = self
 
     def get_params(self):
 
@@ -769,6 +788,8 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         return masked_cost.mean()
 
     def upward_state(self, total_state):
+        if total_state.ndim != 4:
+            raise ValueError("total_state should have 4 dimensions, has "+str(total_state.ndim))
         assert total_state is not None
         V = total_state
         upward_state = V * self.beta
@@ -880,10 +901,6 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
     def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
 
-        # debugging crap, remove when done with it
-        if self.layer_name == 'h1':
-            assert state_below.name.startswith('h0_p')
-
         if iter_name is None:
             iter_name = 'anon'
 
@@ -893,7 +910,13 @@ class ConvMaxPool(SuperDBM_HidLayer):
             msg.name = 'msg_from_'+layer_above.layer_name+'_to_'+self.layer_name+'['+iter_name+']'
         else:
             msg = None
-        assert hasattr(state_below,'ndim') and state_below.ndim == 4
+
+        if not hasattr(state_below, 'ndim'):
+            raise TypeError("state_below should be a TensorType, got " +
+                    str(state_below) + " of type " + str(type(state_below)))
+        if state_below.ndim != 4:
+            raise ValueError("state_below should have ndim 4, has "+str(state_below.ndim))
+
         if double_weights:
             state_below = 2. * state_below
             state_below.name = self.layer_name + '_'+iter_name + '_2state'
@@ -985,7 +1008,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
 
 class Softmax(SuperDBM_HidLayer):
-    def __init__(self, n_classes, irange):
+    def __init__(self, n_classes, irange, layer_name):
         self.__dict__.update(locals())
         del self.self
 
@@ -995,10 +1018,15 @@ class Softmax(SuperDBM_HidLayer):
     def set_input_space(self, space):
         self.input_space = space
 
+        if not isinstance(space, Space):
+            raise TypeError("Expected Space, got "+
+                    str(space)+" of type "+str(type(space)))
+
+
         if isinstance(space, Conv2DSpace):
             self.input_dim = space.shape[0] * space.shape[1] * space.nchannels
         else:
-            raise NotImplementedError()
+            raise NotImplementedError("SoftMax can't take "+str(type(space))+" as input yet")
 
         rng = np.random.RandomState([2012,07,25])
 
@@ -1006,9 +1034,11 @@ class Softmax(SuperDBM_HidLayer):
 
         self._params = [ self.b, self.W ]
 
-    def mf_update(self, state_below, state_above):
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
         if state_above is not None:
             raise NotImplementedError()
+
+        assert not double_weights
 
         state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
 
@@ -1016,7 +1046,87 @@ class Softmax(SuperDBM_HidLayer):
         return T.nnet.softmax(T.dot(state_below,self.W)+self.b)
 
     def downward_message(self, downward_state):
-        return T.dot(downward_state, self.W.T)
+        return T.dot(downward_state, self.W.T).reshape(
+                (self.dbm.batch_size,
+                 self.input_space.shape[0],
+                 self.input_space.shape[1],
+                 self.input_space.nchannels))
 
 
+def add_layers( super_dbm, new_layers ):
+    """
+        Modifies super_dbm to contain new_layers on top of its old hidden_layers
+        Returns super_dbm
+
+        This is mostly a convenience function for yaml files
+    """
+
+    super_dbm.add_layers( new_layers )
+
+    return super_dbm
+
+class SuperDBM_ConditionalNLL(SupervisedCost):
+
+    def __call__(self, model, X, Y):
+        """ Returns - log P( Y | X) / m
+            where Y is a matrix of one-hot labels,
+            one label per row
+            X is a batch of examples, X[i,:] being an example
+            (but not necessarily a row, ie, could be an image)
+            P is given by the deepest state output by model.mf(X)
+            The deepest layer must be Softmax
+            m is the number of examples
+        """
+
+        assert isinstance(model.hidden_layers[-1], Softmax)
+        Y_hat = model.mf(X)[-1]
+        Y_hat.name = 'Y_hat'
+
+        assert Y_hat.ndim == 2
+        assert Y.ndim == 2
+
+        # Pull out the argument to the softmax
+        assert hasattr(Y_hat, 'owner')
+        assert Y_hat.owner is not None
+        assert isinstance(Y_hat.owner.op, T.nnet.Softmax)
+        arg ,= Y_hat.owner.inputs
+        arg.name = 'arg'
+
+        arg = arg - arg.max(axis=1).dimshuffle(0,'x')
+        arg.name = 'safe_arg'
+
+        unnormalized = T.exp(arg)
+        unnormalized.name = 'unnormalized'
+
+        Z = unnormalized.sum(axis=1)
+        Z.name = 'Z'
+
+        log_ymf = arg - T.log(Z).dimshuffle(0,'x')
+
+        log_ymf.name = 'log_ymf'
+
+        example_costs =  Y * log_ymf
+        example_costs.name = 'example_costs'
+
+        return - example_costs.mean()
+
+    def get_monitoring_channels(self, model, X, Y):
+
+        assert isinstance(model.hidden_layers[-1], Softmax)
+        Y_hat = model.mf(X)[-1]
+
+        Y = T.argmax(Y, axis=1)
+        Y = T.cast(Y, Y_hat.dtype)
+
+        argmax = T.argmax(Y_hat,axis=1)
+        if argmax.dtype != Y_hat.dtype:
+            argmax = T.cast(argmax, Y_hat.dtype)
+        neq = T.neq(Y , argmax).mean()
+        if neq.dtype != Y_hat.dtype:
+            neq = T.cast(neq, Y_hat.dtype)
+        acc = 1.- neq
+
+        assert acc.dtype == Y_hat.dtype
+
+        return { 'acc' : acc }
 
