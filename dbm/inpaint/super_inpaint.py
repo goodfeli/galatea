@@ -15,16 +15,15 @@ class SuperInpaint(UnsupervisedCost):
     def __init__(self,
                     mask_gen = None,
                     noise = False,
-                    both_directions = False
+                    both_directions = False,
+                    l1_act_coeffs = None,
+                    l1_act_targets = None
                     #inpaint_penalty = 1.,
                     #weight_decay = None,
                     #balance = False,
                     #reweight = True,
                     #reweight_correctly = False,
                     #recons_penalty = None,
-                    #h_target = None,
-                    #h_penalty = None,
-                    #g_target = None,
                     #g_penalty = None,
                     #h_bimodality_penalty = None,
                     #g_bimodality_penalty = None,
@@ -165,8 +164,28 @@ class SuperInpaint(UnsupervisedCost):
             inpaint_cost = 0.5 * inpaint_cost + 0.5 * new_inpaint_cost
 
         total_cost = inpaint_cost
-        total_cost.name = 'total_cost(V_hat = %s)' % V_hat.name
 
+        if self.l1_act_targets is not None:
+            for mf_state, targets, coeffs in zip(state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs):
+                assert not isinstance(targets, str)
+                if not isinstance(targets, (list, tuple)):
+                    assert not isinstance(mf_state, (list, tuple))
+                    mf_state = [ mf_state ]
+                    targets = [ targets ]
+                    coeffs = [ coeffs ]
+
+                for H, t, c in zip(mf_state, targets, coeffs):
+                    if c == 0.:
+                        continue
+                    axes = tuple(range(0,H.ndim-1))
+                    h = H.mean(axis=axes)
+                    assert h.ndim == 1
+                    total_cost += c * abs(h - t).mean()
+                # end for substates
+            # end for layers
+        # end if act penalty
+
+        total_cost.name = 'total_cost(V_hat = %s)' % V_hat.name
 
         return total_cost
 
