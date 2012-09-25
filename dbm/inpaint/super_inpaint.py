@@ -100,6 +100,18 @@ class SuperInpaint(UnsupervisedCost):
                 prev_V_hat = prev_state['V_hat']
                 rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
 
+        final_state = history[-1]
+
+        layers = [ model.visible_layer ] + model.hidden_layers
+        states = [ final_state['V_hat'] ] + final_state['H_hat']
+
+        for layer, state in zip(layers, states):
+            d = layer.get_monitoring_channels_from_state(state)
+            for key in d:
+                mod_key = 'final_inpaint_' + layer.layer_name + '_' + key
+                assert mod_key not in rval
+                rval[mod_key] = d[key]
+
         return rval
 
     def __call__(self, model, X, drop_mask = None, return_locals = False):

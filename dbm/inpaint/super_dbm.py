@@ -566,6 +566,9 @@ class SuperDBM(Model):
 
 class SuperDBM_Layer(Model):
 
+    def get_monitoring_channels_from_state(self, state):
+        return {}
+
     def upward_state(self, total_state):
         """
             Takes total_state and turns it into the state that layer_above should
@@ -685,6 +688,8 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         assert self.mu.ndim == mu_origin.ndim
 
     def get_params(self):
+        if self.mu is None:
+            return set([self.beta])
         return set([self.beta, self.mu])
 
     def get_lr_scalers(self):
@@ -899,6 +904,34 @@ class ConvMaxPool(SuperDBM_HidLayer):
     def downward_state(self, total_state):
         p,h = total_state
         return h
+
+    def get_monitoring_channels_from_state(self, state):
+
+        P, H = state
+
+        p_max = P.max(axis=(0,1,2))
+        p_min = P.min(axis=(0,1,2))
+        p_range = p_max - p_min
+        p_mean = P.mean(axis=(0,1,2))
+
+        rval = {
+                'p_max_max' : p_max.max(),
+                'p_max_mean' : p_max.mean(),
+                'p_max_min' : p_max.min(),
+                'p_min_max' : p_min.max(),
+                'p_min_mean' : p_min.mean(),
+                'p_min_max' : p_min.max(),
+                'p_range_max' : p_range.max(),
+                'p_range_mean' : p_range.mean(),
+                'p_range_min' : p_range.min(),
+                'p_mean_max' : p_mean.max(),
+                'p_mean_mean' : p_mean.mean(),
+                'p_mean_min' : p_mean.min()
+                }
+
+        return rval
+
+
 
     def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
 
@@ -1131,3 +1164,6 @@ class SuperDBM_ConditionalNLL(SupervisedCost):
 
         return { 'acc' : acc }
 
+def ditch_mu(model):
+    model.visible_layer.mu = None
+    return model
