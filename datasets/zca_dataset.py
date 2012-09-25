@@ -17,7 +17,8 @@ class ZCA_Dataset(DenseDesignMatrix):
         self.y = preprocessed_dataset.y
 
         if convert_to_one_hot:
-            assert self.y.min() == 0
+            if not ( self.y.min() == 0):
+                raise AssertionError("Expected y.min == 0 but y.min == "+str(self.y.min()))
             nclass = self.y.max() + 1
             y = np.zeros((self.y.shape[0], nclass), dtype='float32')
             for i in xrange(self.y.shape[0]):

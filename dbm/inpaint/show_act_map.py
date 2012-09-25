@@ -66,10 +66,12 @@ while True:
 
     pv.add_patch(dataset.adjust_for_viewer(x),rescale=False)
 
-    origin = model.visible_layer.space.get_origin()
-    mu = origin + model.visible_layer.mu.get_value()
-    print 'mu range: ',(mu.min(),mu.max())
-    pv.add_patch(mu,rescale=True)
+    # mu may not exist if someboady ran ditch_mu for supervised training
+    if model.visible_layer.mu is not None:
+        origin = model.visible_layer.space.get_origin()
+        mu = origin + model.visible_layer.mu.get_value()
+        print 'mu range: ',(mu.min(),mu.max())
+        pv.add_patch(mu,rescale=True)
     beta = origin + model.visible_layer.beta.get_value()
     print 'beta range: ',(beta.min(),beta.max())
     beta -= beta.min()

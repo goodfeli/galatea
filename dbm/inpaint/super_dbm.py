@@ -79,6 +79,7 @@ class SuperDBM(Model):
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
+        self.force_batch_size = batch_size
 
         for layer in self.hidden_layers:
             layer.set_batch_size(batch_size)
