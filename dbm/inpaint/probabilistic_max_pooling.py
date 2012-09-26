@@ -637,3 +637,118 @@ if __name__ == '__main__':
 
 
 
+def max_pool_stable_graph_bc01(z, pool_shape, top_down = None, theano_rng = None):
+    """
+        copy-paste of max_pool_stable_graph, then edited to be formatted as (batch idx, channel, row, col)
+        rather than (batch_idx, row, col, channel)
+    """
+
+    z_name = z.name
+    if z_name is None:
+        z_name = 'anon_z'
+
+
+    batch_size, ch, zr, zc = z.shape
+
+    r, c = pool_shape
+
+    zpart = []
+
+    mx = None
+
+    if top_down is None:
+        t = 0.
+    else:
+        t = - top_down
+        t.name = 'neg_top_down'
+
+    for i in xrange(r):
+        zpart.append([])
+        for j in xrange(c):
+            cur_part = z[:,:,i:zr:r,j:zc:c]
+            if z_name is not None:
+                cur_part.name = z_name + '[%d,%d]' % (i,j)
+            zpart[i].append( cur_part )
+            if mx is None:
+                mx = T.maximum(t, cur_part)
+                if cur_part.name is not None:
+                    mx.name = 'max(-top_down,'+cur_part.name+')'
+            else:
+                max_name = None
+                if cur_part.name is not None:
+                    mx_name = 'max('+cur_part.name+','+mx.name+')'
+                mx = T.maximum(mx,cur_part)
+                mx.name = mx_name
+    mx.name = 'local_max('+z_name+')'
+
+    pt = []
+
+    for i in xrange(r):
+        pt.append([])
+        for j in xrange(c):
+            z_ij = zpart[i][j]
+            safe = z_ij - mx
+            safe.name = 'safe_z(%s)' % z_ij.name
+            cur_pt = T.exp(safe)
+            cur_pt.name = 'pt(%s)' % z_ij.name
+            pt[-1].append( cur_pt )
+
+    off_pt = T.exp(t - mx)
+    off_pt.name = 'p_tilde_off(%s)' % z_name
+    denom = off_pt
+
+    for i in xrange(r):
+        for j in xrange(c):
+            denom = denom + pt[i][j]
+    denom.name = 'denom(%s)' % z_name
+
+    off_prob = off_pt / denom
+    p = 1. - off_prob
+    p.name = 'p(%s)' % z_name
+
+    hpart = []
+    for i in xrange(r):
+        hpart.append( [ pt_ij / denom for pt_ij in pt[i] ] )
+
+    h = T.alloc(0., batch_size, ch, zr, zc)
+
+    for i in xrange(r):
+        for j in xrange(c):
+            h = T.set_subtensor(h[:,:,i:zr:r,j:zc:c],hpart[i][j])
+
+    h.name = 'h(%s)' % z_name
+
+    if theano_rng is None:
+        return p, h
+    else:
+        events = []
+        for i in xrange(r):
+            for j in xrange(c):
+                events.append(hpart[i][j])
+        events.append(off_prob)
+
+        events = [ event.dimshuffle(0,1,2,3,'x') for event in events ]
+
+        events = tuple(events)
+
+        stacked_events = T.concatenate( events, axis = 4)
+
+        batch_size, channels, rows, cols, outcomes = stacked_events.shape
+        reshaped_events = stacked_events.reshape((batch_size * rows * cols * channels, outcomes))
+
+        multinomial = theano_rng.multinomial(pvals = reshaped_events, dtype = p.dtype)
+
+        reshaped_multinomial = multinomial.reshape((batch_size, channels, rows, cols, outcomes))
+
+        h_sample = T.alloc(0., batch_size, ch, zr, zc)
+
+        idx = 0
+        for i in xrange(r):
+            for j in xrange(c):
+                h_sample = T.set_subtensor(h_sample[:,:,i:zr:r,j:zc:c],
+                        reshaped_multinomial[:,:,:,:,idx])
+                idx += 1
+
+        p_sample = 1 - reshaped_multinomial[:,:,:,:,-1]
+
+        return p, h, p_sample, h_sample

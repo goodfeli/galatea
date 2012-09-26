@@ -8,6 +8,7 @@ from pylearn2.linear.conv2d import make_random_conv2D
 import theano.tensor as T
 import numpy as np
 from galatea.dbm.inpaint.probabilistic_max_pooling import max_pool
+from galatea.dbm.inpaint.probabilistic_max_pooling import max_pool_stable_graph_bc01
 from theano.gof.op import get_debug_values
 from theano.printing import Print
 from galatea.theano_upgrades import block_gradient
@@ -828,7 +829,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
             layer_name,
             mirror_weights = False,
             init_bias = 0.,
-            border_mode = 'valid'):
+            border_mode = 'valid',
+            output_axes = ('b', 'c', 0, 1)):
         """
 
         mirror_weights:
@@ -843,6 +845,15 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         self.b = sharedX( np.zeros((output_channels,)) + init_bias, name = layer_name + '_b')
         assert border_mode in ['full','valid']
+
+    def broadcasted_bias(self):
+
+        assert self.b.ndim == 1
+
+        shuffle = [ 'x' ] * 4
+        shuffle[self.output_axes.index('c')] = 0
+
+        return self.b.dimshuffle(*shuffle)
 
     def set_input_space(self, space):
         """ Note: this resets parameters!"""
@@ -864,10 +875,17 @@ class ConvMaxPool(SuperDBM_HidLayer):
                     (self.h_rows, self.pool_rows, self.h_rows % self.pool_rows))
         assert self.h_cols % self.pool_cols == 0
 
-        self.h_space = Conv2DSpace( shape = (self.h_rows, self.h_cols), nchannels = self.output_channels)
-        self.output_space = Conv2DSpace( shape = (self.h_rows / self.pool_rows,
+        self.h_space = Conv2DSpace(shape = (self.h_rows, self.h_cols), nchannels = self.output_channels,
+                axes = self.output_axes)
+        self.output_space = Conv2DSpace(shape = (self.h_rows / self.pool_rows,
                                                 self.h_cols / self.pool_cols),
-                                                nchannels = self.output_channels)
+                                                nchannels = self.output_channels,
+                axes = self.output_axes)
+
+        if tuple(self.output_axes) == ('b', 0, 1, 'c'):
+            self.max_pool = max_pool
+        else:
+            self.max_pool = max_pool_stable_graph_bc01
 
         self.transformer = make_random_conv2D(self.irange, input_space = space,
                 output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
@@ -954,10 +972,10 @@ class ConvMaxPool(SuperDBM_HidLayer):
         if double_weights:
             state_below = 2. * state_below
             state_below.name = self.layer_name + '_'+iter_name + '_2state'
-        z = self.transformer.lmul(state_below) + self.b
+        z = self.transformer.lmul(state_below) + self.broadcasted_bias()
         if self.layer_name is not None and iter_name is not None:
             z.name = self.layer_name + '_' + iter_name + '_z'
-        p,h = max_pool(z, (self.pool_rows, self.pool_cols), msg)
+        p,h = self.max_pool(z, (self.pool_rows, self.pool_cols), msg)
 
         p.name = self.layer_name + '_p_' + iter_name
         h.name = self.layer_name + '_h_' + iter_name
@@ -973,8 +991,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
         else:
             msg = None
 
-        z = self.transformer.lmul(state_below) + self.b
-        p, h, p_sample, h_sample = max_pool(z,
+        z = self.transformer.lmul(state_below) + self.broadcasted_bias()
+        p, h, p_sample, h_sample = self.max_pool(z,
                 (self.pool_rows, self.pool_cols), msg, theano_rng)
 
         return p_sample, h_sample
@@ -990,6 +1008,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
         raw = self.transformer._filters.get_value()
 
         return np.transpose(raw,(outp,rows,cols,inp))
+
 
     def make_state(self, num_examples, numpy_rng):
         """ Returns a shared variable containing an actual state
@@ -1007,7 +1026,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
 
-        p_exp, h_exp, p_sample, h_sample = max_pool(
+        p_exp, h_exp, p_sample, h_sample = self.max_pool(
                 z = default_h_theano,
                 pool_shape = (self.pool_rows, self.pool_cols),
                 theano_rng = theano_rng)
@@ -1080,11 +1099,17 @@ class Softmax(SuperDBM_HidLayer):
         return T.nnet.softmax(T.dot(state_below,self.W)+self.b)
 
     def downward_message(self, downward_state):
-        return T.dot(downward_state, self.W.T).reshape(
-                (self.dbm.batch_size,
-                 self.input_space.shape[0],
-                 self.input_space.shape[1],
-                 self.input_space.nchannels))
+
+        dims = { 'b' : self.dbm.batch_size,
+                0 : self.input_space.shape[0],
+                1 : self.input_space.shape[1],
+                'c' : self.input_space.nchannels }
+
+        shape = [ dims[elem] for elem in self.input_space.axes ]
+
+        rval =  T.dot(downward_state, self.W.T).reshape(tuple(shape))
+
+        return rval
 
 
 def add_layers( super_dbm, new_layers ):
