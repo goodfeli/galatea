@@ -20,7 +20,7 @@ from pylearn2.costs.cost import SupervisedCost
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
-sys.setrecursionlimit(50000)
+sys.setrecursionlimit(40000) # 50000 allowed seg fault on eos3
 
 class SuperDBM(Model):
 
