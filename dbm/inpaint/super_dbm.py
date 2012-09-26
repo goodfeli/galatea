@@ -884,8 +884,10 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         if tuple(self.output_axes) == ('b', 0, 1, 'c'):
             self.max_pool = max_pool
-        else:
+        elif tuple(self.output_axes) == ('b', 'c', 0, 1):
             self.max_pool = max_pool_stable_graph_bc01
+        else:
+            raise NotImplementedError()
 
         self.transformer = make_random_conv2D(self.irange, input_space = space,
                 output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
@@ -1087,7 +1089,7 @@ class Softmax(SuperDBM_HidLayer):
 
         self._params = [ self.b, self.W ]
 
-    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+    def mf_update(self, state_below, state_above = None, layer_above = None, double_weights = False, iter_name = None):
         if state_above is not None:
             raise NotImplementedError()
 
@@ -1124,7 +1126,65 @@ def add_layers( super_dbm, new_layers ):
 
     return super_dbm
 
+class AugmentedDBM(Model):
+    """
+        A DBM-like model.
+        Contains one extra layer for transforming to the classification space.
+        The 'mf' method of this class does not implement real mean field.
+        Instead, it runs mean field in the DBM, then does one mean field update
+        of the extra layer to get classification predictions.
+        In other words, it defines a recurrent net that has feedback in the feature
+        layers but passes through the classification layer only once.
+    """
+
+    def __init__(self, super_dbm, extra_layer):
+        self.__dict__.update(locals())
+        del self.self
+
+        extra_layer.dbm = super_dbm
+        extra_layer.set_input_space(super_dbm.hidden_layers[-1].get_output_space())
+        self.force_batch_size = super_dbm.force_batch_size
+
+        self.hidden_layers = [ extra_layer ]
+
+    def get_params(self):
+        return self.super_dbm.get_params().union(self.extra_layer.get_params())
+
+    def get_input_space(self):
+        return self.super_dbm.get_input_space()
+
+    def get_output_space(self):
+        return self.extra_layer.get_output_space()
+
+    def censor_updates(self, updates):
+        self.super_dbm.censor_updates(updates)
+        self.extra_layer.censor_updates(updates)
+
+    def set_batch_size(self, batch_size):
+        self.super_dbm.set_batch_size(batch_size)
+        self.force_batch_size = self.super_dbm.force_batch_size
+        self.extra_layer.set_batch_size(batch_size)
+
+
+    def mf(self, V, return_history = False):
+        assert not return_history
+
+        H_hat = self.super_dbm.mf(V)[-1]
+        upward_state = self.super_dbm.hidden_layers[-1].upward_state(H_hat)
+        Y_hat = self.extra_layer.mf_update(state_below = upward_state)
+
+        return [ Y_hat ]
+
+
 class SuperDBM_ConditionalNLL(SupervisedCost):
+
+
+
+    def Y_hat(self, model, X):
+        assert isinstance(model.hidden_layers[-1], Softmax)
+        Y_hat = model.mf(X)[-1]
+        Y_hat.name = 'Y_hat'
+        return Y_hat
 
     def __call__(self, model, X, Y):
         """ Returns - log P( Y | X) / m
@@ -1132,15 +1192,12 @@ class SuperDBM_ConditionalNLL(SupervisedCost):
             one label per row
             X is a batch of examples, X[i,:] being an example
             (but not necessarily a row, ie, could be an image)
-            P is given by the deepest state output by model.mf(X)
-            The deepest layer must be Softmax
+            P is given by the model (see the __init__ docstring
+            for details)
             m is the number of examples
         """
 
-        assert isinstance(model.hidden_layers[-1], Softmax)
-        Y_hat = model.mf(X)[-1]
-        Y_hat.name = 'Y_hat'
-
+        Y_hat = self.Y_hat(model, X)
         assert Y_hat.ndim == 2
         assert Y.ndim == 2
 
@@ -1171,8 +1228,7 @@ class SuperDBM_ConditionalNLL(SupervisedCost):
 
     def get_monitoring_channels(self, model, X, Y):
 
-        assert isinstance(model.hidden_layers[-1], Softmax)
-        Y_hat = model.mf(X)[-1]
+        Y_hat = self.Y_hat(model, X)
 
         Y = T.argmax(Y, axis=1)
         Y = T.cast(Y, Y_hat.dtype)
