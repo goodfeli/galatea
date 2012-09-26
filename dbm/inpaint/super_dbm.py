@@ -910,6 +910,13 @@ class ConvMaxPool(SuperDBM_HidLayer):
         assert W.name is not None
         return self.transformer.get_params().union([self.b])
 
+    def state_to_b01c(self, state):
+
+        if tuple(self.output_axes) == ('b',0,1,'c'):
+            return state
+        return [ Conv2DSpace.convert(elem, self.output_axes, ('b', 0, 1, 'c'))
+                for elem in state ]
+
     def get_lr_scalers(self):
         warnings.warn("get_lr_scalers is hardcoded to 1/(# conv positions)")
         h_rows, h_cols = self.h_space.shape
@@ -1019,35 +1026,32 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         t1 = time.time()
 
-        default_h = self.h_space.get_origin_batch(self.dbm.batch_size) + \
-                self.b.get_value()
+        empty_input = self.h_space.get_origin_batch(self.dbm.batch_size)
+        h_state = sharedX(empty_input)
 
-        default_h_theano = self.h_space.make_theano_batch()
-
-        default_h = default_h.astype(default_h_theano.dtype)
+        default_z = T.zeros_like(h_state) + self.broadcasted_bias()
 
         theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
 
         p_exp, h_exp, p_sample, h_sample = self.max_pool(
-                z = default_h_theano,
+                z = default_z,
                 pool_shape = (self.pool_rows, self.pool_cols),
                 theano_rng = theano_rng)
 
         p_state = sharedX( self.output_space.get_origin_batch(
             self.dbm.batch_size))
 
-        h_state = sharedX( default_h)
 
         t2 = time.time()
 
-        f = function([default_h_theano], updates = {
+        f = function([], updates = {
             p_state : p_sample,
             h_state : h_sample
             })
 
         t3 = time.time()
 
-        f(default_h)
+        f()
 
         t4 = time.time()
 
@@ -1146,6 +1150,9 @@ class AugmentedDBM(Model):
         self.force_batch_size = super_dbm.force_batch_size
 
         self.hidden_layers = [ extra_layer ]
+
+    def get_weights_topo(self):
+        return self.super_dbm.get_weights_topo()
 
     def get_params(self):
         return self.super_dbm.get_params().union(self.extra_layer.get_params())

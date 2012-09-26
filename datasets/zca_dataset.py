@@ -25,8 +25,8 @@ class ZCA_Dataset(DenseDesignMatrix):
                 y[i,self.y[i]] = 1.
             self.y = y
 
-        self.mn = self.X.min()
-        self.mx = self.X.max()
+        #self.mn = self.X.min()
+        #self.mx = self.X.max()
 
         print 'inverting...'
         preprocessor.invert()
