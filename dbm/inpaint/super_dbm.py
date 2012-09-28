@@ -7,8 +7,8 @@ from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
 import theano.tensor as T
 import numpy as np
-from galatea.dbm.inpaint.probabilistic_max_pooling import max_pool
-from galatea.dbm.inpaint.probabilistic_max_pooling import max_pool_stable_graph_bc01
+from pylearn2.expr.probabilistic_max_pooling import max_pool
+from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
 from theano.gof.op import get_debug_values
 from theano.printing import Print
 from galatea.theano_upgrades import block_gradient
@@ -883,9 +883,9 @@ class ConvMaxPool(SuperDBM_HidLayer):
                 axes = self.output_axes)
 
         if tuple(self.output_axes) == ('b', 0, 1, 'c'):
-            self.max_pool = max_pool
+            self.max_pool = max_pool_b01c
         elif tuple(self.output_axes) == ('b', 'c', 0, 1):
-            self.max_pool = max_pool_stable_graph_bc01
+            self.max_pool = max_pool
         else:
             raise NotImplementedError()
 

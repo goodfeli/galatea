@@ -98,7 +98,7 @@ class InpaintAlgorithm(object):
             if not self.monitoring_dataset.has_targets():
                 Y = None
             Y = None
-            self.monitor.set_dataset(dataset=self.monitoring_dataset,
+            self.monitor.add_dataset(dataset=self.monitoring_dataset,
                                 mode="sequential",
                                 batch_size=self.batch_size,
                                 num_batches=self.monitoring_batches)
