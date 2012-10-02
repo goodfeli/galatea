@@ -1,4 +1,4 @@
-from pylearn2.costs.cost import UnsupervisedCost
+from pylearn2.costs.cost import Cost
 import theano
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import theano.tensor as T
@@ -7,7 +7,7 @@ import numpy as np
 import warnings
 from galatea.theano_upgrades import block_gradient
 
-class DBM_Inpaint_Binary(UnsupervisedCost):
+class DBM_Inpaint_Binary(Cost):
     def __init__(self,
                     n_iter,
                     mask_gen = None,
@@ -269,7 +269,7 @@ class DBM_Inpaint_Binary(UnsupervisedCost):
 
         return ave_cost
 
-class RBM_Inpaint_Binary(UnsupervisedCost):
+class RBM_Inpaint_Binary(Cost):
     def __init__(self,
                     n_iter,
                     mask_gen = None,
@@ -435,7 +435,7 @@ def V_entropy_term(unmasked, mask):
     assert rval.ndim == 1
     return rval
 
-class RBM_Bad_Variational(UnsupervisedCost):
+class RBM_Bad_Variational(Cost):
     def __init__(self,
                     n_iter,
                     mask_gen = None,

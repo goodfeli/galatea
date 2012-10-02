@@ -8,6 +8,7 @@ from theano import function
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
 from galatea.ui import get_choice
+from super_inpaint import SuperInpaint
 
 ignore, model_path = sys.argv
 m = 10
@@ -18,6 +19,8 @@ if hasattr(model,'set_batch_size'):
 try:
     mask_gen = model.mask_gen
     cost = model.cost
+    if not isinstance(cost, (DBM_Inpaint_Binary, SuperInpaint)):
+        raise TypeError()
     print 'used cost from model'
     cost.mask_gen = mask_gen
 except:
@@ -77,126 +80,130 @@ if choice == 'y':
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
-
-if X.ndim == 2:
-    X = dataset.get_batch_design(m)
-else:
-    X = dataset.get_batch_topo(m)
-
-outputs = f(X)
-drop_mask = outputs[0]
-print 'empirical drop prob:',drop_mask.mean()
-X_sequence = outputs[1:]
-
-
-if X.ndim == 2:
-    Xt, drop_mask = [ dataset.get_topological_view(mat)
-        for mat in [X, drop_mask] ]
-else:
-    Xt = X
-
-rows = m
-mapback = hasattr(dataset, 'mapback_for_viewer')
-
-cols = 2+len(X_sequence)
-if mapback:
-    rows = 2 * m
-    if X.ndim != 2:
-        design_X = dataset.get_design_matrix(topo = X)
-        design_X_sequence = [ dataset.get_design_matrix(mat) for mat in X_sequence ]
+while True:
+    if X.ndim == 2:
+        X = dataset.get_batch_design(m)
     else:
-        design_X = X
-        design_X_sequence = X_sequence
-    M = dataset.get_topological_view(dataset.mapback_for_viewer(design_X))
-    print (M.min(), M.max())
-    M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in design_X_sequence ]
-X = dataset.adjust_to_be_viewed_with(Xt,Xt,per_example=True)
-if X_sequence[0].ndim == 2:
-    X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
-X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt,per_example=True) for mat in X_sequence ]
+        X = dataset.get_batch_topo(m)
+
+    outputs = f(X)
+    drop_mask = outputs[0]
+    print 'empirical drop prob:',drop_mask.mean()
+    X_sequence = outputs[1:]
 
 
-pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
+    if X.ndim == 2:
+        Xt, drop_mask = [ dataset.get_topological_view(mat)
+            for mat in [X, drop_mask] ]
+    else:
+        Xt = X
 
-for i in xrange(m):
+    rows = m
+    mapback = hasattr(dataset, 'mapback_for_viewer')
 
-    #add original patch
-    patch = X[i,:,:,:]
-    if patch.shape[-1] != 3:
-        patch = np.concatenate( (patch,patch,patch), axis=2)
-    pv.add_patch(patch, rescale = False)
-    orig_patch = patch
+    cols = 2+len(X_sequence)
+    if mapback:
+        rows = 2 * m
+        if X.ndim != 2:
+            design_X = dataset.get_design_matrix(topo = X)
+            design_X_sequence = [ dataset.get_design_matrix(mat) for mat in X_sequence ]
+        else:
+            design_X = X
+            design_X_sequence = X_sequence
+        M = dataset.get_topological_view(dataset.mapback_for_viewer(design_X))
+        print (M.min(), M.max())
+        M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in design_X_sequence ]
+    X = dataset.adjust_to_be_viewed_with(Xt,Xt,per_example=True)
+    if X_sequence[0].ndim == 2:
+        X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
+    X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt,per_example=True) for mat in X_sequence ]
 
-    #mark the masked areas as red
-    mask_patch = drop_mask[i,:,:,0]
-    if drop_mask.shape[-1] > 1 and mask_gen.n_channels > 1:
-        assert np.all(mask_patch == drop_mask[i,:,:,1])
-        assert np.all(mask_patch == drop_mask[i,:,:,2])
-    red_channel = patch[:,:,0]
-    green_channel = patch[:,:,1]
-    blue_channel = patch[:,:,2]
-    # zeroed patch doesn't handle independent channel masking right, TODO fix that
-    zr = red_channel.copy()
-    zg = green_channel.copy()
-    zb = blue_channel.copy()
-    zr[mask_patch == 1] = 0.
-    zg[mask_patch == 1] = 0.
-    zb[mask_patch == 1] = 0.
-    zeroed = patch.copy()
-    zeroed[:,:,0] = zr
-    zeroed[:,:,1] = zg
-    zeroed[:,:,2] = zb
-    red_channel[mask_patch == 1] = 1.
-    green_channel[mask_patch == 1] = -1.
-    blue_channel[mask_patch == 1] = -1.
 
-    if drop_mask.shape[-1] > 1 and mask_gen.n_channels == 1:
-        mask_patch = drop_mask[i,:,:,1]
-        red_channel[mask_patch == 1] = -1
-        green_channel[mask_patch == 1] = 1
-        blue_channel[mask_patch == 1] = -1
-        mask_patch = drop_mask[i,:,:,2]
-        red_channel[mask_patch == 1] = -1
-        green_channel[mask_patch == 1] = -1
-        blue_channel[mask_patch == 1] = 1
+    pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
 
-    patch[:,:,0] = red_channel
-    patch[:,:,1] = green_channel
-    patch[:,:,2] = blue_channel
-    pv.add_patch(patch, rescale = False)
+    for i in xrange(m):
 
-    #add filled-in patch
-    for j in xrange(len(X_sequence)):
-        patch = X_sequence[j][i,:,:,:]
-        this_drop_mask = drop_mask[i,:,:,:]
-        if ((1-this_drop_mask)*(patch - orig_patch)).max() > 0.:
-            keep_mask = 1-this_drop_mask
-            keep_patch = keep_mask * patch
-            keep_orig = keep_mask* orig_patch
-            diffs = keep_patch - keep_orig
-            patch = diffs
-            print 'OH NO!'
-            print patch.shape
-
+        #add original patch
+        patch = X[i,:,:,:]
         if patch.shape[-1] != 3:
             patch = np.concatenate( (patch,patch,patch), axis=2)
         pv.add_patch(patch, rescale = False)
+        orig_patch = patch
 
-    if mapback:
-        patch = M[i,:,:,:]
-        if patch.shape[-1] != 3:
-            patch = np.concatenate( (patch,patch,patch),axis=2)
+        #mark the masked areas as red
+        mask_patch = drop_mask[i,:,:,0]
+        if drop_mask.shape[-1] > 1 and mask_gen.n_channels > 1:
+            assert np.all(mask_patch == drop_mask[i,:,:,1])
+            assert np.all(mask_patch == drop_mask[i,:,:,2])
+        red_channel = patch[:,:,0]
+        green_channel = patch[:,:,1]
+        blue_channel = patch[:,:,2]
+        # zeroed patch doesn't handle independent channel masking right, TODO fix that
+        zr = red_channel.copy()
+        zg = green_channel.copy()
+        zb = blue_channel.copy()
+        zr[mask_patch == 1] = 0.
+        zg[mask_patch == 1] = 0.
+        zb[mask_patch == 1] = 0.
+        zeroed = patch.copy()
+        zeroed[:,:,0] = zr
+        zeroed[:,:,1] = zg
+        zeroed[:,:,2] = zb
+        red_channel[mask_patch == 1] = 1.
+        green_channel[mask_patch == 1] = -1.
+        blue_channel[mask_patch == 1] = -1.
+
+        if drop_mask.shape[-1] > 1 and mask_gen.n_channels == 1:
+            mask_patch = drop_mask[i,:,:,1]
+            red_channel[mask_patch == 1] = -1
+            green_channel[mask_patch == 1] = 1
+            blue_channel[mask_patch == 1] = -1
+            mask_patch = drop_mask[i,:,:,2]
+            red_channel[mask_patch == 1] = -1
+            green_channel[mask_patch == 1] = -1
+            blue_channel[mask_patch == 1] = 1
+
+        patch[:,:,0] = red_channel
+        patch[:,:,1] = green_channel
+        patch[:,:,2] = blue_channel
         pv.add_patch(patch, rescale = False)
 
-        # TODO: put this on the right scale
-        zeroed = zeroed.reshape( * ( (1,)+zeroed.shape))
-        pv.add_patch(dataset.get_topological_view(dataset.mapback(dataset.get_design_matrix(zeroed)))[0,:,:,:], rescale = True)
-
         #add filled-in patch
-        for j in xrange(len(M_sequence)):
-            patch = M_sequence[j][i,:,:,:]
+        for j in xrange(len(X_sequence)):
+            patch = X_sequence[j][i,:,:,:]
+            this_drop_mask = drop_mask[i,:,:,:]
+            if ((1-this_drop_mask)*(patch - orig_patch)).max() > 0.:
+                keep_mask = 1-this_drop_mask
+                keep_patch = keep_mask * patch
+                keep_orig = keep_mask* orig_patch
+                diffs = keep_patch - keep_orig
+                patch = diffs
+                print 'OH NO!'
+                print patch.shape
+
             if patch.shape[-1] != 3:
                 patch = np.concatenate( (patch,patch,patch), axis=2)
             pv.add_patch(patch, rescale = False)
 
-pv.show()
+        if mapback:
+            patch = M[i,:,:,:]
+            if patch.shape[-1] != 3:
+                patch = np.concatenate( (patch,patch,patch),axis=2)
+            pv.add_patch(patch, rescale = False)
+
+            # TODO: put this on the right scale
+            zeroed = zeroed.reshape( * ( (1,)+zeroed.shape))
+            pv.add_patch(dataset.get_topological_view(dataset.mapback(dataset.get_design_matrix(zeroed)))[0,:,:,:], rescale = True)
+
+            #add filled-in patch
+            for j in xrange(len(M_sequence)):
+                patch = M_sequence[j][i,:,:,:]
+                if patch.shape[-1] != 3:
+                    patch = np.concatenate( (patch,patch,patch), axis=2)
+                pv.add_patch(patch, rescale = False)
+
+    pv.show()
+
+    print 'Waiting...'
+    x = raw_input()
+    print 'Running...'

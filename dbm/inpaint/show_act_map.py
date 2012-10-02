@@ -13,6 +13,10 @@ layer = int(layer_str)
 
 model = serial.load(model_path)
 
+# Get access to the intermediate layers of the augmented DBM
+if hasattr(model, 'super_dbm'):
+    model = model.super_dbm
+
 model.set_batch_size(m)
 
 if hasattr(model,'dataset_yaml_src'):
@@ -36,6 +40,8 @@ f = function([],[p,h])
 while True:
     p,h = f()
     print 'p range: ',(p.min(),p.max())
+    mins = p.min(axis=0)
+    print 'p min: ', (mins.min(), mins.mean(), mins.max())
     print 'h range: ',(h.min(),h.max())
     print 'p mean: ',p.mean()
     print 'h mean: ',h.mean()

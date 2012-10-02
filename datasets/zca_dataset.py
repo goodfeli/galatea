@@ -6,13 +6,19 @@ class ZCA_Dataset(DenseDesignMatrix):
     def __init__(self,
             preprocessed_dataset,
             preprocessor,
-            convert_to_one_hot = True):
+            convert_to_one_hot = True,
+            start = None,
+            stop = None):
 
         self.preprocessed_dataset = preprocessed_dataset
         self.preprocessor = preprocessor
         self.rng = self.preprocessed_dataset.rng
 
-        self.X = preprocessed_dataset.X
+        if start is not None:
+            self.X = preprocessed_dataset.X[start:stop,:]
+            assert self.X.shape[0] == stop-start
+        else:
+            self.X = preprocessed_dataset.X
         self.view_converter = preprocessed_dataset.view_converter
         self.y = preprocessed_dataset.y
 

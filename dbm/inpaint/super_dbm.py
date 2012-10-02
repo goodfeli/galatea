@@ -16,7 +16,7 @@ import warnings
 from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import time
-from pylearn2.costs.cost import SupervisedCost
+from pylearn2.costs.cost import Cost
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
@@ -32,9 +32,12 @@ class SuperDBM(Model):
         self.__dict__.update(locals())
         del self.self
         assert len(hidden_layers) >= 1
+        self.layer_names = set()
         for layer in hidden_layers:
             assert not hasattr(layer, 'dbm') or layer.dbm is None
             layer.dbm = self
+            assert layer.layer_name not in self.layer_names
+            self.layer_names.add(layer.layer_name)
         self._update_layer_input_spaces()
         self.force_batch_size = batch_size
 
@@ -64,6 +67,8 @@ class SuperDBM(Model):
             hidden_layers.append(layer)
             assert not hasattr(layer, 'dbm') or layer.dbm is None
             layer.dbm = self
+            assert layer.layer_name not in self.layer_names
+            self.layer_names.add(layer.layer_name)
 
     def get_params(self):
 
@@ -187,11 +192,14 @@ class SuperDBM(Model):
                 state_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
                 if j == len(H_hat) - 1:
                     state_above = None
+                    layer_above = None
                 else:
                     state_above = self.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = self.hidden_layers[j+1]
                 H_hat[j] = self.hidden_layers[j].mf_update(
                         state_below = state_below,
-                        state_above = state_above)
+                        state_above = state_above,
+                        layer_above = layer_above)
                 #end ifelse
             #end for j
             update_history()
@@ -233,7 +241,7 @@ class SuperDBM(Model):
                 state_above = None,
                 state_below = self.visible_layer.upward_state(V)))
 
-        history = [ H_hat ]
+        history = [ list(H_hat) ]
 
         #we only need recurrent inference if there are multiple layers
         if len(H_hat) > 1:
@@ -268,7 +276,7 @@ class SuperDBM(Model):
                             layer_above = layer_above)
                     #end ifelse
                 #end for j
-                history.append(H_hat)
+                history.append(list(H_hat))
             #end for i
 
         if return_history:
@@ -749,7 +757,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         return rval
 
 
-    def inpaint_update(self, state_above, layer_above, drop_mask, V):
+    def inpaint_update(self, state_above, layer_above, drop_mask = None, V = None):
 
         msg = layer_above.downward_message(state_above)
         mu = self.mu
@@ -936,10 +944,16 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         P, H = state
 
-        p_max = P.max(axis=(0,1,2))
-        p_min = P.min(axis=(0,1,2))
+        if tuple(self.output_axes) == ('b',0,1,'c'):
+            p_max = P.max(axis=(0,1,2))
+            p_min = P.min(axis=(0,1,2))
+            p_mean = P.mean(axis=(0,1,2))
+        else:
+            assert tuple(self.output_axes) == ('b','c',0,1)
+            p_max = P.max(axis=(0,2,3))
+            p_min = P.min(axis=(0,2,3))
+            p_mean = P.mean(axis=(0,2,3))
         p_range = p_max - p_min
-        p_mean = P.mean(axis=(0,1,2))
 
         rval = {
                 'p_max_max' : p_max.max(),
@@ -1183,9 +1197,9 @@ class AugmentedDBM(Model):
         return [ Y_hat ]
 
 
-class SuperDBM_ConditionalNLL(SupervisedCost):
+class SuperDBM_ConditionalNLL(Cost):
 
-
+    supervised = True
 
     def Y_hat(self, model, X):
         assert isinstance(model.hidden_layers[-1], Softmax)
