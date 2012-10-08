@@ -119,10 +119,10 @@ class SuperDBM(Model):
         return rval
 
     def get_weights(self):
-        if len(self.hidden_layers) == 1:
-            return self.hidden_layers[0].get_weights()
-        else:
-            raise NotImplementedError()
+        return self.hidden_layers[0].get_weights()
+
+    def get_weights_format(self):
+        return self.hidden_layers[0].get_weights_format()
 
     def get_weights_topo(self):
         return self.hidden_layers[0].get_weights_topo()
