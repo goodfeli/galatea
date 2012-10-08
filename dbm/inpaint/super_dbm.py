@@ -3,12 +3,15 @@ import theano
 from pylearn2.space import Space
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
+from pylearn2.space import CompositeSpace
 from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
+from pylearn2.linear.matrixmul import MatrixMul
 import theano.tensor as T
 import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
+from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from theano.gof.op import get_debug_values
 from theano.printing import Print
 from galatea.theano_upgrades import block_gradient
@@ -34,8 +37,8 @@ class SuperDBM(Model):
         assert len(hidden_layers) >= 1
         self.layer_names = set()
         for layer in hidden_layers:
-            assert not hasattr(layer, 'dbm') or layer.dbm is None
-            layer.dbm = self
+            assert layer.get_dbm() is None
+            layer.set_dbm(self)
             assert layer.layer_name not in self.layer_names
             self.layer_names.add(layer.layer_name)
         self._update_layer_input_spaces()
@@ -65,8 +68,8 @@ class SuperDBM(Model):
         for layer in layers:
             layer.set_input_space(hidden_layers[-1].get_output_space())
             hidden_layers.append(layer)
-            assert not hasattr(layer, 'dbm') or layer.dbm is None
-            layer.dbm = self
+            assert layer.get_dbm() is None
+            layer.set_dbm(self)
             assert layer.layer_name not in self.layer_names
             self.layer_names.add(layer.layer_name)
 
@@ -575,6 +578,14 @@ class SuperDBM(Model):
 
 class SuperDBM_Layer(Model):
 
+    def get_dbm(self):
+        if hasattr(self, 'dbm'):
+            return self.dbm
+        return None
+
+    def set_dbm(self, dbm):
+        self.dbm = dbm
+
     def get_monitoring_channels_from_state(self, state):
         return {}
 
@@ -750,6 +761,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
                     std = 1., size = masked_mu.shape,
                     dtype = masked_mu.dtype) * drop_mask
             masked_mu.name = 'masked_noise'
+
 
         masked_V  = V  * (1-drop_mask)
         rval = masked_mu + masked_V
