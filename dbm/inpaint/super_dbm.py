@@ -1110,6 +1110,316 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return p_state, h_state
 
 
+class DenseMaxPool(SuperDBM_HidLayer):
+    def __init__(self,
+             detector_layer_dim,
+            pool_size,
+            irange,
+            layer_name,
+            include_prob = 1.0,
+            init_bias = 0.):
+        """
+
+            include_prob: probability of including a weight element in the set
+                    of weights initialized to U(-irange, irange). If not included
+                    it is initialized to 0.
+
+        """
+        self.__dict__.update(locals())
+        del self.self
+
+        self.b = sharedX( np.zeros((self.detector_layer_dim,)) + init_bias, name = layer_name + '_b')
+
+    def set_input_space(self, space):
+        """ Note: this resets parameters! """
+
+        self.input_space = space
+
+        if isinstance(space, VectorSpace):
+            self.requires_reformat = False
+            self.input_dim = space.dim
+        else:
+            self.requires_reformat = True
+            self.input_dim = space.get_total_dimension()
+            self.desired_space = VectorSpace(self.input_dim)
+
+
+        if not (self.detector_layer_dim % self.pool_size == 0):
+            raise ValueError("detector_layer_dim = %d, pool_size = %d. Should be divisible but remainder is %d" %
+                    (self.detector_layer_dim, self.pool_size, self.detector_layer_dim % self.pool_size))
+
+        self.h_space = VectorSpace(self.detector_layer_dim)
+        self.pool_layer_dim = self.detector_layer_dim / self.pool_size
+        self.output_space = VectorSpace(self.pool_layer_dim)
+
+        rng = np.random.RandomState([2012,10,4])
+        W = sharedX(rng.uniform(-self.irange,
+                                 self.irange,
+                                 (self.input_dim, self.detector_layer_dim)) *
+                    (rng.uniform(0.,1., (self.input_dim, self.detector_layer_dim))
+                     < self.include_prob)
+                   )
+        W.name = self.layer_name + '_W'
+
+        self.transformer = MatrixMul(W)
+
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+
+    def get_params(self):
+        assert self.b.name is not None
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+        return self.transformer.get_params().union([self.b])
+
+    def get_weights(self):
+        if self.requires_reformat:
+            # This is not really an unimplemented case.
+            # We actually don't know how to format the weights
+            # in design space. We got the data in topo space
+            # and we don't have access to the dataset
+            raise NotImplementedError()
+        W ,= self.transformer.get_params()
+        return W.get_value()
+
+    def get_weights_format(self):
+        return ('v', 'h')
+
+    def get_weights_topo(self):
+        W ,= self.transformer.get_params()
+
+        W = W.T
+
+        W = W.reshape((self.detector_layer_dim, self.input_space.shape[0],
+            self.input_space.shape[1], self.input_space.nchannels))
+
+        W = Conv2DSpace.convert(W, self.input_space.axes, ('b', 0, 1, 'c'))
+
+        return function([], W)()
+
+    def upward_state(self, total_state):
+        p,h = total_state
+        return p
+
+    def downward_state(self, total_state):
+        p,h = total_state
+        return h
+
+    def get_monitoring_channels_from_state(self, state):
+
+        P, H = state
+
+        rval ={}
+        for var, name in [(P,'p'), (H,'h')]:
+            v_max = var.max(axis=0)
+            v_min = var.min(axis=0)
+            v_mean = var.mean(axis=0)
+            v_range = v_max - v_min
+
+            for key, val in [
+                    ('max_max', v_max.max()),
+                    ('max_mean', v_max.mean()),
+                    ('max_min', v_max.min()),
+                    ('min_max', v_min.max()),
+                    ('min_mean', v_min.mean()),
+                    ('min_max', v_min.max()),
+                    ('range_max', v_range.max()),
+                    ('range_mean', v_range.mean()),
+                    ('range_min', v_range.min()),
+                    ('mean_max', v_mean.max()),
+                    ('mean_mean', v_mean.mean()),
+                    ('mean_min', v_mean.min())
+                    ]:
+                rval[name+'_'+key] = val
+
+        return rval
+
+
+    def get_l1_act_cost(self, state, target, coeff):
+        rval = 0.
+
+        assert all([len(elem) == 2 for elem in [state, target, coeff]])
+
+        for s, t, c in zip(state, target, coeff):
+            m = s.mean(axis=0)
+            assert m.ndim == 1
+            rval += abs(s-t).mean()*c
+
+        return rval
+
+
+
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        if iter_name is None:
+            iter_name = 'anon'
+
+        if state_above is not None:
+            assert layer_above is not None
+            msg = layer_above.downward_message(state_above)
+            msg.name = 'msg_from_'+layer_above.layer_name+'_to_'+self.layer_name+'['+iter_name+']'
+        else:
+            msg = None
+
+        if double_weights:
+            state_below = 2. * state_below
+            state_below.name = self.layer_name + '_'+iter_name + '_2state'
+        z = self.transformer.lmul(state_below) + self.b
+        if self.layer_name is not None and iter_name is not None:
+            z.name = self.layer_name + '_' + iter_name + '_z'
+        p,h = max_pool_channels(z, self.pool_size, msg)
+
+        p.name = self.layer_name + '_p_' + iter_name
+        h.name = self.layer_name + '_h_' + iter_name
+
+        return p, h
+
+    def get_sampling_updates(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+
+        if state_above is not None:
+            msg = layer_above.downward_message(state_above)
+        else:
+            msg = None
+
+        if self.requires_reformat:
+            state_below = state_below.format_as(state_below, self.desired_format)
+
+        z = self.transformer.lmul(state_below) + self.broadcasted_bias()
+        p, h, p_sample, h_sample = self.max_pool_channels(z,
+                self.pool_size, msg, theano_rng)
+
+        return p_sample, h_sample
+
+    def downward_message(self, downward_state):
+        rval = self.transformer.lmul_T(downward_state)
+
+        if self.requires_reformat:
+            rval = self.desired_space.format_as(rval, self.input_space)
+
+        return rval
+
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+
+        t1 = time.time()
+
+        empty_input = self.h_space.get_origin_batch(self.dbm.batch_size)
+        h_state = sharedX(empty_input)
+
+        default_z = T.zeros_like(h_state) + self.broadcasted_bias()
+
+        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
+
+        p_exp, h_exp, p_sample, h_sample = max_pool_channels(
+                z = default_z,
+                pool_size = self.pool_size,
+                theano_rng = theano_rng)
+
+        p_state = sharedX( self.output_space.get_origin_batch(
+            self.dbm.batch_size))
+
+
+        t2 = time.time()
+
+        f = function([], updates = {
+            p_state : p_sample,
+            h_state : h_sample
+            })
+
+        t3 = time.time()
+
+        f()
+
+        t4 = time.time()
+
+        print str(self)+'.make_state took',t4-t1
+        print '\tcompose time:',t2-t1
+        print '\tcompile time:',t3-t2
+        print '\texecute time:',t4-t3
+
+        p_state.name = 'p_sample_shared'
+        h_state.name = 'h_sample_shared'
+
+        return p_state, h_state
+
+"""
+class Verify(theano.gof.Op):
+    hack used to make sure the right data is flowing through
+
+    verify = { 0 : [0] }
+
+    def make_node(self, xin):
+        xout = xin.type.make_variable()
+        return theano.gof.Apply(op=self, inputs=[xin], outputs=[xout])
+
+    def __init__(self, X, name):
+        self.X = X
+        self.name = name
+
+    def perform(self, node, inputs, output_storage):
+        xin, = inputs
+        xout, = output_storage
+        xout[0] = xin
+
+        X = self.X
+        m = xin.shape[0]
+
+        print self.name
+
+
+        if not np.allclose(xin, X[0:m,:]):
+            expected = X[0:m,:]
+            if xin.shape != expected.shape:
+                print 'xin.shape',xin.shape
+                print 'expected.shape',expected.shape
+            print 'max diff: ',np.abs(xin-expected).max()
+            print 'min diff: ',np.abs(xin-expected).min()
+            if xin.max() > X.max():
+                print 'xin.max is too big for the dataset'
+            if xin.min() < X.min():
+                print 'xin.min() is too big for the dataset'
+            if len(xin.shape) == 2:
+                mean_xin = xin.mean(axis=1)
+                mean_expected = expected.mean(axis=1)
+                print 'Mean for each example:'
+                print 'xin:'
+                print mean_xin
+                print 'expected:'
+                print mean_expected
+            if xin.shape[-1] == 3:
+                from pylearn2.gui.patch_viewer import PatchViewer
+                pv = PatchViewer((m,2),(X.shape[1],X.shape[2]),is_color=1)
+                for i in xrange(m):
+                    pv.add_patch(xin[i,:],rescale=True)
+                    pv.add_patch(X[i,:],rescale=True)
+                pv.show()
+            print 'searching for xin in the dataset'
+            for i in xrange(X.shape[0]):
+                other = X[i,:]
+                if np.allclose(xin[0,:], other):
+                    print 'found alternate row match at idx ',i
+        if self.name == 'features':
+            assert False
+
+    def c_code(self, *args, **kwargs):
+        raise NotImplementedError()
+"""
+
 class Softmax(SuperDBM_HidLayer):
     def __init__(self, n_classes, irange, layer_name):
         self.__dict__.update(locals())
