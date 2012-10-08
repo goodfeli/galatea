@@ -1438,6 +1438,10 @@ class Softmax(SuperDBM_HidLayer):
 
         if isinstance(space, Conv2DSpace):
             self.input_dim = space.shape[0] * space.shape[1] * space.nchannels
+            self.needs_reshape = True
+        elif isinstance(space, VectorSpace):
+            self.input_dim = space.dim
+            self.needs_reshape = False
         else:
             raise NotImplementedError("SoftMax can't take "+str(type(space))+" as input yet")
 
@@ -1451,9 +1455,18 @@ class Softmax(SuperDBM_HidLayer):
         if state_above is not None:
             raise NotImplementedError()
 
-        assert not double_weights
+        if double_weights:
+            raise NotImplementedError()
 
-        state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+        if self.needs_reshape:
+            state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+
+
+        """
+        from pylearn2.utils import serial
+        X = serial.load('/u/goodfeli/galatea/dbm/inpaint/expdir/cifar10_N3_interm_2_features.pkl')
+        state_below = Verify(X,'features')(state_below)
+        """
 
         assert self.W.ndim == 2
         return T.nnet.softmax(T.dot(state_below,self.W)+self.b)
@@ -1495,11 +1508,11 @@ class AugmentedDBM(Model):
         layers but passes through the classification layer only once.
     """
 
-    def __init__(self, super_dbm, extra_layer):
+    def __init__(self, super_dbm, extra_layer, freeze_lower = False):
         self.__dict__.update(locals())
         del self.self
 
-        extra_layer.dbm = super_dbm
+        extra_layer.set_dbm(super_dbm)
         extra_layer.set_input_space(super_dbm.hidden_layers[-1].get_output_space())
         self.force_batch_size = super_dbm.force_batch_size
 
@@ -1509,6 +1522,8 @@ class AugmentedDBM(Model):
         return self.super_dbm.get_weights_topo()
 
     def get_params(self):
+        if self.freeze_lower:
+            return self.extra_layer.get_params()
         return self.super_dbm.get_params().union(self.extra_layer.get_params())
 
     def get_input_space(self):
@@ -1526,8 +1541,15 @@ class AugmentedDBM(Model):
         self.force_batch_size = self.super_dbm.force_batch_size
         self.extra_layer.set_batch_size(batch_size)
 
-
     def mf(self, V, return_history = False):
+
+        #from pylearn2.config import yaml_parse
+        #dataset = yaml_parse.load("""!obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+        #preprocessed_dataset: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/train.pkl",
+        #preprocessor: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/preprocessor.pkl"
+        #}""")
+        #V = Verify(dataset.get_topological_view(),'data')(V)
+
         assert not return_history
 
         H_hat = self.super_dbm.mf(V)[-1]
@@ -1545,6 +1567,7 @@ class SuperDBM_ConditionalNLL(Cost):
         assert isinstance(model.hidden_layers[-1], Softmax)
         Y_hat = model.mf(X)[-1]
         Y_hat.name = 'Y_hat'
+
         return Y_hat
 
     def __call__(self, model, X, Y):
