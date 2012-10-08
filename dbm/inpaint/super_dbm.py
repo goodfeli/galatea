@@ -877,7 +877,9 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
     def set_input_space(self, space):
         """ Note: this resets parameters!"""
-        assert isinstance(space, Conv2DSpace)
+        if not isinstance(space, Conv2DSpace):
+            raise TypeError("ConvMaxPool can only act on a Conv2DSpace, but received " +
+                    str(type(space))+" as input.")
         self.input_space = space
         self.input_rows, self.input_cols = space.shape
         self.input_channels = space.nchannels
@@ -937,6 +939,19 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return [ Conv2DSpace.convert(elem, self.output_axes, ('b', 0, 1, 'c'))
                 for elem in state ]
 
+    def get_l1_act_cost(self, state, target, coeff):
+        rval = 0.
+
+        assert all([len(elem) == 2 for elem in [state, target, coeff]])
+
+        for s, t, c in zip(state, target, coeff):
+            # Average over everything but the channel index
+            m = s.mean(axis= [ ax for ax in range(4) if self.output_axes[ax] != 'c' ])
+            assert m.ndim == 1
+            rval += abs(s-t).mean()*c
+
+        return rval
+
     def get_lr_scalers(self):
         warnings.warn("get_lr_scalers is hardcoded to 1/(# conv positions)")
         h_rows, h_cols = self.h_space.shape
@@ -988,6 +1003,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
     def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
 
+        self.input_space.validate(state_below)
+
         if iter_name is None:
             iter_name = 'anon'
 
@@ -1033,6 +1050,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return p_sample, h_sample
 
     def downward_message(self, downward_state):
+        self.h_space.validate(downward_state)
         return self.transformer.lmul_T(downward_state)
 
     def set_batch_size(self, batch_size):
