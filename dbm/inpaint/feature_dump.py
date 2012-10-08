@@ -34,7 +34,7 @@ H_hat = model.mf(X)
 
 H_hat = H_hat[layer]
 
-p, h = model.hidden_layers[layer].state_to_b01c(H_hat)
+p, h = H_hat
 
 feat_th = p.reshape((batch_size, n))
 
