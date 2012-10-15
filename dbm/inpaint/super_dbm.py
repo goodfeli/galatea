@@ -3,12 +3,15 @@ import theano
 from pylearn2.space import Space
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
+from pylearn2.space import CompositeSpace
 from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
+from pylearn2.linear.matrixmul import MatrixMul
 import theano.tensor as T
 import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
+from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from theano.gof.op import get_debug_values
 from theano.printing import Print
 from galatea.theano_upgrades import block_gradient
@@ -34,8 +37,8 @@ class SuperDBM(Model):
         assert len(hidden_layers) >= 1
         self.layer_names = set()
         for layer in hidden_layers:
-            assert not hasattr(layer, 'dbm') or layer.dbm is None
-            layer.dbm = self
+            assert layer.get_dbm() is None
+            layer.set_dbm(self)
             assert layer.layer_name not in self.layer_names
             self.layer_names.add(layer.layer_name)
         self._update_layer_input_spaces()
@@ -65,8 +68,8 @@ class SuperDBM(Model):
         for layer in layers:
             layer.set_input_space(hidden_layers[-1].get_output_space())
             hidden_layers.append(layer)
-            assert not hasattr(layer, 'dbm') or layer.dbm is None
-            layer.dbm = self
+            assert layer.get_dbm() is None
+            layer.set_dbm(self)
             assert layer.layer_name not in self.layer_names
             self.layer_names.add(layer.layer_name)
 
@@ -116,10 +119,10 @@ class SuperDBM(Model):
         return rval
 
     def get_weights(self):
-        if len(self.hidden_layers) == 1:
-            return self.hidden_layers[0].get_weights()
-        else:
-            raise NotImplementedError()
+        return self.hidden_layers[0].get_weights()
+
+    def get_weights_format(self):
+        return self.hidden_layers[0].get_weights_format()
 
     def get_weights_topo(self):
         return self.hidden_layers[0].get_weights_topo()
@@ -580,6 +583,14 @@ class SuperDBM(Model):
 
 class SuperDBM_Layer(Model):
 
+    def get_dbm(self):
+        if hasattr(self, 'dbm'):
+            return self.dbm
+        return None
+
+    def set_dbm(self, dbm):
+        self.dbm = dbm
+
     def get_monitoring_channels_from_state(self, state):
         return {}
 
@@ -756,6 +767,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
                     dtype = masked_mu.dtype) * drop_mask
             masked_mu.name = 'masked_noise'
 
+
         masked_V  = V  * (1-drop_mask)
         rval = masked_mu + masked_V
         rval.name = 'init_inpainting_state'
@@ -870,7 +882,9 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
     def set_input_space(self, space):
         """ Note: this resets parameters!"""
-        assert isinstance(space, Conv2DSpace)
+        if not isinstance(space, Conv2DSpace):
+            raise TypeError("ConvMaxPool can only act on a Conv2DSpace, but received " +
+                    str(type(space))+" as input.")
         self.input_space = space
         self.input_rows, self.input_cols = space.shape
         self.input_channels = space.nchannels
@@ -930,6 +944,19 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return [ Conv2DSpace.convert(elem, self.output_axes, ('b', 0, 1, 'c'))
                 for elem in state ]
 
+    def get_l1_act_cost(self, state, target, coeff):
+        rval = 0.
+
+        assert all([len(elem) == 2 for elem in [state, target, coeff]])
+
+        for s, t, c in zip(state, target, coeff):
+            # Average over everything but the channel index
+            m = s.mean(axis= [ ax for ax in range(4) if self.output_axes[ax] != 'c' ])
+            assert m.ndim == 1
+            rval += abs(s-t).mean()*c
+
+        return rval
+
     def get_lr_scalers(self):
         warnings.warn("get_lr_scalers is hardcoded to 1/(# conv positions)")
         h_rows, h_cols = self.h_space.shape
@@ -981,6 +1008,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
     def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
 
+        self.input_space.validate(state_below)
+
         if iter_name is None:
             iter_name = 'anon'
 
@@ -1026,6 +1055,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return p_sample, h_sample
 
     def downward_message(self, downward_state):
+        self.h_space.validate(downward_state)
         return self.transformer.lmul_T(downward_state)
 
     def set_batch_size(self, batch_size):
@@ -1085,6 +1115,316 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return p_state, h_state
 
 
+class DenseMaxPool(SuperDBM_HidLayer):
+    def __init__(self,
+             detector_layer_dim,
+            pool_size,
+            irange,
+            layer_name,
+            include_prob = 1.0,
+            init_bias = 0.):
+        """
+
+            include_prob: probability of including a weight element in the set
+                    of weights initialized to U(-irange, irange). If not included
+                    it is initialized to 0.
+
+        """
+        self.__dict__.update(locals())
+        del self.self
+
+        self.b = sharedX( np.zeros((self.detector_layer_dim,)) + init_bias, name = layer_name + '_b')
+
+    def set_input_space(self, space):
+        """ Note: this resets parameters! """
+
+        self.input_space = space
+
+        if isinstance(space, VectorSpace):
+            self.requires_reformat = False
+            self.input_dim = space.dim
+        else:
+            self.requires_reformat = True
+            self.input_dim = space.get_total_dimension()
+            self.desired_space = VectorSpace(self.input_dim)
+
+
+        if not (self.detector_layer_dim % self.pool_size == 0):
+            raise ValueError("detector_layer_dim = %d, pool_size = %d. Should be divisible but remainder is %d" %
+                    (self.detector_layer_dim, self.pool_size, self.detector_layer_dim % self.pool_size))
+
+        self.h_space = VectorSpace(self.detector_layer_dim)
+        self.pool_layer_dim = self.detector_layer_dim / self.pool_size
+        self.output_space = VectorSpace(self.pool_layer_dim)
+
+        rng = np.random.RandomState([2012,10,4])
+        W = sharedX(rng.uniform(-self.irange,
+                                 self.irange,
+                                 (self.input_dim, self.detector_layer_dim)) *
+                    (rng.uniform(0.,1., (self.input_dim, self.detector_layer_dim))
+                     < self.include_prob)
+                   )
+        W.name = self.layer_name + '_W'
+
+        self.transformer = MatrixMul(W)
+
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+
+    def get_params(self):
+        assert self.b.name is not None
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+        return self.transformer.get_params().union([self.b])
+
+    def get_weights(self):
+        if self.requires_reformat:
+            # This is not really an unimplemented case.
+            # We actually don't know how to format the weights
+            # in design space. We got the data in topo space
+            # and we don't have access to the dataset
+            raise NotImplementedError()
+        W ,= self.transformer.get_params()
+        return W.get_value()
+
+    def get_weights_format(self):
+        return ('v', 'h')
+
+    def get_weights_topo(self):
+        W ,= self.transformer.get_params()
+
+        W = W.T
+
+        W = W.reshape((self.detector_layer_dim, self.input_space.shape[0],
+            self.input_space.shape[1], self.input_space.nchannels))
+
+        W = Conv2DSpace.convert(W, self.input_space.axes, ('b', 0, 1, 'c'))
+
+        return function([], W)()
+
+    def upward_state(self, total_state):
+        p,h = total_state
+        return p
+
+    def downward_state(self, total_state):
+        p,h = total_state
+        return h
+
+    def get_monitoring_channels_from_state(self, state):
+
+        P, H = state
+
+        rval ={}
+        for var, name in [(P,'p'), (H,'h')]:
+            v_max = var.max(axis=0)
+            v_min = var.min(axis=0)
+            v_mean = var.mean(axis=0)
+            v_range = v_max - v_min
+
+            for key, val in [
+                    ('max_max', v_max.max()),
+                    ('max_mean', v_max.mean()),
+                    ('max_min', v_max.min()),
+                    ('min_max', v_min.max()),
+                    ('min_mean', v_min.mean()),
+                    ('min_max', v_min.max()),
+                    ('range_max', v_range.max()),
+                    ('range_mean', v_range.mean()),
+                    ('range_min', v_range.min()),
+                    ('mean_max', v_mean.max()),
+                    ('mean_mean', v_mean.mean()),
+                    ('mean_min', v_mean.min())
+                    ]:
+                rval[name+'_'+key] = val
+
+        return rval
+
+
+    def get_l1_act_cost(self, state, target, coeff):
+        rval = 0.
+
+        assert all([len(elem) == 2 for elem in [state, target, coeff]])
+
+        for s, t, c in zip(state, target, coeff):
+            m = s.mean(axis=0)
+            assert m.ndim == 1
+            rval += abs(s-t).mean()*c
+
+        return rval
+
+
+
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        if iter_name is None:
+            iter_name = 'anon'
+
+        if state_above is not None:
+            assert layer_above is not None
+            msg = layer_above.downward_message(state_above)
+            msg.name = 'msg_from_'+layer_above.layer_name+'_to_'+self.layer_name+'['+iter_name+']'
+        else:
+            msg = None
+
+        if double_weights:
+            state_below = 2. * state_below
+            state_below.name = self.layer_name + '_'+iter_name + '_2state'
+        z = self.transformer.lmul(state_below) + self.b
+        if self.layer_name is not None and iter_name is not None:
+            z.name = self.layer_name + '_' + iter_name + '_z'
+        p,h = max_pool_channels(z, self.pool_size, msg)
+
+        p.name = self.layer_name + '_p_' + iter_name
+        h.name = self.layer_name + '_h_' + iter_name
+
+        return p, h
+
+    def get_sampling_updates(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+
+        if state_above is not None:
+            msg = layer_above.downward_message(state_above)
+        else:
+            msg = None
+
+        if self.requires_reformat:
+            state_below = state_below.format_as(state_below, self.desired_format)
+
+        z = self.transformer.lmul(state_below) + self.broadcasted_bias()
+        p, h, p_sample, h_sample = self.max_pool_channels(z,
+                self.pool_size, msg, theano_rng)
+
+        return p_sample, h_sample
+
+    def downward_message(self, downward_state):
+        rval = self.transformer.lmul_T(downward_state)
+
+        if self.requires_reformat:
+            rval = self.desired_space.format_as(rval, self.input_space)
+
+        return rval
+
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+
+        t1 = time.time()
+
+        empty_input = self.h_space.get_origin_batch(self.dbm.batch_size)
+        h_state = sharedX(empty_input)
+
+        default_z = T.zeros_like(h_state) + self.broadcasted_bias()
+
+        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
+
+        p_exp, h_exp, p_sample, h_sample = max_pool_channels(
+                z = default_z,
+                pool_size = self.pool_size,
+                theano_rng = theano_rng)
+
+        p_state = sharedX( self.output_space.get_origin_batch(
+            self.dbm.batch_size))
+
+
+        t2 = time.time()
+
+        f = function([], updates = {
+            p_state : p_sample,
+            h_state : h_sample
+            })
+
+        t3 = time.time()
+
+        f()
+
+        t4 = time.time()
+
+        print str(self)+'.make_state took',t4-t1
+        print '\tcompose time:',t2-t1
+        print '\tcompile time:',t3-t2
+        print '\texecute time:',t4-t3
+
+        p_state.name = 'p_sample_shared'
+        h_state.name = 'h_sample_shared'
+
+        return p_state, h_state
+
+"""
+class Verify(theano.gof.Op):
+    hack used to make sure the right data is flowing through
+
+    verify = { 0 : [0] }
+
+    def make_node(self, xin):
+        xout = xin.type.make_variable()
+        return theano.gof.Apply(op=self, inputs=[xin], outputs=[xout])
+
+    def __init__(self, X, name):
+        self.X = X
+        self.name = name
+
+    def perform(self, node, inputs, output_storage):
+        xin, = inputs
+        xout, = output_storage
+        xout[0] = xin
+
+        X = self.X
+        m = xin.shape[0]
+
+        print self.name
+
+
+        if not np.allclose(xin, X[0:m,:]):
+            expected = X[0:m,:]
+            if xin.shape != expected.shape:
+                print 'xin.shape',xin.shape
+                print 'expected.shape',expected.shape
+            print 'max diff: ',np.abs(xin-expected).max()
+            print 'min diff: ',np.abs(xin-expected).min()
+            if xin.max() > X.max():
+                print 'xin.max is too big for the dataset'
+            if xin.min() < X.min():
+                print 'xin.min() is too big for the dataset'
+            if len(xin.shape) == 2:
+                mean_xin = xin.mean(axis=1)
+                mean_expected = expected.mean(axis=1)
+                print 'Mean for each example:'
+                print 'xin:'
+                print mean_xin
+                print 'expected:'
+                print mean_expected
+            if xin.shape[-1] == 3:
+                from pylearn2.gui.patch_viewer import PatchViewer
+                pv = PatchViewer((m,2),(X.shape[1],X.shape[2]),is_color=1)
+                for i in xrange(m):
+                    pv.add_patch(xin[i,:],rescale=True)
+                    pv.add_patch(X[i,:],rescale=True)
+                pv.show()
+            print 'searching for xin in the dataset'
+            for i in xrange(X.shape[0]):
+                other = X[i,:]
+                if np.allclose(xin[0,:], other):
+                    print 'found alternate row match at idx ',i
+        if self.name == 'features':
+            assert False
+
+    def c_code(self, *args, **kwargs):
+        raise NotImplementedError()
+"""
+
 class Softmax(SuperDBM_HidLayer):
     def __init__(self, n_classes, irange, layer_name):
         self.__dict__.update(locals())
@@ -1103,6 +1443,10 @@ class Softmax(SuperDBM_HidLayer):
 
         if isinstance(space, Conv2DSpace):
             self.input_dim = space.shape[0] * space.shape[1] * space.nchannels
+            self.needs_reshape = True
+        elif isinstance(space, VectorSpace):
+            self.input_dim = space.dim
+            self.needs_reshape = False
         else:
             raise NotImplementedError("SoftMax can't take "+str(type(space))+" as input yet")
 
@@ -1116,9 +1460,18 @@ class Softmax(SuperDBM_HidLayer):
         if state_above is not None:
             raise NotImplementedError()
 
-        assert not double_weights
+        if double_weights:
+            raise NotImplementedError()
 
-        state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+        if self.needs_reshape:
+            state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+
+
+        """
+        from pylearn2.utils import serial
+        X = serial.load('/u/goodfeli/galatea/dbm/inpaint/expdir/cifar10_N3_interm_2_features.pkl')
+        state_below = Verify(X,'features')(state_below)
+        """
 
         assert self.W.ndim == 2
         return T.nnet.softmax(T.dot(state_below,self.W)+self.b)
@@ -1160,11 +1513,11 @@ class AugmentedDBM(Model):
         layers but passes through the classification layer only once.
     """
 
-    def __init__(self, super_dbm, extra_layer):
+    def __init__(self, super_dbm, extra_layer, freeze_lower = False):
         self.__dict__.update(locals())
         del self.self
 
-        extra_layer.dbm = super_dbm
+        extra_layer.set_dbm(super_dbm)
         extra_layer.set_input_space(super_dbm.hidden_layers[-1].get_output_space())
         self.force_batch_size = super_dbm.force_batch_size
 
@@ -1174,6 +1527,8 @@ class AugmentedDBM(Model):
         return self.super_dbm.get_weights_topo()
 
     def get_params(self):
+        if self.freeze_lower:
+            return self.extra_layer.get_params()
         return self.super_dbm.get_params().union(self.extra_layer.get_params())
 
     def get_input_space(self):
@@ -1191,8 +1546,15 @@ class AugmentedDBM(Model):
         self.force_batch_size = self.super_dbm.force_batch_size
         self.extra_layer.set_batch_size(batch_size)
 
-
     def mf(self, V, return_history = False):
+
+        #from pylearn2.config import yaml_parse
+        #dataset = yaml_parse.load("""!obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+        #preprocessed_dataset: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/train.pkl",
+        #preprocessor: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/preprocessor.pkl"
+        #}""")
+        #V = Verify(dataset.get_topological_view(),'data')(V)
+
         assert not return_history
 
         H_hat = self.super_dbm.mf(V)[-1]
@@ -1210,6 +1572,7 @@ class SuperDBM_ConditionalNLL(Cost):
         assert isinstance(model.hidden_layers[-1], Softmax)
         Y_hat = model.mf(X)[-1]
         Y_hat.name = 'Y_hat'
+
         return Y_hat
 
     def __call__(self, model, X, Y):
@@ -1274,3 +1637,227 @@ class SuperDBM_ConditionalNLL(Cost):
 def ditch_mu(model):
     model.visible_layer.mu = None
     return model
+
+class _DummyVisible(SuperDBM_Layer):
+    """ Hack used by LayerAsClassifier"""
+    def upward_state(self, total_state):
+        return total_state
+
+    def get_params(self):
+        return set([])
+class LayerAsClassifier(SuperDBM):
+    """ A hack that lets us use a SuperDBM layer
+    as a single-layer classifier without needing
+    to set up an explicit visible layer object, etc."""
+
+    def __init__(self, layer, nvis):
+        self.__dict__.update(locals())
+        del self.self
+        self.space = VectorSpace(nvis)
+        layer.set_input_space(self.space)
+        self.hidden_layers = [ layer ]
+
+
+        self.visible_layer = _DummyVisible()
+
+    def get_input_space(self):
+        return self.space
+
+class CompositeLayer(SuperDBM_HidLayer):
+    """
+        A Layer constructing by aligning several other Layer
+        objects side by side
+    """
+
+    def __init__(self, layer_name, components, inputs_to_components = None):
+        """
+            components: A list of layers that are combined to form this layer
+            inputs_to_components: None or dict mapping int to list of int
+                Should be None unless the input space is a CompositeSpace
+                If inputs_to_components[i] contains j, it means input i will
+                be given as input to component j.
+                If an input dodes not appear in the dictionary, it will be given
+                to all components.
+
+                This field allows one CompositeLayer to have another as input
+                without forcing each component to connect to all members
+                of the CompositeLayer below. For example, you might want to
+                have both densely connected and convolutional units in all
+                layers, but a convolutional unit is incapable of taking a
+                non-topological input space.
+        """
+
+        self.layer_name = layer_name
+
+        self.components = list(components)
+        assert isinstance(components, list)
+        for component in components:
+            assert isinstance(component, SuperDBM_HidLayer)
+        self.num_components = len(components)
+        self.components = list(components)
+
+        if inputs_to_components is None:
+            self.inputs_to_components = None
+        else:
+            if not isinstance(inputs_to_components, dict):
+                raise TypeError("CompositeLayer expected inputs_to_components to be a dict, got "+str(type(inputs_to_components)))
+            self.inputs_to_components = {}
+            for key in inputs_to_components:
+                assert isinstance(key, int)
+                assert key >= 0
+                value = inputs_to_components[key]
+                assert isinstance(value, list)
+                assert all([isinstance(elem, int) for elem in value])
+                assert min(value) >= 0
+                assert max(value) < self.num_components
+                self.inputs_to_components[key] = list(value)
+
+    def set_input_space(self, space):
+
+        self.input_space = space
+
+        if not isinstance(space, CompositeSpace):
+            assert self.inputs_to_components is None
+            self.routing_needed = False
+        else:
+            if self.inputs_to_components is None:
+                self.routing_needed = False
+            else:
+                self.routing_needed = True
+                assert max(self.inputs_to_components) < space.num_components
+                # Invert the dictionary
+                self.components_to_inputs = {}
+                for i in xrange(self.num_components):
+                    inputs = []
+                    for j in xrange(space.num_components):
+                        if i in self.inputs_to_components[j]:
+                            inputs.append(i)
+                    if len(inputs) < space.num_components:
+                        self.components_to_inputs[i] = inputs
+
+        for i, component in enumerate(self.components):
+            if self.routing_needed and i in self.components_to_inputs:
+                cur_space = space.restrict(self.components_to_inputs[i])
+            else:
+                cur_space = space
+
+            component.set_input_space(cur_space)
+
+        self.output_space = CompositeSpace([ component.get_output_space() for component in self.components ])
+
+    def set_dbm(self, dbm):
+        for component in self.components:
+            component.set_dbm(dbm)
+
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+
+        rval = []
+
+        for i, component in enumerate(self.components):
+            if self.routing_needed and i in self.components_to_inputs:
+                cur_state_below =self.input_space.restrict_batch(state_below, self.components_to_inputs[i])
+            else:
+                cur_state_below = state_below
+
+            class RoutingLayer(object):
+                def __init__(self, idx, layer):
+                    self.__dict__.update(locals())
+                    del self.self
+                    self.layer_name = 'route_'+str(idx)+'_'+layer.layer_name
+
+                def downward_message(self, state):
+                    return self.layer.downward_message(state)[self.idx]
+
+            if layer_above is not None:
+                cur_layer_above = RoutingLayer(i, layer_above)
+            else:
+                cur_layer_above = None
+
+            mf_update = component.mf_update(state_below = cur_state_below,
+                                            state_above = state_above,
+                                            layer_above = cur_layer_above,
+                                            double_weights = double_weights,
+                                            iter_name = iter_name)
+
+            rval.append(mf_update)
+
+        return tuple(rval)
+
+    def upward_state(self, total_state):
+
+        return tuple([component.upward_state(elem)
+            for component, elem in
+            zip(self.components, total_state)])
+
+    def downward_state(self, total_state):
+
+        return tuple([component.downward_state(elem)
+            for component, elem in
+            zip(self.components, total_state)])
+
+    def downward_message(self, downward_state):
+
+        if isinstance(self.input_space, CompositeSpace):
+            num_input_components = self.input_space.num_components
+        else:
+            num_input_components = 1
+
+        rval = [ None ] * num_input_components
+
+        def add(x, y):
+            if x is None:
+                return y
+            if y is None:
+                return x
+            return x + y
+
+        for i, packed in enumerate(zip(self.components, downward_state)):
+            component, state = packed
+            if self.routing_needed and i in self.components_to_inputs:
+                input_idx = self.components_to_inputs[i]
+            else:
+                input_idx = range(num_input_components)
+
+            partial_message = component.downward_message(state)
+
+            if len(input_idx) == 1:
+                partial_message = [ partial_message ]
+
+            assert len(input_idx) == len(partial_message)
+
+            for idx, msg in zip(input_idx, partial_message):
+                rval[idx] = add(rval[idx], msg)
+
+        if len(rval) == 1:
+            rval = rval[0]
+        else:
+            rval = tuple(rval)
+
+        self.input_space.validate(rval)
+
+        return rval
+
+    def get_l1_act_cost(self, state, target, coeff):
+        return sum([ comp.get_l1_act_cost(s, t, c) \
+            for comp, s, t, c in zip(self.components, state, target, coeff)])
+
+    def get_params(self):
+        return reduce(lambda x, y: x.union(y),
+                [component.get_params() for component in self.components])
+
+    def get_weights_topo(self):
+        print 'Get topological weights for which layer?'
+        for i, component in enumerate(self.components):
+            print i,component.layer_name
+        x = raw_input()
+        return self.components[int(x)].get_weights_topo()
+
+    def get_monitoring_channels_from_state(self, state):
+        rval = {}
+
+        for layer, s in zip(self.components, state):
+            d = layer.get_monitoring_channels_from_state(s)
+            for key in d:
+                rval[layer.layer_name+'_'+key] = d[key]
+
+        return rval

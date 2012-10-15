@@ -8,7 +8,7 @@ from theano import function
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
 from galatea.ui import get_choice
-from super_inpaint import SuperInpaint
+import super_inpaint
 
 ignore, model_path = sys.argv
 m = 10
@@ -19,11 +19,13 @@ if hasattr(model,'set_batch_size'):
 try:
     mask_gen = model.mask_gen
     cost = model.cost
-    if not isinstance(cost, (DBM_Inpaint_Binary, SuperInpaint)):
+    if 'DBM_Inpaint_Binary' not in str(type(cost)) and 'SuperInpaint' not in str(type(cost)):
+        print type(cost)
         raise TypeError()
     print 'used cost from model'
     cost.mask_gen = mask_gen
 except:
+    raise
     try:
         drop_prob = model.dbm_inpaint_drop_prob
         n_iter = model.dbm_inpaint_n_iter
@@ -57,6 +59,7 @@ except:
 space = model.get_input_space()
 X = space.make_theano_batch()
 
+print 'cost is',str(cost)
 denoising = cost(model,X,return_locals=True)
 
 drop_mask = denoising['drop_mask']

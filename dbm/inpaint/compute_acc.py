@@ -17,10 +17,27 @@ batch_size = model.force_batch_size
 if hasattr(model, 'batch_size') and model.batch_size != model.force_batch_size:
     batch_size = model.batch_size
 
+
 assert src.find('train') != -1
-src = src.replace('train', 'test')
+x = raw_input("test acc?")
+if x == 'y':
+    src = src.replace('train', 'test')
+    if src.find('start') != -1:
+        restrict = "start: 0, stop: 40000"
+        assert src.find(restrict) != -1
+        src = src.replace(restrict,"")
+else:
+    assert x == 'n'
+
+
 
 test = yaml_parse.load(src)
+if x == 'y':
+    assert test.X.shape[0] == 10000
+else:
+    # compute the train accuracy on what the model
+    # was trained on, not the entire train set
+    assert test.X.shape[0] in [40000,50000]
 
 import theano.tensor as T
 
@@ -86,11 +103,10 @@ mf1acc = 1.-T.neq(yl , T.argmax(ymf,axis=1)).mean()
 
 batch_acc = function([Xb,yb],[mf1acc])
 
-assert test.X.shape[0] == 10000
 
 def accs():
     mf1_accs = []
-    for i in xrange(10000/batch_size):
+    for i in xrange(test.X.shape[0]/batch_size):
         print i
         mf1_accs.append( batch_acc(test.get_topological_view(test.X[i*batch_size:(i+1)*batch_size,:]),
             test.y[i*batch_size:(i+1)*batch_size,:])[0])
