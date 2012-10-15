@@ -402,7 +402,7 @@ class SuperDBM(Model):
         return rval
 
     def get_sampling_updates(self, layer_to_state, theano_rng,
-            layer_to_clamp = None):
+            layer_to_clamp = None, num_steps = 1):
         """
             layer_to_state: a dictionary mapping the SuperDBM_Layer instances
                             contained in self to shared variables representing
@@ -426,6 +426,11 @@ class SuperDBM(Model):
             sampled. To start Gibbs sampling from data you must do at least one
             sampling step explicitly clamping the visible units.
         """
+
+	assert isinstance(num_steps, int)
+	assert num_steps > 0
+	if num_steps != 1:
+		raise NotImplementedError("Variable number of Gibbs steps not supported yet.")
 
         assert len(self.hidden_layers) > 0 # I guess we could make a model with
                                            # no latent layers if we really want
