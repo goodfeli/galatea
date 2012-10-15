@@ -20,6 +20,8 @@ from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import time
 from pylearn2.costs.cost import Cost
+from pylearn2.expr.nnet import inverse_sigmoid_numpy
+from pylearn2.expr.nnet import sigmoid_numpy
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
@@ -121,6 +123,9 @@ class SuperDBM(Model):
     def get_weights(self):
         return self.hidden_layers[0].get_weights()
 
+    def get_weights_view_shape(self):
+        return self.hidden_layers[0].get_weights_view_shape()
+
     def get_weights_format(self):
         return self.hidden_layers[0].get_weights_format()
 
@@ -134,7 +139,7 @@ class SuperDBM(Model):
 
         history = []
 
-        V_hat = self.visible_layer.init_inpainting_state(V,drop_mask,noise)
+        V_hat, V_hat_unmasked = self.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
 
         H_hat = []
         for i in xrange(0,len(self.hidden_layers)-1):
@@ -163,7 +168,7 @@ class SuperDBM(Model):
                 state_below = self.visible_layer.upward_state(V_hat)))
 
         def update_history():
-            history.append( { 'V_hat' : V_hat, 'H_hat' : H_hat } )
+            history.append( { 'V_hat' : V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked } )
 
         update_history()
 
@@ -184,11 +189,11 @@ class SuperDBM(Model):
                         state_above = state_above,
                         layer_above = layer_above)
 
-            V_hat = self.visible_layer.inpaint_update(
+            V_hat, V_hat_unmasked = self.visible_layer.inpaint_update(
                     state_above = self.hidden_layers[0].downward_state(H_hat[0]),
                     layer_above = self.hidden_layers[0],
                     V = V,
-                    drop_mask = drop_mask)
+                    drop_mask = drop_mask, return_unmasked = True)
             V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
 
             for j in xrange(1,len(H_hat),2):
@@ -739,7 +744,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
             updates[self.beta] = T.clip(updates[self.beta],
                     self.min_beta,1e6)
 
-    def init_inpainting_state(self, V, drop_mask, noise = False):
+    def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
 
         """for Vv, drop_mask_v in get_debug_values(V, drop_mask):
             assert Vv.ndim == 4
@@ -751,25 +756,31 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
                     assert False
         """
 
-        masked_mu = self.mu * drop_mask
+        unmasked = self.mu
+        masked_mu = unmasked * drop_mask
         masked_mu = block_gradient(masked_mu)
         masked_mu.name = 'masked_mu'
 
         if noise:
             theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
-            masked_mu = theano_rng.normal(avg = 0.,
+            unmasked = theano_rng.normal(avg = 0.,
                     std = 1., size = masked_mu.shape,
-                    dtype = masked_mu.dtype) * drop_mask
+                    dtype = masked_mu.dtype)
+            masked_mu = unmasked * drop_mask
             masked_mu.name = 'masked_noise'
 
 
         masked_V  = V  * (1-drop_mask)
         rval = masked_mu + masked_V
         rval.name = 'init_inpainting_state'
+
+        if return_unmasked:
+            return rval, unmasked
         return rval
 
 
-    def inpaint_update(self, state_above, layer_above, drop_mask = None, V = None):
+    def inpaint_update(self, state_above, layer_above, drop_mask = None, V = None,
+                        return_unmasked = False):
 
         msg = layer_above.downward_message(state_above)
         mu = self.mu
@@ -782,7 +793,11 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
         else:
             rval = z
 
+
         rval.name = 'inpainted_V[unknown_iter]'
+
+        if return_unmasked:
+            return rval, z
 
         return rval
 
@@ -801,7 +816,9 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
         return rval
 
-    def recons_cost(self, V, V_hat, drop_mask = None):
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
+
+        V_hat = V_hat_unmasked
 
         assert V.ndim == V_hat.ndim
         unmasked_cost = 0.5 * self.beta * T.sqr(V-V_hat) - 0.5*T.log(self.beta / (2*np.pi))
@@ -847,6 +864,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
             pool_cols,
             irange,
             layer_name,
+            scale_by_sharing = True,
             mirror_weights = False,
             init_bias = 0.,
             border_mode = 'valid',
@@ -892,6 +910,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
             self.h_rows = self.input_rows + self.kernel_rows - 1
             self.h_cols = self.input_cols + self.kernel_cols - 1
 
+
         if not( self.h_rows % self.pool_rows == 0):
             raise ValueError("h_rows = %d, pool_rows = %d. Should be divisible but remainder is %d" %
                     (self.h_rows, self.pool_rows, self.h_rows % self.pool_rows))
@@ -903,6 +922,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
                                                 self.h_cols / self.pool_cols),
                                                 nchannels = self.output_channels,
                 axes = self.output_axes)
+
+        print self.layer_name,': detector shape:',self.h_space.shape,'pool shape:',self.output_space.shape
 
         if tuple(self.output_axes) == ('b', 0, 1, 'c'):
             self.max_pool = max_pool_b01c
@@ -953,11 +974,12 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return rval
 
     def get_lr_scalers(self):
-        warnings.warn("get_lr_scalers is hardcoded to 1/(# conv positions)")
-        h_rows, h_cols = self.h_space.shape
-        num_h = float(h_rows * h_cols)
-        return { self.transformer._filters : 1./num_h,
-                 self.b : 1. / num_h  }
+        if self.scale_by_sharing:
+            # scale each learning rate by 1 / # times param is reused
+            h_rows, h_cols = self.h_space.shape
+            num_h = float(h_rows * h_cols)
+            return { self.transformer._filters : 1./num_h,
+                     self.b : 1. / num_h  }
 
     def upward_state(self, total_state):
         p,h = total_state
