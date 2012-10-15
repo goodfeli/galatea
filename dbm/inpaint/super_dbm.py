@@ -1207,7 +1207,18 @@ class DenseMaxPool(SuperDBM_HidLayer):
     def get_weights_format(self):
         return ('v', 'h')
 
+    def get_weights_view_shape(self):
+        total = self.detector_layer_dim
+        cols = self.pool_size
+        rows = total / cols
+        return rows, cols
+
+
     def get_weights_topo(self):
+
+        if not isinstance(self.input_space, Conv2DSpace):
+            raise NotImplementedError()
+
         W ,= self.transformer.get_params()
 
         W = W.T
@@ -1319,8 +1330,8 @@ class DenseMaxPool(SuperDBM_HidLayer):
         if self.requires_reformat:
             state_below = state_below.format_as(state_below, self.desired_format)
 
-        z = self.transformer.lmul(state_below) + self.broadcasted_bias()
-        p, h, p_sample, h_sample = self.max_pool_channels(z,
+        z = self.transformer.lmul(state_below) + self.b
+        p, h, p_sample, h_sample = max_pool_channels(z,
                 self.pool_size, msg, theano_rng)
 
         return p_sample, h_sample
@@ -1343,7 +1354,7 @@ class DenseMaxPool(SuperDBM_HidLayer):
         empty_input = self.h_space.get_origin_batch(self.dbm.batch_size)
         h_state = sharedX(empty_input)
 
-        default_z = T.zeros_like(h_state) + self.broadcasted_bias()
+        default_z = T.zeros_like(h_state) + self.b
 
         theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
 
@@ -1542,6 +1553,15 @@ class AugmentedDBM(Model):
 
     def get_weights_topo(self):
         return self.super_dbm.get_weights_topo()
+
+    def get_weights(self):
+        return self.super_dbm.get_weights()
+
+    def get_weights_format(self):
+        return self.super_dbm.get_weights_format()
+
+    def get_weights_view_shape(self):
+        return self.super_dbm.get_weights_view_shape()
 
     def get_params(self):
         if self.freeze_lower:
@@ -1762,6 +1782,10 @@ class CompositeLayer(SuperDBM_HidLayer):
 
         self.output_space = CompositeSpace([ component.get_output_space() for component in self.components ])
 
+    def set_batch_size(self, batch_size):
+        for component in self.components:
+            component.set_batch_size(batch_size)
+
     def set_dbm(self, dbm):
         for component in self.components:
             component.set_dbm(dbm)
@@ -1878,3 +1902,191 @@ class CompositeLayer(SuperDBM_HidLayer):
                 rval[layer.layer_name+'_'+key] = d[key]
 
         return rval
+
+
+class BinaryVisLayer(SuperDBM_Layer):
+    def __init__(self,
+            nvis,
+            bias_from_marginals):
+        """
+            Implements a visible layer consisting of binary-valued random
+            variable. The layer lives in a VectorSpace.
+
+            nvis: the dimension of the space
+            bias_from_marginals: a dataset, whose marginals are used to
+                            initialize the visible biases
+
+        """
+
+        self.__dict__.update(locals())
+        del self.self
+        # Don't serialize the dataset
+        del self.bias_from_marginals
+
+        self.space = VectorSpace(nvis)
+        self.input_space = self.space
+
+        origin = self.space.get_origin()
+
+        X = bias_from_marginals.get_design_matrix()
+        assert X.max() == 1.
+        assert X.min() == 0.
+        assert not np.any( (X > 0.) * (X < 1.) )
+
+        mean = X.mean(axis=0)
+
+        mean = np.clip(mean, 1e-7, 1-1e-7)
+
+        init_bias = inverse_sigmoid_numpy(mean)
+
+        self.bias = sharedX(init_bias, 'visible_bias')
+
+
+    def get_params(self):
+        return set([self.bias])
+
+    def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
+
+        unmasked = T.nnet.sigmoid(self.bias)
+        masked_mean = unmasked * drop_mask
+        masked_mean = block_gradient(masked_mean)
+        masked_mean.name = 'masked_mean'
+
+        if noise:
+            theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
+            # we want a set of random mean field parameters, not binary samples
+            unmasked = T.nnet.sigmoid(theano_rng.normal(avg = 0.,
+                    std = 1., size = masked_mean.shape,
+                    dtype = masked_mean.dtype))
+            masked_mean = unmasked * drop_mask
+            masked_mean.name = 'masked_noise'
+
+
+        masked_V  = V  * (1-drop_mask)
+        rval = masked_mean + masked_V
+        rval.name = 'init_inpainting_state'
+
+        if return_unmasked:
+            return rval, unmasked
+
+        return rval
+
+
+    def inpaint_update(self, state_above, layer_above, drop_mask = None, V = None, return_unmasked = False):
+
+        msg = layer_above.downward_message(state_above)
+        mu = self.bias
+
+        z = msg + mu
+        z.name = 'inpainting_z_[unknown_iter]'
+
+        unmasked = T.nnet.sigmoid(z)
+
+        if drop_mask is not None:
+            rval = drop_mask * unmasked + (1-drop_mask) * V
+        else:
+            rval = unmasked
+
+        rval.name = 'inpainted_V[unknown_iter]'
+
+        if return_unmasked:
+            owner = unmasked.owner
+            assert owner is not None
+            op = owner.op
+            assert hasattr(op, 'scalar_op')
+            assert isinstance(op.scalar_op, T.nnet.sigm.ScalarSigmoid)
+            return rval, unmasked
+
+        return rval
+
+    def get_sampling_updates(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+
+        assert state_below is None
+        msg = layer_above.downward_message(state_above)
+
+        z = msg + self.bias
+
+        phi = T.nnet.sigmoid(z)
+
+        rval = theano_rng.binomial(size = phi.shape, p = phi, dtype = phi.dtype,
+                       n = 1 )
+
+        return rval
+
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
+
+        V_hat = V_hat_unmasked
+
+        assert hasattr(V_hat, 'owner')
+        owner = V_hat.owner
+        assert owner is not None
+        op = owner.op
+        assert hasattr(op, 'scalar_op')
+        assert isinstance(op.scalar_op, T.nnet.sigm.ScalarSigmoid)
+        z ,= owner.inputs
+
+        assert V.ndim == V_hat.ndim
+        unmasked_cost = V * T.nnet.softplus(-z) + (1 - V) * T.nnet.softplus(z)
+        assert unmasked_cost.ndim == V_hat.ndim
+
+        if drop_mask is None:
+            masked_cost = unmasked_cost
+        else:
+            masked_cost = drop_mask * unmasked_cost
+
+        return masked_cost.mean()
+
+
+    def make_state(self, num_examples, numpy_rng):
+
+        driver = numpy_rng.uniform(0.,1., (num_examples, self.nvis))
+        mean = sigmoid_numpy(self.bias.get_value())
+        sample = driver < mean
+
+        rval = sharedX(sample, name = 'v_sample_shared')
+
+        return rval
+
+class DBM_PCD(Cost):
+    """
+    An intractable cost representing the variational upper bound
+    on the negative log likelihood of a DBM.
+    The gradient of this bound is computed using a persistent
+    markov chain.
+    """
+
+    def __init__(self, num_chains, num_gibbs_steps):
+        self.__dict__.update(locals())
+        del self.self
+
+    def __call__(self, model, X, Y=None):
+        """
+        The partition function makes this intractable.
+        """
+        return None
+
+    def get_gradients(self, model, X, Y=None):
+        """
+        PCD approximation to the gradient of the bound.
+        Keep in mind this is a cost, so we are upper bounding
+        the negative log likelihood.
+        """
+
+        layer_to_chains = model.make_layer_to_state(self.num_chains)
+        updates = model.get_sampling_updates(layer_to_chains)
+
+        # We need to use the new samples to compute all updates
+        layer_to_new = {}
+        for layer in layer_to_new:
+            layer_to_new [layer] = updates[layer_to_chains[layer]]
+        layer_to_chains = layer_to_new
+        del layer_to_new
+
+        layer_to_chains = model.rao_blackwellize(layer_to_chains)
+
+        raise NotImplementedError("TODO: compute gradients")
+
+        return gradients, updates
+

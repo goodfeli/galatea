@@ -161,18 +161,18 @@ class SuperInpaint(Cost):
 
     def cost_from_states(self, state, new_state, dbm, X, drop_mask, new_drop_mask):
 
-        V_hat = state['V_hat']
+        V_hat_unmasked = state['V_hat_unmasked']
 
-        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat, drop_mask)
+        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask)
 
         if not hasattr(self, 'both_directions'):
             self.both_directions = False
 
         if new_state is not None:
 
-            new_V_hat = new_state['V_hat']
+            new_V_hat_unmasked = new_state['V_hat_unmasked']
 
-            new_inpaint_cost = dbm.visible_layer.recons_cost(X, new_V_hat, new_drop_mask)
+            new_inpaint_cost = dbm.visible_layer.recons_cost(X, new_V_hat_unmasked, new_drop_mask)
             inpaint_cost = 0.5 * inpaint_cost + 0.5 * new_inpaint_cost
 
         total_cost = inpaint_cost
@@ -196,7 +196,7 @@ class SuperInpaint(Cost):
             # end for layers
         # end if act penalty
 
-        total_cost.name = 'total_cost(V_hat = %s)' % V_hat.name
+        total_cost.name = 'total_cost(V_hat_unmasked = %s)' % V_hat_unmasked.name
 
         return total_cost
 
