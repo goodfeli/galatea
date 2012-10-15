@@ -54,6 +54,8 @@ def show():
         print ch, 'pos', (pos_ch.min(), pos_ch.mean(), pos_ch.max())
     """
     display_batch = dataset.adjust_for_viewer(vis_batch)
+    if display_batch.ndim == 2:
+        display_batch = dataset.get_topological_view(display_batch)
     if mapback:
         design_vis_batch = vis_batch
         if design_vis_batch.ndim != 2:
@@ -69,9 +71,10 @@ def show():
     pv.show()
 
 
-beta = model.visible_layer.beta.get_value()
+if hasattr(model.visible_layer, 'beta'):
+    beta = model.visible_layer.beta.get_value()
 #model.visible_layer.beta.set_value(beta * 100.)
-print 'beta: ',(beta.min(), beta.mean(), beta.max())
+    print 'beta: ',(beta.min(), beta.mean(), beta.max())
 
 print 'showing seed data...'
 show()
@@ -81,7 +84,11 @@ show()
 layer_to_state = model.make_layer_to_state(m)
 # Seed the sampling with the data batch
 vis_sample = layer_to_state[model.visible_layer]
-vis_sample.set_value(vis_batch)
+
+if vis_sample.ndim == 4:
+    vis_sample.set_batch(vis_batch)
+else:
+    vis_sample.set_value(dataset.get_design_matrix(vis_batch))
 
 theano_rng = MRG_RandomStreams(2012+9+18)
 

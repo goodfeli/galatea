@@ -83,11 +83,13 @@ if choice == 'y':
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
 
+topo = X.ndim > 2
+
 while True:
-    if X.ndim == 2:
-        X = dataset.get_batch_design(m)
-    else:
+    if topo:
         X = dataset.get_batch_topo(m)
+    else:
+        X = dataset.get_batch_design(m)
 
     outputs = f(X)
     drop_mask = outputs[0]
@@ -135,19 +137,26 @@ while True:
 
         #mark the masked areas as red
         mask_patch = drop_mask[i,:,:,0]
-        if drop_mask.shape[-1] > 1 and mask_gen.n_channels > 1:
+        if drop_mask.shape[-1] > 1 and mask_gen.sync_channels and mask_gen.n_channels > 1:
             assert np.all(mask_patch == drop_mask[i,:,:,1])
             assert np.all(mask_patch == drop_mask[i,:,:,2])
         red_channel = patch[:,:,0]
         green_channel = patch[:,:,1]
         blue_channel = patch[:,:,2]
         # zeroed patch doesn't handle independent channel masking right, TODO fix that
+        mask_patch_red = drop_mask[i,:,:,0]
+        if mask_gen.sync_channels or drop_mask.shape[-1] == 1:
+            mask_patch_green = mask_patch_red
+            mask_patch_blue = mask_patch_red
+        else:
+            mask_patch_green = drop_mask[i,:,:,1]
+            mask_patch_blue = drop_mask[i,:,:,2]
         zr = red_channel.copy()
         zg = green_channel.copy()
         zb = blue_channel.copy()
-        zr[mask_patch == 1] = 0.
-        zg[mask_patch == 1] = 0.
-        zb[mask_patch == 1] = 0.
+        zr[mask_patch_red == 1] = 0.
+        zg[mask_patch_green == 1] = 0.
+        zb[mask_patch_blue == 1] = 0.
         zeroed = patch.copy()
         zeroed[:,:,0] = zr
         zeroed[:,:,1] = zg
@@ -156,7 +165,7 @@ while True:
         green_channel[mask_patch == 1] = -1.
         blue_channel[mask_patch == 1] = -1.
 
-        if drop_mask.shape[-1] > 1 and mask_gen.n_channels == 1:
+        if drop_mask.shape[-1] > 1 and mask_gen.sync_channels and mask_gen.n_channels == 1:
             mask_patch = drop_mask[i,:,:,1]
             red_channel[mask_patch == 1] = -1
             green_channel[mask_patch == 1] = 1
@@ -175,7 +184,7 @@ while True:
         for j in xrange(len(X_sequence)):
             patch = X_sequence[j][i,:,:,:]
             this_drop_mask = drop_mask[i,:,:,:]
-            if ((1-this_drop_mask)*(patch - orig_patch)).max() > 0.:
+            if mask_gen.sync_channels and ((1-this_drop_mask)*(patch - orig_patch)).max() > 0.:
                 keep_mask = 1-this_drop_mask
                 keep_patch = keep_mask * patch
                 keep_orig = keep_mask* orig_patch
@@ -209,4 +218,6 @@ while True:
 
     print 'Waiting...'
     x = raw_input()
+    if x == 'q':
+        break
     print 'Running...'
