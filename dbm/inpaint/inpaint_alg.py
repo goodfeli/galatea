@@ -5,6 +5,7 @@ from theano import function
 from pylearn2.utils import sharedX
 import numpy as np
 import warnings
+from pylearn2.datasets.dataset import Dataset
 
 class SetupBatch:
     def __init__(self,alg):
@@ -23,7 +24,7 @@ class SetupBatch:
 
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
-                 monitoring_batches=-1, monitoring_dataset=None,
+                 monitoring_batches=None, monitoring_dataset=None,
                  max_iter = 5, suicide = False, init_alpha = ( .001, .005, .01, .05, .1 ),
                  reset_alpha = True, hacky_conjugacy = False):
         """
@@ -33,7 +34,9 @@ class InpaintAlgorithm(object):
         self.__dict__.update(locals())
         del self.self
         if monitoring_dataset is None:
-            assert monitoring_batches == -1
+            assert monitoring_batches == None
+        if isinstance(monitoring_dataset, Dataset):
+            self.monitoring_dataset = { '': monitoring_dataset }
         self.bSetup = False
 
     def setup_batch(self, X):
@@ -96,13 +99,9 @@ class InpaintAlgorithm(object):
 
 
         if self.monitoring_dataset is not None:
-            if not self.monitoring_dataset.has_targets():
+            if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
                 Y = None
             Y = None
-            self.monitor.add_dataset(dataset=self.monitoring_dataset,
-                                mode="sequential",
-                                batch_size=self.batch_size,
-                                num_batches=self.monitoring_batches)
             assert X.name is not None
             channels = model.get_monitoring_channels(X,Y)
             if not isinstance(channels, dict):
@@ -113,33 +112,39 @@ class InpaintAlgorithm(object):
             for key in wtf:
                 channels[key] = wtf[key]
 
-            #we only need to put the prereq in once to make sure it gets run
-            #adding it more times shouldn't hurt, but be careful
-            #each time you say "self.setup_batch" you get a new object with a
-            #different id, and if you install n of those the prereq will run n
-            #times. It won't cause any wrong results, just a big slowdown
-            self.monitor.add_channel('objective',ipt=X,val=obj,prereqs =  [ prereq ])
+            for dataset_name in self.monitoring_dataset:
+                dataset = self.monitoring_dataset[dataset_name]
+                self.monitor.add_dataset(dataset=dataset,
+                                    mode="sequential",
+                                    batch_size=self.batch_size,
+                                    num_batches=self.monitoring_batches)
+                #we only need to put the prereq in once to make sure it gets run
+                #adding it more times shouldn't hurt, but be careful
+                #each time you say "self.setup_batch" you get a new object with a
+                #different id, and if you install n of those the prereq will run n
+                #times. It won't cause any wrong results, just a big slowdown
+                self.monitor.add_channel(dataset_name+'_objective',ipt=X,val=obj, dataset=dataset, prereqs =  [ prereq ])
 
-            for name in channels:
-                J = channels[name]
-                if isinstance(J, tuple):
-                    assert len(J) == 2
-                    J, prereqs = J
-                else:
-                    prereqs = []
+                for name in channels:
+                    J = channels[name]
+                    if isinstance(J, tuple):
+                        assert len(J) == 2
+                        J, prereqs = J
+                    else:
+                        prereqs = []
 
-                prereqs = list(prereqs)
-                prereqs.append(prereq)
+                    prereqs = list(prereqs)
+                    prereqs.append(prereq)
 
-                if Y is not None:
-                    ipt = (X,Y)
-                else:
-                    ipt = X
+                    if Y is not None:
+                        ipt = (X,Y)
+                    else:
+                        ipt = X
 
-                self.monitor.add_channel(name=name,
-                                         ipt=ipt,
-                                         val=J,
-                                         prereqs=prereqs)
+                    self.monitor.add_channel(name=dataset_name+'_'+name,
+                                             ipt=ipt,
+                                             val=J, dataset=dataset,
+                                             prereqs=prereqs)
 
 
         self.optimizer = BatchGradientDescent(
