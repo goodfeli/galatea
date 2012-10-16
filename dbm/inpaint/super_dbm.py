@@ -22,6 +22,7 @@ import time
 from pylearn2.costs.cost import Cost
 from pylearn2.expr.nnet import inverse_sigmoid_numpy
 from pylearn2.expr.nnet import sigmoid_numpy
+from itertools import izip
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
@@ -99,6 +100,99 @@ class SuperDBM(Model):
         self.visible_layer.censor_updates(updates)
         for layer in self.hidden_layers:
             layer.censor_updates(updates)
+
+    def energy(self, V, hidden):
+        """
+            V: a theano batch of visible unit observations
+                (must be SAMPLES, not mean field parameters)
+            hidden: a list, one element per hidden layer, of
+                batches of samples
+                (must be SAMPLES, not mean field parameters)
+
+            returns: a vector containing the energy of each
+                    sample.
+
+            Applying this function to non-sample theano variables
+            is not guaranteed to give you an expected energy
+            in general, so don't use this that way.
+        """
+
+        terms = []
+
+        terms.append(self.visible_layer.expected_energy_term(state = V, average=False))
+
+        assert len(self.hidden_layers) > 0 # this could be relaxed, but current code assumes it
+
+        terms.append(self.hidden_layers[0].expected_energy_term(
+            state_below = self.visible_layer.upward_state(V),
+            state = hidden[0], average_below=False, average=False))
+
+        for i in xrange(1, len(self.hidden_layers)):
+            layer = self.hidden_layers[i]
+            samples_below = hidden[i-1]
+            layer_below = self.hidden_layers[i-1]
+            samples_below = layer_below.upward_state(samples_below)
+            samples = hidden[i]
+            terms.append(layer.expected_energy_term(state_below=samples_below, state=samples,
+                average_below=False, average=False))
+
+        assert len(terms) > 0
+
+        rval = reduce(lambda x, y: x + y, terms)
+
+        assert rval.ndim == 1
+        return rval
+
+
+    def expected_energy(self, V, mf_hidden):
+        """
+            V: a theano batch of visible unit observations
+                (must be SAMPLES, not mean field parameters:
+                    the random variables in the expectation are
+                    the hiddens only)
+
+            mf_hidden: a list, one element per hidden layer, of
+                      batches of variational parameters
+                (must be VARIATIONAL PARAMETERS, not samples.
+                Layers with analytically determined variance parameters
+                for their mean field parameters will use those to integrate
+                over the variational distribution, so it's not generally
+                the same thing as measuring the energy at a point.)
+
+            returns: a vector containing the expected energy of
+                    each example under the corresponding variational
+                    distribution.
+        """
+
+        self.visible_layer.space.validate(V)
+        assert isinstance(mf_hidden, (list, tuple))
+        assert len(mf_hidden) == len(self.hidden_layers)
+
+        terms = []
+
+        terms.append(self.visible_layer.expected_energy_term(state = V, average=False))
+
+        assert len(self.hidden_layers) > 0 # this could be relaxed, but current code assumes it
+
+        terms.append(self.hidden_layers[0].expected_energy_term(
+            state_below=self.visible_layer.upward_state(V), average_below=False,
+            state=mf_hidden[0], average=True))
+
+        for i in xrange(1, len(self.hidden_layers)):
+            layer = self.hidden_layers[i]
+            layer_below = self.hidden_layers[i-1]
+            mf_below = mf_hidden[i-1]
+            mf_below = layer_below.upward_state(mf_below)
+            mf = mf_hidden[i]
+            terms.append(layer.expected_energy_term(state_below=mf_below, state=mf,
+                average_below=True, average=True))
+
+        assert len(terms) > 0
+
+        rval = reduce(lambda x, y: x + y, terms)
+
+        assert rval.ndim == 1
+        return rval
 
     def get_input_space(self):
         return self.visible_layer.space
@@ -287,10 +381,67 @@ class SuperDBM(Model):
                 history.append(list(H_hat))
             #end for i
 
+        # Run some checks on the output
+        for layer, state in izip(self.hidden_layers, H_hat):
+            upward_state = layer.upward_state(state)
+            layer.get_output_space().validate(upward_state)
+
         if return_history:
             return history
         else:
             return H_hat
+
+    def rao_blackwellize(self, layer_to_state):
+        """
+        layer_to_state:
+            dict mapping layers to samples of that layer
+
+        returns:
+            layer_to_rao_blackwellized
+                dict mapping layers to either samples or
+                distributional samples.
+                all hidden numbers with an even-numbered index
+                become distributional.
+        """
+
+        layer_to_rao_blackwellized = {}
+
+        # Copy over visible layer
+        layer_to_rao_blackwellized[self.visible_layer] = layer_to_state[self.visible_layer]
+
+        for i, layer in enumerate(self.hidden_layers):
+            if i % 2 == 0:
+                # Even numbered layer, make distributional
+                if i == 0:
+                    layer_below = self.visible_layer
+                else:
+                    layer_below = self.hidden_layers[i-1]
+                state_below = layer_to_state[layer_below]
+                state_below = layer_below.upward_state(state_below)
+
+                if i + 1 < len(self.hidden_layers):
+                    layer_above = self.hidden_layers[i+1]
+                    state_above = layer_to_state[layer_above]
+                    state_above = layer_above.downward_state(state_above)
+                else:
+                    layer_above = None
+                    state_above = None
+
+                distributional = layer.mf_update(state_below = state_below,
+                                                state_above = state_above,
+                                                layer_above = layer_above,
+                                                iter_name = 'rao_blackwell')
+                layer_to_rao_blackwellized[layer] = distributional
+            else:
+                # Odd numbered layer, copy over
+                layer_to_rao_blackwellized[layer] = layer_to_state[layer]
+
+        assert all([layer in layer_to_rao_blackwellized for layer in layer_to_state])
+        assert all([layer in layer_to_state for layer in layer_to_rao_blackwellized])
+
+        return layer_to_rao_blackwellized
+
+
 
     def reconstruct(self, V):
 
@@ -409,9 +560,144 @@ class SuperDBM(Model):
 
         return rval
 
-    def get_sampling_updates(self, layer_to_state, theano_rng,
-            layer_to_clamp = None, num_steps = 1):
+    def mcmc_steps(self, layer_to_state, theano_rng, layer_to_clamp = None,
+            num_steps = 1):
         """
+            layer_to_state: a dictionary mapping the SuperDBM_Layer instances
+                            contained in self to theano variables representing
+                            batches of samples of them.
+            theano_rng: a MRG_RandomStreams object
+            layer_to_clamp: (optional) a dictionary mapping layers to bools
+                            if a layer is not in the dictionary, defaults to False
+                            True indicates that this layer should be clamped, so
+                            we are sampling from a conditional distribution rather
+                            than the joint
+            returns:
+                layer_to_updated_state
+                    dict mapping layers to theano variables representing the updated
+                    samples
+            Note: this does Gibbs sampling, starting with the visible layer, and
+            then working upward. If you initialize the visible sample with data,
+            it will be discarded with no influence, since the visible layer is
+            the first layer to be sampled
+            sampled. To start Gibbs sampling from data you must do at least one
+            sampling step explicitly clamping the visible units.
+        """
+
+        # Validate num_steps
+        assert isinstance(num_steps, int)
+        assert num_steps > 0
+
+        # Implement the num_steps > 1 case by repeatedly calling the num_steps == 1 case
+        if num_steps != 1:
+            for i in xrange(num_steps):
+                layer_to_state = self.mcmc_steps(layer_to_state, theano_rng, layer_to_clamp,
+                        num_steps = 1)
+            return layer_to_state
+
+        # The rest of the function is the num_steps = 1 case
+
+        assert len(self.hidden_layers) > 0 # current code assumes this, though we could certainly
+                                           # relax this constraint
+
+        # Validate layer_to_clamp / make sure layer_to_clamp is a fully populated dictionary
+        if layer_to_clamp is None:
+            layer_to_clamp = {}
+
+        for key in layer_to_clamp:
+            assert key is self.visible_layer or key in self.hidden_layers
+
+        for layer in [self.visible_layer] + self.hidden_layers:
+            if layer not in layer_to_clamp:
+                layer_to_clamp[layer] = False
+
+        #Assemble the return value
+        layer_to_updated = {}
+
+        #Sample the visible layer
+        vis_state = layer_to_state[self.visible_layer]
+        if layer_to_clamp[self.visible_layer]:
+            vis_sample = vis_state
+        else:
+            first_hid = self.hidden_layers[0]
+            state_above = layer_to_state[first_hid]
+            state_above = first_hid.downward_state(state_above)
+
+            vis_sample = self.visible_layer.get_sampling_updates(
+                    state_above = state_above,
+                    layer_above = first_hid,
+                    theano_rng = theano_rng)
+        layer_to_updated[self.visible_layer] = vis_sample
+
+        for i, this_layer in enumerate(self.hidden_layers):
+            # Iteration i does the Gibbs step for hidden_layers[i]
+
+            # Get the sampled state of the layer below so we can condition
+            # on it in our Gibbs update
+            if i == 0:
+                layer_below = self.visible_layer
+            else:
+                layer_below = self.hidden_layers[i-1]
+
+            # We want to sample from each conditional distribution
+            # ***sequentially*** so we must use the updated version
+            # of the state for the layers whose updates we have
+            # calculcated already. If we used the raw value from
+            # layer_to_state
+            # then we would sample from each conditional
+            # ***simultaneously*** which does not implement MCMC
+            # sampling.
+            state_below = layer_to_updated[layer_below]
+
+            state_below = layer_below.upward_state(state_below)
+
+            # Get the sampled state of the layer above so we can condition
+            # on it in our Gibbs step
+            if i + 1 < len(self.hidden_layers):
+                layer_above = self.hidden_layers[i + 1]
+                state_above = layer_to_state[layer_above]
+                state_above = layer_above.downward_state(state_above)
+            else:
+                state_above = None
+                layer_above = None
+
+            if layer_to_clamp[this_layer]:
+                this_state = layer_to_state[this_layer]
+                this_sample = this_state
+            else:
+                # Compute the Gibbs sampling update
+                # Sample the state of this layer conditioned
+                # on its Markov blanket (the layer above and
+                # layer below)
+                this_sample = this_layer.get_sampling_updates(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above,
+                        theano_rng = theano_rng)
+
+            layer_to_updated[this_layer] = this_sample
+
+        assert all([layer in layer_to_updated for layer in layer_to_state])
+        assert all([layer in layer_to_state for layer in layer_to_updated])
+
+        # Check that clamping worked
+        for layer in layer_to_clamp:
+            if layer_to_clamp[layer]:
+                assert layer_to_state[layer] is layer_to_updated[layer]
+
+        return layer_to_updated
+
+
+
+    def get_sampling_updates(self, layer_to_state, theano_rng,
+            layer_to_clamp = None, num_steps = 1, return_layer_to_updated = False):
+        """
+            This method is for getting an updates dictionary for a theano function.
+            It thus implies that the samples are represented as shared variables.
+            If you want an expression for a sampling step applied to arbitrary
+            theano variables, use the 'mcmc_steps' method. This is a wrapper around
+            that method.
+
             layer_to_state: a dictionary mapping the SuperDBM_Layer instances
                             contained in self to shared variables representing
                             batches of samples of them.
@@ -435,155 +721,44 @@ class SuperDBM(Model):
             sampling step explicitly clamping the visible units.
         """
 
-	assert isinstance(num_steps, int)
-	assert num_steps > 0
-	if num_steps != 1:
-		raise NotImplementedError("Variable number of Gibbs steps not supported yet.")
+        updated = self.mcmc_steps(layer_to_state, theano_rng, layer_to_clamp, num_steps)
 
-        assert len(self.hidden_layers) > 0 # I guess we could make a model with
-                                           # no latent layers if we really want
+        rval = {}
 
+        def add_updates(old, new):
+            if isinstance(old, (list, tuple)):
+                for old_elem, new_elem in izip(old, new):
+                    add_updates(old_elem, new_elem)
+            else:
+                rval[old] = new
+
+        # Validate layer_to_clamp / make sure layer_to_clamp is a fully populated dictionary
         if layer_to_clamp is None:
             layer_to_clamp = {}
 
         for key in layer_to_clamp:
             assert key is self.visible_layer or key in self.hidden_layers
 
-        for layer in [ self.visible_layer ] + self.hidden_layers:
+        for layer in [self.visible_layer] + self.hidden_layers:
             if layer not in layer_to_clamp:
                 layer_to_clamp[layer] = False
 
-        rval = {}
-
-        #Sample the visible layer
-        vis_state = layer_to_state[self.visible_layer]
-        if layer_to_clamp[self.visible_layer]:
-            vis_sample = vis_state
-        else:
-            first_hid = self.hidden_layers[0]
-            state_above = layer_to_state[first_hid]
-            state_above = first_hid.downward_state(state_above)
-
-            vis_sample = self.visible_layer.get_sampling_updates(
-                    state_above = state_above,
-                    layer_above = first_hid,
-                    theano_rng = theano_rng)
-
-
-        if isinstance(vis_state, (list, tuple)):
-            for state, sample in zip(vis_state, vis_sample):
-                rval[state] = sample
-        else:
-            rval[vis_state] = vis_sample
-
-        for i in xrange(len(self.hidden_layers)):
-            # Iteration i does the Gibbs step for hidden_layers[i]
-
-            # Get the sampled state of the layer below so we can condition
-            # on it in our Gibbs update
-            if i == 0:
-                layer_below = self.visible_layer
-            else:
-                layer_below = self.hidden_layers[i-1]
-
-            state_below = layer_to_state[layer_below]
-            # We want to sample from each conditional distribution
-            # ***sequentially*** so we must use the updated version
-            # of the state for the layers whose updates we have
-            # calculcated already. If we used the raw value from
-            # layer_to_state
-            # then we would sample from each conditional
-            # ***simultaneously*** which does not implement MCMC
-            # sampling.
-            if isinstance(state_below, (list,tuple)):
-                state_below = tuple(
-                        [rval[old_state] for old_state in state_below])
-            else:
-                state_below = rval[state_below]
-                assert state_below is not None
-
-            state_below = layer_below.upward_state(state_below)
-
-            # Get the sampled state of the layer above so we can condition
-            # on it in our Gibbs step
-            if i + 1 < len(self.hidden_layers):
-                layer_above = self.hidden_layers[i + 1]
-                state_above = layer_to_state[layer_above]
-                state_above = layer_above.downward_state(state_above)
-            else:
-                state_above = None
-                layer_above = None
-
-            # Compute the Gibbs sampling update
-            # Sample the state of this layer conditioned
-            # on its Markov blanket (the layer above and
-            # layer below)
-            this_layer = self.hidden_layers[i]
-            this_sample = this_layer.get_sampling_updates(
-                    state_below = state_below,
-                    state_above = state_above,
-                    layer_above = layer_above,
-                    theano_rng = theano_rng)
-
-            # Store the update in the dictionary, accounting for
-            # composite states
-            this_state = layer_to_state[this_layer]
-            if layer_to_clamp[this_layer]:
-                this_sample = this_state
-            if isinstance(this_state, (list, tuple)):
-                for state, sample in zip(this_state, this_sample):
-                    assert hasattr(state,'get_value')
-                    rval[state] = sample
-            else:
-                assert hasattr(this_state,'get_value')
-                rval[this_state] = this_sample
-
-        # Check that we updated all the samples
-        states = set()
+        # Translate update expressions into theano updates
         for layer in layer_to_state:
-            state_s = layer_to_state[layer]
-            if isinstance(state_s, (list,tuple)):
-                for state in state_s:
-                    assert state in rval
-                    states.add(state)
+            old = layer_to_state[layer]
+            new = updated[layer]
+            if layer_to_clamp[layer]:
+                assert new is old
             else:
-                assert state_s in rval
-                states.add(state_s)
-        # Check that we're not trying to update anything else
-        for state in rval:
-            assert hasattr(state,'get_value')
-            if state not in states:
-                print 'oops, you seem to be trying to update',state
-                print 'but this does not seem to be a sampled state'
-                assert False
-        # Check that clamping worked
-        # (We want rval to be the identity mapping here, so that the update
-        # computations above can always use rval to refer to the state of
-        # variables that have already been visited by the bottom-to-top
-        # traversal)
-        for layer in layer_to_clamp:
-            if layer_to_clamp[layer]:
-                state = layer_to_state[layer]
-                if isinstance(state,(list,tuple)):
-                    for elem in state:
-                        assert rval[elem] is elem
-                else:
-                    assert rval[state] is state
-        # Now that we know that clamping was respected, we actually want
-        # to strip out the identity mapping, and just not have updates for
-        # the clamped variables. This is so theano.function doesn't waste
-        # time computing no-ops (not sure if theano would optimize these
-        # out or not)
-        for layer in layer_to_clamp:
-            if layer_to_clamp[layer]:
-                state = layer_to_state[layer]
-                if isinstance(state,(list,tuple)):
-                    for elem in state:
-                        del rval[elem]
-                else:
-                    del rval[state]
+                add_updates(old, new)
+
+        assert isinstance(self.hidden_layers, list)
+
+        if return_layer_to_updated:
+            return rval, updated
 
         return rval
+
 
 
 class SuperDBM_Layer(Model):
@@ -598,6 +773,38 @@ class SuperDBM_Layer(Model):
 
     def get_monitoring_channels_from_state(self, state):
         return {}
+
+    def expected_energy_term(self, state,
+                                   average,
+                                   state_below,
+                                   average_below):
+        """
+
+            Returns a term of the expected energy of the entire model.
+            This term should correspond to the expected value of terms
+            of the energy function that:
+                -involve this layer only
+                -if there is a layer below, include terms that
+                 involve both this layer and the layer below
+            Do not include terms that involve the layer below only.
+            Do not include any terms that involve the layer above, if it
+            exists, in any way (the interface doesn't let you see the layer
+            above anyway).
+
+            state_below: the upward state of the layer below.
+            state: the total state of this layer
+
+            average_below: if True, the layer below is one of the variables to
+                integrate over in the expectation, and state_below gives its
+                variational parameters. if False, that layer is to be held constant
+                and state_below gives a set of assignments to it
+            average: like average_below, but for 'state' rather than 'state_below'
+
+            returns: a 1-d theano tensor giving the expected energy term for each example
+
+
+        """
+        raise NotImplementedError(str(type(self))+" does not implement expected_energy_term.")
 
     def upward_state(self, total_state):
         """
@@ -781,6 +988,18 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
         if return_unmasked:
             return rval, unmasked
+        return rval
+
+
+    def expected_energy_term(self, state, average, state_below = None, average_below = None):
+        assert state_below is None
+        assert average_below is None
+        self.space.validate(state)
+        if average:
+            raise NotImplementedError(str(type(self))+" doesn't support integrating out variational parameters yet.")
+        else:
+            rval =  0.5 * (self.beta * T.sqr(state - self.mu)).sum(axis=(1,2,3))
+        assert rval.ndim == 1
         return rval
 
 
@@ -985,6 +1204,8 @@ class ConvMaxPool(SuperDBM_HidLayer):
             num_h = float(h_rows * h_cols)
             return { self.transformer._filters : 1./num_h,
                      self.b : 1. / num_h  }
+        else:
+            return {}
 
     def upward_state(self, total_state):
         p,h = total_state
@@ -1136,6 +1357,26 @@ class ConvMaxPool(SuperDBM_HidLayer):
 
         return p_state, h_state
 
+    def expected_energy_term(self, state, average, state_below, average_below):
+
+        self.input_space.validate(state_below)
+
+        downward_state = self.downward_state(state)
+        self.h_space.validate(downward_state)
+
+        # Energy function is linear so it doesn't matter if we're averaging or not
+        # Specifically, our terms are -u^T W d - b^T d where u is the upward state of layer below
+        # and d is the downward state of this layer
+
+        bias_term = (downward_state * self.broadcasted_bias()).sum(axis=(1,2,3))
+        weights_term = (self.transformer.lmul(state_below) * downward_state).sum(axis=(1,2,3))
+
+        rval = -bias_term - weights_term
+
+        assert rval.ndim == 1
+
+        return rval
+
 
 class DenseMaxPool(SuperDBM_HidLayer):
     def __init__(self,
@@ -1199,6 +1440,35 @@ class DenseMaxPool(SuperDBM_HidLayer):
         assert W.name is not None
         return self.transformer.get_params().union([self.b])
 
+    def expected_energy_term(self, state, average, state_below, average_below):
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        downward_state = self.downward_state(state)
+        self.h_space.validate(downward_state)
+
+        # Energy function is linear so it doesn't matter if we're averaging or not
+        # Specifically, our terms are -u^T W d - b^T d where u is the upward state of layer below
+        # and d is the downward state of this layer
+
+        bias_term = T.dot(downward_state, self.b)
+        weights_term = (self.transformer.lmul(state_below) * downward_state).sum(axis=1)
+
+        rval = -bias_term - weights_term
+
+        assert rval.ndim == 1
+
+        return rval
+
     def get_weights(self):
         if self.requires_reformat:
             # This is not really an unimplemented case.
@@ -1215,6 +1485,11 @@ class DenseMaxPool(SuperDBM_HidLayer):
     def get_weights_view_shape(self):
         total = self.detector_layer_dim
         cols = self.pool_size
+        if cols == 1:
+            # Let the PatchViewer decidew how to arrange the units
+            # when they're not pooled
+            raise NotImplementedError()
+        # When they are pooled, make each pooling unit have one row
         rows = total / cols
         return rows, cols
 
@@ -1333,7 +1608,7 @@ class DenseMaxPool(SuperDBM_HidLayer):
             msg = None
 
         if self.requires_reformat:
-            state_below = state_below.format_as(state_below, self.desired_format)
+            state_below = self.input_space.format_as(state_below, self.desired_space)
 
         z = self.transformer.lmul(state_below) + self.b
         p, h, p_sample, h_sample = max_pool_channels(z,
@@ -1946,6 +2221,9 @@ class BinaryVisLayer(SuperDBM_Layer):
 
         self.bias = sharedX(init_bias, 'visible_bias')
 
+    def get_biases(self):
+        return self.bias.get_value()
+
 
     def get_params(self):
         return set([self.bias])
@@ -2054,6 +2332,20 @@ class BinaryVisLayer(SuperDBM_Layer):
 
         return rval
 
+    def expected_energy_term(self, state, average, state_below = None, average_below = None):
+
+        assert state_below is None
+        assert average_below is None
+        assert average in [True, False]
+        self.space.validate(state)
+
+        # Energy function is linear so it doesn't matter if we're averaging or not
+        rval = -T.dot(state, self.bias)
+
+        assert rval.ndim == 1
+
+        return rval
+
 class DBM_PCD(Cost):
     """
     An intractable cost representing the variational upper bound
@@ -2065,11 +2357,13 @@ class DBM_PCD(Cost):
     def __init__(self, num_chains, num_gibbs_steps):
         self.__dict__.update(locals())
         del self.self
+        self.theano_rng = MRG_RandomStreams(2012 + 10 + 14)
 
     def __call__(self, model, X, Y=None):
         """
         The partition function makes this intractable.
         """
+
         return None
 
     def get_gradients(self, model, X, Y=None):
@@ -2079,19 +2373,87 @@ class DBM_PCD(Cost):
         the negative log likelihood.
         """
 
+        def flatten(l):
+            rval = []
+            for elem in l:
+                if isinstance(elem, (list, tuple)):
+                    rval.extend(flatten(elem))
+                else:
+                    rval.append(elem)
+            return rval
+
+
+        q = model.mf(X)
+
+
+        """
+            Use the non-negativity of the KL divergence to construct a lower bound
+            on the log likelihood. We can drop all terms that are constant with
+            repsect to the model parameters:
+
+            log P(v) = L(v, q) + KL(q || P(h|v))
+            L(v, q) = log P(v) - KL(q || P(h|v))
+            L(v, q) = log P(v) - sum_h q(h) log q(h) + q(h) log P(h | v)
+            L(v, q) = log P(v) + sum_h q(h) log P(h | v) + const
+            L(v, q) = log P(v) + sum_h q(h) log P(h, v) - sum_h q(h) log P(v) + const
+            L(v, q) = sum_h q(h) log P(h, v) + const
+            L(v, q) = sum_h q(h) -E(h, v) - log Z + const
+
+            so the cost we want to minimize is
+            expected_energy + log Z + const
+
+
+            Note: for the RBM, this bound is exact, since the KL divergence goes to 0.
+        """
+
+        variational_params = flatten(q)
+
+        # The gradients of the expected energy under q are easy, we can just do that in theano
+        expected_energy_q = model.expected_energy(X, q).mean()
+        params = list(model.get_params())
+        gradients = dict(zip(params, T.grad(expected_energy_q, params,
+            consider_constant = variational_params,
+            disconnected_inputs = 'ignore')))
+
+        """
+        d/d theta log Z = (d/d theta Z) / Z
+                        = (d/d theta sum_h sum_v exp(-E(v,h)) ) / Z
+                        = (sum_h sum_v - exp(-E(v,h)) d/d theta E(v,h) ) / Z
+                        = - sum_h sum_v P(v,h)  d/d theta E(v,h)
+        """
+
         layer_to_chains = model.make_layer_to_state(self.num_chains)
-        updates = model.get_sampling_updates(layer_to_chains)
 
-        # We need to use the new samples to compute all updates
-        layer_to_new = {}
-        for layer in layer_to_new:
-            layer_to_new [layer] = updates[layer_to_chains[layer]]
-        layer_to_chains = layer_to_new
-        del layer_to_new
+        model.layer_to_chains = layer_to_chains
 
-        layer_to_chains = model.rao_blackwellize(layer_to_chains)
+        # Note that we replace layer_to_chains with a dict mapping to the new
+        # state of the chains
+        updates, layer_to_chains = model.get_sampling_updates(layer_to_chains,
+                self.theano_rng, num_steps=self.num_gibbs_steps,
+                return_layer_to_updated = True)
 
-        raise NotImplementedError("TODO: compute gradients")
+        warnings.warn("""TODO: reduce variance of negative phase by integrating out
+                the even-numbered layers. The Rao-Blackwellize method can do this
+                for you when expected gradient = gradient of expectation, but doing
+                this in general is trickier.""")
+        #layer_to_chains = model.rao_blackwellize(layer_to_chains)
+
+        expected_energy_p = model.energy(layer_to_chains[model.visible_layer],
+                [layer_to_chains[layer] for layer in model.hidden_layers]).mean()
+
+        samples = flatten(layer_to_chains.values())
+        for i, sample in enumerate(samples):
+            if sample.name is None:
+                sample.name = 'sample_'+str(i)
+
+        neg_phase_grads = dict(zip(params, T.grad(-expected_energy_p, params, consider_constant
+            = samples, disconnected_inputs='ignore')))
+
+
+        for param in list(gradients.keys()):
+            #print param.name,': '
+            #print theano.printing.min_informative_str(neg_phase_grads[param])
+            gradients[param] =  neg_phase_grads[param]  + gradients[param]
 
         return gradients, updates
 

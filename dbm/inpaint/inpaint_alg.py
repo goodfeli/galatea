@@ -24,7 +24,8 @@ class SetupBatch:
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
                  monitoring_batches=-1, monitoring_dataset=None,
-                 max_iter = 5, suicide = False, init_alpha = ( .001, .005, .01, .05, .1 )):
+                 max_iter = 5, suicide = False, init_alpha = ( .001, .005, .01, .05, .1 ),
+                 reset_alpha = True, hacky_conjugacy = False):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -148,7 +149,9 @@ class InpaintAlgorithm(object):
                             param_constrainers = [ model.censor_updates ],
                             max_iter = self.max_iter,
                             tol = 3e-7,
-                            init_alpha = self.init_alpha)
+                            init_alpha = self.init_alpha,
+                            reset_alpha = self.reset_alpha,
+                            hacky_conjugacy = self.hacky_conjugacy)
         self.optimizer.verbose = True
         self.X = X
 
@@ -179,3 +182,4 @@ class InpaintAlgorithm(object):
             if self.suicide:
                 return False
         return True
+

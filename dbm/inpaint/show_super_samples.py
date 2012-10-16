@@ -86,7 +86,7 @@ layer_to_state = model.make_layer_to_state(m)
 vis_sample = layer_to_state[model.visible_layer]
 
 if vis_sample.ndim == 4:
-    vis_sample.set_batch(vis_batch)
+    vis_sample.set_value(vis_batch)
 else:
     vis_sample.set_value(dataset.get_design_matrix(vis_batch))
 
@@ -132,6 +132,7 @@ while True:
                 print 'Invalid input, try again'
 
     for i in xrange(x):
+        print i
         sample_func()
 
     vis_batch = vis_sample.get_value()
