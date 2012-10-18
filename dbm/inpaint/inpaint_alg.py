@@ -39,6 +39,7 @@ class InpaintAlgorithm(object):
         if isinstance(monitoring_dataset, Dataset):
             self.monitoring_dataset = { '': monitoring_dataset }
         self.bSetup = False
+        self.rng = np.random.RandomState([2012,10,17])
 
     def setup_batch(self, X):
         assert not isinstance(X,tuple)
@@ -177,15 +178,25 @@ class InpaintAlgorithm(object):
                 assert (model.force_batch_size <= 0 or batch_size ==
                         model.force_batch_size)
 
-        for i in xrange(self.batches_per_iter):
+        rng = self.rng
+        train_iteration_mode = 'shuffled_sequential'
+        if not is_stochastic(train_iteration_mode):
+            rng = None
+        assert not self.cost.supervised
+        iterator = dataset.iterator(mode=train_iteration_mode,
+                batch_size=self.batch_size,
+                targets=self.cost.supervised,
+                topo=self.X.ndim != 2,
+                rng = rng)
 
-            if self.X.ndim == 2:
-                self.X.set_value(dataset.get_batch_design(batch_size))
-            else:
-                self.X.set_value(dataset.get_batch_topo(batch_size))
+        for data in iterator:
+            X = data
+
+            self.X.set_value(X)
             self.update_mask()
             self.optimizer.minimize()
-            model.monitor.report_batch( batch_size )
+            actual_batch_size = X.shape[0]
+            model.monitor.report_batch(actual_batch_size)
             if self.suicide:
                 return False
         return True
