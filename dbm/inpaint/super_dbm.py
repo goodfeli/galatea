@@ -2496,3 +2496,50 @@ class DBM_PCD(Cost):
 
         return gradients, updates
 
+
+class MF_L1_ActCost(Cost):
+    """
+    L1 activation cost on the mean field parameters.
+
+    Adds a cost of:
+
+    coeff * max( abs(mean_activation - target) - eps, 0)
+
+    for each layer.
+
+    """
+
+    def __init__(self, targets, coeffs, eps):
+        """
+        targets: a list, one element per layer, specifying the activation
+                each layer should be encouraged to have
+                    each element may also be a list depending on the
+                    structure of the layer.
+                See each layer's get_l1_act_cost for a specification of
+                    what the state should be.
+        coeffs: a list, one element per layer, specifying the coefficient
+                to put on the L1 activation cost for each layer
+        """
+        self.__dict__.update(locals())
+        del self.self
+
+    def __call__(self, model, X, Y = None):
+
+        H_hat = model.mf(X)
+
+        assert len(H_hat) > 0
+
+        layer_costs = [ layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
+            for layer, mf_state, targets, coeffs, eps in
+            zip(model.hidden_layers, H_hat, self.targets, self.coeffs, self.eps) ]
+
+        assert T.scalar() != 0. # make sure theano semantics do what I want
+        layer_costs = [ cost for cost in layer_costs if cost != 0.]
+
+        total_cost = reduce(lambda x, y: x + y, layer_costs)
+        total_cost.name = 'MF_L1_ActCost'
+
+        assert total_cost.ndim == 0
+
+        return total_cost
+
