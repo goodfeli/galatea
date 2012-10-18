@@ -1184,16 +1184,39 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return [ Conv2DSpace.convert(elem, self.output_axes, ('b', 0, 1, 'c'))
                 for elem in state ]
 
-    def get_l1_act_cost(self, state, target, coeff):
+    def get_l1_act_cost(self, state, target, coeff, eps):
+        """
+
+            target: if pools contain more than one element, should be a list with
+                    two elements. the first element is for the pooling units and
+                    the second for the detector units.
+
+        """
         rval = 0.
 
-        assert all([len(elem) == 2 for elem in [state, target, coeff]])
+        if self.pool_rows == 1 and self.pool_cols == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            assert isinstance(target, float)
+            assert isinstance(coeff, float)
+            _, state = state
+            state = [state]
+            target = [target]
+            coeff = [coeff]
+            eps = [eps]
+        else:
+            assert all([len(elem) == 2 for elem in [state, target, coeff]])
+            if target[1] < target[0]:
+                warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
 
-        for s, t, c in zip(state, target, coeff):
+        for s, t, c, e in zip(state, target, coeff, eps):
+            if c == 0.:
+                continue
             # Average over everything but the channel index
             m = s.mean(axis= [ ax for ax in range(4) if self.output_axes[ax] != 'c' ])
             assert m.ndim == 1
-            rval += abs(s-t).mean()*c
+            rval += T.maximum(abs(s-t).mean()-e, 0.)*c
 
         return rval
 
@@ -1548,15 +1571,31 @@ class DenseMaxPool(SuperDBM_HidLayer):
         return rval
 
 
-    def get_l1_act_cost(self, state, target, coeff):
+    def get_l1_act_cost(self, state, target, coeff, eps):
         rval = 0.
 
-        assert all([len(elem) == 2 for elem in [state, target, coeff]])
+        if self.pool_size == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            assert isinstance(target, float)
+            assert isinstance(coeff, float)
+            _, state = state
+            state = [state]
+            target = [target]
+            coeff = [coeff]
+            eps = [eps]
+        else:
+            assert all([len(elem) == 2 for elem in [state, target, coeff]])
+            if target[1] < target[0]:
+                warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
 
-        for s, t, c in zip(state, target, coeff):
+        for s, t, c, e in zip(state, target, coeff, eps):
+            if c == 0.:
+                continue
             m = s.mean(axis=0)
             assert m.ndim == 1
-            rval += abs(s-t).mean()*c
+            rval += T.maximum(abs(s-t).mean()-e, 0.)*c
 
         return rval
 
