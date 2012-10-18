@@ -1217,7 +1217,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
             # Average over everything but the channel index
             m = s.mean(axis= [ ax for ax in range(4) if self.output_axes[ax] != 'c' ])
             assert m.ndim == 1
-            rval += T.maximum(abs(s-t).mean()-e, 0.)*c
+            rval += T.maximum(abs(m-t).mean()-e, 0.)*c
 
         return rval
 
@@ -1596,7 +1596,7 @@ class DenseMaxPool(SuperDBM_HidLayer):
                 continue
             m = s.mean(axis=0)
             assert m.ndim == 1
-            rval += T.maximum(abs(s-t).mean()-e, 0.)*c
+            rval += T.maximum(abs(m-t).mean()-e, 0.)*c
 
         return rval
 
