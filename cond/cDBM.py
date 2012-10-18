@@ -3,8 +3,9 @@ from theano.printing import Print
 import numpy as np
 from pylearn2.utils import sharedX
 from theano import tensor as T
+from pylearn2.models.model import Model
 
-class cDBM:
+class cDBM(Model):
     def __init__(self,W1, b1,W2,b2, W3, b3, mf_iter):
         self.mf_iter = mf_iter
         self.W1 = sharedX(W1)
