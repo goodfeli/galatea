@@ -115,8 +115,8 @@ class InpaintAlgorithm(object):
                 channels[key] = wtf[key]
 
             for dataset_name in self.monitoring_dataset:
-                dataset = self.monitoring_dataset[dataset_name]
-                self.monitor.add_dataset(dataset=dataset,
+                monitoring_dataset = self.monitoring_dataset[dataset_name]
+                self.monitor.add_dataset(dataset=monitoring_dataset,
                                     mode="sequential",
                                     batch_size=self.batch_size,
                                     num_batches=self.monitoring_batches)
@@ -125,7 +125,7 @@ class InpaintAlgorithm(object):
                 #each time you say "self.setup_batch" you get a new object with a
                 #different id, and if you install n of those the prereq will run n
                 #times. It won't cause any wrong results, just a big slowdown
-                self.monitor.add_channel(dataset_name+'_objective',ipt=X,val=obj, dataset=dataset, prereqs =  [ prereq ])
+                self.monitor.add_channel(dataset_name+'_objective',ipt=X,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
 
                 for name in channels:
                     J = channels[name]
@@ -145,7 +145,7 @@ class InpaintAlgorithm(object):
 
                     self.monitor.add_channel(name=dataset_name+'_'+name,
                                              ipt=ipt,
-                                             val=J, dataset=dataset,
+                                             val=J, dataset=monitoring_dataset,
                                              prereqs=prereqs)
 
 
