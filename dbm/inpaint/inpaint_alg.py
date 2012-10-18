@@ -27,7 +27,7 @@ class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
                  monitoring_batches=None, monitoring_dataset=None,
                  max_iter = 5, suicide = False, init_alpha = ( .001, .005, .01, .05, .1 ),
-                 reset_alpha = True, hacky_conjugacy = False):
+                 reset_alpha = True, hacky_conjugacy = False, reset_conjugate = True):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -157,7 +157,8 @@ class InpaintAlgorithm(object):
                             tol = 3e-7,
                             init_alpha = self.init_alpha,
                             reset_alpha = self.reset_alpha,
-                            hacky_conjugacy = self.hacky_conjugacy)
+                            hacky_conjugacy = self.hacky_conjugacy,
+                            reset_conjugate = self.reset_conjugate)
         self.optimizer.verbose = True
         self.X = X
 
