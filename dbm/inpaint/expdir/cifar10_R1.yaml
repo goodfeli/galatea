@@ -1,0 +1,49 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/train.pkl",
+        preprocessor: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/preprocessor.pkl"
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : &batch_size 100,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
+                channels: 3,
+                rows: 32,
+                cols: 32,
+                init_beta: 3.7
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                        scale_by_sharing: 0,
+                        output_channels: 32,
+                        border_mode: 'full',
+                        pool_rows: 3,
+                        pool_cols: 3,
+                        kernel_rows: 5,
+                        kernel_cols: 5,
+                        irange: 0.05,
+                        layer_name: 'h0',
+                        init_bias: -2.
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate: 1e-6,
+               init_momentum: .5,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               cost : !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
+                num_chains: *batch_size,
+                num_gibbs_steps: 5
+               },
+        },
+    callbacks: [ !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+        final_momentum: .9,
+        start: 0,
+        saturate: 50
+    }],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+
