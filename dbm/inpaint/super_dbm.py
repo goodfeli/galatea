@@ -1444,7 +1444,7 @@ class DenseMaxPool(SuperDBM_HidLayer):
         self.pool_layer_dim = self.detector_layer_dim / self.pool_size
         self.output_space = VectorSpace(self.pool_layer_dim)
 
-        rng = np.random.RandomState([2012,10,4])
+        rng = self.dbm.rng
         W = sharedX(rng.uniform(-self.irange,
                                  self.irange,
                                  (self.input_dim, self.detector_layer_dim)) *
