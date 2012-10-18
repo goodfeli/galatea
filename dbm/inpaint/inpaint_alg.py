@@ -6,6 +6,7 @@ from pylearn2.utils import sharedX
 import numpy as np
 import warnings
 from pylearn2.datasets.dataset import Dataset
+from pylearn2.utils.iteration import is_stochastic
 
 class SetupBatch:
     def __init__(self,alg):
@@ -16,7 +17,7 @@ class SetupBatch:
         if len(args) > 1:
             X, y = args
             assert y is None
-        print 'prereq got X with shape ',X.shape
+        #print 'prereq got X with shape ',X.shape
         self.alg.setup_batch(X)
 
     def __getstate__(self):
