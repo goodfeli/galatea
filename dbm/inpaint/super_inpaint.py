@@ -90,7 +90,7 @@ class SuperInpaint(Cost):
 
         for ii, packed in enumerate(zip(history, new_history)):
             state, new_state = packed
-            rval['obj_after_' + str(ii)] = self.cost_from_states(state,
+            rval['inpaint_after_' + str(ii)] = self.cost_from_states(state,
                     new_state,
                     model, X, drop_mask, new_drop_mask)
 
