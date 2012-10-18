@@ -5,6 +5,8 @@ from theano import function
 import sys
 import numpy as np
 from pylearn2.gui.patch_viewer import PatchViewer
+from galatea.dbm.inpaint import super_dbm
+
 
 ignore, model_path = sys.argv
 
@@ -30,25 +32,32 @@ num_layers = len(model.hidden_layers)
 num_filters = []
 act_record = []
 for i in xrange(num_layers):
-    num_filters.append(model.hidden_layers[i].output_channels)
-    filter_act_record = []
-    for j in xrange(num_filters[-1]):
-        filter_act_record.append([])
-    act_record.append(filter_act_record)
+    layer = model.hidden_layers[i]
+    if isinstance(layer, super_dbm.ConvMaxPool):
+        num_filters.append(model.hidden_layers[i].output_channels)
+    else:
+        num_filters.append(layer.detector_layer_dim / layer.pool_size)
+    n = num_filters[-1]
+    layer_act_record = np.zeros((num_examples,n),dtype='float32')
+    act_record.append(layer_act_record)
 
 #make act_func. should return num_layers tensors of shape batch_size, num_filters
 print 'making act_func...'
 X = model.get_input_space().make_theano_batch()
+topo = X.ndim != 2
 H_hat = model.mf(X)
 acts = []
 for layer, state in zip(model.hidden_layers, H_hat):
     p, h = state
 
-    p_shape = layer.get_output_space().shape
-    i = p_shape[0] / 2
-    j = p_shape[1] / 2
+    if isinstance(layer, super_dbm.ConvMaxPool):
+        p_shape = layer.get_output_space().shape
+        i = p_shape[0] / 2
+        j = p_shape[1] / 2
 
-    acts.append( p[:,:,i,j] )
+        acts.append( p[:,:,i,j] )
+    else:
+        acts.append(p)
 act_func = function([X], acts)
 print '...done'
 
@@ -57,15 +66,13 @@ for ii in xrange(0, num_examples, batch_size):
     print 'example',ii
     print '\tcomputing acts'
     X = dataset.X[ii:ii+batch_size, :]
-    X = dataset.get_topological_view(X)
+    if topo:
+        X = dataset.get_topological_view(X)
     acts = act_func(X)
 
     print '\trecording acts'
     for layer_idx in xrange(num_layers):
-        for filter_idx in xrange(num_filters[layer_idx]):
-            for ex_idx in xrange(batch_size):
-                full_idx = ii + ex_idx
-                act_record[layer_idx][filter_idx].append( (acts[layer_idx][ex_idx,filter_idx], full_idx) )
+        act_record[layer_idx][ii:ii+batch_size] = acts[layer_idx]
 
 
 for layer_idx in xrange(num_layers):
@@ -87,7 +94,8 @@ for layer_idx in xrange(num_layers):
 
     for filter_idx in xrange(num_filters[layer_idx]):
         print '\t\tComputing response image for filter',filter_idx
-        filter_act_record = act_record[layer_idx][filter_idx]
+        filter_act_record = act_record[layer_idx][:, filter_idx]
+        filter_act_record = [ (val, idx) for idx, val in enumerate(filter_act_record) ]
         filter_act_record.sort()
         num_top_filters = 1
         thresh = perc * filter_act_record[-1][0]
