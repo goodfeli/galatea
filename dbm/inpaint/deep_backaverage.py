@@ -114,7 +114,7 @@ for layer_idx in xrange(num_layers):
         mean = batch.mean(axis=0)
         standard_error = batch.std(axis=0) / np.sqrt(num_top_filters)
         final = mean - standard_error
-        final *= mean > standard_error
+        final *= np.abs(mean) > standard_error
         img = batch[0:,:].copy()
         img[0,:] = final
         img = dataset.get_topological_view(img)
