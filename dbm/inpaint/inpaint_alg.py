@@ -27,7 +27,8 @@ class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
                  monitoring_batches=None, monitoring_dataset=None,
                  max_iter = 5, suicide = False, init_alpha = ( .001, .005, .01, .05, .1 ),
-                 reset_alpha = True, hacky_conjugacy = False, reset_conjugate = True):
+                 reset_alpha = True, hacky_conjugacy = False, reset_conjugate = True,
+                 termination_criterion = None):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -202,5 +203,8 @@ class InpaintAlgorithm(object):
             model.monitor.report_batch(actual_batch_size)
             if self.suicide:
                 return False
+
+        if self.termination_criterion is not None:
+            return self.termination_criterion(self.model)
         return True
 
