@@ -9,7 +9,7 @@ model = serial.load(model_path)
 
 monitor = model.monitor
 
-obj = monitor.channels['objective']
+obj = monitor.channels['valid_objective']
 
 val_record = obj.val_record
 
@@ -23,4 +23,6 @@ prop_decrease = decrease / old
 print 'min prop decrease: ',prop_decrease.min()
 
 pyplot.plot(prop_decrease)
+pyplot.hold(True)
+pyplot.plot([.01]*prop_decrease.shape[0])
 pyplot.show()
