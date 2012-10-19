@@ -1547,7 +1547,13 @@ class DenseMaxPool(SuperDBM_HidLayer):
         P, H = state
 
         rval ={}
-        for var, name in [(P,'p'), (H,'h')]:
+
+        if self.pool_size == 1:
+            vars_and_prefixes = [ (P,'') ]
+        else:
+            vars_and_prefixes = [ (P, 'p_'), (H, 'h_') ]
+
+        for var, prefix in vars_and_prefixes:
             v_max = var.max(axis=0)
             v_min = var.min(axis=0)
             v_mean = var.mean(axis=0)
@@ -1567,13 +1573,15 @@ class DenseMaxPool(SuperDBM_HidLayer):
                     ('mean_mean', v_mean.mean()),
                     ('mean_min', v_mean.min())
                     ]:
-                rval[name+'_'+key] = val
+                rval[prefix+key] = val
 
         return rval
 
 
     def get_l1_act_cost(self, state, target, coeff, eps):
         rval = 0.
+
+
 
         if self.pool_size == 1:
             # If the pool size is 1 then pools = detectors
