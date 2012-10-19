@@ -97,6 +97,7 @@ class InpaintAlgorithm(object):
         self.update_mask = function([], updates = updates)
 
         obj = self.cost(model,X, drop_mask = drop_mask)
+        gradients, gradient_updates = self.cost.get_gradients(model, X, drop_mask = drop_mask)
         Y = T.matrix('Y')
 
 
@@ -151,6 +152,8 @@ class InpaintAlgorithm(object):
 
         self.optimizer = BatchGradientDescent(
                             objective = obj,
+                            gradients = gradients,
+                            gradient_updates = gradient_updates,
                             params = model.get_params(),
                             lr_scalers = model.get_lr_scalers(),
                             param_constrainers = [ model.censor_updates ],
