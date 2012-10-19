@@ -1217,7 +1217,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
             # Average over everything but the channel index
             m = s.mean(axis= [ ax for ax in range(4) if self.output_axes[ax] != 'c' ])
             assert m.ndim == 1
-            rval += T.maximum(abs(m-t).mean()-e, 0.)*c
+            rval += T.maximum(abs(m-t)-e,0.).mean()*c
 
         return rval
 
@@ -1585,18 +1585,24 @@ class DenseMaxPool(SuperDBM_HidLayer):
             state = [state]
             target = [target]
             coeff = [coeff]
-            eps = [eps]
+            if eps is None:
+                eps = [0.]
+            else:
+                eps = [eps]
         else:
             assert all([len(elem) == 2 for elem in [state, target, coeff]])
+            if eps is None:
+                eps = [0., 0.]
             if target[1] < target[0]:
                 warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
 
         for s, t, c, e in zip(state, target, coeff, eps):
+            assert all([isinstance(elem, float) for elem in [t, c, e]])
             if c == 0.:
                 continue
             m = s.mean(axis=0)
             assert m.ndim == 1
-            rval += T.maximum(abs(m-t).mean()-e, 0.)*c
+            rval += T.maximum(abs(m-t)-e,0.).mean()*c
 
         return rval
 
