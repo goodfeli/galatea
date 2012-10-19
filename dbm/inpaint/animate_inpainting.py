@@ -20,8 +20,13 @@ try:
     mask_gen = model.mask_gen
     cost = model.cost
     if 'DBM_Inpaint_Binary' not in str(type(cost)) and 'SuperInpaint' not in str(type(cost)):
-        print type(cost)
-        raise TypeError()
+        if 'SumOfCosts' in str(type(cost)):
+            for cost in cost.costs:
+                if 'Inpaint' in str(type(cost)):
+                    break
+        else:
+            print type(cost)
+            raise TypeError()
     print 'used cost from model'
     cost.mask_gen = mask_gen
 except:
@@ -75,13 +80,14 @@ for elem in history:
 
 f = function([X],outputs)
 
+dataset = yaml_parse.load(model.dataset_yaml_src)
+
 print 'use test set?'
 choice = get_choice({ 'y' : 'yes', 'n' : 'no' })
 if choice == 'y':
-    assert model.dataset_yaml_src.find('train') != -1
-    model.dataset_yaml_src = model.dataset_yaml_src.replace('train','test')
+    dataset = dataset.get_test_set()
 
-dataset = yaml_parse.load(model.dataset_yaml_src)
+
 
 topo = X.ndim > 2
 
