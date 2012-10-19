@@ -1,0 +1,54 @@
+batch_size : 2500
+	uniform [2000, 2500]
+niter: 6
+	uniform [5, 6]
+use_sparsity: 50%
+Layer 1 params:
+	detector_layer_dim: 500,
+		uniform [250,750]
+	pool_size: 1,
+		fixed
+	irange: 0.05,
+		uniform between 1/sqrt(input size) and 1/sqrt(detector_layer_dim)
+	init_bias: 0.
+		if use_sparsity,
+			50% -> inverse of target
+			50 % as usual
+		as usual:
+			50 
+Layer 2 params:
+        detector_layer_dim: 1000,
+		uniform [500, 1500]
+        pool_size: 1,
+		fixed
+        irange: 0.05,
+		as in layer 1
+        init_bias: 0.
+		as in layer 1
+init_alpha : [0.0256, .128, .256, 1.28, 2.56],
+	fixed
+reset_alpha: 0,
+	50%
+hacky_conjugacy: 1,
+	50%
+reset_conjugate: 0,
+	50% if applicable
+max_iter: 5,
+	uniform 1,10
+targets: [  .06, .06 ],
+	uniform .01, .2
+eps:     [  .04,  .04 ],
+	30% 0
+	otherwise uniform(0,target)
+coeffs:  [ .01,  .01  ]
+	10**(np.random.uniform(-2.,-.5))
+both_directions : 1,
+	50%
+noise : 1
+	50%
+drop_prob: 0.5,
+	50% 0.5
+	otherwise uniform [.02,.98]
+balance: 0,
+	50%
+
