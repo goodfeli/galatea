@@ -2556,7 +2556,10 @@ class MF_L1_ActCost(Cost):
         assert T.scalar() != 0. # make sure theano semantics do what I want
         layer_costs = [ cost for cost in layer_costs if cost != 0.]
 
-        total_cost = reduce(lambda x, y: x + y, layer_costs)
+        if len(layer_costs) == 0:
+            return T.as_tensor_variable(0.)
+        else:
+            total_cost = reduce(lambda x, y: x + y, layer_costs)
         total_cost.name = 'MF_L1_ActCost'
 
         assert total_cost.ndim == 0
