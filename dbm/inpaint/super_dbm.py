@@ -1578,9 +1578,12 @@ class DenseMaxPool(SuperDBM_HidLayer):
         return rval
 
 
-    def get_l1_act_cost(self, state, target, coeff, eps):
+    def get_l1_act_cost(self, state, target, coeff, eps = None):
         rval = 0.
 
+        P, H = state
+        self.output_space.validate(P)
+        self.h_space.validate(H)
 
 
         if self.pool_size == 1:
@@ -2519,6 +2522,8 @@ class MF_L1_ActCost(Cost):
     Adds a cost of:
 
     coeff * max( abs(mean_activation - target) - eps, 0)
+
+    averaged over units
 
     for each layer.
 
