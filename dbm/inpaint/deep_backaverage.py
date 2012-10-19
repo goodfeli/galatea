@@ -6,6 +6,7 @@ import sys
 import numpy as np
 from pylearn2.gui.patch_viewer import PatchViewer
 from galatea.dbm.inpaint import super_dbm
+from galatea.dbm.inpaint.super_dbm import CompositeLayer
 
 
 ignore, model_path = sys.argv
@@ -31,15 +32,23 @@ num_examples = 50000
 num_layers = len(model.hidden_layers)
 num_filters = []
 act_record = []
+def add_filters_and_act_record(layer):
+    if 'CompositeLayer' in str(type(layer)):
+        for sublayer in layer.components:
+            add_filters_and_act_record(sublayer)
+    else:
+        if isinstance(layer, super_dbm.ConvMaxPool):
+            num_filters.append(layer.output_channels)
+        else:
+            num_filters.append(layer.detector_layer_dim / layer.pool_size)
+        n = num_filters[-1]
+        layer_act_record = np.zeros((num_examples,n),dtype='float32')
+        act_record.append(layer_act_record)
+
 for i in xrange(num_layers):
     layer = model.hidden_layers[i]
-    if isinstance(layer, super_dbm.ConvMaxPool):
-        num_filters.append(model.hidden_layers[i].output_channels)
-    else:
-        num_filters.append(layer.detector_layer_dim / layer.pool_size)
-    n = num_filters[-1]
-    layer_act_record = np.zeros((num_examples,n),dtype='float32')
-    act_record.append(layer_act_record)
+    add_filters_and_act_record(layer)
+num_layers = len(num_filters)
 
 #make act_func. should return num_layers tensors of shape batch_size, num_filters
 print 'making act_func...'
@@ -47,17 +56,27 @@ X = model.get_input_space().make_theano_batch()
 topo = X.ndim != 2
 H_hat = model.mf(X)
 acts = []
-for layer, state in zip(model.hidden_layers, H_hat):
-    p, h = state
 
-    if isinstance(layer, super_dbm.ConvMaxPool):
+def add_acts(layer, state):
+
+    if isinstance(layer, super_dbm.CompositeLayer):
+        for sublayer, substate in zip(layer.components, state):
+            add_acts(sublayer, substate)
+    elif isinstance(layer, super_dbm.ConvMaxPool):
+        p, h = state
         p_shape = layer.get_output_space().shape
         i = p_shape[0] / 2
         j = p_shape[1] / 2
 
         acts.append( p[:,:,i,j] )
     else:
+        p, h = state
         acts.append(p)
+
+
+for layer, state in zip(model.hidden_layers, H_hat):
+    add_acts(layer, state)
+
 act_func = function([X], acts)
 print '...done'
 
