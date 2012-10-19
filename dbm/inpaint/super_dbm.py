@@ -2198,9 +2198,9 @@ class CompositeLayer(SuperDBM_HidLayer):
 
         return rval
 
-    def get_l1_act_cost(self, state, target, coeff):
-        return sum([ comp.get_l1_act_cost(s, t, c) \
-            for comp, s, t, c in zip(self.components, state, target, coeff)])
+    def get_l1_act_cost(self, state, target, coeff, eps):
+        return sum([ comp.get_l1_act_cost(s, t, c, e) \
+            for comp, s, t, c, e in zip(self.components, state, target, coeff, eps)])
 
     def get_params(self):
         return reduce(lambda x, y: x.union(y),
