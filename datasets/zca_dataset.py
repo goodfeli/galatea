@@ -1,7 +1,19 @@
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 import numpy as np
+from pylearn2.config import yaml_parse
 
 class ZCA_Dataset(DenseDesignMatrix):
+
+    def get_test_set(self):
+        yaml = self.preprocessed_dataset.yaml_src
+        yaml = yaml.replace('train', 'test')
+        args = {}
+        args.update(self.args)
+        del args['self']
+        args['start'] = None
+        args['stop'] = None
+        args['preprocessed_dataset'] = yaml_parse.load(yaml)
+        return ZCA_Dataset(**args)
 
     def __init__(self,
             preprocessed_dataset,
@@ -9,6 +21,8 @@ class ZCA_Dataset(DenseDesignMatrix):
             convert_to_one_hot = True,
             start = None,
             stop = None):
+
+        self.args = locals()
 
         self.preprocessed_dataset = preprocessed_dataset
         self.preprocessor = preprocessor
