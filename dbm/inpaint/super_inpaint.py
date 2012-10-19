@@ -82,7 +82,7 @@ class SuperInpaint(Cost):
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        scratch = self(model, X, drop_mask, return_locals = True)
+        scratch = self(model, X, drop_mask = drop_mask, return_locals = True)
 
         history = scratch['history']
         new_history = scratch['new_history']
@@ -114,7 +114,7 @@ class SuperInpaint(Cost):
 
         return rval
 
-    def __call__(self, model, X, drop_mask = None, return_locals = False):
+    def __call__(self, model, X, Y = None, drop_mask = None, return_locals = False):
 
         if not hasattr(model,'cost'):
             model.cost = self

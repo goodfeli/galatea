@@ -96,7 +96,7 @@ class InpaintAlgorithm(object):
         updates = { drop_mask : self.mask_gen(X) }
         self.update_mask = function([], updates = updates)
 
-        obj = self.cost(model,X,drop_mask)
+        obj = self.cost(model,X, drop_mask = drop_mask)
         Y = T.matrix('Y')
 
 

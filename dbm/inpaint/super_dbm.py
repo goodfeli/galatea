@@ -2524,7 +2524,7 @@ class MF_L1_ActCost(Cost):
         self.__dict__.update(locals())
         del self.self
 
-    def __call__(self, model, X, Y = None):
+    def __call__(self, model, X, Y = None, ** kwargs):
 
         H_hat = model.mf(X)
 
