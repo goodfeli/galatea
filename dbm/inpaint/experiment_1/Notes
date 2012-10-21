@@ -23,4 +23,7 @@ not having half the jobs get killed for exceeding their time limit.
 -might want to try sparse intialization of the weights at some point
 
 
-
+Consideringations regarding the clasification step:
+-Might want an initial extra stage where I train the hidden->class layer before doing
+the joint training
+-Might want to try SGD
