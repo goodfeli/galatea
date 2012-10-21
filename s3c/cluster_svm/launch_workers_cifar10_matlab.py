@@ -3,9 +3,11 @@
 # launch_workers.py foo.npy 100.,1000.,10000. 12G
 # launch_workers.py bar.npy
 
+print 'python launched'
 import sys
 import os
 from pylearn2.utils import serial
+print 'done with imports'
 
 assert len(sys.argv) in [2,3,4]
 train_file = sys.argv[1]
@@ -36,7 +38,7 @@ if len(sys.argv) > 2:
     C_list = [ float(C) for C in C_list.split(',') ]
 
 else:
-    C_list = [ 10., 100., 1000., 1e4, 1e5 ]
+    C_list = [ .1, 1., 10., 100., 1000., 1e4 ]
 
 
 options = []
@@ -47,7 +49,8 @@ for C in C_list:
 command += ','.join(options)
 command += '}}" %(train_file)s %(results_dir)s' % locals()
 
+print 'running command'
 os.system(command)
-
+print 'done running command, command was:'
 
 print command
