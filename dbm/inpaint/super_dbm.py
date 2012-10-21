@@ -1867,6 +1867,11 @@ def add_layers( super_dbm, new_layers ):
 
     return super_dbm
 
+
+def unfreeze(augmented_dbm):
+    augmented_dbm.freeze_lower = False
+    return augmented_dbm
+
 class AugmentedDBM(Model):
     """
         A DBM-like model.
