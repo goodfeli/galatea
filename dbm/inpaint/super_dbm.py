@@ -2006,7 +2006,7 @@ class SuperDBM_ConditionalNLL(Cost):
 
         assert acc.dtype == Y_hat.dtype
 
-        return { 'acc' : acc }
+        return { 'acc' : acc, 'err' : 1. - acc }
 
 def ditch_mu(model):
     model.visible_layer.mu = None
