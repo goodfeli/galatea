@@ -162,6 +162,7 @@ class SuperInpaint(Cost):
     def cost_from_states(self, state, new_state, dbm, X, drop_mask, new_drop_mask):
 
         V_hat_unmasked = state['V_hat_unmasked']
+        assert V_hat_unmasked.ndim == X.ndim
 
         inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask)
 
