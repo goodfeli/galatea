@@ -34,7 +34,9 @@ layer_2_target = uniform_between(.01, .2)
 layer_1_eps = (uniform_between(0., 1.) > .5) * rng.uniform(0., layer_1_target)
 layer_2_eps = (uniform_between(0., 1.) > .5) * rng.uniform(0., layer_2_target)
 layer_1_coeff = 10 ** uniform_between(-2., -.5)
+layer_1_coeff *= use_sparsity
 layer_2_coeff = 10 ** uniform_between(-2., -.5)
+layer_2_coeff *= use_sparsity
 
 # Layer 1
 layer_1_dim = rng.randint(250,751, (num_jobs))
@@ -117,7 +119,7 @@ for i in xrange(num_jobs):
     f.write(output)
     f.close()
 
-    path = cur_dir + '/stage_00_inpaint_params.yaml'
+    path = cur_dir + '/stage_00_inpaint.yaml'
     f = open(path, 'w')
     f.write(template % obj)
     f.close()
