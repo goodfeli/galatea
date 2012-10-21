@@ -1,0 +1,12 @@
+irange: 0.05
+	uniform(0,1/sqrt(num_hid_2))
+batch_size: 5000,
+	2500 or 5000
+updates_per_batch: 3,
+	uniform(1, 10)
+reset_alpha: 0,
+	50%
+hacky_conjugacy: 1,
+	50%
+reset_conjugate: 0,
+	50%
