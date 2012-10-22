@@ -63,9 +63,13 @@ except:
 
 space = model.get_input_space()
 X = space.make_theano_batch()
+if cost.supervised:
+    Y = T.matrix()
+else:
+    Y = None
 
 print 'cost is',str(cost)
-denoising = cost(model,X,return_locals=True)
+denoising = cost(model,X,Y,return_locals=True)
 
 drop_mask = denoising['drop_mask']
 outputs = [ drop_mask ]
@@ -76,11 +80,30 @@ for elem in history:
     except:
         V_hat = elem['V_hat']
         outputs.append(V_hat)
+end_X_outputs = len(outputs)
 
+inputs = [X]
+if cost.supervised:
+    inputs += [Y]
+    outputs += [ denoising['drop_mask_Y'] ]
+    for elem in history:
+        outputs.append(elem['Y_hat'])
 
-f = function([X],outputs)
+f = function(inputs, outputs)
 
 dataset = yaml_parse.load(model.dataset_yaml_src)
+
+if cost.supervised:
+    n_classes = model.hidden_layers[-1].n_classes
+    if isinstance(n_classes, float):
+        assert n_classes == int(n_classes)
+        n_classes = int(n_classes)
+    assert isinstance(n_classes, int)
+    templates = space.get_origin_batch(n_classes)
+    for i in xrange(n_classes):
+        for j in xrange(-1, -dataset.X.shape[0], -1):
+            if dataset.y[j,i]:
+                templates[i, :] = dataset.X[j, :]
 
 print 'use test set?'
 choice = get_choice({ 'y' : 'yes', 'n' : 'no' })
@@ -92,15 +115,21 @@ if choice == 'y':
 topo = X.ndim > 2
 
 while True:
-    if topo:
-        X = dataset.get_batch_topo(m)
+    if cost.supervised:
+        X, Y = dataset.get_batch_design(m, include_labels = True)
     else:
         X = dataset.get_batch_design(m)
+    if topo:
+        X = dataset.get_topological_view(X)
 
-    outputs = f(X)
+    args = [X]
+    if cost.supervised:
+        args += [Y]
+
+    outputs = f(*args)
     drop_mask = outputs[0]
     print 'empirical drop prob:',drop_mask.mean()
-    X_sequence = outputs[1:]
+    X_sequence = outputs[1:end_X_outputs]
 
 
     if X.ndim == 2:
@@ -114,7 +143,7 @@ while True:
 
     cols = 2+len(X_sequence)
     if mapback:
-        rows = 2 * m
+        rows += m
         if X.ndim != 2:
             design_X = dataset.get_design_matrix(topo = X)
             design_X_sequence = [ dataset.get_design_matrix(mat) for mat in X_sequence ]
@@ -128,6 +157,12 @@ while True:
     if X_sequence[0].ndim == 2:
         X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
     X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt,per_example=True) for mat in X_sequence ]
+
+    if cost.supervised:
+        rows += m
+
+        drop_mask_Y = outputs[end_X_outputs]
+        Y_sequence = outputs[end_X_outputs+1:]
 
 
     pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
@@ -219,6 +254,50 @@ while True:
                 if patch.shape[-1] != 3:
                     patch = np.concatenate( (patch,patch,patch), axis=2)
                 pv.add_patch(patch, rescale = False)
+
+        if cost.supervised:
+            def label_to_vis(Y_elem):
+                prod =  np.dot(Y_elem, templates)
+                assert Y_elem.ndim == 1
+                rval = np.zeros((1, prod.shape[0]))
+                rval[0,:] = prod
+                return rval
+            #Show true class
+            Y_vis = label_to_vis(Y[i,:])
+            Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
+            if Y_vis.ndim == 2:
+                Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
+            if Y_vis.ndim == 4:
+                assert Y_vis.shape[0] == 1
+                Y_vis = Y_vis[0,:,:,:]
+            assert Y_vis.ndim == 3
+            if Y_vis.shape[-1] == 1:
+                Y_vis = np.concatenate([Y_vis]*3,axis=2)
+            assert Y_vis.shape[-1] == 3
+            pv.add_patch(Y_vis, rescale=False)
+
+            # Add the masked input
+            if drop_mask_Y[i]:
+                pv.add_patch(np.concatenate((np.ones((X.shape[1], X.shape[2], 1)),
+                                            -np.ones((X.shape[1], X.shape[2], 1)),
+                                            -np.ones((X.shape[1], X.shape[2], 1))),
+                                            axis=2), rescale = False)
+            else:
+                pv.add_patch(Y_vis)
+
+            # Add the inpainted sequence
+            for Y_hat in Y_sequence:
+                Y_vis = label_to_vis(Y_hat[i,:])
+                Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
+                if Y_vis.ndim == 4:
+                    assert Y_vis.shape[0] == 1
+                    Y_vis = Y_vis[0,:,:,:]
+                if Y_vis.ndim == 2:
+                    Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
+                if Y_vis.shape[-1] == 1:
+                    Y_vis = np.concatenate([Y_vis]*3,axis=2)
+                pv.add_patch(Y_vis, rescale=False)
+
 
     pv.show()
 

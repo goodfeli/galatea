@@ -1,4 +1,5 @@
 !obj:pylearn2.scripts.train.Train {
+    allow_overwrite: 0,
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
         shuffle: 1,

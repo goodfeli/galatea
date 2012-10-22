@@ -13,12 +13,12 @@ class SetupBatch:
         self.alg = alg
 
     def __call__(self, * args):
-        X = args[0]
         if len(args) > 1:
-            X, y = args
-            assert y is None
-        #print 'prereq got X with shape ',X.shape
-        self.alg.setup_batch(X)
+            X, Y = args
+            self.alg.setup_batch(X, Y)
+        else:
+            X = args
+            self.alg.setup_batch(X)
 
     def __getstate__(self):
         return {}
@@ -42,9 +42,14 @@ class InpaintAlgorithm(object):
         self.bSetup = False
         self.rng = np.random.RandomState([2012,10,17])
 
-    def setup_batch(self, X):
+    def setup_batch(self, X, Y = None):
         assert not isinstance(X,tuple)
         self.X.set_value(X)
+        assert self.cost.supervised == (Y is not None)
+        if Y is not None:
+            assert Y.ndim == 2
+            assert self.Y.ndim == 2
+            self.Y.set_value(Y)
         self.update_mask()
 
     def get_setup_batch_object(self):
@@ -94,25 +99,37 @@ class InpaintAlgorithm(object):
         drop_mask = sharedX( np.cast[X.dtype] ( test_mask), name = 'drop_mask')
         self.drop_mask = drop_mask
         assert drop_mask.ndim == test_mask.ndim
-        updates = { drop_mask : self.mask_gen(X) }
+
+        Y = None
+        drop_mask_Y = None
+        if self.cost.supervised:
+            Y = sharedX(model.get_output_space().get_origin_batch(2), 'Y')
+            self.Y = Y
+            test_mask_Y = rng.randint(0,2,(2,))
+            drop_mask_Y = sharedX( np.cast[Y.dtype](test_mask_Y), name = 'drop_mask_Y')
+            self.drop_mask_Y = drop_mask_Y
+            dmx, dmy = self.mask_gen(X, Y)
+            updates = { drop_mask: dmx,
+                    drop_mask_Y: dmy }
+        else:
+            updates = { drop_mask : self.mask_gen(X) }
         self.update_mask = function([], updates = updates)
 
-        obj = self.cost(model,X, drop_mask = drop_mask)
-        gradients, gradient_updates = self.cost.get_gradients(model, X, drop_mask = drop_mask)
-        Y = T.matrix('Y')
-
+        obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
+        gradients, gradient_updates = self.cost.get_gradients(model, X, Y, drop_mask = drop_mask,
+                drop_mask_Y = drop_mask_Y)
 
         if self.monitoring_dataset is not None:
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
                 Y = None
-            Y = None
             assert X.name is not None
             channels = model.get_monitoring_channels(X,Y)
             if not isinstance(channels, dict):
                 raise TypeError("model.get_monitoring_channels must return a "
                                 "dictionary, but it returned " + str(channels))
             assert X.name is not None
-            wtf = self.cost.get_monitoring_channels(model, X = X, drop_mask = drop_mask)
+            wtf = self.cost.get_monitoring_channels(model, X = X, Y = Y, drop_mask = drop_mask,
+                    drop_mask_Y = drop_mask_Y)
             for key in wtf:
                 channels[key] = wtf[key]
 
@@ -186,7 +203,6 @@ class InpaintAlgorithm(object):
         train_iteration_mode = 'shuffled_sequential'
         if not is_stochastic(train_iteration_mode):
             rng = None
-        assert not self.cost.supervised
         iterator = dataset.iterator(mode=train_iteration_mode,
                 batch_size=self.batch_size,
                 targets=self.cost.supervised,
@@ -194,7 +210,11 @@ class InpaintAlgorithm(object):
                 rng = rng)
 
         for data in iterator:
-            X = data
+            if self.cost.supervised:
+                X, Y = data
+                self.Y.set_value(Y)
+            else:
+                X = data
 
             self.X.set_value(X)
             self.update_mask()

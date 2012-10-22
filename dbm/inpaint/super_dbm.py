@@ -227,7 +227,55 @@ class SuperDBM(Model):
     def get_weights_topo(self):
         return self.hidden_layers[0].get_weights_topo()
 
-    def do_inpainting(self, V, drop_mask, return_history = False, noise = False):
+    def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
+            return_history = False, noise = False):
+        """
+            Gives the mean field expression for units masked out by drop_mask.
+            Uses self.niter mean field updates.
+
+            Comes in two variants, unsupervised and supervised:
+                unsupervised:
+                    Y and drop_mask_Y are not passed to the method.
+                    The method produces V_hat, an inpainted version of V
+                supervised:
+                    Y and drop_mask_Y are passed to the method.
+                    The method produces V_hat and Y_hat
+
+            V: a theano batch in model.input_space
+            Y: a theano batch in model.output_space, ie, in the output
+                space of the last hidden layer
+                (it's not really a hidden layer anymore, but oh well.
+                it's convenient to code it this way because the labels
+                are sort of "on top" of everything else)
+                *** Y is always assumed to be a matrix of one-hot category
+                labels. ***
+            drop_mask: a theano batch in model.input_space
+                Should be all binary, with 1s indicating that the corresponding
+                element of X should be "dropped", ie, hidden from the algorithm
+                and filled in as part of the inpainting process
+            drop_mask_Y: a theano vector
+                Since we assume Y is a one-hot matrix, each row is a single
+                categorical variable. drop_mask_Y is a binary mask specifying
+                which *rows* to drop.
+        """
+        assert drop_mask is not None
+        assert return_history in [True, False]
+        assert noise in [True, False]
+        if Y is None:
+            if drop_mask_Y is not None:
+                raise ValueError("do_inpainting got drop_mask_Y but not Y.")
+        else:
+            if drop_mask_Y is None:
+                raise ValueError("do_inpaiting got Y but not drop_mask_Y.")
+
+        if Y is not None:
+            assert isinstance(self.hidden_layers[-1], Softmax)
+            if drop_mask_Y.ndim != 1:
+                raise ValueError("do_inpainting assumes Y is a matrix of one-hot labels,"
+                        "so each example is only one variable. drop_mask_Y should "
+                        "therefore be a vector, but we got something with ndim " +
+                        str(drop_mask_Y.ndim))
+            drop_mask_Y = drop_mask_Y.dimshuffle(0, 'x')
 
         orig_V = V
         orig_drop_mask = drop_mask
@@ -257,20 +305,29 @@ class SuperDBM(Model):
             H_hat.append( self.hidden_layers[-1].mf_update(
                 state_above = None,
                 #layer_above = None,
-                state_below = self.hidden_layers[-1].upward_state(H_hat[-1])))
+                state_below = self.hidden_layers[-2].upward_state(H_hat[-1])))
         else:
             H_hat.append( self.hidden_layers[-1].mf_update(
                 state_above = None,
                 state_below = self.visible_layer.upward_state(V_hat)))
 
+        if Y is not None:
+            warnings.warn("Info from Y probably doesn't flow into the MF graph as fast as it should")
+            Y_hat_unmasked = H_hat[-1]
+            H_hat[-1] = drop_mask_Y * H_hat[-1] + (1 - drop_mask_Y) * Y
+
         def update_history():
             assert V_hat_unmasked.ndim > 1
-            history.append( { 'V_hat' : V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked } )
+            d =  { 'V_hat' : V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            if Y is not None:
+                d['Y_hat_unmasked'] = Y_hat_unmasked
+                d['Y_hat'] = H_hat[-1]
+            history.append( d )
 
         update_history()
 
         for i in xrange(self.niter-1):
-            for j in xrange(0,len(H_hat),2):
+            for j in xrange(0, len(H_hat), 2):
                 if j == 0:
                     state_below = self.visible_layer.upward_state(V_hat)
                 else:
@@ -285,6 +342,9 @@ class SuperDBM(Model):
                         state_below = state_below,
                         state_above = state_above,
                         layer_above = layer_above)
+                if Y is not None and j == len(self.hidden_layers) - 1:
+                    Y_hat_unmasked = H_hat[j]
+                    H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
 
             V_hat, V_hat_unmasked = self.visible_layer.inpaint_update(
                     state_above = self.hidden_layers[0].downward_state(H_hat[0]),
@@ -301,11 +361,15 @@ class SuperDBM(Model):
                 else:
                     state_above = self.hidden_layers[j+1].downward_state(H_hat[j+1])
                     layer_above = self.hidden_layers[j+1]
+                #end if j
                 H_hat[j] = self.hidden_layers[j].mf_update(
                         state_below = state_below,
                         state_above = state_above,
                         layer_above = layer_above)
-                #end ifelse
+                if Y is not None and j == len(self.hidden_layers) - 1:
+                    Y_hat_unmasked = H_hat[j]
+                    H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+                #end if y
             #end for j
             update_history()
         #end for i
@@ -1538,6 +1602,8 @@ class DenseMaxPool(SuperDBM_HidLayer):
 
     def upward_state(self, total_state):
         p,h = total_state
+        self.h_space.validate(h)
+        self.output_space.validate(p)
         return p
 
     def downward_state(self, total_state):
@@ -1797,6 +1863,8 @@ class Softmax(SuperDBM_HidLayer):
         self.__dict__.update(locals())
         del self.self
 
+        assert isinstance(n_classes, int)
+
         self.output_space = VectorSpace(n_classes)
         self.b = sharedX( np.zeros((n_classes,)), name = 'softmax_b')
 
@@ -1817,6 +1885,8 @@ class Softmax(SuperDBM_HidLayer):
         else:
             raise NotImplementedError("SoftMax can't take "+str(type(space))+" as input yet")
 
+        self.desired_space = VectorSpace(self.input_dim)
+
         rng = np.random.RandomState([2012,07,25])
 
         self.W = sharedX( rng.uniform(-self.irange,self.irange, (self.input_dim,self.n_classes)), 'softmax_W' )
@@ -1830,8 +1900,12 @@ class Softmax(SuperDBM_HidLayer):
         if double_weights:
             raise NotImplementedError()
 
+        self.input_space.validate(state_below)
+
         if self.needs_reshape:
             state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+
+        self.desired_space.validate(state_below)
 
 
         """
@@ -1841,20 +1915,48 @@ class Softmax(SuperDBM_HidLayer):
         """
 
         assert self.W.ndim == 2
+        assert state_below.ndim == 2
         return T.nnet.softmax(T.dot(state_below,self.W)+self.b)
 
     def downward_message(self, downward_state):
 
-        dims = { 'b' : self.dbm.batch_size,
-                0 : self.input_space.shape[0],
-                1 : self.input_space.shape[1],
-                'c' : self.input_space.nchannels }
+        rval =  T.dot(downward_state, self.W.T)
 
-        shape = [ dims[elem] for elem in self.input_space.axes ]
-
-        rval =  T.dot(downward_state, self.W.T).reshape(tuple(shape))
+        rval = self.desired_space.format_as(rval, self.input_space)
 
         return rval
+
+    def recons_cost(self, Y, Y_hat_unmasked, drop_mask_Y, scale):
+        """
+            scale is because the visible layer also goes into the
+            cost. it uses the mean over units and examples, so that
+            the scale of the cost doesn't change too much with batch
+            size or example size.
+            we need to multiply this cost by scale to make sure that
+            it is put on the same scale as the reconstruction cost
+            for the visible units. ie, scale should be 1/nvis
+        """
+
+
+        Y_hat = Y_hat_unmasked
+        assert hasattr(Y_hat, 'owner')
+        owner = Y_hat.owner
+        assert owner is not None
+        op = owner.op
+        assert isinstance(op, T.nnet.Softmax)
+        z ,= owner.inputs
+        assert z.ndim == 2
+
+        z = z - z.max(axis=1).dimshuffle(0, 'x')
+        log_prob = z - T.exp(z).sum(axis=1).dimshuffle(0, 'x')
+        # we use sum and not mean because this is really one variable per row
+        log_prob_of = (Y * log_prob).sum(axis=1)
+        masked = log_prob_of * drop_mask_Y
+        assert masked.ndim == 1
+
+        rval = masked.mean() * scale
+
+        return - rval
 
 
 def add_layers( super_dbm, new_layers ):

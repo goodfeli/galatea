@@ -9,13 +9,20 @@ model = serial.load(model_path)
 
 monitor = model.monitor
 
-obj = monitor.channels['valid_objective']
+obj = monitor.channels['valid_err']
 
 val_record = obj.val_record
 
+running_min = [ val_record[0] ]
+for elem in val_record[1:]:
+    running_min.append(min(running_min[-1], elem))
+
 val_record = np.asarray(val_record)
+running_min = np.asarray(running_min)
+
+
 new = val_record[1:]
-old = val_record[:-1]
+old = running_min[:-1]
 
 decrease = old - new
 prop_decrease = decrease / old
