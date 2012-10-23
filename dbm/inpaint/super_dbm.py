@@ -1543,6 +1543,10 @@ class DenseMaxPool(SuperDBM_HidLayer):
         assert W.name is not None
         return self.transformer.get_params().union([self.b])
 
+    def get_weight_decay(self, coeff):
+        W ,= self.transformer.get_params()
+        return coeff * T.sqr(W).sum()
+
     def expected_energy_term(self, state, average, state_below, average_below):
 
         self.input_space.validate(state_below)
@@ -2048,6 +2052,9 @@ class Softmax(SuperDBM_HidLayer):
         h_state.name = 'softmax_sample_shared'
 
         return h_state
+
+    def get_weight_decay(self, coeff):
+        return coeff * T.sqr(self.W).sum()
 
 def add_layers( super_dbm, new_layers ):
     """
@@ -2769,6 +2776,41 @@ class MF_L1_ActCost(Cost):
         else:
             total_cost = reduce(lambda x, y: x + y, layer_costs)
         total_cost.name = 'MF_L1_ActCost'
+
+        assert total_cost.ndim == 0
+
+        return total_cost
+
+class DBM_WeightDecay(Cost):
+    """
+    coeff * sum(sqr(weights))
+
+    for each set of weights.
+
+    """
+
+    def __init__(self, coeffs):
+        """
+        coeffs: a list, one element per layer, specifying the coefficient
+                to put on the L1 activation cost for each layer.
+                Each element may in turn be a list, ie, for CompositeLayers.
+        """
+        self.__dict__.update(locals())
+        del self.self
+
+    def __call__(self, model, X, Y = None, ** kwargs):
+
+        layer_costs = [ layer.get_weight_decay(coeff)
+            for layer, coeff in izip(model.hidden_layers, self.coeffs) ]
+
+        assert T.scalar() != 0. # make sure theano semantics do what I want
+        layer_costs = [ cost for cost in layer_costs if cost != 0.]
+
+        if len(layer_costs) == 0:
+            return T.as_tensor_variable(0.)
+        else:
+            total_cost = reduce(lambda x, y: x + y, layer_costs)
+        total_cost.name = 'DBM_WeightDecay'
 
         assert total_cost.ndim == 0
 
