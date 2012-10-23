@@ -32,7 +32,8 @@ class SuperInpaint(Cost):
 
         rval = {}
 
-        if drop_mask.ndim < X.ndim:
+        # TODO: shouldn't self() handle this?
+        if drop_mask is not None and drop_mask.ndim < X.ndim:
             if self.mask_gen is not None:
                 assert self.mask_gen.sync_channels
             if X.ndim != 4:
@@ -47,6 +48,7 @@ class SuperInpaint(Cost):
         new_drop_mask = scratch['new_drop_mask']
         new_drop_mask_Y = None
         if self.supervised:
+            drop_mask_Y = scratch['drop_mask_Y']
             new_drop_mask_Y = scratch['new_drop_mask_Y']
 
         for ii, packed in enumerate(zip(history, new_history)):
@@ -162,8 +164,13 @@ class SuperInpaint(Cost):
     def cost_from_states(self, state, new_state, dbm, X, Y, drop_mask, drop_mask_Y,
             new_drop_mask, new_drop_mask_Y):
 
-        for elem in [Y, drop_mask_Y, new_drop_mask_Y]:
-            assert (elem is not None) == self.supervised
+        if not self.supervised:
+            assert drop_mask_Y is None
+            assert new_drop_mask_Y is None
+        if self.supervised:
+            assert drop_mask_Y is not None
+            assert new_drop_mask_Y is not None
+            assert Y is not None
 
         V_hat_unmasked = state['V_hat_unmasked']
         assert V_hat_unmasked.ndim == X.ndim
