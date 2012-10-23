@@ -17,14 +17,14 @@
               },
               hidden_layers: [
                 !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        detector_layer_dim: 750,
+                        detector_layer_dim: 500,
                         pool_size: 1,
                         irange: 0.05,
                         layer_name: 'h0',
                         init_bias: 0.
                },
                 !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        detector_layer_dim: 1500,
+                        detector_layer_dim: 1000,
                         pool_size: 1,
                         irange: 0.05,
                         layer_name: 'h1',

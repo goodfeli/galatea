@@ -38,6 +38,7 @@
               ]
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               batches_per_iter: 10,
                monitoring_dataset : {
                         'train': *train,
                         'valid': !obj:pylearn2.datasets.mnist.MNIST {

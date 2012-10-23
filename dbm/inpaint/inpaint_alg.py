@@ -224,6 +224,7 @@ class InpaintAlgorithm(object):
             if self.suicide:
                 return False
 
+    def continue_learning(self, model):
         if self.termination_criterion is not None:
             return self.termination_criterion(self.model)
         return True
