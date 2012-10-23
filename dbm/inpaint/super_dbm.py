@@ -1472,8 +1472,9 @@ class DenseMaxPool(SuperDBM_HidLayer):
     def __init__(self,
              detector_layer_dim,
             pool_size,
-            irange,
             layer_name,
+            irange = None,
+            sparse_init = None,
             include_prob = 1.0,
             init_bias = 0.):
         """
@@ -1511,12 +1512,24 @@ class DenseMaxPool(SuperDBM_HidLayer):
         self.output_space = VectorSpace(self.pool_layer_dim)
 
         rng = self.dbm.rng
-        W = sharedX(rng.uniform(-self.irange,
+        if self.irange is not None:
+            assert self.sparse_init is None
+            W = rng.uniform(-self.irange,
                                  self.irange,
-                                 (self.input_dim, self.detector_layer_dim)) *
+                                 (self.input_dim, self.detector_layer_dim)) * \
                     (rng.uniform(0.,1., (self.input_dim, self.detector_layer_dim))
                      < self.include_prob)
-                   )
+        else:
+            assert self.sparse_init is not None
+            W = np.zeros((self.input_dim, self.detector_layer_dim))
+            for i in xrange(self.detector_layer_dim):
+                for j in xrange(self.sparse_init):
+                    idx = rng.randint(0, self.input_dim)
+                    while W[idx, i] != 0:
+                        idx = rng.randint(0, self.input_dim)
+                    W[idx, i] = rng.randn()
+
+        W = sharedX(W)
         W.name = self.layer_name + '_W'
 
         self.transformer = MatrixMul(W)
@@ -1859,7 +1872,7 @@ class Verify(theano.gof.Op):
 """
 
 class Softmax(SuperDBM_HidLayer):
-    def __init__(self, n_classes, irange, layer_name):
+    def __init__(self, n_classes, layer_name, irange = None, sparse_init = None):
         self.__dict__.update(locals())
         del self.self
 
@@ -1887,11 +1900,46 @@ class Softmax(SuperDBM_HidLayer):
 
         self.desired_space = VectorSpace(self.input_dim)
 
-        rng = np.random.RandomState([2012,07,25])
+        rng = self.dbm.rng
 
-        self.W = sharedX( rng.uniform(-self.irange,self.irange, (self.input_dim,self.n_classes)), 'softmax_W' )
+        if self.irange is not None:
+            assert self.sparse_init is None
+            W = rng.uniform(-self.irange,self.irange, (self.input_dim,self.n_classes))
+        else:
+            W = np.zeros((self.input_dim, self.n_classes))
+            for i in xrange(self.n_classes):
+                for j in xrange(self.sparse_init):
+                    idx = rng.randint(0, self.input_dim)
+                    while W[idx, i] != 0.:
+                        idx = rng.randint(0, self.input_dim)
+                    W[idx, i] = rng.randn()
+
+        self.W = sharedX(W,  'softmax_W' )
 
         self._params = [ self.b, self.W ]
+
+    def get_sampling_updates(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+
+        warnings.warn("Softmax sampling is not tested")
+
+        if state_above is not None:
+            raise NotImplementedError()
+
+        self.input_space.validate(state_below)
+
+        if self.needs_reshape:
+            state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+
+        self.desired_space.validate(state_below)
+
+
+        z = T.dot(state_below, self.W) + self.b
+        h_exp = T.nnet.softmax(z)
+        h_sample = theano_rng.multinomial(pvals = h_exp, dtype = h_exp.dtype)
+
+        return h_sample
 
     def mf_update(self, state_below, state_above = None, layer_above = None, double_weights = False, iter_name = None):
         if state_above is not None:
@@ -1958,6 +2006,48 @@ class Softmax(SuperDBM_HidLayer):
 
         return - rval
 
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+
+        t1 = time.time()
+
+        empty_input = self.output_space.get_origin_batch(self.dbm.batch_size)
+        h_state = sharedX(empty_input)
+
+        default_z = T.zeros_like(h_state) + self.b
+
+        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
+
+        h_exp = T.nnet.softmax(default_z)
+
+        h_sample = theano_rng.multinomial(pvals = h_exp, dtype = h_exp.dtype)
+
+        p_state = sharedX( self.output_space.get_origin_batch(
+            self.dbm.batch_size))
+
+
+        t2 = time.time()
+
+        f = function([], updates = {
+            h_state : h_sample
+            })
+
+        t3 = time.time()
+
+        f()
+
+        t4 = time.time()
+
+        print str(self)+'.make_state took',t4-t1
+        print '\tcompose time:',t2-t1
+        print '\tcompile time:',t3-t2
+        print '\texecute time:',t4-t3
+
+        h_state.name = 'softmax_sample_shared'
+
+        return h_state
 
 def add_layers( super_dbm, new_layers ):
     """
