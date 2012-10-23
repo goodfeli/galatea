@@ -22,7 +22,8 @@ import time
 from pylearn2.costs.cost import Cost
 from pylearn2.expr.nnet import inverse_sigmoid_numpy
 from pylearn2.expr.nnet import sigmoid_numpy
-from itertools import izip
+from pylearn2.utils import safe_zip
+from pylearn2.utils import safe_izip
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
@@ -449,7 +450,7 @@ class SuperDBM(Model):
             #end for i
 
         # Run some checks on the output
-        for layer, state in izip(self.hidden_layers, H_hat):
+        for layer, state in safe_izip(self.hidden_layers, H_hat):
             upward_state = layer.upward_state(state)
             layer.get_output_space().validate(upward_state)
 
@@ -623,7 +624,7 @@ class SuperDBM(Model):
 
         states = [ layer.make_state(num_examples, rng) for layer in layers ]
 
-        rval = dict(zip(layers, states))
+        rval = dict(safe_zip(layers, states))
 
         return rval
 
@@ -794,7 +795,7 @@ class SuperDBM(Model):
 
         def add_updates(old, new):
             if isinstance(old, (list, tuple)):
-                for old_elem, new_elem in izip(old, new):
+                for old_elem, new_elem in safe_izip(old, new):
                     add_updates(old_elem, new_elem)
             else:
                 rval[old] = new
@@ -1277,7 +1278,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
             if target[1] < target[0]:
                 warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
 
-        for s, t, c, e in zip(state, target, coeff, eps):
+        for s, t, c, e in safe_zip(state, target, coeff, eps):
             if c == 0.:
                 continue
             # Average over everything but the channel index
@@ -1692,7 +1693,7 @@ class DenseMaxPool(SuperDBM_HidLayer):
             if target[1] < target[0]:
                 warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
 
-        for s, t, c, e in zip(state, target, coeff, eps):
+        for s, t, c, e in safe_zip(state, target, coeff, eps):
             assert all([isinstance(elem, float) for elem in [t, c, e]])
             if c == 0.:
                 continue
@@ -2371,13 +2372,13 @@ class CompositeLayer(SuperDBM_HidLayer):
 
         return tuple([component.upward_state(elem)
             for component, elem in
-            zip(self.components, total_state)])
+            safe_zip(self.components, total_state)])
 
     def downward_state(self, total_state):
 
         return tuple([component.downward_state(elem)
             for component, elem in
-            zip(self.components, total_state)])
+            safe_zip(self.components, total_state)])
 
     def downward_message(self, downward_state):
 
@@ -2395,7 +2396,7 @@ class CompositeLayer(SuperDBM_HidLayer):
                 return x
             return x + y
 
-        for i, packed in enumerate(zip(self.components, downward_state)):
+        for i, packed in enumerate(safe_zip(self.components, downward_state)):
             component, state = packed
             if self.routing_needed and i in self.components_to_inputs:
                 input_idx = self.components_to_inputs[i]
@@ -2409,7 +2410,7 @@ class CompositeLayer(SuperDBM_HidLayer):
 
             assert len(input_idx) == len(partial_message)
 
-            for idx, msg in zip(input_idx, partial_message):
+            for idx, msg in safe_zip(input_idx, partial_message):
                 rval[idx] = add(rval[idx], msg)
 
         if len(rval) == 1:
@@ -2423,7 +2424,7 @@ class CompositeLayer(SuperDBM_HidLayer):
 
     def get_l1_act_cost(self, state, target, coeff, eps):
         return sum([ comp.get_l1_act_cost(s, t, c, e) \
-            for comp, s, t, c, e in zip(self.components, state, target, coeff, eps)])
+            for comp, s, t, c, e in safe_zip(self.components, state, target, coeff, eps)])
 
     def get_params(self):
         return reduce(lambda x, y: x.union(y),
@@ -2439,7 +2440,7 @@ class CompositeLayer(SuperDBM_HidLayer):
     def get_monitoring_channels_from_state(self, state):
         rval = {}
 
-        for layer, s in zip(self.components, state):
+        for layer, s in safe_zip(self.components, state):
             d = layer.get_monitoring_channels_from_state(s)
             for key in d:
                 rval[layer.layer_name+'_'+key] = d[key]
@@ -2683,7 +2684,7 @@ class DBM_PCD(Cost):
         # The gradients of the expected energy under q are easy, we can just do that in theano
         expected_energy_q = model.expected_energy(X, q).mean()
         params = list(model.get_params())
-        gradients = dict(zip(params, T.grad(expected_energy_q, params,
+        gradients = dict(safe_zip(params, T.grad(expected_energy_q, params,
             consider_constant = variational_params,
             disconnected_inputs = 'ignore')))
 
@@ -2718,7 +2719,7 @@ class DBM_PCD(Cost):
             if sample.name is None:
                 sample.name = 'sample_'+str(i)
 
-        neg_phase_grads = dict(zip(params, T.grad(-expected_energy_p, params, consider_constant
+        neg_phase_grads = dict(safe_zip(params, T.grad(-expected_energy_p, params, consider_constant
             = samples, disconnected_inputs='ignore')))
 
 
@@ -2766,7 +2767,7 @@ class MF_L1_ActCost(Cost):
 
         layer_costs = [ layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
             for layer, mf_state, targets, coeffs, eps in
-            zip(model.hidden_layers, H_hat, self.targets, self.coeffs, self.eps) ]
+            safe_zip(model.hidden_layers, H_hat, self.targets, self.coeffs, self.eps) ]
 
         assert T.scalar() != 0. # make sure theano semantics do what I want
         layer_costs = [ cost for cost in layer_costs if cost != 0.]
@@ -2801,7 +2802,7 @@ class DBM_WeightDecay(Cost):
     def __call__(self, model, X, Y = None, ** kwargs):
 
         layer_costs = [ layer.get_weight_decay(coeff)
-            for layer, coeff in izip(model.hidden_layers, self.coeffs) ]
+            for layer, coeff in safe_izip(model.hidden_layers, self.coeffs) ]
 
         assert T.scalar() != 0. # make sure theano semantics do what I want
         layer_costs = [ cost for cost in layer_costs if cost != 0.]
