@@ -1,0 +1,73 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 1,
+        binarize: 1,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : &batch_size 100,
+              niter: 50,
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 784,
+                bias_from_marginals: *train,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        sparse_init: 15,
+                        layer_name: 'h0',
+                        init_bias: 0.
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        sparse_init: 15,
+                        layer_name: 'h1',
+                        init_bias: 0.
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                        n_classes: 10,
+                        sparse_init: 15,
+                        layer_name: 'c',
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate: 1e-3,
+               init_momentum: .5,
+               monitoring_batches : 10,
+               monitoring_dataset : {
+                train: *train,
+                valid: !obj:pylearn2.datasets.mnist.MNIST {
+                        which_set: "train",
+                        shuffle: 1,
+                        binarize: 1,
+                        one_hot: 1,
+                        start: 50000,
+                        stop: 60000
+                    },
+               },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
+                    supervised: 1,
+                    num_chains: *batch_size,
+                    num_gibbs_steps: 5
+               },
+        },
+    callbacks: [ !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+        final_momentum: .9,
+        start: 0,
+        saturate: 50
+    },
+     !obj:pylearn2.training_algorithms.sgd.PolyakAveraging {
+        start: 200,
+        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_polyak.pkl"
+     }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+
