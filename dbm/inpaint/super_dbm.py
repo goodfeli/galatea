@@ -925,6 +925,17 @@ class SuperDBM(Model):
 
         return rval
 
+    def get_monitoring_channels(self, X, Y = None):
+
+        q = self.mf(X)
+
+        rval = {}
+
+        for state, layer in safe_zip(q, self.hidden_layers):
+            ch = layer.get_monitoring_channels_from_state(state)
+            for key in ch:
+                rval['mf_'+layer.layer_name+'_'+key]  = ch[key]
+        return rval
 
 
 class SuperDBM_Layer(Model):
