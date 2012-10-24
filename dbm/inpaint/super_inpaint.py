@@ -4,6 +4,7 @@ import theano.tensor as T
 from theano.printing import Print
 import numpy as np
 from pylearn2.utils import make_name
+from pylearn2.utils import safe_izip
 import warnings
 
 warnings.warn("""Check math on all of super DBM--make sure probabilistic max pooling,
@@ -51,7 +52,7 @@ class SuperInpaint(Cost):
             drop_mask_Y = scratch['drop_mask_Y']
             new_drop_mask_Y = scratch['new_drop_mask_Y']
 
-        for ii, packed in enumerate(zip(history, new_history)):
+        for ii, packed in enumerate(safe_izip(history, new_history)):
             state, new_state = packed
             rval['inpaint_after_' + str(ii)] = self.cost_from_states(state,
                     new_state,
@@ -69,7 +70,7 @@ class SuperInpaint(Cost):
         layers = [ model.visible_layer ] + model.hidden_layers
         states = [ final_state['V_hat'] ] + final_state['H_hat']
 
-        for layer, state in zip(layers, states):
+        for layer, state in safe_izip(layers, states):
             d = layer.get_monitoring_channels_from_state(state)
             for key in d:
                 mod_key = 'final_inpaint_' + layer.layer_name + '_' + key
@@ -204,7 +205,7 @@ class SuperInpaint(Cost):
         total_cost = inpaint_cost
 
         if self.l1_act_targets is not None:
-            for layer, mf_state, targets, coeffs in zip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs):
+            for layer, mf_state, targets, coeffs in safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs):
                 assert not isinstance(targets, str)
 
                 layer_cost = layer.get_l1_act_cost(mf_state, targets, coeffs)
@@ -334,7 +335,7 @@ class SuperDenoise(Cost):
         layers = [ model.visible_layer ] + model.hidden_layers
         states = [ final_state['V_hat'] ] + final_state['H_hat']
 
-        for layer, state in zip(layers, states):
+        for layer, state in safe_izip(layers, states):
             d = layer.get_monitoring_channels_from_state(state)
             for key in d:
                 mod_key = 'final_denoise_' + layer.layer_name + '_' + key
@@ -400,7 +401,7 @@ class SuperDenoise(Cost):
         total_cost = smd_cost
 
         if self.l1_act_targets is not None:
-            for mf_state, targets, coeffs in zip(state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs):
+            for mf_state, targets, coeffs in safe_izip(state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs):
                 assert not isinstance(targets, str)
                 if not isinstance(targets, (list, tuple)):
                     assert not isinstance(mf_state, (list, tuple))
@@ -408,7 +409,7 @@ class SuperDenoise(Cost):
                     targets = [ targets ]
                     coeffs = [ coeffs ]
 
-                for H, t, c in zip(mf_state, targets, coeffs):
+                for H, t, c in safe_izip(mf_state, targets, coeffs):
                     if c == 0.:
                         continue
                     axes = (0,2,3) # all but channel axis

@@ -441,7 +441,14 @@ class SuperDBM(Model):
         else:
             return V_hat
 
-    def mf(self, V, return_history = False):
+    def mf(self, V, Y = None, return_history = False):
+
+        assert Y not in [True, False, 0, 1]
+        assert return_history in [True, False, 0, 1]
+
+        if Y is not None:
+            self.hidden_layers[-1].get_output_space().validate(Y)
+
 
         H_hat = []
         for i in xrange(0,len(self.hidden_layers)-1):
@@ -458,6 +465,7 @@ class SuperDBM(Model):
                     double_weights = True,
                     state_below = self.hidden_layers[i-1].upward_state(H_hat[i-1]),
                     iter_name = '0'))
+
         #last layer does not need its weights doubled, even on the first pass
         if len(self.hidden_layers) > 1:
             H_hat.append( self.hidden_layers[-1].mf_update(
@@ -467,6 +475,28 @@ class SuperDBM(Model):
             H_hat.append( self.hidden_layers[-1].mf_update(
                 state_above = None,
                 state_below = self.visible_layer.upward_state(V)))
+
+        # Make corrections for if we're also running inference on Y
+        if Y is not None:
+            state_above = self.hidden_layers[-1].downward_state(Y)
+            layer_above = self.hidden_layers[-1]
+            assert len(self.hidden_layers) > 1
+
+            # Last layer before Y does not need its weights doubled
+            # because it already has top down input
+            if len(self.hidden_layers) > 2:
+                state_below = self.hidden_layers[-3].upward_state(H_hat[-3])
+            else:
+                state_below = self.visible_layer.upward_state(V)
+
+            H_hat[-2] = self.hidden_layers[-2].mf_update(
+                            state_below = state_below,
+                            state_above = state_above,
+                            layer_above = layer_above)
+
+            # Last layer is clamped to Y
+            H_hat[-1] = Y
+
 
         history = [ list(H_hat) ]
 
@@ -489,6 +519,9 @@ class SuperDBM(Model):
                             state_above = state_above,
                             layer_above = layer_above)
 
+                if Y is not None:
+                    H_hat[-1] = Y
+
                 for j in xrange(1,len(H_hat),2):
                     state_below = self.hidden_layers[j-1].upward_state(H_hat[j-1])
                     if j == len(H_hat) - 1:
@@ -502,14 +535,22 @@ class SuperDBM(Model):
                             state_above = state_above,
                             layer_above = layer_above)
                     #end ifelse
-                #end for j
+                #end for odd layer
+
+                if Y is not None:
+                    H_hat[-1] = Y
+
                 history.append(list(H_hat))
-            #end for i
+            # end for mf iter
+        # end if recurrent
 
         # Run some checks on the output
         for layer, state in safe_izip(self.hidden_layers, H_hat):
             upward_state = layer.upward_state(state)
             layer.get_output_space().validate(upward_state)
+        if Y is not None:
+            assert all([elem[-1] is Y for elem in history])
+            assert H_hat[-1] is Y
 
         if return_history:
             return history
@@ -994,6 +1035,9 @@ class SuperDBM_HidLayer(SuperDBM_Layer):
 
     def downward_state(self, total_state):
         return total_state
+
+    def get_l1_act_cost(self, state, target, coeff, eps):
+        raise NotImplementedError(str(type(self))+" does not implement get_l1_act_cost")
 
 class GaussianConvolutionalVisLayer(SuperDBM_Layer):
     def __init__(self,
@@ -2114,6 +2158,26 @@ class Softmax(SuperDBM_HidLayer):
     def get_weight_decay(self, coeff):
         return coeff * T.sqr(self.W).sum()
 
+    def expected_energy_term(self, state, average, state_below, average_below):
+
+        self.input_space.validate(state_below)
+
+        if self.needs_reshape:
+            state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+
+        # Energy function is linear so it doesn't matter if we're averaging or not
+        # Specifically, our terms are -u^T W d - b^T d where u is the upward state of layer below
+        # and d is the downward state of this layer
+
+        bias_term = T.dot(state, self.b)
+        weights_term = (T.dot(state_below, self.W) * state).sum(axis=1)
+
+        rval = -bias_term - weights_term
+
+        assert rval.ndim == 1
+
+        return rval
+
 def add_layers( super_dbm, new_layers ):
     """
         Modifies super_dbm to contain new_layers on top of its old hidden_layers
@@ -2684,17 +2748,58 @@ class DBM_PCD(Cost):
     markov chain.
     """
 
-    def __init__(self, num_chains, num_gibbs_steps):
+    def __init__(self, num_chains, num_gibbs_steps, supervised):
         self.__dict__.update(locals())
         del self.self
         self.theano_rng = MRG_RandomStreams(2012 + 10 + 14)
+        assert supervised in [True, False]
 
     def __call__(self, model, X, Y=None):
         """
         The partition function makes this intractable.
         """
 
+        if self.supervised:
+            assert Y is not None
+
         return None
+
+    def get_monitoring_channels(self, model, X, Y = None):
+        rval = {}
+
+        history = model.mf(X, return_history = True)
+        q = history[-1]
+        prev_q = history[-2]
+
+        flat_q = flatten(q)
+        flat_prev_q = flatten(prev_q)
+
+        mx = None
+        for new, old in safe_zip(flat_q, flat_prev_q):
+            cur_mx = abs(new - old).max()
+            if mx is None:
+                mx = cur_mx
+            else:
+                mx = T.maximum(mx, cur_mx)
+
+        rval['max_var_param_diff'] = mx
+
+        if self.supervised:
+            assert Y is not None
+            Y_hat = q[-1]
+            true = T.argmax(Y,axis=1)
+            pred = T.argmax(Y_hat, axis=1)
+
+            #true = Print('true')(true)
+            #pred = Print('pred')(pred)
+
+            wrong = T.neq(true, pred)
+            err = T.cast(wrong.mean(), X.dtype)
+            rval['err'] = err
+
+        return rval
+
+
 
     def get_gradients(self, model, X, Y=None):
         """
@@ -2703,17 +2808,15 @@ class DBM_PCD(Cost):
         the negative log likelihood.
         """
 
-        def flatten(l):
-            rval = []
-            for elem in l:
-                if isinstance(elem, (list, tuple)):
-                    rval.extend(flatten(elem))
-                else:
-                    rval.append(elem)
-            return rval
+        if self.supervised:
+            assert Y is not None
+            # note: if the Y layer changes to something without linear energy,
+            # we'll need to make the expected energy clamp Y in the positive phase
+            assert isinstance(model.hidden_layers[-1], Softmax)
 
 
-        q = model.mf(X)
+
+        q = model.mf(X, Y)
 
 
         """
@@ -2822,9 +2925,17 @@ class MF_L1_ActCost(Cost):
 
         assert len(H_hat) > 0
 
-        layer_costs = [ layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
-            for layer, mf_state, targets, coeffs, eps in
-            safe_zip(model.hidden_layers, H_hat, self.targets, self.coeffs, self.eps) ]
+        layer_costs = []
+        for layer, mf_state, targets, coeffs, eps in \
+            safe_zip(model.hidden_layers, H_hat, self.targets, self.coeffs, self.eps):
+            cost = None
+            try:
+                cost = layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
+            except NotImplementedError:
+                assert isinstance(coeffs, float) and coeffs == 0.
+            if cost is not None:
+                layer_costs.append(cost)
+
 
         assert T.scalar() != 0. # make sure theano semantics do what I want
         layer_costs = [ cost for cost in layer_costs if cost != 0.]
