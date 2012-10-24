@@ -39,6 +39,8 @@ def add_filters_and_act_record(layer):
     else:
         if isinstance(layer, super_dbm.ConvMaxPool):
             num_filters.append(layer.output_channels)
+        elif isinstance(layer, super_dbm.Softmax):
+            num_filters.append(layer.n_classes)
         else:
             num_filters.append(layer.detector_layer_dim / layer.pool_size)
         n = num_filters[-1]
@@ -69,6 +71,8 @@ def add_acts(layer, state):
         j = p_shape[1] / 2
 
         acts.append( p[:,:,i,j] )
+    elif isinstance(layer, super_dbm.Softmax):
+        acts.append(state)
     else:
         p, h = state
         acts.append(p)
