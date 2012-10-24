@@ -2,6 +2,7 @@ import sys
 from pylearn2.utils import serial
 import numpy as np
 from pylearn2.gui.patch_viewer import PatchViewer
+from pylearn2.gui.patch_viewer import make_viewer
 from pylearn2.config import yaml_parse
 
 _, model_path = sys.argv
@@ -12,6 +13,10 @@ layer_1, layer_2 = model.hidden_layers[0:2]
 
 W1 = layer_1.get_weights()
 W2 = layer_2.get_weights()
+
+prod = np.dot(W1,W2)
+pv = make_viewer(prod.T)
+pv.show()
 
 
 print 'Sorting so largest-norm layer 2 weights are plotted at the top'
