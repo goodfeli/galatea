@@ -8,7 +8,7 @@
         stop: 50000
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-              batch_size : 2500,
+              batch_size : 2000,
               niter: 6, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
@@ -64,7 +64,7 @@
                                },
                                !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay
                                {
-                                        coeffs:  [ .003,  .003, .003  ]
+                                        coeffs:  [ .000003,  .000003, .000003  ]
                                },
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
                                         both_directions : 1,
