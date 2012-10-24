@@ -2759,7 +2759,7 @@ class DBM_PCD(Cost):
     markov chain.
     """
 
-    def __init__(self, num_chains, num_gibbs_steps, supervised):
+    def __init__(self, num_chains, num_gibbs_steps, supervised = False):
         self.__dict__.update(locals())
         del self.self
         self.theano_rng = MRG_RandomStreams(2012 + 10 + 14)
