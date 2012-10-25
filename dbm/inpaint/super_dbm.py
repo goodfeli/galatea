@@ -332,6 +332,12 @@ class SuperDBM(Model):
                 categorical variable. drop_mask_Y is a binary mask specifying
                 which *rows* to drop.
         """
+
+        warnings.warn("""Should add unit test that calling this with a batch of
+                different inputs should yield the same output for each if noise
+                is False and drop_mask is all 1s""")
+
+
         assert drop_mask is not None
         assert return_history in [True, False]
         assert noise in [True, False]
