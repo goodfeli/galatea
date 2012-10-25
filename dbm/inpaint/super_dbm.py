@@ -2671,6 +2671,7 @@ class BinaryVisLayer(SuperDBM_Layer):
         if drop_mask is not None:
             rval = drop_mask * unmasked + (1-drop_mask) * V
         else:
+            assert False # this is just for debugging, remove it if it seems wrong
             rval = unmasked
 
         rval.name = 'inpainted_V[unknown_iter]'
@@ -2780,20 +2781,22 @@ class DBM_PCD(Cost):
 
         history = model.mf(X, return_history = True)
         q = history[-1]
-        prev_q = history[-2]
 
-        flat_q = flatten(q)
-        flat_prev_q = flatten(prev_q)
+        if len(history) > 1:
+            prev_q = history[-2]
 
-        mx = None
-        for new, old in safe_zip(flat_q, flat_prev_q):
-            cur_mx = abs(new - old).max()
-            if mx is None:
-                mx = cur_mx
-            else:
-                mx = T.maximum(mx, cur_mx)
+            flat_q = flatten(q)
+            flat_prev_q = flatten(prev_q)
 
-        rval['max_var_param_diff'] = mx
+            mx = None
+            for new, old in safe_zip(flat_q, flat_prev_q):
+                cur_mx = abs(new - old).max()
+                if mx is None:
+                    mx = cur_mx
+                else:
+                    mx = T.maximum(mx, cur_mx)
+
+            rval['max_var_param_diff'] = mx
 
         if self.supervised:
             assert Y is not None
@@ -2995,4 +2998,5 @@ class DBM_WeightDecay(Cost):
         assert total_cost.ndim == 0
 
         return total_cost
+
 

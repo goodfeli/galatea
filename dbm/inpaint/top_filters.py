@@ -13,6 +13,8 @@ layer_1, layer_2 = model.hidden_layers[0:2]
 
 W1 = layer_1.get_weights()
 W2 = layer_2.get_weights()
+print W1.shape
+print W2.shape
 
 prod = np.dot(W1,W2)
 pv = make_viewer(prod.T)
