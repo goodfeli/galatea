@@ -104,7 +104,8 @@ class SuperDBM(Model):
                     dataset = d)
 
 
-
+    def setup_rng(self):
+        self.rng = np.random.RandomState([2012, 10, 17])
 
     def get_output_space(self):
         return self.hidden_layers[-1].get_output_space()
