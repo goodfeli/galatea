@@ -2064,6 +2064,11 @@ class Softmax(SuperDBM_HidLayer):
 
         self.input_space.validate(state_below)
 
+        # patch old pickle files
+        if not hasattr(self, 'needs_reformat'):
+            self.needs_reformat = self.needs_reshape
+            del self.needs_reshape
+
         if self.needs_reformat:
             state_below = self.input_space.format_as(state_below, self.desired_space)
 
@@ -2084,6 +2089,11 @@ class Softmax(SuperDBM_HidLayer):
             raise NotImplementedError()
 
         self.input_space.validate(state_below)
+
+        # patch old pickle files
+        if not hasattr(self, 'needs_reformat'):
+            self.needs_reformat = self.needs_reshape
+            del self.needs_reshape
 
         if self.needs_reformat:
             state_below = self.input_space.format_as(state_below, self.desired_space)
@@ -3017,4 +3027,6 @@ class DBM_WeightDecay(Cost):
 
         return total_cost
 
-
+def set_niter(super_dbm, niter):
+    super_dbm.niter = niter
+    return super_dbm
