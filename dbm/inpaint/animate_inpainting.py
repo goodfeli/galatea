@@ -61,6 +61,7 @@ except:
         cost = DBM_Inpaint_Binary(mask_gen = mask_gen, n_iter = n_iter)
     cost.mask_gen = mask_gen
 
+
 space = model.get_input_space()
 X = space.make_theano_batch()
 if cost.supervised:
