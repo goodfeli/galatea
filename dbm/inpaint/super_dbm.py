@@ -47,7 +47,7 @@ class SuperDBM(Model):
         self.__dict__.update(locals())
         del self.self
         assert len(hidden_layers) >= 1
-        self.rng = np.random.RandomState([2012, 10, 17])
+        self.setup_rng()
         self.layer_names = set()
         for layer in hidden_layers:
             assert layer.get_dbm() is None

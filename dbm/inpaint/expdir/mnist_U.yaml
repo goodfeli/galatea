@@ -2,6 +2,7 @@
     dataset: &data !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
         shuffle: 1,
+        one_hot: 1,
         binarize: 1
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
