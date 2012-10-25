@@ -340,7 +340,7 @@ class SuperDBM(Model):
                 raise ValueError("do_inpainting got drop_mask_Y but not Y.")
         else:
             if drop_mask_Y is None:
-                raise ValueError("do_inpaiting got Y but not drop_mask_Y.")
+                raise ValueError("do_inpainting got Y but not drop_mask_Y.")
 
         if Y is not None:
             assert isinstance(self.hidden_layers[-1], Softmax)
@@ -366,7 +366,7 @@ class SuperDBM(Model):
                 H_hat.append(self.hidden_layers[i].mf_update(
                     state_above = None,
                     double_weights = True,
-                    state_below = self.visible_layer.upward_state(V),
+                    state_below = self.visible_layer.upward_state(V_hat),
                     iter_name = '0'))
             else:
                 H_hat.append(self.hidden_layers[i].mf_update(
@@ -392,7 +392,7 @@ class SuperDBM(Model):
 
         def update_history():
             assert V_hat_unmasked.ndim > 1
-            d =  { 'V_hat' : V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
             if Y is not None:
                 d['Y_hat_unmasked'] = Y_hat_unmasked
                 d['Y_hat'] = H_hat[-1]

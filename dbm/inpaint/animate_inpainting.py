@@ -8,7 +8,6 @@ from theano import function
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
 from galatea.ui import get_choice
-import super_inpaint
 
 ignore, model_path = sys.argv
 m = 10
