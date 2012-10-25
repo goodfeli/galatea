@@ -2027,17 +2027,13 @@ class Softmax(SuperDBM_HidLayer):
             raise TypeError("Expected Space, got "+
                     str(space)+" of type "+str(type(space)))
 
-
-        if isinstance(space, Conv2DSpace):
-            self.input_dim = space.shape[0] * space.shape[1] * space.nchannels
-            self.needs_reshape = True
-        elif isinstance(space, VectorSpace):
-            self.input_dim = space.dim
-            self.needs_reshape = False
-        else:
-            raise NotImplementedError("SoftMax can't take "+str(type(space))+" as input yet")
+        self.input_dim = space.get_total_dimension()
+        self.needs_reformat = not isinstance(space, VectorSpace)
 
         self.desired_space = VectorSpace(self.input_dim)
+
+        if not self.needs_reformat:
+            assert self.desired_space == self.input_space
 
         rng = self.dbm.rng
 
@@ -2068,8 +2064,8 @@ class Softmax(SuperDBM_HidLayer):
 
         self.input_space.validate(state_below)
 
-        if self.needs_reshape:
-            state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+        if self.needs_reformat:
+            state_below = self.input_space.format_as(state_below, self.desired_space)
 
         self.desired_space.validate(state_below)
 
@@ -2089,8 +2085,8 @@ class Softmax(SuperDBM_HidLayer):
 
         self.input_space.validate(state_below)
 
-        if self.needs_reshape:
-            state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+        if self.needs_reformat:
+            state_below = self.input_space.format_as(state_below, self.desired_space)
 
         self.desired_space.validate(state_below)
 
@@ -2194,9 +2190,9 @@ class Softmax(SuperDBM_HidLayer):
     def expected_energy_term(self, state, average, state_below, average_below):
 
         self.input_space.validate(state_below)
-
-        if self.needs_reshape:
-            state_below = state_below.reshape( (self.dbm.batch_size, self.input_dim) )
+        if self.needs_reformat:
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+        self.desired_space.validate(state_below)
 
         # Energy function is linear so it doesn't matter if we're averaging or not
         # Specifically, our terms are -u^T W d - b^T d where u is the upward state of layer below
