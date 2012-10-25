@@ -1,15 +1,19 @@
 from pylearn2.utils import serial
-from pylearn2.utils import sharedX
 from pylearn2.config import yaml_parse
 from theano import function
 import sys
 import numpy as np
 from pylearn2.gui.patch_viewer import PatchViewer
 from galatea.dbm.inpaint import super_dbm
-from galatea.dbm.inpaint.super_dbm import CompositeLayer
 
 
-ignore, model_path = sys.argv
+if len(sys.argv) == 2:
+    ignore, model_path = sys.argv
+    data_override = None
+else:
+    ignore, model_path, data_override = sys.argv
+
+
 
 model = serial.load(model_path)
 
@@ -23,6 +27,12 @@ if hasattr(model,'dataset_yaml_src'):
 else:
     from pylearn2.datasets.cifar10 import CIFAR10
     dataset = CIFAR10(which_set = 'test', gcn = 55.)
+
+rng = np.random.RandomState([2012,10,24])
+if data_override == 'binary_noise':
+    dataset.X = rng.uniform(0., 1., dataset.X.shape) > 0.5
+elif data_override == 'gaussian_noise':
+    dataset.X = rng.randn( * dataset.X.shape).astype(dataset.X.dtype)
 
 
 batch_size = 25
@@ -44,7 +54,7 @@ def add_filters_and_act_record(layer):
         else:
             num_filters.append(layer.detector_layer_dim / layer.pool_size)
         n = num_filters[-1]
-        layer_act_record = np.zeros((num_examples,n),dtype='float32')
+        layer_act_record = - np.ones((num_examples,n),dtype='float32')
         act_record.append(layer_act_record)
 
 for i in xrange(num_layers):
@@ -85,6 +95,8 @@ act_func = function([X], acts)
 print '...done'
 
 
+data_mean = dataset.X.mean(axis=0)
+
 for ii in xrange(0, num_examples, batch_size):
     print 'example',ii
     print '\tcomputing acts'
@@ -118,32 +130,68 @@ for layer_idx in xrange(num_layers):
     for filter_idx in xrange(num_filters[layer_idx]):
         print '\t\tComputing response image for filter',filter_idx
         filter_act_record = act_record[layer_idx][:, filter_idx]
+        assert filter_act_record.min() >= 0.0
         filter_act_record = [ (val, idx) for idx, val in enumerate(filter_act_record) ]
         filter_act_record.sort()
         num_top_filters = 1
-        thresh = perc * filter_act_record[-1][0]
+        peak = filter_act_record[-1][0]
+        thresh = perc * peak
         while num_top_filters < len(filter_act_record) and filter_act_record[-num_top_filters][0] > thresh:
             num_top_filters += 1
-        num_top_filters -= 1
         print '\t\t\tUsing %d top filters' % num_top_filters
         top = filter_act_record[-num_top_filters:]
         idxs = [ elem[1] for elem in top]
         coeffs = [ elem[0] for elem in top]
         coeffs = np.asarray(coeffs)
+
+        if coeffs.sum() == 0.0:
+            print 'WARNING: skipping totally inactive unit.'
+            continue
+
         assert len(dataset.X.shape) == 2
         batch = dataset.X[idxs,:]
         assert len(batch.shape) == 2
-        batch = (coeffs * batch.T).T
         mean = batch.mean(axis=0)
-        standard_error = batch.std(axis=0) / np.sqrt(num_top_filters)
-        final = mean - standard_error
-        final *= np.abs(mean) > standard_error
-        img = batch[0:,:].copy()
-        img[0,:] = final
+
+
+        def weighted_mean(batch, coeffs):
+            return (batch.T * coeffs).mean(axis=1)
+
+        def weighted_std(batch, coeffs, mean):
+            deviations = batch - mean
+            sq_deviations = np.square(batch-mean)
+            weighted_variance = (sq_deviations.T * coeffs).mean(axis=1)
+            return np.sqrt(weighted_variance)
+
+        mean = weighted_mean(batch, coeffs)
+        std = weighted_std(batch, coeffs, mean)
+        standard_error = std / np.sqrt(coeffs.sum())
+
+        assert not np.any(np.isnan(standard_error))
+        #print 'mean     ',mean[0:5]
+        #print 'std      ',std[0:5]
+        #print 'stderr   ',standard_error[0:5]
+
+        def clip_below(x, mn):
+            mask = (x > mn)
+            return x * mask + (1-mask)*mn
+
+        def clip_above(x, mx):
+            mask = x < mx
+            return mask * x + (1-mask) * mx
+
+        final = (mean > data_mean) * clip_below(mean - standard_error, data_mean) + \
+                (mean <= data_mean) * clip_above(mean + standard_error, data_mean)
+
+        #print 'data mean',data_mean[0:5]
+        #print 'final    ',final[0:5]
+
+        assert final.ndim == 1
+        img = final.reshape(1,final.shape[0])
         img = dataset.get_topological_view(img)
         img = dataset.adjust_for_viewer(img)
         img = img[0,:,:,:]
-        pv.add_patch(img, rescale = False)
+        pv.add_patch(img, rescale=False, activation=peak)
 
     pv.show()
 
