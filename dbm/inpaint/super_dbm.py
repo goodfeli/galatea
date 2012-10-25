@@ -159,6 +159,9 @@ class SuperDBM(Model):
                     print type(layer)
                     assert False
             rval = rval.union(layer.get_params())
+
+        rval = set([elem for elem in rval if elem not in self.freeze_set])
+
         return rval
 
     def set_batch_size(self, batch_size):
