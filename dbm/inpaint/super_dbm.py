@@ -63,45 +63,46 @@ class SuperDBM(Model):
         """
 
         X = self.get_input_space().make_batch_theano()
-        Y = T.matrix()
+        if isinstance(self.hidden_layers[-1], Softmax):
+            Y = T.matrix()
 
-        Y_hat = self.mf(X)[-1]
+            Y_hat = self.mf(X)[-1]
 
-        for var in theano.gof.graph.ancestors([Y_hat]):
-            if var.owner is not None:
-                node = var.owner
-                inputs = []
-                for inp in node.inputs:
-                    if inp in param_to_mean:
-                        inputs.append(param_to_mean[inp])
-                    else:
-                        inputs.append(inp)
-                node.inputs = inputs
+            for var in theano.gof.graph.ancestors([Y_hat]):
+                if var.owner is not None:
+                    node = var.owner
+                    inputs = []
+                    for inp in node.inputs:
+                        if inp in param_to_mean:
+                            inputs.append(param_to_mean[inp])
+                        else:
+                            inputs.append(inp)
+                    node.inputs = inputs
 
-        new_ancestors = theano.gof.graph.ancestors([Y_hat])
+            new_ancestors = theano.gof.graph.ancestors([Y_hat])
 
-        for param in param_to_mean:
-            assert param not in new_ancestors
+            for param in param_to_mean:
+                assert param not in new_ancestors
 
-        pred = T.argmax(Y_hat, axis=1)
-        true = T.argmax(Y, axis=1)
+            pred = T.argmax(Y_hat, axis=1)
+            true = T.argmax(Y, axis=1)
 
-        err = T.cast(T.neq(pred, true).mean(), X.dtype)
+            err = T.cast(T.neq(pred, true).mean(), X.dtype)
 
-        assert isinstance(monitoring_dataset, dict)
+            assert isinstance(monitoring_dataset, dict)
 
-        for dataset_name in monitoring_dataset:
-            d = monitoring_dataset[dataset_name]
+            for dataset_name in monitoring_dataset:
+                d = monitoring_dataset[dataset_name]
 
-            if dataset_name == '':
-                channel_name = 'polyak_err'
-            else:
-                channel_name = dataset_name + 'polyak_err'
+                if dataset_name == '':
+                    channel_name = 'polyak_err'
+                else:
+                    channel_name = dataset_name + '_polyak_err'
 
-            self.monitor.add_channel(name = channel_name,
-                    val = err,
-                    ipt = (X,Y),
-                    dataset = d)
+                self.monitor.add_channel(name = channel_name,
+                        val = err,
+                        ipt = (X,Y),
+                        dataset = d)
 
 
     def setup_rng(self):
