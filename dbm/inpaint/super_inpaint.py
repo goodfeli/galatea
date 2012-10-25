@@ -170,7 +170,8 @@ class SuperInpaint(Cost):
             assert new_drop_mask_Y is None
         if self.supervised:
             assert drop_mask_Y is not None
-            assert new_drop_mask_Y is not None
+            if self.both_directions:
+                assert new_drop_mask_Y is not None
             assert Y is not None
 
         V_hat_unmasked = state['V_hat_unmasked']
