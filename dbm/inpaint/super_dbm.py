@@ -56,6 +56,7 @@ class SuperDBM(Model):
             self.layer_names.add(layer.layer_name)
         self._update_layer_input_spaces()
         self.force_batch_size = batch_size
+        self.freeze_set = set([])
 
     def add_polyak_channels(self, param_to_mean, monitoring_dataset):
         """
@@ -104,7 +105,6 @@ class SuperDBM(Model):
                         ipt = (X,Y),
                         dataset = d)
 
-
     def setup_rng(self):
         self.rng = np.random.RandomState([2012, 10, 17])
 
@@ -127,15 +127,26 @@ class SuperDBM(Model):
             Add new layers on top of the existing hidden layers
         """
 
+        # Patch old pickle files
+        if not hasattr(self, 'rng'):
+            self.setup_rng()
+
         hidden_layers = self.hidden_layers
         assert len(hidden_layers) > 0
         for layer in layers:
-            layer.set_input_space(hidden_layers[-1].get_output_space())
-            hidden_layers.append(layer)
             assert layer.get_dbm() is None
             layer.set_dbm(self)
+            layer.set_input_space(hidden_layers[-1].get_output_space())
+            hidden_layers.append(layer)
             assert layer.layer_name not in self.layer_names
             self.layer_names.add(layer.layer_name)
+
+    def freeze(self, parameter_set):
+        # patch old pickle files
+        if not hasattr(self, 'freeze_set'):
+            self.freeze_set = set([])
+
+        self.freeze_set = self.freeze_set.union(parameter_set)
 
     def get_params(self):
 
