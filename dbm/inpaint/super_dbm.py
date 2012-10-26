@@ -2363,7 +2363,7 @@ class SuperDBM_ConditionalNLL(Cost):
 
         return Y_hat
 
-    def __call__(self, model, X, Y):
+    def __call__(self, model, X, Y, **kwargs):
         """ Returns - log P( Y | X) / m
             where Y is a matrix of one-hot labels,
             one label per row
@@ -2403,7 +2403,7 @@ class SuperDBM_ConditionalNLL(Cost):
 
         return - example_costs.mean()
 
-    def get_monitoring_channels(self, model, X, Y):
+    def get_monitoring_channels(self, model, X, Y, **kwargs):
 
         Y_hat = self.Y_hat(model, X)
 
