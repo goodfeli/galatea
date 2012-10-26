@@ -149,6 +149,8 @@ while True:
         else:
             design_X = X
             design_X_sequence = X_sequence
+        zeroed = (1.-drop_mask) * X
+        zeroed = dataset.get_topological_view(dataset.mapback_for_viewer(dataset.get_design_matrix(zeroed)))
         M = dataset.get_topological_view(dataset.mapback_for_viewer(design_X))
         print (M.min(), M.max())
         M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in design_X_sequence ]
@@ -184,7 +186,6 @@ while True:
         red_channel = patch[:,:,0]
         green_channel = patch[:,:,1]
         blue_channel = patch[:,:,2]
-        # zeroed patch doesn't handle independent channel masking right, TODO fix that
         mask_patch_red = drop_mask[i,:,:,0]
         if mask_gen.sync_channels or drop_mask.shape[-1] == 1:
             mask_patch_green = mask_patch_red
@@ -198,15 +199,11 @@ while True:
         zr[mask_patch_red == 1] = 0.
         zg[mask_patch_green == 1] = 0.
         zb[mask_patch_blue == 1] = 0.
-        zeroed = patch.copy()
-        zeroed[:,:,0] = zr
-        zeroed[:,:,1] = zg
-        zeroed[:,:,2] = zb
         red_channel[mask_patch == 1] = 1.
         green_channel[mask_patch == 1] = -1.
         blue_channel[mask_patch == 1] = -1.
 
-        if drop_mask.shape[-1] > 1 and mask_gen.sync_channels and mask_gen.n_channels == 1:
+        if drop_mask.shape[-1] > 1:
             mask_patch = drop_mask[i,:,:,1]
             red_channel[mask_patch == 1] = -1
             green_channel[mask_patch == 1] = 1
@@ -244,9 +241,8 @@ while True:
                 patch = np.concatenate( (patch,patch,patch),axis=2)
             pv.add_patch(patch, rescale = False, activation= (0,1,0))
 
-            # TODO: put this on the right scale
-            zeroed = zeroed.reshape( * ( (1,)+zeroed.shape))
-            pv.add_patch(dataset.get_topological_view(dataset.mapback(dataset.get_design_matrix(zeroed)))[0,:,:,:], rescale = True, activation = (0,1,0))
+            patch = zeroed[i,:,:,:]
+            pv.add_patch(patch, rescale = True, activation = (0,1,0))
 
             #add filled-in patch
             for j in xrange(len(M_sequence)):
