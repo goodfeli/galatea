@@ -2068,7 +2068,19 @@ class Softmax(SuperDBM_HidLayer):
 
         self._params = [ self.b, self.W ]
 
+
+    def get_weights_topo(self):
+        if not isinstance(self.input_space, Conv2DSpace):
+            raise NotImplementedError()
+        desired = self.W.get_value().T
+        ipt = self.desired_space.format_as(desired, self.input_space)
+        rval = Conv2DSpace.convert_numpy(ipt, self.input_space.axes, ('b', 0, 1, 'c'))
+        return rval
+
     def get_weights(self):
+        if not isinstance(self.input_space, VectorSpace):
+            raise NotImplementedError()
+
         return self.W.get_value()
 
     def get_weights_format(self):

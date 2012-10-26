@@ -1,6 +1,7 @@
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 import numpy as np
 from pylearn2.config import yaml_parse
+from pylearn2.datasets import control
 
 class ZCA_Dataset(DenseDesignMatrix):
 
@@ -40,13 +41,16 @@ class ZCA_Dataset(DenseDesignMatrix):
             self.y = y
             assert self.y is not None
 
-        if start is not None:
-            self.X = preprocessed_dataset.X[start:stop,:]
-            self.y = self.y[start:stop,:]
-            assert self.X.shape[0] == stop-start
+        if control.get_load_data():
+            if start is not None:
+                self.X = preprocessed_dataset.X[start:stop,:]
+                self.y = self.y[start:stop,:]
+                assert self.X.shape[0] == stop-start
+            else:
+                self.X = preprocessed_dataset.X
+            assert self.y is not None
         else:
-            self.X = preprocessed_dataset.X
-        assert self.y is not None
+            self.X = None
         if self.X is not None:
             assert self.y.shape[0] == self.X.shape[0]
         self.view_converter = preprocessed_dataset.view_converter
