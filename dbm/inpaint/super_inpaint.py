@@ -93,7 +93,7 @@ class SuperInpaint(Cost):
 
             assert acc.dtype == Y_hat.dtype
 
-            return { 'acc' : acc, 'err' : 1. - acc }
+            rval.update( { 'acc' : acc, 'err' : 1. - acc })
 
 
         return rval

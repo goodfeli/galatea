@@ -98,7 +98,7 @@ if cost.supervised:
         assert n_classes == int(n_classes)
         n_classes = int(n_classes)
     assert isinstance(n_classes, int)
-    templates = space.get_origin_batch(n_classes)
+    templates = np.zeros((n_classes, space.get_total_dimension()))
     for i in xrange(n_classes):
         for j in xrange(-1, -dataset.X.shape[0], -1):
             if dataset.y[j,i]:
@@ -164,7 +164,8 @@ while True:
         Y_sequence = outputs[end_X_outputs+1:]
 
 
-    pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True)
+    pv = PatchViewer( (rows, cols), (X.shape[1], X.shape[2]), is_color = True,
+            pad = (8,8) )
 
     for i in xrange(m):
 
@@ -172,7 +173,7 @@ while True:
         patch = X[i,:,:,:]
         if patch.shape[-1] != 3:
             patch = np.concatenate( (patch,patch,patch), axis=2)
-        pv.add_patch(patch, rescale = False)
+        pv.add_patch(patch, rescale = False, activation = (1,0,0))
         orig_patch = patch
 
         #mark the masked areas as red
@@ -218,7 +219,7 @@ while True:
         patch[:,:,0] = red_channel
         patch[:,:,1] = green_channel
         patch[:,:,2] = blue_channel
-        pv.add_patch(patch, rescale = False)
+        pv.add_patch(patch, rescale = False, activation = (1,0,0))
 
         #add filled-in patch
         for j in xrange(len(X_sequence)):
@@ -235,24 +236,24 @@ while True:
 
             if patch.shape[-1] != 3:
                 patch = np.concatenate( (patch,patch,patch), axis=2)
-            pv.add_patch(patch, rescale = False)
+            pv.add_patch(patch, rescale = False, activation = (1,0,0))
 
         if mapback:
             patch = M[i,:,:,:]
             if patch.shape[-1] != 3:
                 patch = np.concatenate( (patch,patch,patch),axis=2)
-            pv.add_patch(patch, rescale = False)
+            pv.add_patch(patch, rescale = False, activation= (0,1,0))
 
             # TODO: put this on the right scale
             zeroed = zeroed.reshape( * ( (1,)+zeroed.shape))
-            pv.add_patch(dataset.get_topological_view(dataset.mapback(dataset.get_design_matrix(zeroed)))[0,:,:,:], rescale = True)
+            pv.add_patch(dataset.get_topological_view(dataset.mapback(dataset.get_design_matrix(zeroed)))[0,:,:,:], rescale = True, activation = (0,1,0))
 
             #add filled-in patch
             for j in xrange(len(M_sequence)):
                 patch = M_sequence[j][i,:,:,:]
                 if patch.shape[-1] != 3:
                     patch = np.concatenate( (patch,patch,patch), axis=2)
-                pv.add_patch(patch, rescale = False)
+                pv.add_patch(patch, rescale = False, activation=(0,1,0))
 
         if cost.supervised:
             def label_to_vis(Y_elem):
@@ -273,20 +274,22 @@ while True:
             if Y_vis.shape[-1] == 1:
                 Y_vis = np.concatenate([Y_vis]*3,axis=2)
             assert Y_vis.shape[-1] == 3
-            pv.add_patch(Y_vis, rescale=False)
+            pv.add_patch(Y_vis, rescale=False, activation=(0,0,1))
 
             # Add the masked input
             if drop_mask_Y[i]:
                 pv.add_patch(np.concatenate((np.ones((X.shape[1], X.shape[2], 1)),
                                             -np.ones((X.shape[1], X.shape[2], 1)),
                                             -np.ones((X.shape[1], X.shape[2], 1))),
-                                            axis=2), rescale = False)
+                                            axis=2), rescale = False,
+                                            activation =(0,0,1))
             else:
-                pv.add_patch(Y_vis)
+                pv.add_patch(Y_vis, activation=(0,0,1))
 
             # Add the inpainted sequence
             for Y_hat in Y_sequence:
-                Y_vis = label_to_vis(Y_hat[i,:])
+                cur_Y_hat = Y_hat[i,:]
+                Y_vis = label_to_vis(cur_Y_hat)
                 Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
                 if Y_vis.ndim == 4:
                     assert Y_vis.shape[0] == 1
@@ -295,7 +298,7 @@ while True:
                     Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
                 if Y_vis.shape[-1] == 1:
                     Y_vis = np.concatenate([Y_vis]*3,axis=2)
-                pv.add_patch(Y_vis, rescale=False)
+                pv.add_patch(Y_vis, rescale=False, activation=(0,0,1))
 
 
     pv.show()

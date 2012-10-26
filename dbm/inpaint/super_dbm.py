@@ -1170,7 +1170,11 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
                     assert False
         """
 
-        unmasked = self.mu
+        if self.tie_mu == 'locations':
+            unmasked = self.mu.dimshuffle('x', 'x', 'x', 0)
+        else:
+            assert self.tie_mu is None
+            unmasked = self.mu.dimshuffle('x', 0, 1, 2)
         masked_mu = unmasked * drop_mask
         masked_mu = block_gradient(masked_mu)
         masked_mu.name = 'masked_mu'
@@ -2020,6 +2024,17 @@ class Softmax(SuperDBM_HidLayer):
         self.output_space = VectorSpace(n_classes)
         self.b = sharedX( np.zeros((n_classes,)), name = 'softmax_b')
 
+
+    def get_monitoring_channels_from_state(self, state):
+
+        mx = state.max(axis=1)
+
+        return {
+                'mean_max_class' : mx.mean(),
+                'max_max_class' : mx.max(),
+                'min_max_class' : mx.min()
+        }
+
     def set_input_space(self, space):
         self.input_space = space
 
@@ -2052,6 +2067,12 @@ class Softmax(SuperDBM_HidLayer):
         self.W = sharedX(W,  'softmax_W' )
 
         self._params = [ self.b, self.W ]
+
+    def get_weights(self):
+        return self.W.get_value()
+
+    def get_weights_format(self):
+        return ('v', 'h')
 
     def get_sampling_updates(self, state_below = None, state_above = None,
             layer_above = None,
@@ -2109,7 +2130,16 @@ class Softmax(SuperDBM_HidLayer):
 
         assert self.W.ndim == 2
         assert state_below.ndim == 2
-        return T.nnet.softmax(T.dot(state_below,self.W)+self.b)
+
+        b = self.b
+
+        Z = T.dot(state_below, self.W) + b
+
+        #Z = Print('Z')(Z)
+
+        rval = T.nnet.softmax(Z)
+
+        return rval
 
     def downward_message(self, downward_state):
 
@@ -2136,6 +2166,11 @@ class Softmax(SuperDBM_HidLayer):
         owner = Y_hat.owner
         assert owner is not None
         op = owner.op
+        if isinstance(op, Print):
+            assert len(owner.inputs) == 1
+            Y_hat, = owner.inputs
+            owner = Y_hat.owner
+            op = owner.op
         assert isinstance(op, T.nnet.Softmax)
         z ,= owner.inputs
         assert z.ndim == 2

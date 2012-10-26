@@ -150,7 +150,7 @@ class InpaintAlgorithm(object):
                 #each time you say "self.setup_batch" you get a new object with a
                 #different id, and if you install n of those the prereq will run n
                 #times. It won't cause any wrong results, just a big slowdown
-                self.monitor.add_channel(prefix+'_objective',ipt=X,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
+                self.monitor.add_channel(prefix+'objective',ipt=X,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
 
                 for name in channels:
                     J = channels[name]
@@ -168,7 +168,7 @@ class InpaintAlgorithm(object):
                     else:
                         ipt = X
 
-                    self.monitor.add_channel(name=prefix+'_'+name,
+                    self.monitor.add_channel(name=prefix+name,
                                              ipt=ipt,
                                              val=J, dataset=monitoring_dataset,
                                              prereqs=prereqs)
@@ -176,6 +176,7 @@ class InpaintAlgorithm(object):
 
         self.optimizer = BatchGradientDescent(
                             objective = obj,
+                            verbose = True,
                             gradients = gradients,
                             gradient_updates = gradient_updates,
                             params = model.get_params(),
@@ -187,7 +188,6 @@ class InpaintAlgorithm(object):
                             reset_alpha = self.reset_alpha,
                             hacky_conjugacy = self.hacky_conjugacy,
                             reset_conjugate = self.reset_conjugate)
-        self.optimizer.verbose = True
         self.X = X
 
 
