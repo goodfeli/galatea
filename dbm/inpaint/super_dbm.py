@@ -1004,6 +1004,9 @@ class SuperDBM(Model):
                 rval['mf_'+layer.layer_name+'_'+key]  = ch[key]
         return rval
 
+    def get_test_batch_size(self):
+        return self.batch_size
+
 
 class SuperDBM_Layer(Model):
 
@@ -1770,6 +1773,13 @@ class DenseMaxPool(SuperDBM_HidLayer):
         W ,= self.transformer.get_params()
         return W.get_value()
 
+    def set_weights(self, weights):
+        W, = self.transformer.get_params()
+        W.set_value(weights)
+
+    def set_biases(self, biases):
+        self.b.set_value(biases)
+
     def get_weights_format(self):
         return ('v', 'h')
 
@@ -2113,6 +2123,11 @@ class Softmax(SuperDBM_HidLayer):
 
         self._params = [ self.b, self.W ]
 
+    def init_inpainting_state(self, noise):
+        if noise:
+            raise NotImplementedError()
+        return T.nnet.softmax(self.b)
+
 
     def get_weights_topo(self):
         if not isinstance(self.input_space, Conv2DSpace):
@@ -2127,6 +2142,12 @@ class Softmax(SuperDBM_HidLayer):
             raise NotImplementedError()
 
         return self.W.get_value()
+
+    def set_weights(self, weights):
+        self.W.set_value(weights)
+
+    def set_biases(self, biases):
+        self.b.set_value(biases)
 
     def get_weights_format(self):
         return ('v', 'h')
@@ -2326,6 +2347,7 @@ def unfreeze(augmented_dbm):
     augmented_dbm.freeze_lower = False
     return augmented_dbm
 
+
 class AugmentedDBM(Model):
     """
         A DBM-like model.
@@ -2338,11 +2360,20 @@ class AugmentedDBM(Model):
     """
 
     def __init__(self, super_dbm, extra_layer, freeze_lower = False):
+        """
+            extra_layer:
+                either an uninitialized layer to be added to the DBM, or
+                the already initialized final layer of the DBM. In the latter
+                case, we remove it from the DBM's inference feedback loop.
+        """
         self.__dict__.update(locals())
         del self.self
 
-        extra_layer.set_dbm(super_dbm)
-        extra_layer.set_input_space(super_dbm.hidden_layers[-1].get_output_space())
+        if extra_layer is super_dbm.hidden_layers[-1]:
+            del super_dbm.hidden_layers[-1]
+        else:
+            extra_layer.set_dbm(super_dbm)
+            extra_layer.set_input_space(super_dbm.hidden_layers[-1].get_output_space())
         self.force_batch_size = super_dbm.force_batch_size
 
         self.hidden_layers = [ extra_layer ]
@@ -2396,14 +2427,27 @@ class AugmentedDBM(Model):
 
         return [ Y_hat ]
 
+def convert_to_augmented(super_dbm):
+    return AugmentedDBM(super_dbm, super_dbm.hidden_layers[-1])
+
 
 class SuperDBM_ConditionalNLL(Cost):
 
     supervised = True
 
-    def Y_hat(self, model, X):
+
+    def __init__(self, grad_niter = None, block_grad = None):
+        """
+            grad_niter: Uses this many mean field iterations when computing the gradient.
+                        When computing the cost value, we use model.niter
+                        Extra steps cost more memory when computing the gradient but not
+                        when computing the cost value.
+        """
+        self.__dict__.update(locals())
+
+    def Y_hat(self, model, X, niter = None):
         assert isinstance(model.hidden_layers[-1], Softmax)
-        Y_hat = model.mf(X)[-1]
+        Y_hat = model.mf(X, niter = niter, block_grad = self.block_grad)[-1]
         Y_hat.name = 'Y_hat'
 
         return Y_hat
@@ -2419,7 +2463,12 @@ class SuperDBM_ConditionalNLL(Cost):
             m is the number of examples
         """
 
-        Y_hat = self.Y_hat(model, X)
+        if 'niter' in kwargs:
+            niter = kwargs['niter']
+        else:
+            niter = None
+
+        Y_hat = self.Y_hat(model, X, niter)
         assert Y_hat.ndim == 2
         assert Y.ndim == 2
 
@@ -2447,6 +2496,18 @@ class SuperDBM_ConditionalNLL(Cost):
         example_costs.name = 'example_costs'
 
         return - example_costs.mean()
+
+    def get_gradients(self, model, X, Y, **kwargs):
+
+        new_kwargs = { 'niter' : self.grad_niter }
+        new_kwargs.update(kwargs)
+
+        cost = self(model, X, Y, ** new_kwargs)
+
+        params = list(model.get_params())
+        grads = dict(safe_zip(params, T.grad(cost, params, disconnected_inputs = 'ignore')))
+
+        return grads, {}
 
     def get_monitoring_channels(self, model, X, Y, **kwargs):
 
@@ -2701,9 +2762,13 @@ class CompositeLayer(SuperDBM_HidLayer):
 
 
 class BinaryVisLayer(SuperDBM_Layer):
+    """
+
+    """
+
     def __init__(self,
             nvis,
-            bias_from_marginals):
+            bias_from_marginals = None):
         """
             Implements a visible layer consisting of binary-valued random
             variable. The layer lives in a VectorSpace.
@@ -2724,21 +2789,27 @@ class BinaryVisLayer(SuperDBM_Layer):
 
         origin = self.space.get_origin()
 
-        X = bias_from_marginals.get_design_matrix()
-        assert X.max() == 1.
-        assert X.min() == 0.
-        assert not np.any( (X > 0.) * (X < 1.) )
+        if bias_from_marginals is None:
+            init_bias = np.zeros((nvis,))
+        else:
+            X = bias_from_marginals.get_design_matrix()
+            assert X.max() == 1.
+            assert X.min() == 0.
+            assert not np.any( (X > 0.) * (X < 1.) )
 
-        mean = X.mean(axis=0)
+            mean = X.mean(axis=0)
 
-        mean = np.clip(mean, 1e-7, 1-1e-7)
+            mean = np.clip(mean, 1e-7, 1-1e-7)
 
-        init_bias = inverse_sigmoid_numpy(mean)
+            init_bias = inverse_sigmoid_numpy(mean)
 
         self.bias = sharedX(init_bias, 'visible_bias')
 
     def get_biases(self):
         return self.bias.get_value()
+
+    def set_biases(self, biases):
+        self.bias.set_value(biases)
 
 
     def get_params(self):
