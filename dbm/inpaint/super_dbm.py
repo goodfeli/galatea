@@ -400,9 +400,24 @@ class SuperDBM(Model):
                 state_below = self.visible_layer.upward_state(V_hat)))
 
         if Y is not None:
-            warnings.warn("Info from Y probably doesn't flow into the MF graph as fast as it should")
-            Y_hat_unmasked = H_hat[-1]
-            H_hat[-1] = drop_mask_Y * H_hat[-1] + (1 - drop_mask_Y) * Y
+            Y_hat_unmasked = self.hidden_layers[-1].init_inpainting_state(noise)
+            Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
+            H_hat[-1] = Y_hat
+            if len(self.hidden_layers) > 1:
+                i = len(self.hidden_layers) - 2
+                if i == 0:
+                    H_hat[i] = self.hidden_layers[i].mf_update(
+                        state_above = Y_hat,
+                        layer_above = self.hidden_layers[-1],
+                        state_below = self.visible_layer.upward_state(V_hat),
+                        iter_name = '0')
+                else:
+                    H_hat[i] = self.hidden_layers[i].mf_update(
+                        state_above = Y_hat,
+                        layer_above = self.hidden_layers[-1],
+                        state_below = self.hidden_layers[i-1].upward_state(H_hat[i-1]),
+                        iter_name = '0')
+
 
         def update_history():
             assert V_hat_unmasked.ndim > 1
