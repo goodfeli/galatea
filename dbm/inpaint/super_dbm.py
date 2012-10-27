@@ -3193,3 +3193,117 @@ class DBM_WeightDecay(Cost):
 def set_niter(super_dbm, niter):
     super_dbm.niter = niter
     return super_dbm
+
+def load_matlab_dbm(path):
+    """ Loads a two layer DBM stored in the format used by Ruslan Salakhutdinov's
+    matlab demo.
+
+    This function can only load the model after it has been put together for fine
+    tuning. Loading the model at the end of layerwise pretraining doesn't make sense
+    because the first layer RBM's hidden units and the second layer RBM's visible units
+    specify different biases for the same variable in the DBM.
+    """
+
+    # Lazy import because scipy causes trouble on travisbot
+    global io
+    if io is None:
+        from scipy import io
+
+    d = io.loadmat(path)
+
+    # Format the data
+    for key in d:
+        try:
+            d[key] = np.cast[config.floatX](d[key])
+        except:
+            pass
+
+    # Visible layer
+    visbiases = d['visbiases']
+    assert len(visbiases.shape) == 2
+    assert visbiases.shape[0] == 1
+    visbiases = visbiases[0,:]
+
+    vis_layer = BinaryVisLayer(nvis = visbiases.shape[0])
+    vis_layer.set_biases(visbiases)
+
+    # Set up hidden layers
+    hidden_layers = []
+    Ws = []
+    bs = []
+
+    bias0 = 'hidbiases'
+    bias1 = 'penbiases'
+    weights0 = 'vishid'
+    weights1 = 'hidpen'
+    weightsc = 'labpen'
+
+    # First hidden layer
+    hidbiases = d[bias0]
+    assert len(hidbiases.shape) == 2
+    assert hidbiases.shape[0] == 1
+    hidbiases = hidbiases[0,:]
+
+    vishid = d[weights0]
+
+    hid0 = DenseMaxPool(detector_layer_dim = hidbiases.shape[0],
+            pool_size = 1, irange = 0., layer_name = 'h0')
+
+    hidden_layers.append(hid0)
+    Ws.append(vishid)
+    bs.append(hidbiases)
+
+    # Second hidden layer
+    penbiases = d['penbiases']
+    assert len(penbiases.shape) == 2
+    assert penbiases.shape[0] == 1
+    penbiases = penbiases[0,:]
+    hidpen = d['hidpen']
+
+    hid1 = DenseMaxPool(detector_layer_dim = penbiases.shape[0],
+        pool_size = 1, irange = 0., layer_name = 'h1')
+
+    hidden_layers.append(hid1)
+    Ws.append(hidpen)
+    bs.append(penbiases)
+
+    # Class layer
+    labbiases = d['labbiases']
+    assert len(labbiases.shape) == 2
+    assert labbiases.shape[0] == 1
+    labbiases = labbiases[0,:]
+
+    if len(hidden_layers) == 1:
+        W = d['labhid'].T
+    else:
+        W = d['labpen'].T
+
+    c = Softmax(n_classes = labbiases.shape[0],
+        irange = 0., layer_name = 'c')
+
+    hidden_layers.append(c)
+    Ws.append(W)
+    bs.append(labbiases)
+
+    #hidden_layers = hidden_layers[0:1]
+    #Ws = Ws[0:1]
+    #bs = bs[0:1]
+
+    dbm = SuperDBM(batch_size = 100,
+                    visible_layer = vis_layer,
+                    hidden_layers = hidden_layers,
+                    niter = 50)
+
+    for W, b, layer in safe_zip(Ws, bs, dbm.hidden_layers):
+        layer.set_weights(W)
+        layer.set_biases(b)
+
+    dbm.dataset_yaml_src = """
+    !obj:pylearn2.datasets.mnist.MNIST {
+        which_set : 'train',
+        binarize  : 1,
+        one_hot   : 1
+    }"""
+
+    return dbm
+
