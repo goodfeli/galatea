@@ -486,7 +486,8 @@ class SuperDBM(Model):
         else:
             return V_hat
 
-    def mf(self, V, Y = None, return_history = False):
+    def mf(self, V, Y = None, return_history = False, niter = None, block_grad = None):
+
 
         assert Y not in [True, False, 0, 1]
         assert return_history in [True, False, 0, 1]
@@ -494,6 +495,9 @@ class SuperDBM(Model):
         if Y is not None:
             self.hidden_layers[-1].get_output_space().validate(Y)
 
+
+        if niter is None:
+            niter = self.niter
 
         H_hat = []
         for i in xrange(0,len(self.hidden_layers)-1):
@@ -543,11 +547,26 @@ class SuperDBM(Model):
             H_hat[-1] = Y
 
 
+        def block(l):
+            new = []
+            for elem in l:
+                if isinstance(elem, (list, tuple)):
+                    new.append(block(elem))
+                else:
+                    new.append(block_gradient(elem))
+            if isinstance(l, tuple):
+                return tuple(new)
+            return new
+
+        if block_gradient == 1:
+            H_hat = block(H_hat)
+
         history = [ list(H_hat) ]
+
 
         #we only need recurrent inference if there are multiple layers
         if len(H_hat) > 1:
-            for i in xrange(self.niter-1):
+            for i in xrange(niter-1):
                 for j in xrange(0,len(H_hat),2):
                     if j == 0:
                         state_below = self.visible_layer.upward_state(V)
@@ -584,6 +603,9 @@ class SuperDBM(Model):
 
                 if Y is not None:
                     H_hat[-1] = Y
+
+                if block_grad == i:
+                    H_hat = block(H_hat)
 
                 history.append(list(H_hat))
             # end for mf iter
