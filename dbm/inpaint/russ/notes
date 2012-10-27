@@ -1,0 +1,3 @@
+fullmnist_dbm.pkl is from galatea/dbm/dump/fullmnist_dbm.mat
+It was saved at the end of dbm_mf, ie joint PCD training.
+after_joint_training.mat seems to be a damaged file.

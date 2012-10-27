@@ -15,6 +15,8 @@ model = serial.load(model_path)
 if hasattr(model,'set_batch_size'):
     model.set_batch_size(m)
 
+dataset = yaml_parse.load(model.dataset_yaml_src)
+
 try:
     mask_gen = model.mask_gen
     cost = model.cost
@@ -29,7 +31,6 @@ try:
     print 'used cost from model'
     cost.mask_gen = mask_gen
 except:
-    raise
     try:
         drop_prob = model.dbm_inpaint_drop_prob
         n_iter = model.dbm_inpaint_n_iter
@@ -52,7 +53,8 @@ except:
     if isinstance(model, SuperDBM):
         from super_inpaint import SuperInpaint
         from super_inpaint import MaskGen
-        mask_gen = MaskGen(drop_prob = drop_prob, balance = True, sync_channels = True)
+        mask_gen = MaskGen(drop_prob = drop_prob, balance = True, sync_channels
+                = dataset.get_batch_topo(1).shape[-1] > 1)
         cost = SuperInpaint(mask_gen = mask_gen)
         print 'made superdbm cost'
     else:
@@ -90,7 +92,6 @@ if cost.supervised:
 
 f = function(inputs, outputs)
 
-dataset = yaml_parse.load(model.dataset_yaml_src)
 
 if cost.supervised:
     n_classes = model.hidden_layers[-1].n_classes

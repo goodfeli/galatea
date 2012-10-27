@@ -28,7 +28,7 @@ class InpaintAlgorithm(object):
                  monitoring_batches=None, monitoring_dataset=None,
                  max_iter = 5, suicide = False, init_alpha = ( .001, .005, .01, .05, .1 ),
                  reset_alpha = True, hacky_conjugacy = False, reset_conjugate = True,
-                 termination_criterion = None):
+                 termination_criterion = None, set_batch_size = False):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -71,6 +71,9 @@ class InpaintAlgorithm(object):
         training data
         """
         self.model = model
+
+        if self.set_batch_size:
+            model.set_batch_size(self.batch_size)
 
         if self.batch_size is None:
             self.batch_size = model.force_batch_size

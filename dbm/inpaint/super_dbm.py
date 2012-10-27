@@ -24,6 +24,8 @@ from pylearn2.expr.nnet import inverse_sigmoid_numpy
 from pylearn2.expr.nnet import sigmoid_numpy
 from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
+from theano import config
+io = None
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
@@ -62,6 +64,12 @@ class SuperDBM(Model):
         """
             Hack to make Polyak averaging work.
         """
+
+        for param in param_to_mean:
+            if type(param) != type(param_to_mean[param]):
+                print type(param)
+                print type(param_to_mean[param])
+                assert False
 
         X = self.get_input_space().make_batch_theano()
         if isinstance(self.hidden_layers[-1], Softmax):

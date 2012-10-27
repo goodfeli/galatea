@@ -30,8 +30,8 @@
                },
                termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel
                {
-                        channel_name: "valid_err",
-                        prev_channel_name: "valid_err",
+                        channel_name: "valid_objective",
+                        prev_channel_name: "train_objective",
                         prev_monitor_name: "monitor_early_stopping"
                }
         },

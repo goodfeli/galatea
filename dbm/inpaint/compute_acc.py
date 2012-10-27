@@ -19,25 +19,25 @@ if hasattr(model, 'batch_size') and model.batch_size != model.force_batch_size:
 
 
 assert src.find('train') != -1
+test = yaml_parse.load(src)
 x = raw_input("test acc?")
 if x == 'y':
-    src = src.replace('train', 'test')
-    if src.find('start') != -1:
-        restrict = "start: 0, stop: 40000"
-        assert src.find(restrict) != -1
-        src = src.replace(restrict,"")
+    test = test.get_test_set()
+    assert test.X.shape[0] == 10000
 else:
     assert x == 'n'
 
-
-
-test = yaml_parse.load(src)
 if x == 'y':
-    assert test.X.shape[0] == 10000
+    if not (test.X.shape[0] == 10000):
+        print test.X.shape[0]
+        assert False
 else:
     # compute the train accuracy on what the model
     # was trained on, not the entire train set
     assert test.X.shape[0] in [40000,50000]
+
+test.X = test.X.astype('float32')
+test.y = test.y.astype('float32')
 
 import theano.tensor as T
 
@@ -108,7 +108,10 @@ def accs():
     mf1_accs = []
     for i in xrange(test.X.shape[0]/batch_size):
         print i
-        mf1_accs.append( batch_acc(test.get_topological_view(test.X[i*batch_size:(i+1)*batch_size,:]),
+        x_arg = test.X[i*batch_size:(i+1)*batch_size,:]
+        if Xb.ndim > 2:
+            x_arg = test.get_topological_view(x_arg)
+        mf1_accs.append( batch_acc(x_arg,
             test.y[i*batch_size:(i+1)*batch_size,:])[0])
     return sum(mf1_accs) / float(len(mf1_accs))
 
