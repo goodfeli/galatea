@@ -305,6 +305,7 @@ class SuperDBM(Model):
             assert all([key in params for key in contrib])
 
             rval.update(contrib)
+        assert all([isinstance(val, float) for val in rval.values()])
 
         return rval
 
@@ -2082,7 +2083,12 @@ class Verify(theano.gof.Op):
 """
 
 class Softmax(SuperDBM_HidLayer):
-    def __init__(self, n_classes, layer_name, irange = None, sparse_init = None):
+    def __init__(self, n_classes, layer_name, irange = None,
+                 sparse_init = None, W_lr_scale = None):
+
+        if isinstance(W_lr_scale, str):
+            W_lr_scale = float(W_lr_scale)
+
         self.__dict__.update(locals())
         del self.self
 
@@ -2090,6 +2096,20 @@ class Softmax(SuperDBM_HidLayer):
 
         self.output_space = VectorSpace(n_classes)
         self.b = sharedX( np.zeros((n_classes,)), name = 'softmax_b')
+
+    def get_lr_scalers(self):
+
+        rval = {}
+
+        # Patch old pickle files
+        if not hasattr(self, 'W_lr_scale'):
+            self.W_lr_scale = None
+
+        if self.W_lr_scale is not None:
+            assert isinstance(self.W_lr_scale, float)
+            rval[self.W] = self.W_lr_scale
+
+        return rval
 
 
     def get_monitoring_channels_from_state(self, state):
