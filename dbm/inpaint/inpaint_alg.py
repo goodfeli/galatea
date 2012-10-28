@@ -26,13 +26,18 @@ class SetupBatch:
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
                  monitoring_batches=None, monitoring_dataset=None,
-                 max_iter = 5, suicide = False, init_alpha = ( .001, .005, .01, .05, .1 ),
+                 max_iter = 5, suicide = False, init_alpha = None,
                  reset_alpha = True, hacky_conjugacy = False, reset_conjugate = True,
-                 termination_criterion = None, set_batch_size = False):
+                 termination_criterion = None, set_batch_size = False,
+                 line_search_mode = None):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
         """
+
+        if line_search_mode is None and init_alpha is None:
+            init_alpha = ( .001, .005, .01, .05, .1 )
+
         self.__dict__.update(locals())
         del self.self
         if monitoring_dataset is None:
@@ -190,7 +195,8 @@ class InpaintAlgorithm(object):
                             init_alpha = self.init_alpha,
                             reset_alpha = self.reset_alpha,
                             hacky_conjugacy = self.hacky_conjugacy,
-                            reset_conjugate = self.reset_conjugate)
+                            reset_conjugate = self.reset_conjugate,
+                            line_search_mode = self.line_search_mode)
         self.X = X
 
 

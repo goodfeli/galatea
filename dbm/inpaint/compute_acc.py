@@ -34,7 +34,7 @@ if x == 'y':
 else:
     # compute the train accuracy on what the model
     # was trained on, not the entire train set
-    assert test.X.shape[0] in [40000,50000]
+    assert test.X.shape[0] in [40000,50000,60000]
 
 test.X = test.X.astype('float32')
 test.y = test.y.astype('float32')

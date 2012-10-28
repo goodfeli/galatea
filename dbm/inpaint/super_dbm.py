@@ -24,6 +24,7 @@ from pylearn2.expr.nnet import inverse_sigmoid_numpy
 from pylearn2.expr.nnet import sigmoid_numpy
 from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
+from galatea.theano_upgrades import _ElemwiseNoGradient
 from theano import config
 io = None
 
