@@ -19,7 +19,9 @@ class SuperInpaint(Cost):
                     both_directions = False,
                     l1_act_coeffs = None,
                     l1_act_targets = None,
-                    supervised = False
+                    supervised = False,
+                    niter = None,
+                    block_grad = None
                     ):
         self.__dict__.update(locals())
         del self.self
@@ -137,7 +139,8 @@ class SuperInpaint(Cost):
             self.noise = False
 
         history = dbm.do_inpainting(X, Y = Y, drop_mask = drop_mask,
-                drop_mask_Y = drop_mask_Y, return_history = True, noise = self.noise)
+                drop_mask_Y = drop_mask_Y, return_history = True, noise = self.noise,
+                niter = self.niter, block_grad = self.block_grad)
         final_state = history[-1]
 
         new_drop_mask = None
@@ -151,7 +154,8 @@ class SuperInpaint(Cost):
             if self.supervised:
                 new_drop_mask_Y = 1. - drop_mask_Y
             new_history = dbm.do_inpainting(X, Y = Y, drop_mask = new_drop_mask,
-                    drop_mask_Y = new_drop_mask_Y, return_history = True, noise = self.noise)
+                    drop_mask_Y = new_drop_mask_Y, return_history = True, noise = self.noise,
+                    niter = self.niter, block_grad = self.block_grad)
 
         new_final_state = new_history[-1]
 

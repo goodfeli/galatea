@@ -3329,3 +3329,7 @@ def load_matlab_dbm(path):
 
     return dbm
 
+def zero_last_weights(super_dbm, niter):
+    super_dbm.niter = niter
+    super_dbm.hidden_layers[-1].set_weights(super_dbm.hidden_layers[-1].get_weights() * 0)
+    return super_dbm
