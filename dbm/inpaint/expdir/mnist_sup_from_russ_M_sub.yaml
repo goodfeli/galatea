@@ -10,7 +10,7 @@
                         decapitate: 0,
                         train_rnn_y: 1,
                         super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-                                super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/russ/after_joint_train.pkl",
+                                super_dbm: !pkl: "${USERDIR}/galatea/dbm/inpaint/russ/after_joint_train.pkl",
                                 niter: 6
                         },
     },
@@ -20,7 +20,7 @@
                set_batch_size: 1,
                updates_per_batch: 3,
                reset_alpha: 0,
-               hacky_conjugacy: 1,
+               conjugate: 1,
                reset_conjugate: 0,
                monitoring_dataset: {
                                 'train' : *train,
