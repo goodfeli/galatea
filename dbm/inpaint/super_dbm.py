@@ -1741,6 +1741,9 @@ class DenseMaxPool(SuperDBM_HidLayer):
         W ,= self.transformer.get_params()
         assert W.name is not None
 
+    def get_total_state_space(self):
+        return CompositeSpace((self.output_space, self.h_space))
+
     def get_params(self):
         assert self.b.name is not None
         W ,= self.transformer.get_params()
@@ -2121,6 +2124,8 @@ class Softmax(SuperDBM_HidLayer):
 
         return rval
 
+    def get_total_state_space(self, state):
+        return self.output_space
 
     def get_monitoring_channels_from_state(self, state):
 
@@ -3375,7 +3380,7 @@ class MLP_Wrapper(Model):
 
     def __init__(self, super_dbm, decapitate = True, final_irange = None,
             initially_freeze_lower = False, decapitated_value = None,
-            train_rnn_y = False):
+            train_rnn_y = False, gibbs_features = False):
         assert initially_freeze_lower in [True, False, 0, 1]
         assert decapitate in [True, False, 0, 1]
         assert train_rnn_y in [True, False, 0, 1]
@@ -3385,6 +3390,10 @@ class MLP_Wrapper(Model):
                 decapitated_value = 0.
             else:
                 assert decapitated_value is None
+
+        if gibbs_features:
+            assert not train_rnn_y
+
         self.force_batch_size = super_dbm.force_batch_size
         assert len(super_dbm.hidden_layers) == 3
         l1, l2, c = super_dbm.hidden_layers
@@ -3454,7 +3463,16 @@ class MLP_Wrapper(Model):
 
     def mf(self, V, return_history = False, ** kwargs):
         assert not return_history
-        q = self.super_dbm.mf(V, ** kwargs)
+        if self.gibbs_features:
+            q = self.super_dbm.mf(V, ** kwargs)
+        else:
+            theano_rng = MRG_RandomStreams(42)
+            layer_to_state = { self.super_dbm.visible_layer : V }
+            for layer in self.super_dbm.hidden_layers:
+                layer_to_state[layer] = layer.get_total_state_space().get_origin_batch(self.super_dbm.batch_size)
+            layer_to_updated = self.super_dbm.mcmc_steps(layer_to_state, theano_rng, layer_to_clamp = { self.super_dbm.visible_layer: 1 },
+                num_steps = 6)
+            q = [ layer_to_updated[layer] for layer in self.super_dbm.hidden_layers]
         if self.decapitate:
             _, H2 = q
         else:
