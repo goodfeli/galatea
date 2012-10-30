@@ -1,3 +1,4 @@
+# THIS WORKS!
 !obj:pylearn2.scripts.train.Train {
     dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",

@@ -1747,6 +1747,9 @@ class DenseMaxPool(SuperDBM_HidLayer):
         return self.transformer.get_params().union([self.b])
 
     def get_weight_decay(self, coeff):
+        if isinstance(coeff, str):
+            coeff = float(coeff)
+        assert isinstance(coeff, float)
         W ,= self.transformer.get_params()
         return coeff * T.sqr(W).sum()
 
@@ -2149,6 +2152,7 @@ class Softmax(SuperDBM_HidLayer):
             assert self.sparse_init is None
             W = rng.uniform(-self.irange,self.irange, (self.input_dim,self.n_classes))
         else:
+            assert self.sparse_init is not None
             W = np.zeros((self.input_dim, self.n_classes))
             for i in xrange(self.n_classes):
                 for j in xrange(self.sparse_init):
@@ -2186,6 +2190,9 @@ class Softmax(SuperDBM_HidLayer):
 
     def set_biases(self, biases):
         self.b.set_value(biases)
+
+    def get_biases(self):
+        return self.b.get_value()
 
     def get_weights_format(self):
         return ('v', 'h')
@@ -2346,6 +2353,9 @@ class Softmax(SuperDBM_HidLayer):
         return h_state
 
     def get_weight_decay(self, coeff):
+        if isinstance(coeff, str):
+            coeff = float(coeff)
+        assert isinstance(coeff, float)
         return coeff * T.sqr(self.W).sum()
 
     def expected_energy_term(self, state, average, state_below, average_below):
@@ -3362,8 +3372,8 @@ def zero_last_weights(super_dbm, niter):
 
 class MLP_Wrapper(Model):
 
-    def __init__(self, super_dbm):
-        self.super_dbm = super_dbm
+    def __init__(self, super_dbm, decapitate = True, final_irange = None):
+        self.__dict__.update(locals())
         self.force_batch_size = super_dbm.force_batch_size
         assert len(super_dbm.hidden_layers) == 3
         l1, l2, c = super_dbm.hidden_layers
@@ -3388,20 +3398,39 @@ class MLP_Wrapper(Model):
         self._params.append(self.penbias)
 
         # Class layer
-        self.c = c
+        if decapitate:
+            self.c = c
+            del super_dbm.hidden_layers[-1]
+        else:
+            self.c = Softmax(n_classes = c.n_classes, irange = 0., layer_name = 'final_output')
+            self.c.dbm = c.dbm
+            self.c.set_input_space(c.input_space)
+            self.c.set_weights(c.get_weights())
+            self.c.set_biases(c.get_biases())
         self._params.extend(self.c.get_params())
-        del super_dbm.hidden_layers[-1]
 
-        self.hidden_layers = [ c]
+        if final_irange is not None:
+            del c # Make sure we don't modify the feature-generating RNN
+            W = self.c.dbm.rng.uniform(-final_irange, final_irange,
+                    (self.c.input_space.get_total_dimension(),
+                        self.c.n_classes))
+            self.c.set_weights(W.astype('float32'))
+            self.c.set_biases(np.zeros((self.c.n_classes)).astype('float32'))
+
+
+        self.hidden_layers = [ self.c]
 
     def mf(self, V, return_history = False, ** kwargs):
         assert not return_history
         q = self.super_dbm.mf(V, ** kwargs)
-        _, H2 = q
+        if self.decapitate:
+            _, H2 = q
+        else:
+            _, H2, y = q
         _, H2 = H2
-        fuckyou = T.dot(V, self.vishid)
-        fuckyou2 = T.dot(H2, self.penhid)
-        H1 = T.nnet.sigmoid(fuckyou + fuckyou2 + self.hidbias)
+        below = T.dot(V, self.vishid)
+        above = T.dot(H2, self.penhid)
+        H1 = T.nnet.sigmoid(below + above + self.hidbias)
         H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen) + self.penbias)
         Y = self.c.mf_update(state_below = H2)
 
