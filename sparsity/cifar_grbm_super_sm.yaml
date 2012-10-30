@@ -1,0 +1,45 @@
+this seems broken, step size goes to zero pretty fast
+!obj:pylearn2.scripts.train.Train {
+    dataset: &dataset !pkl: "${CIFAR10_PATCHES_6x6}",
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+        batch_size: 1000,
+        niter: 1,
+        visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer
+                {
+                        channels: 3,
+                        rows: 6,
+                        cols: 6
+                },
+        hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool
+                {
+                        pool_rows: 1,
+                        pool_cols: 1,
+                        kernel_rows: 1,
+                        kernel_cols: 1,
+                        border_mode: 'valid',
+                        irange: .05,
+                        output_channels: 400,
+                        layer_name: 'h'
+                }
+        ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+        batches_per_iter: 10,
+        line_search_mode: 'exhaustive',
+        hacky_conjugacy: 1,
+        reset_conjugate: 0,
+        reset_alpha: 0,
+        updates_per_batch: 3,
+        batch_size: 1000,
+        monitoring_batches : 1,
+        monitoring_dataset : *dataset,
+        cost : !obj:pylearn2.costs.cost.MethodCost {
+                method: score_matching
+        },
+    },
+    #Finally, request that the model be saved after each epoch
+    "save_freq" : 1
+}
+
+
