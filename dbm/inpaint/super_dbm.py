@@ -3359,3 +3359,61 @@ def zero_last_weights(super_dbm, niter):
     super_dbm.niter = niter
     super_dbm.hidden_layers[-1].set_weights(super_dbm.hidden_layers[-1].get_weights() * 0)
     return super_dbm
+
+class MLP_Wrapper(Model):
+
+    def __init__(self, super_dbm):
+        self.super_dbm = super_dbm
+        self.force_batch_size = super_dbm.force_batch_size
+        assert len(super_dbm.hidden_layers) == 3
+        l1, l2, c = super_dbm.hidden_layers
+        assert isinstance(l1, DenseMaxPool)
+        assert isinstance(l2, DenseMaxPool)
+        assert isinstance(c, Softmax)
+
+        self._params = []
+
+        # Layer 1
+        self.vishid = sharedX(l1.get_weights())
+        self._params.append(self.vishid)
+        self.hidbias = sharedX(l1.get_biases())
+        self._params.append(self.hidbias)
+
+        # Layer 2
+        self.hidpen = sharedX(l2.get_weights())
+        self._params.append(self.hidpen)
+        self.penhid = sharedX(l2.get_weights().T)
+        self._params.append(self.penhid)
+        self.penbias = sharedX(l2.get_biases())
+        self._params.append(self.penbias)
+
+        # Class layer
+        self.c = c
+        self._params.extend(self.c.get_params())
+        del super_dbm.hidden_layers[-1]
+
+        self.hidden_layers = [ c]
+
+    def mf(self, V, return_history = False, ** kwargs):
+        assert not return_history
+        q = self.super_dbm.mf(V, ** kwargs)
+        _, H2 = q
+        _, H2 = H2
+        fuckyou = T.dot(V, self.vishid)
+        fuckyou2 = T.dot(H2, self.penhid)
+        H1 = T.nnet.sigmoid(fuckyou + fuckyou2 + self.hidbias)
+        H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen) + self.penbias)
+        Y = self.c.mf_update(state_below = H2)
+
+        return [ Y ]
+
+    def set_batch_size(self, batch_size):
+        self.super_dbm.set_batch_size(batch_size)
+        self.c.set_batch_size(batch_size)
+        self.force_batch_size = self.super_dbm.force_batch_size
+
+    def get_input_space(self):
+        return self.super_dbm.get_input_space()
+
+    def get_output_space(self):
+        return self.super_dbm.get_output_space()
