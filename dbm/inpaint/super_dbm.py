@@ -27,6 +27,7 @@ from pylearn2.utils import safe_izip
 from galatea.theano_upgrades import _ElemwiseNoGradient
 from theano import config
 io = None
+from pylearn2.training_callbacks.training_callback import TrainingCallback
 
 warnings.warn('super_dbm changing the recursion limit')
 import sys
@@ -3372,8 +3373,18 @@ def zero_last_weights(super_dbm, niter):
 
 class MLP_Wrapper(Model):
 
-    def __init__(self, super_dbm, decapitate = True, final_irange = None):
+    def __init__(self, super_dbm, decapitate = True, final_irange = None,
+            initially_freeze_lower = False, decapitated_value = None,
+            train_rnn_y = False):
+        assert initially_freeze_lower in [True, False, 0, 1]
+        assert decapitate in [True, False, 0, 1]
+        assert train_rnn_y in [True, False, 0, 1]
         self.__dict__.update(locals())
+        if decapitate:
+            if decapitated_value is None:
+                decapitated_value = 0.
+            else:
+                assert decapitated_value is None
         self.force_batch_size = super_dbm.force_batch_size
         assert len(super_dbm.hidden_layers) == 3
         l1, l2, c = super_dbm.hidden_layers
@@ -3394,6 +3405,11 @@ class MLP_Wrapper(Model):
         self._params.append(self.hidpen)
         self.penhid = sharedX(l2.get_weights().T)
         self._params.append(self.penhid)
+        penbias = l2.get_biases()
+        if decapitate:
+            Wc = c.get_weights()
+            penbias += T.dot(Wc,
+                    np.ones((c.n_classes),) * decapitated_value / c.n_classes).astype(penbias.dtype)
         self.penbias = sharedX(l2.get_biases())
         self._params.append(self.penbias)
 
@@ -3409,6 +3425,10 @@ class MLP_Wrapper(Model):
             self.c.set_biases(c.get_biases())
         self._params.extend(self.c.get_params())
 
+        if train_rnn_y:
+            assert not decapitate
+            self._params.extend(c.get_params())
+
         if final_irange is not None:
             del c # Make sure we don't modify the feature-generating RNN
             W = self.c.dbm.rng.uniform(-final_irange, final_irange,
@@ -3417,8 +3437,20 @@ class MLP_Wrapper(Model):
             self.c.set_weights(W.astype('float32'))
             self.c.set_biases(np.zeros((self.c.n_classes)).astype('float32'))
 
-
         self.hidden_layers = [ self.c]
+
+        if initially_freeze_lower:
+            lr_scalers = {}
+            gate = sharedX(0.)
+            for param in self._params:
+                if param not in self.c.get_params():
+                    lr_scalers[param] = gate
+            self.lr_scalers = lr_scalers
+        else:
+            self.lr_scalers = {}
+
+    def get_lr_scalers(self):
+        return self.lr_scalers
 
     def mf(self, V, return_history = False, ** kwargs):
         assert not return_history
@@ -3446,3 +3478,11 @@ class MLP_Wrapper(Model):
 
     def get_output_space(self):
         return self.super_dbm.get_output_space()
+
+class ActivateLower(TrainingCallback):
+    def __call__(self, model, dataset, algorithm):
+        if model.monitor.get_epochs_seen() == 6:
+            lr_scalers = model.lr_scalers
+            values = lr_scalers.values()
+            assert all([value is values[0] for value in values])
+            values[0].set_value(np.cast[config.floatX](1.))
