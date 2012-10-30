@@ -3,8 +3,6 @@
         which_set: "train",
         shuffle: 1,
         binarize: 1,
-        start: 0,
-        stop: 50000
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
               batch_size : 2500,

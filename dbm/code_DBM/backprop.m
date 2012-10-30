@@ -32,53 +32,23 @@ load fullmnist_dbm
 
 [testnumcases testnumdims testnumbatches]=size(testbatchdata);
 N=testnumcases;
-temp_h1_test = zeros(testnumcases,numhids,testnumbatches);
 temp_h2_test = zeros(testnumcases,numpens,testnumbatches); 
 for batch = 1:testnumbatches
    data = [testbatchdata(:,:,batch)];
    [temp_h1, temp_h2] = ...
        mf_class(data,vishid,hidbiases,visbiases,hidpen,penbiases);
-   temp_h1_test(:,:,batch) = temp_h1;
    temp_h2_test(:,:,batch) = temp_h2;
 end  
 
 [numcases numdims numbatches]=size(batchdata);
 N=numcases;
-temp_h1_train = zeros(numcases,numhids,numbatches);
 temp_h2_train = zeros(numcases,numpens,numbatches);
 for batch = 1:numbatches
    data = [batchdata(:,:,batch)];
    [temp_h1, temp_h2] = ...
      mf_class(data,vishid,hidbiases,visbiases,hidpen,penbiases);
-   temp_h1_train(:,:,batch) = temp_h1;
    temp_h2_train(:,:,batch) = temp_h2;
 end
-
-
-train_X = zeros(60000,784);
-test_X = zeros(10000,784);
-train_H = zeros(60000,500);
-test_H = zeros(10000);
-train_G = zeros(60000,1000);
-test_G = zeros(10000,1000);
-
-for i=1:600
-	start = (i-1)*100+1;
-	stop  = i * 100;
-	train_X(start:stop,:) = batchdata(:,:,i);
-	train_H(start:stop,:) = temp_h1_train(:,:,i);
-	train_G(start:stop,:) = temp_h2_train(:,:,i)
-end
-for i=1:100
-	start = (i-1)*100+1;
-	stop  = i * 100;
-	test_X(start:stop,:) = testbatchdata(:,:,i);
-	test_H(start:stop,:) = temp_h1_test(:,:,i);
-	test_G(start:stop,:) = temp_h2_test(:,:,i)
-end
-
-save('dbm_feat.mat','train_X','train_H','train_G','test_X','test_H','test_G')
-keyboard
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

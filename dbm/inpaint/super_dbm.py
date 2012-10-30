@@ -735,7 +735,10 @@ class SuperDBM(Model):
 
             warnings.warn("super_dbm score matching is untested."
                     "the math in the lyx file has not been verified."
-                    "there is no test that the code matches the lyx file.")
+                    "there is no test that the code matches the lyx file."
+                    "Bad results on CIFAR-10 full image and CIFAR-10 patches "
+                    "suggest there is a bug. See galatea/sparsity/cifar_grbm_super_sm.yaml for easiest case to debug.")
+            assert False # really not a good idea to run this except to debug it
 
             vis = self.visible_layer
             hid, = self.hidden_layers
@@ -1792,6 +1795,9 @@ class DenseMaxPool(SuperDBM_HidLayer):
 
     def set_biases(self, biases):
         self.b.set_value(biases)
+
+    def get_biases(self):
+        return self.b.get_value()
 
     def get_weights_format(self):
         return ('v', 'h')
