@@ -30,15 +30,19 @@ if restart ==1,
   epoch=1;
 % Initializing symmetric weights and biases.
  
-  vishid     = 0.001*randn(numdim, numhid);
-  hidpen     = 0.001*randn(numhid,numpen); 
+  % I commented out the re-initialization of
+  % the params below to confirm that all params
+  % are reloaded from file. -Ian
+ 
+  %vishid     = 0.001*randn(numdim, numhid);
+  %hidpen     = 0.001*randn(numhid,numpen); 
 
-  labpen = 0.001*randn(numlab,numpen); 
+  %labpen = 0.001*randn(numlab,numpen); 
 
-  hidbiases  = zeros(1,numhid);
-  visbiases  = zeros(1,numdim);
-  penbiases  = zeros(1,numpen);
-  labbiases  = zeros(1,numlab);
+  %hidbiases  = zeros(1,numhid);
+  %visbiases  = zeros(1,numdim);
+  %penbiases  = zeros(1,numpen);
+  %labbiases  = zeros(1,numlab);
 
   poshidprobs = zeros(numcases,numhid);
   neghidprobs = zeros(numcases,numhid);
@@ -62,9 +66,9 @@ if restart ==1,
  sparsecost = .001;
  sparsedamping = .9;
 
-   hidbiases  = 0*log(sparsetarget/(1-sparsetarget))*ones(1,numhid);
+   %hidbiases  = 0*log(sparsetarget/(1-sparsetarget))*ones(1,numhid);
    hidmeans = sparsetarget*ones(1,numhid);
-   penbiases  = 0*log(sparsetarget2/(1-sparsetarget2))*ones(1,numpen);
+   %penbiases  = 0*log(sparsetarget2/(1-sparsetarget2))*ones(1,numpen);
    penmeans = sparsetarget2*ones(1,numpen);
 
  load fullmnistpo.mat
@@ -91,6 +95,12 @@ if restart ==1,
 
  tot = 0; 
 end
+
+% Ian's modification
+save('stitched.mat','vishid','hidbiases','hidpen', ...
+    'penbiases', 'labpen', 'labbiases', 'visbiases')
+die die die
+
 
 for epoch = epoch:maxepoch 
   [numcases numdims numbatches]=size(batchdata);

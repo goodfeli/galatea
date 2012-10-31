@@ -27,7 +27,7 @@ class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
                  monitoring_batches=None, monitoring_dataset=None,
                  max_iter = 5, suicide = False, init_alpha = None,
-                 reset_alpha = True, hacky_conjugacy = False, reset_conjugate = True,
+                 reset_alpha = True, conjugate = False, reset_conjugate = True,
                  termination_criterion = None, set_batch_size = False,
                  line_search_mode = None):
         """
@@ -194,7 +194,7 @@ class InpaintAlgorithm(object):
                             tol = 3e-7,
                             init_alpha = self.init_alpha,
                             reset_alpha = self.reset_alpha,
-                            hacky_conjugacy = self.hacky_conjugacy,
+                            conjugate = self.conjugate,
                             reset_conjugate = self.reset_conjugate,
                             line_search_mode = self.line_search_mode)
         self.X = X

@@ -8,7 +8,7 @@
     },
         model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
                         super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-                                super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_B4r.pkl",
+                                super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_D.pkl",
                                 niter: 6
                         },
     },

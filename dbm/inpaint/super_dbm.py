@@ -416,7 +416,7 @@ class SuperDBM(Model):
                 state_below = self.visible_layer.upward_state(V_hat)))
 
         if Y is not None:
-            Y_hat_unmasked = self.hidden_layers[-1].init_inpainting_state(noise)
+            Y_hat_unmasked = self.hidden_layers[-1].init_inpainting_state(Y, noise)
             Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
             H_hat[-1] = Y_hat
             if len(self.hidden_layers) > 1:
@@ -2124,7 +2124,7 @@ class Softmax(SuperDBM_HidLayer):
 
         return rval
 
-    def get_total_state_space(self, state):
+    def get_total_state_space(self):
         return self.output_space
 
     def get_monitoring_channels_from_state(self, state):
@@ -2171,9 +2171,10 @@ class Softmax(SuperDBM_HidLayer):
 
         self._params = [ self.b, self.W ]
 
-    def init_inpainting_state(self, noise):
+    def init_inpainting_state(self, Y, noise):
         if noise:
-            raise NotImplementedError()
+            theano_rng = MRG_RandomStreams(2012+10+30)
+            return T.nnet.softmax(theano_rng.normal(avg=0., size=Y.shape, std=1., dtype='float32'))
         return T.nnet.softmax(self.b)
 
 
@@ -3388,8 +3389,8 @@ class MLP_Wrapper(Model):
         if decapitate:
             if decapitated_value is None:
                 decapitated_value = 0.
-            else:
-                assert decapitated_value is None
+        else:
+            assert decapitated_value is None
 
         if gibbs_features:
             assert not train_rnn_y
@@ -3417,8 +3418,9 @@ class MLP_Wrapper(Model):
         penbias = l2.get_biases()
         if decapitate:
             Wc = c.get_weights()
-            penbias += T.dot(Wc,
-                    np.ones((c.n_classes),) * decapitated_value / c.n_classes).astype(penbias.dtype)
+            penbias += np.dot(Wc,
+                    np.ones((c.n_classes,), dtype = penbias.dtype) * decapitated_value / c.n_classes)
+            l2.set_biases(penbias)
         self.penbias = sharedX(l2.get_biases())
         self._params.append(self.penbias)
 
@@ -3463,16 +3465,34 @@ class MLP_Wrapper(Model):
 
     def mf(self, V, return_history = False, ** kwargs):
         assert not return_history
-        if self.gibbs_features:
+        if not hasattr(self, 'gibbs_features'):
+            self.gibbs_features = False
+        if not self.gibbs_features:
             q = self.super_dbm.mf(V, ** kwargs)
         else:
             theano_rng = MRG_RandomStreams(42)
             layer_to_state = { self.super_dbm.visible_layer : V }
-            for layer in self.super_dbm.hidden_layers:
-                layer_to_state[layer] = layer.get_total_state_space().get_origin_batch(self.super_dbm.batch_size)
-            layer_to_updated = self.super_dbm.mcmc_steps(layer_to_state, theano_rng, layer_to_clamp = { self.super_dbm.visible_layer: 1 },
-                num_steps = 6)
-            q = [ layer_to_updated[layer] for layer in self.super_dbm.hidden_layers]
+            qs = []
+            m = 10
+            for i in xrange(m):
+                for layer in self.super_dbm.hidden_layers:
+                    layer_to_state[layer] = layer.get_total_state_space().get_origin_batch(self.super_dbm.batch_size)
+                    if isinstance(layer_to_state[layer], tuple):
+                        layer_to_state[layer] = tuple([T.as_tensor_variable(elem.astype('float32')) for elem in layer_to_state[layer]])
+                    else:
+                        layer_to_state[layer] = T.as_tensor_variable(elem.astype('float32'))
+                layer_to_updated = self.super_dbm.mcmc_steps(layer_to_state, theano_rng, layer_to_clamp = { self.super_dbm.visible_layer: 1 },
+                    num_steps = 6)
+                q = [ layer_to_updated[layer] for layer in self.super_dbm.hidden_layers]
+                for j in xrange(len(q)):
+                    if isinstance(q[j], tuple):
+                        q[j] = q[j][0]
+                qs.append(q)
+            q = [ sum([subq[i] for subq in qs])/m for i in xrange(len(qs[0])) ]
+            q[0] = (q[0], q[0])
+            q[1] = (q[1], q[1])
+        if not hasattr(self, 'decapitate'):
+            self.decapitate = True
         if self.decapitate:
             _, H2 = q
         else:
@@ -3504,3 +3524,55 @@ class ActivateLower(TrainingCallback):
             values = lr_scalers.values()
             assert all([value is values[0] for value in values])
             values[0].set_value(np.cast[config.floatX](1.))
+
+
+class UnrollUntie(Model):
+
+    def __init__(self, super_dbm, niter):
+        self.__dict__.update(locals())
+        del self.self
+        self.input_space = super_dbm.get_input_space()
+        self.output_space = super_dbm.get_output_space()
+
+        h, g, y = super_dbm.hidden_layers
+        vishid = h.get_weights()
+        biashid = h.get_biases()
+        hidpen = g.get_weights()
+        penhid = g.get_weights().T
+        biaspen = g.get_biases()
+        penlab = y.get_weights()
+        labpen = y.get_weights().T
+        biaslab = y.get_biases()
+
+        param_names = ['vishid', 'biashid', 'hidpen', 'penhid', 'biaspen', 'penlab', 'labpen', 'biaslab']
+        for name in param_names:
+            sh = [ sharedX(locals()[name]) for i in xrange(niter) ]
+            setattr(self, name, sh)
+        self.penhid[0] = None
+        self.labpen[0] = None
+        self._params = []
+        for name in param_names:
+            self._params.extend([elem for elem in getattr(self, name) if elem is not None])
+        self.hidden_layers = super_dbm.hidden_layers
+
+
+    def set_batch_size(self, batch_size):
+        self.force_batch_size = batch_size
+
+    def mf(self, V, return_history = False, niter = None, block_grad = None):
+        assert return_history is False
+        assert niter is None
+        assert block_grad is None
+
+        H1 = T.nnet.sigmoid(T.dot(V, 2. * self.vishid[0] + self.biashid[0]))
+        H2 = T.nnet.sigmoid(T.dot(H1, 2 * self.hidpen[0] + self.biaspen[0]))
+        Y = T.nnet.softmax(T.dot(H2, self.penlab[0] + self.biaslab[0]))
+
+        for i in xrange(1, self.niter):
+            H1 = T.nnet.sigmoid(T.dot(V, self.vishid[i])+T.dot(H2, self.penhid[i])+self.biashid[i])
+            Y = T.nnet.softmax(T.dot(H2, self.penlab[i] + self.biaslab[i]))
+            H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen[i]) + T.dot(Y, self.labpen[i]) + self.biaspen[0])
+
+        return [H1, H2, Y]
+
+

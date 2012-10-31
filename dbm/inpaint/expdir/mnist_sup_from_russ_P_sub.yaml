@@ -6,11 +6,9 @@
         start: 0,
         stop: 50000
     },
-        model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
-                        super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-                                super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_B4r.pkl",
-                                niter: 6
-                        },
+        model: !obj:galatea.dbm.inpaint.super_dbm.UnrollUntie {
+                        niter : 6,
+                        super_dbm : !pkl: "/u/goodfeli/galatea/dbm/inpaint/russ/after_joint_train.pkl",
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
                line_search_mode: 'exhaustive',

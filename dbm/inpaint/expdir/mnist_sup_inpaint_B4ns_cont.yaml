@@ -1,22 +1,18 @@
 !obj:pylearn2.scripts.train.Train {
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
-        shuffle: 1,
         binarize: 1,
         one_hot: 1,
-        start: 0,
-        stop: 50000
     },
     model: !obj:pylearn2.monitor.push_monitor {
-        model: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_B4r.pkl",
-        name: monitor_orig
+        name: &old_monitor 'monitor_inpaint_subtrain',
+        model: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_B4ns_best.pkl",
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
                monitoring_dataset : {
                         'train': *train,
                         'valid': !obj:pylearn2.datasets.mnist.MNIST {
                                 which_set: "train",
-                                shuffle: 1,
                                 binarize: 1,
                                 one_hot: 1,
                                 start: 50000,
@@ -49,23 +45,13 @@
                         balance: 0,
                         sync_channels: 0
                },
-               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel
                {
                         channel_name: "valid_objective",
-                        N: 20,
-                        prop_decrease: 0.
+                        prev_monitor_name: *old_monitor,
+                        prev_channel_name: "train_objective"
                }
         },
-    callbacks: [
-                !obj:pylearn2.training_callbacks.best_params.MonitorBasedSaveBest {
-                        channel_name: "valid_err",
-                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best_err.pkl"
-                },
-                !obj:pylearn2.training_callbacks.best_params.MonitorBasedSaveBest {
-                        channel_name: "valid_objective",
-                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best_obj.pkl"
-                }
-        ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
     save_freq : 1
 }

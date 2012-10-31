@@ -1,4 +1,4 @@
-
+# This is using the same amount of weight decay as Russ
 !obj:pylearn2.scripts.train.Train {
     dataset: &data !obj:pylearn2.datasets.mnist.MNIST {
                         which_set : 'train',
