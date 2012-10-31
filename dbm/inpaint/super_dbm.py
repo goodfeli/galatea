@@ -3504,3 +3504,18 @@ class ActivateLower(TrainingCallback):
             values = lr_scalers.values()
             assert all([value is values[0] for value in values])
             values[0].set_value(np.cast[config.floatX](1.))
+
+
+class UnrollUntie(Model):
+
+    def __init__(self, super_dbm, niter):
+        TODO
+
+    def set_batch_size(self):
+        pass
+
+    def get_input_space(self):
+        TODO
+
+    def get_output_space(self):
+        TODO
