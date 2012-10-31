@@ -1,6 +1,6 @@
-function B = im2col(A,fuck_you)
-	m = fuck_you(1);
-	n = fuck_you(2);
+function B = im2col(A,mn)
+	m = mn(1);
+	n = mn(2);
 	Ar = size(A,1);
 	cr = Ar - m + 1;
 	Ac = size(A,2);

@@ -50,6 +50,7 @@
                },
                line_search_mode: 'exhaustive',
                init_alpha : [0.0256, .128, .256, 1.28, 2.56],
+               min_init_alpha: .001,
                reset_alpha: 0,
                conjugate: 1,
                reset_conjugate: 0,

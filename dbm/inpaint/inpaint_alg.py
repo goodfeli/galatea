@@ -29,7 +29,7 @@ class InpaintAlgorithm(object):
                  max_iter = 5, suicide = False, init_alpha = None,
                  reset_alpha = True, conjugate = False, reset_conjugate = True,
                  termination_criterion = None, set_batch_size = False,
-                 line_search_mode = None):
+                 line_search_mode = None, min_init_alpha = None):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -196,6 +196,7 @@ class InpaintAlgorithm(object):
                             reset_alpha = self.reset_alpha,
                             conjugate = self.conjugate,
                             reset_conjugate = self.reset_conjugate,
+                            min_init_alpha = self.min_init_alpha,
                             line_search_mode = self.line_search_mode)
         self.X = X
 

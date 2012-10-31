@@ -247,6 +247,8 @@ class MaskGen:
 
         p = self.drop_prob
 
+        yp = p
+
         if self.balance:
             flip = theano_rng.binomial(
                     size = ( X.shape[0] ,),
@@ -254,7 +256,10 @@ class MaskGen:
                     n = 1,
                     dtype = X.dtype)
 
+            yp = flip * (1-p) + (1-flip) * p
+
             dimshuffle_args = [ 0 ] + [ 'x' ] * (X.ndim -1 - self.sync_channels)
+
 
             flip = flip.dimshuffle(*dimshuffle_args)
 
@@ -276,11 +281,13 @@ class MaskGen:
         drop_mask.name = 'drop_mask(%s)' % X_name
 
         if Y is not None:
+            assert isinstance(yp, float) or yp.ndim < 2
             drop_mask_Y = theano_rng.binomial(
                     size = (X.shape[0], ),
-                    p = p,
+                    p = yp,
                     n = 1,
                     dtype = X.dtype)
+            assert drop_mask_Y.ndim == 1
             Y_name = make_name(Y, 'anon_Y')
             drop_mask_Y.name = 'drop_mask_Y(%s)' % Y_name
             return drop_mask, drop_mask_Y
