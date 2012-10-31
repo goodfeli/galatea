@@ -3529,13 +3529,50 @@ class ActivateLower(TrainingCallback):
 class UnrollUntie(Model):
 
     def __init__(self, super_dbm, niter):
-        TODO
+        self.__dict__.update(locals())
+        del self.self
+        self.input_space = super_dbm.get_input_space()
+        self.output_space = super_dbm.get_output_space()
 
-    def set_batch_size(self):
-        pass
+        h, g, y = super_dbm.hidden_layers
+        vishid = h.get_weights()
+        biashid = h.get_biases()
+        hidpen = g.get_weights()
+        penhid = g.get_weights().T
+        biaspen = g.get_biases()
+        penlab = y.get_weights()
+        labpen = y.get_weights().T
+        biaslab = y.get_biases()
 
-    def get_input_space(self):
-        TODO
+        param_names = ['vishid', 'biashid', 'hidpen', 'penhid', 'biaspen', 'penlab', 'labpen', 'biaslab']
+        for name in param_names:
+            sh = [ sharedX(locals()[name]) for i in xrange(niter) ]
+            setattr(self, name, sh)
+        self.penhid[0] = None
+        self.labpen[0] = None
+        self._params = []
+        for name in param_names:
+            self._params.extend([elem for elem in getattr(self, name) if elem is not None])
+        self.hidden_layers = super_dbm.hidden_layers
 
-    def get_output_space(self):
-        TODO
+
+    def set_batch_size(self, batch_size):
+        self.force_batch_size = batch_size
+
+    def mf(self, V, return_history = False, niter = None, block_grad = None):
+        assert return_history is False
+        assert niter is None
+        assert block_grad is None
+
+        H1 = T.nnet.sigmoid(T.dot(V, 2. * self.vishid[0] + self.biashid[0]))
+        H2 = T.nnet.sigmoid(T.dot(H1, 2 * self.hidpen[0] + self.biaspen[0]))
+        Y = T.nnet.softmax(T.dot(H2, self.penlab[0] + self.biaslab[0]))
+
+        for i in xrange(1, self.niter):
+            H1 = T.nnet.sigmoid(T.dot(V, self.vishid[i])+T.dot(H2, self.penhid[i])+self.biashid[i])
+            Y = T.nnet.softmax(T.dot(H2, self.penlab[i] + self.biaslab[i]))
+            H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen[i]) + T.dot(Y, self.labpen[i]) + self.biaspen[0])
+
+        return [H1, H2, Y]
+
+
