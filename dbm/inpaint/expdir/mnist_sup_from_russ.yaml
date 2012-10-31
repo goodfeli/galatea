@@ -15,7 +15,7 @@
                set_batch_size: 1,
                updates_per_batch: 3,
                reset_alpha: 0,
-               hacky_conjugacy: 1,
+               conjugate: 1,
                reset_conjugate: 0,
                monitoring_dataset: {
                                 'train' : *train,

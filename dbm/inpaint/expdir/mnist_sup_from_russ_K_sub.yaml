@@ -8,7 +8,7 @@
         stop: 50000
     },
         model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
-                        decapitate: False,
+                        decapitate: 1,
                         decapitated_value: 1.,
                         super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
                                 super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/russ/after_joint_train.pkl",

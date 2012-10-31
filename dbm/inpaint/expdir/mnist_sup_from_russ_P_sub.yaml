@@ -7,8 +7,8 @@
         stop: 50000
     },
         model: !obj:galatea.dbm.inpaint.super_dbm.UnrollUntie {
-                        niter: 6
-                        super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/russ/after_joint_train.pkl",
+                        niter : 6,
+                        super_dbm : !pkl: "/u/goodfeli/galatea/dbm/inpaint/russ/after_joint_train.pkl",
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
                line_search_mode: 'exhaustive',
@@ -16,7 +16,7 @@
                set_batch_size: 1,
                updates_per_batch: 3,
                reset_alpha: 0,
-               hacky_conjugacy: 1,
+               conjugate: 1,
                reset_conjugate: 0,
                monitoring_dataset: {
                                 'train' : *train,
