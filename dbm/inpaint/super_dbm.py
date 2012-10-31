@@ -806,7 +806,23 @@ class SuperDBM(Model):
 
         states = [ layer.make_state(num_examples, rng) for layer in layers ]
 
-        rval = dict(safe_zip(layers, states))
+        zipped = safe_zip(layers, states)
+
+        def recurse_check(layer, state):
+            if isinstance(state, (list, tuple)):
+                for elem in state:
+                    recurse_check(layer, elem)
+            else:
+                val = state.get_value()
+                m = val.shape[0]
+                if m != num_examples:
+                    raise ValueError(layer.layer_name+" gave state with "+str(m)+ \
+                            " examples in some component. We requested "+str(num_examples))
+
+        for layer, state in zipped:
+            recurse_check(layer, state)
+
+        rval = dict(zipped)
 
         return rval
 
@@ -1993,7 +2009,7 @@ class DenseMaxPool(SuperDBM_HidLayer):
 
         t1 = time.time()
 
-        empty_input = self.h_space.get_origin_batch(self.dbm.batch_size)
+        empty_input = self.h_space.get_origin_batch(num_examples)
         h_state = sharedX(empty_input)
 
         default_z = T.zeros_like(h_state) + self.b
@@ -2006,7 +2022,7 @@ class DenseMaxPool(SuperDBM_HidLayer):
                 theano_rng = theano_rng)
 
         p_state = sharedX( self.output_space.get_origin_batch(
-            self.dbm.batch_size))
+            num_examples))
 
 
         t2 = time.time()
@@ -2323,7 +2339,7 @@ class Softmax(SuperDBM_HidLayer):
 
         t1 = time.time()
 
-        empty_input = self.output_space.get_origin_batch(self.dbm.batch_size)
+        empty_input = self.output_space.get_origin_batch(num_examples)
         h_state = sharedX(empty_input)
 
         default_z = T.zeros_like(h_state) + self.b
@@ -2335,7 +2351,7 @@ class Softmax(SuperDBM_HidLayer):
         h_sample = theano_rng.multinomial(pvals = h_exp, dtype = h_exp.dtype)
 
         p_state = sharedX( self.output_space.get_origin_batch(
-            self.dbm.batch_size))
+            num_examples))
 
 
         t2 = time.time()
@@ -3126,6 +3142,15 @@ class DBM_PCD(Cost):
         """
 
         layer_to_chains = model.make_layer_to_state(self.num_chains)
+
+        def recurse_check(l):
+            if isinstance(l, (list, tuple)):
+                for elem in l:
+                    recurse_check(elem)
+            else:
+                assert l.get_value().shape[0] == self.num_chains
+
+        recurse_check(layer_to_chains.values())
 
         model.layer_to_chains = layer_to_chains
 
