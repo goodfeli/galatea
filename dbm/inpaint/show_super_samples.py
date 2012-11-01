@@ -6,6 +6,7 @@ import time
 from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import numpy as np
+from pylearn2.expr.basic import is_binary
 import warnings
 
 rows = 10
@@ -77,8 +78,6 @@ def validate_all_samples():
         else:
             assert l.get_value().shape[0] == m
 
-    def is_binary(x):
-        return np.all( (x == 0) + (x == 1))
 
     for layer in layers:
         state = layer_to_state[layer]
