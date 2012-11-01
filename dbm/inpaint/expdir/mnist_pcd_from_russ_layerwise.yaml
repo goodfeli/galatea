@@ -6,7 +6,7 @@
     },
     model: !pkl: "${USERDIR}/galatea/dbm/inpaint/russ/pretrained.pkl", 
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-               learning_rate: 1e-3,
+               learning_rate: 0,
                init_momentum: .5,
                monitoring_batches : 10,
                monitoring_dataset : *data,

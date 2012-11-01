@@ -36,15 +36,6 @@ mapback = hasattr(dataset, 'mapback_for_viewer')
 pv = PatchViewer((rows,cols*(1+mapback)), (patch_rows,patch_cols), is_color = (channels==3))
 
 def show():
-    """
-    for ch in xrange(3):
-        v_ch = vis_batch[:,:,:,ch]
-        pos_ch = vis_batch[:,:,:,ch] * (vis_batch[:,:,:,ch] > 0.)
-        abs_ch = np.abs(vis_batch[:,:,:,ch])
-        print ch, (v_ch.min(), v_ch.mean(), v_ch.max())
-        print ch, 'abs', (abs_ch.min(), abs_ch.mean(), abs_ch.max())
-        print ch, 'pos', (pos_ch.min(), pos_ch.mean(), pos_ch.max())
-    """
     display_batch = dataset.adjust_for_viewer(vis_batch)
     if display_batch.ndim == 2:
         display_batch = dataset.get_topological_view(display_batch)
@@ -77,10 +68,47 @@ layer_to_state = model.make_layer_to_state(m)
 # Seed the sampling with the data batch
 vis_sample = layer_to_state[model.visible_layer]
 
+def validate_all_samples():
+    layers = [ model.visible_layer ] + model.hidden_layers
+
+    def check_batch_size(l):
+        if isinstance(l, (list, tuple)):
+            map(check_batch_size, l)
+        else:
+            assert l.get_value().shape[0] == m
+
+    def is_binary(x):
+        return np.all( (x == 0) + (x == 1))
+
+    for layer in layers:
+        state = layer_to_state[layer]
+        space = layer.get_total_state_space()
+        space.validate(state)
+        if 'DenseMaxPool' in str(type(layer)):
+            p, h = state
+            p = p.get_value()
+            h = h.get_value()
+            assert np.all(p == h)
+            assert is_binary(p)
+        if 'BinaryVisLayer' in str(type(layer)):
+            v = state.get_value()
+            assert is_binary(v)
+        if 'Softmax' in str(type(layer)):
+            y = state.get_value()
+            assert is_binary(y)
+            s = y.sum(axis=1)
+            assert np.all(s == 1 )
+
+
+
+validate_all_samples()
+
 if vis_sample.ndim == 4:
     vis_sample.set_value(vis_batch)
 else:
     vis_sample.set_value(dataset.get_design_matrix(vis_batch))
+
+validate_all_samples()
 
 theano_rng = MRG_RandomStreams(2012+9+18)
 
@@ -123,9 +151,13 @@ while True:
             except:
                 print 'Invalid input, try again'
 
+    validate_all_samples()
+
     for i in xrange(x):
         print i
         sample_func()
+
+    validate_all_samples()
 
     vis_batch = vis_sample.get_value()
     show()

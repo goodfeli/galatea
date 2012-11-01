@@ -14,7 +14,7 @@
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
                batch_size: 100, 
                set_batch_size: 1,
-               learning_rate: 0.,
+               learning_rate: 1e-3,
                init_momentum: .5,
                monitoring_batches : 10,
                monitoring_dataset : { '10_train_batches' : *data },
@@ -37,11 +37,15 @@
                 start: 5,
                 saturate: 6
             },
+            !obj:pylearn2.training_algorithms.sgd.OneOverEpoch {
+                start: 0,
+                half_life: 10
+            }
             #!obj:pylearn2.training_algorithms.sgd.PolyakAveraging {
-           #     start: 100,
-           #     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_polyak.pkl",
-           #     save_freq: 1
-           # }
+            #    start: 100,
+            #    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_polyak.pkl",
+            #    save_freq: 1
+            #}
     ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
     save_freq : 1
