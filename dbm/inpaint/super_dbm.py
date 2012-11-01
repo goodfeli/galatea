@@ -6,7 +6,6 @@ from pylearn2.space import VectorSpace
 from pylearn2.space import CompositeSpace
 from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
-from pylearn2.linear.matrixmul import MatrixMul
 import theano.tensor as T
 import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
@@ -20,15 +19,16 @@ from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import time
 from pylearn2.costs.cost import Cost
-from pylearn2.expr.nnet import sigmoid_numpy
 from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
 from galatea.theano_upgrades import _ElemwiseNoGradient
 from theano import config
 io = None
 from pylearn2.training_callbacks.training_callback import TrainingCallback
+from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
-from pylearn2.models.dbm import DBM_Layer
+from pylearn2.models.dbm import Layer
+from pylearn2.models.dbm import HiddenLayer
 from pylearn2.models import dbm
 
 def flatten(l):
@@ -1023,7 +1023,7 @@ class SuperDBM(DBM):
         return self.batch_size
 
 
-class SuperDBM_Layer(DBM_Layer):
+class SuperDBM_Layer(Layer):
 
 
     def expected_energy_term(self, state,
@@ -1059,13 +1059,9 @@ class SuperDBM_Layer(DBM_Layer):
         raise NotImplementedError(str(type(self))+" does not implement expected_energy_term.")
 
 
-class SuperDBM_HidLayer(SuperDBM_Layer):
+class SuperDBM_HidLayer(SuperDBM_Layer, HiddenLayer):
+    pass
 
-    def downward_state(self, total_state):
-        return total_state
-
-    def get_l1_act_cost(self, state, target, coeff, eps):
-        raise NotImplementedError(str(type(self))+" does not implement get_l1_act_cost")
 
 class GaussianConvolutionalVisLayer(SuperDBM_Layer):
     def __init__(self,
@@ -1602,90 +1598,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return rval
 
 
-class DenseMaxPool(SuperDBM_HidLayer):
-    def __init__(self,
-             detector_layer_dim,
-            pool_size,
-            layer_name,
-            irange = None,
-            sparse_init = None,
-            include_prob = 1.0,
-            init_bias = 0.):
-        """
-
-            include_prob: probability of including a weight element in the set
-                    of weights initialized to U(-irange, irange). If not included
-                    it is initialized to 0.
-
-        """
-        self.__dict__.update(locals())
-        del self.self
-
-        self.b = sharedX( np.zeros((self.detector_layer_dim,)) + init_bias, name = layer_name + '_b')
-
-    def set_input_space(self, space):
-        """ Note: this resets parameters! """
-
-        self.input_space = space
-
-        if isinstance(space, VectorSpace):
-            self.requires_reformat = False
-            self.input_dim = space.dim
-        else:
-            self.requires_reformat = True
-            self.input_dim = space.get_total_dimension()
-            self.desired_space = VectorSpace(self.input_dim)
-
-
-        if not (self.detector_layer_dim % self.pool_size == 0):
-            raise ValueError("detector_layer_dim = %d, pool_size = %d. Should be divisible but remainder is %d" %
-                    (self.detector_layer_dim, self.pool_size, self.detector_layer_dim % self.pool_size))
-
-        self.h_space = VectorSpace(self.detector_layer_dim)
-        self.pool_layer_dim = self.detector_layer_dim / self.pool_size
-        self.output_space = VectorSpace(self.pool_layer_dim)
-
-        rng = self.dbm.rng
-        if self.irange is not None:
-            assert self.sparse_init is None
-            W = rng.uniform(-self.irange,
-                                 self.irange,
-                                 (self.input_dim, self.detector_layer_dim)) * \
-                    (rng.uniform(0.,1., (self.input_dim, self.detector_layer_dim))
-                     < self.include_prob)
-        else:
-            assert self.sparse_init is not None
-            W = np.zeros((self.input_dim, self.detector_layer_dim))
-            for i in xrange(self.detector_layer_dim):
-                for j in xrange(self.sparse_init):
-                    idx = rng.randint(0, self.input_dim)
-                    while W[idx, i] != 0:
-                        idx = rng.randint(0, self.input_dim)
-                    W[idx, i] = rng.randn()
-
-        W = sharedX(W)
-        W.name = self.layer_name + '_W'
-
-        self.transformer = MatrixMul(W)
-
-        W ,= self.transformer.get_params()
-        assert W.name is not None
-
-    def get_total_state_space(self):
-        return CompositeSpace((self.output_space, self.h_space))
-
-    def get_params(self):
-        assert self.b.name is not None
-        W ,= self.transformer.get_params()
-        assert W.name is not None
-        return self.transformer.get_params().union([self.b])
-
-    def get_weight_decay(self, coeff):
-        if isinstance(coeff, str):
-            coeff = float(coeff)
-        assert isinstance(coeff, float)
-        W ,= self.transformer.get_params()
-        return coeff * T.sqr(W).sum()
+class DenseMaxPool(SuperDBM_HidLayer, BinaryVectorMaxPool):
 
     def expected_energy_term(self, state, average, state_below, average_below):
 
@@ -1715,144 +1628,6 @@ class DenseMaxPool(SuperDBM_HidLayer):
         assert rval.ndim == 1
 
         return rval
-
-    def get_weights(self):
-        if self.requires_reformat:
-            # This is not really an unimplemented case.
-            # We actually don't know how to format the weights
-            # in design space. We got the data in topo space
-            # and we don't have access to the dataset
-            raise NotImplementedError()
-        W ,= self.transformer.get_params()
-        return W.get_value()
-
-    def set_weights(self, weights):
-        W, = self.transformer.get_params()
-        W.set_value(weights)
-
-    def set_biases(self, biases):
-        self.b.set_value(biases)
-
-    def get_biases(self):
-        return self.b.get_value()
-
-    def get_weights_format(self):
-        return ('v', 'h')
-
-    def get_weights_view_shape(self):
-        total = self.detector_layer_dim
-        cols = self.pool_size
-        if cols == 1:
-            # Let the PatchViewer decidew how to arrange the units
-            # when they're not pooled
-            raise NotImplementedError()
-        # When they are pooled, make each pooling unit have one row
-        rows = total / cols
-        return rows, cols
-
-
-    def get_weights_topo(self):
-
-        if not isinstance(self.input_space, Conv2DSpace):
-            raise NotImplementedError()
-
-        W ,= self.transformer.get_params()
-
-        W = W.T
-
-        W = W.reshape((self.detector_layer_dim, self.input_space.shape[0],
-            self.input_space.shape[1], self.input_space.nchannels))
-
-        W = Conv2DSpace.convert(W, self.input_space.axes, ('b', 0, 1, 'c'))
-
-        return function([], W)()
-
-    def upward_state(self, total_state):
-        p,h = total_state
-        self.h_space.validate(h)
-        self.output_space.validate(p)
-        return p
-
-    def downward_state(self, total_state):
-        p,h = total_state
-        return h
-
-    def get_monitoring_channels_from_state(self, state):
-
-        P, H = state
-
-        rval ={}
-
-        if self.pool_size == 1:
-            vars_and_prefixes = [ (P,'') ]
-        else:
-            vars_and_prefixes = [ (P, 'p_'), (H, 'h_') ]
-
-        for var, prefix in vars_and_prefixes:
-            v_max = var.max(axis=0)
-            v_min = var.min(axis=0)
-            v_mean = var.mean(axis=0)
-            v_range = v_max - v_min
-
-            for key, val in [
-                    ('max_max', v_max.max()),
-                    ('max_mean', v_max.mean()),
-                    ('max_min', v_max.min()),
-                    ('min_max', v_min.max()),
-                    ('min_mean', v_min.mean()),
-                    ('min_max', v_min.max()),
-                    ('range_max', v_range.max()),
-                    ('range_mean', v_range.mean()),
-                    ('range_min', v_range.min()),
-                    ('mean_max', v_mean.max()),
-                    ('mean_mean', v_mean.mean()),
-                    ('mean_min', v_mean.min())
-                    ]:
-                rval[prefix+key] = val
-
-        return rval
-
-
-    def get_l1_act_cost(self, state, target, coeff, eps = None):
-        rval = 0.
-
-        P, H = state
-        self.output_space.validate(P)
-        self.h_space.validate(H)
-
-
-        if self.pool_size == 1:
-            # If the pool size is 1 then pools = detectors
-            # and we should not penalize pools and detectors separately
-            assert len(state) == 2
-            assert isinstance(target, float)
-            assert isinstance(coeff, float)
-            _, state = state
-            state = [state]
-            target = [target]
-            coeff = [coeff]
-            if eps is None:
-                eps = [0.]
-            else:
-                eps = [eps]
-        else:
-            assert all([len(elem) == 2 for elem in [state, target, coeff]])
-            if eps is None:
-                eps = [0., 0.]
-            if target[1] < target[0]:
-                warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
-
-        for s, t, c, e in safe_zip(state, target, coeff, eps):
-            assert all([isinstance(elem, float) for elem in [t, c, e]])
-            if c == 0.:
-                continue
-            m = s.mean(axis=0)
-            assert m.ndim == 1
-            rval += T.maximum(abs(m-t)-e,0.).mean()*c
-
-        return rval
-
-
 
     def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
 
@@ -1890,77 +1665,6 @@ class DenseMaxPool(SuperDBM_HidLayer):
 
         return p, h
 
-    def get_sampling_updates(self, state_below = None, state_above = None,
-            layer_above = None,
-            theano_rng = None):
-
-        if state_above is not None:
-            msg = layer_above.downward_message(state_above)
-        else:
-            msg = None
-
-        if self.requires_reformat:
-            state_below = self.input_space.format_as(state_below, self.desired_space)
-
-        z = self.transformer.lmul(state_below) + self.b
-        p, h, p_sample, h_sample = max_pool_channels(z,
-                self.pool_size, msg, theano_rng)
-
-        return p_sample, h_sample
-
-    def downward_message(self, downward_state):
-        rval = self.transformer.lmul_T(downward_state)
-
-        if self.requires_reformat:
-            rval = self.desired_space.format_as(rval, self.input_space)
-
-        return rval
-
-    def make_state(self, num_examples, numpy_rng):
-        """ Returns a shared variable containing an actual state
-           (not a mean field state) for this variable.
-        """
-
-        t1 = time.time()
-
-        empty_input = self.h_space.get_origin_batch(num_examples)
-        h_state = sharedX(empty_input)
-
-        default_z = T.zeros_like(h_state) + self.b
-
-        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
-
-        p_exp, h_exp, p_sample, h_sample = max_pool_channels(
-                z = default_z,
-                pool_size = self.pool_size,
-                theano_rng = theano_rng)
-
-        p_state = sharedX( self.output_space.get_origin_batch(
-            num_examples))
-
-
-        t2 = time.time()
-
-        f = function([], updates = {
-            p_state : p_sample,
-            h_state : h_sample
-            })
-
-        t3 = time.time()
-
-        f()
-
-        t4 = time.time()
-
-        print str(self)+'.make_state took',t4-t1
-        print '\tcompose time:',t2-t1
-        print '\tcompile time:',t3-t2
-        print '\texecute time:',t4-t3
-
-        p_state.name = 'p_sample_shared'
-        h_state.name = 'h_sample_shared'
-
-        return p_state, h_state
 
 """
 class Verify(theano.gof.Op):
@@ -2746,7 +2450,7 @@ class CompositeLayer(SuperDBM_HidLayer):
         return rval
 
 
-class BinaryVisLayer(SuperDBM_Layer, dbm.BinaryVisLayer):
+class BinaryVisLayer(SuperDBM_Layer, dbm.BinaryVector):
 
 
     def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
