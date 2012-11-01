@@ -1023,47 +1023,7 @@ class SuperDBM(DBM):
         return self.batch_size
 
 
-class SuperDBM_Layer(Layer):
-
-
-    def expected_energy_term(self, state,
-                                   average,
-                                   state_below,
-                                   average_below):
-        """
-
-            Returns a term of the expected energy of the entire model.
-            This term should correspond to the expected value of terms
-            of the energy function that:
-                -involve this layer only
-                -if there is a layer below, include terms that
-                 involve both this layer and the layer below
-            Do not include terms that involve the layer below only.
-            Do not include any terms that involve the layer above, if it
-            exists, in any way (the interface doesn't let you see the layer
-            above anyway).
-
-            state_below: the upward state of the layer below.
-            state: the total state of this layer
-
-            average_below: if True, the layer below is one of the variables to
-                integrate over in the expectation, and state_below gives its
-                variational parameters. if False, that layer is to be held constant
-                and state_below gives a set of assignments to it
-            average: like average_below, but for 'state' rather than 'state_below'
-
-            returns: a 1-d theano tensor giving the expected energy term for each example
-
-
-        """
-        raise NotImplementedError(str(type(self))+" does not implement expected_energy_term.")
-
-
-class SuperDBM_HidLayer(SuperDBM_Layer, HiddenLayer):
-    pass
-
-
-class GaussianConvolutionalVisLayer(SuperDBM_Layer):
+class GaussianConvolutionalVisLayer(Layer):
     def __init__(self,
             rows,
             cols,
@@ -1276,7 +1236,7 @@ class GaussianConvolutionalVisLayer(SuperDBM_Layer):
 
 
 
-class ConvMaxPool(SuperDBM_HidLayer):
+class ConvMaxPool(HiddenLayer):
     def __init__(self,
              output_channels,
             kernel_rows,
@@ -1598,7 +1558,7 @@ class ConvMaxPool(SuperDBM_HidLayer):
         return rval
 
 
-class DenseMaxPool(SuperDBM_HidLayer, BinaryVectorMaxPool):
+class DenseMaxPool(BinaryVectorMaxPool):
 
     def expected_energy_term(self, state, average, state_below, average_below):
 
@@ -1729,7 +1689,7 @@ class Verify(theano.gof.Op):
         raise NotImplementedError()
 """
 
-class Softmax(SuperDBM_HidLayer):
+class Softmax(HiddenLayer):
     def __init__(self, n_classes, layer_name, irange = None,
                  sparse_init = None, W_lr_scale = None):
 
@@ -2221,7 +2181,7 @@ def ditch_mu(model):
     model.visible_layer.mu = None
     return model
 
-class _DummyVisible(SuperDBM_Layer):
+class _DummyVisible(Layer):
     """ Hack used by LayerAsClassifier"""
     def upward_state(self, total_state):
         return total_state
@@ -2246,7 +2206,7 @@ class LayerAsClassifier(SuperDBM):
     def get_input_space(self):
         return self.space
 
-class CompositeLayer(SuperDBM_HidLayer):
+class CompositeLayer(HiddenLayer):
     """
         A Layer constructing by aligning several other Layer
         objects side by side
@@ -2450,7 +2410,7 @@ class CompositeLayer(SuperDBM_HidLayer):
         return rval
 
 
-class BinaryVisLayer(SuperDBM_Layer, dbm.BinaryVector):
+class BinaryVisLayer(Layer, dbm.BinaryVector):
 
 
     def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
