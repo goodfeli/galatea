@@ -178,47 +178,6 @@ class SuperDBM(DBM):
         for layer in self.hidden_layers:
             layer.censor_updates(updates)
 
-    def energy(self, V, hidden):
-        """
-            V: a theano batch of visible unit observations
-                (must be SAMPLES, not mean field parameters)
-            hidden: a list, one element per hidden layer, of
-                batches of samples
-                (must be SAMPLES, not mean field parameters)
-
-            returns: a vector containing the energy of each
-                    sample.
-
-            Applying this function to non-sample theano variables
-            is not guaranteed to give you an expected energy
-            in general, so don't use this that way.
-        """
-
-        terms = []
-
-        terms.append(self.visible_layer.expected_energy_term(state = V, average=False))
-
-        assert len(self.hidden_layers) > 0 # this could be relaxed, but current code assumes it
-
-        terms.append(self.hidden_layers[0].expected_energy_term(
-            state_below = self.visible_layer.upward_state(V),
-            state = hidden[0], average_below=False, average=False))
-
-        for i in xrange(1, len(self.hidden_layers)):
-            layer = self.hidden_layers[i]
-            samples_below = hidden[i-1]
-            layer_below = self.hidden_layers[i-1]
-            samples_below = layer_below.upward_state(samples_below)
-            samples = hidden[i]
-            terms.append(layer.expected_energy_term(state_below=samples_below, state=samples,
-                average_below=False, average=False))
-
-        assert len(terms) > 0
-
-        rval = reduce(lambda x, y: x + y, terms)
-
-        assert rval.ndim == 1
-        return rval
 
 
     def expected_energy(self, V, mf_hidden):
@@ -1558,7 +1517,7 @@ class ConvMaxPool(HiddenLayer):
         return rval
 
 
-class DenseMaxPool(BinaryVectorMaxPool):
+DenseMaxPool = BinaryVectorMaxPool
 
 
 
