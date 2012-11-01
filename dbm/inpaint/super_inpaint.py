@@ -80,6 +80,16 @@ class SuperInpaint(Cost):
                 rval[mod_key] = d[key]
 
         if self.supervised:
+            inpaint_Y_hat = history[-1]['H_hat'][-1]
+            err = T.neq(T.argmax(inpaint_Y_hat, axis=1), T.argmax(Y, axis=1))
+            assert err.ndim == 1
+            assert drop_mask_Y.ndim == 1
+            err =  T.dot(err, drop_mask_Y) / drop_mask_Y.sum()
+            if err.dtype != inpaint_Y_hat.dtype:
+                err = T.cast(err, inpaint_Y_hat.dtype)
+
+            rval['inpaint_err'] = err
+
             Y_hat = model.mf(X)[-1]
 
             Y = T.argmax(Y, axis=1)
@@ -88,14 +98,11 @@ class SuperInpaint(Cost):
             argmax = T.argmax(Y_hat,axis=1)
             if argmax.dtype != Y_hat.dtype:
                 argmax = T.cast(argmax, Y_hat.dtype)
-            neq = T.neq(Y , argmax).mean()
-            if neq.dtype != Y_hat.dtype:
-                neq = T.cast(neq, Y_hat.dtype)
-            acc = 1.- neq
+            err = T.neq(Y , argmax).mean()
+            if err.dtype != Y_hat.dtype:
+                err = T.cast(err, Y_hat.dtype)
 
-            assert acc.dtype == Y_hat.dtype
-
-            rval.update( { 'acc' : acc, 'err' : 1. - acc })
+            rval.update( {  'err' : err })
 
 
         return rval
