@@ -20,7 +20,6 @@ from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 import time
 from pylearn2.costs.cost import Cost
-from pylearn2.expr.nnet import inverse_sigmoid_numpy
 from pylearn2.expr.nnet import sigmoid_numpy
 from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
@@ -28,10 +27,10 @@ from galatea.theano_upgrades import _ElemwiseNoGradient
 from theano import config
 io = None
 from pylearn2.training_callbacks.training_callback import TrainingCallback
+from pylearn2.models.dbm import DBM
+from pylearn2.models.dbm import DBM_Layer
+from pylearn2.models import dbm
 
-warnings.warn('super_dbm changing the recursion limit')
-import sys
-sys.setrecursionlimit(40000) # 50000 allowed seg fault on eos3
 def flatten(l):
     rval = []
     for elem in l:
@@ -51,26 +50,9 @@ def block(l):
         return tuple(new)
     return new
 
-class SuperDBM(Model):
+class SuperDBM(DBM):
 
-    def __init__(self,
-            batch_size,
-            visible_layer,
-            hidden_layers,
-            niter):
-        self.__dict__.update(locals())
-        del self.self
-        assert len(hidden_layers) >= 1
-        self.setup_rng()
-        self.layer_names = set()
-        for layer in hidden_layers:
-            assert layer.get_dbm() is None
-            layer.set_dbm(self)
-            assert layer.layer_name not in self.layer_names
-            self.layer_names.add(layer.layer_name)
-        self._update_layer_input_spaces()
-        self.force_batch_size = batch_size
-        self.freeze_set = set([])
+    # Constructor is handled by DBM superclass
 
     def add_polyak_channels(self, param_to_mean, monitoring_dataset):
         """
@@ -1041,18 +1023,8 @@ class SuperDBM(Model):
         return self.batch_size
 
 
-class SuperDBM_Layer(Model):
+class SuperDBM_Layer(DBM_Layer):
 
-    def get_dbm(self):
-        if hasattr(self, 'dbm'):
-            return self.dbm
-        return None
-
-    def set_dbm(self, dbm):
-        self.dbm = dbm
-
-    def get_monitoring_channels_from_state(self, state):
-        return {}
 
     def expected_energy_term(self, state,
                                    average,
@@ -1086,64 +1058,6 @@ class SuperDBM_Layer(Model):
         """
         raise NotImplementedError(str(type(self))+" does not implement expected_energy_term.")
 
-    def upward_state(self, total_state):
-        """
-            Takes total_state and turns it into the state that layer_above should
-            see when computing P( layer_above | this_layer).
-
-            So far this has two uses:
-                If this layer consists of a detector sub-layer h that is pooled
-                into a pooling layer p, then total_state = (p,h) but
-                layer_above should only see p.
-
-                If the conditional P( layer_above | this_layer) depends on
-                parameters of this_layer, sometimes you can play games with
-                the state to avoid needing the layers to communicate. So far
-                the only instance of this usage is when the visible layer
-                is N( Wh, beta). This makes the hidden layer be
-                sigmoid( v beta W + b). Rather than having the hidden layer
-                explicitly know about beta, we can just pass v beta as
-                the upward state.
-
-            Note: this method should work both for computing sampling updates
-            and for computing mean field updates. So far I haven't encountered
-            a case where it needs to do different things for those two
-            contexts.
-        """
-        return total_state
-
-    def make_state(self, num_examples, numpy_rng):
-        """ Returns a shared variable containing an actual state
-           (not a mean field state) for this variable.
-        """
-
-        raise NotImplementedError("%s doesn't implement make_state" %
-                type(self))
-
-    def get_sampling_updates(self, state_below = None, state_above = None,
-            layer_above = None,
-            theano_rng = None):
-        """
-
-            state_below is layer_below.upward_state(full_state_below)
-            where full_state_below is the same kind of object as you get
-            out of layer_below.make_state
-
-            state_above is layer_above.downward_state(full_state_above)
-
-            theano_rng is an MRG_RandomStreams instance
-
-            Returns an expression for samples of this layer's state,
-            conditioned on the layers above and below
-            Should be valid as an update to the shared variable returned
-            by self.make_state
-
-            Note: this can return multiple expressions if this layer's
-            total state consists of more than one shared variable
-        """
-
-        raise NotImplementedError("%s doesn't implement get_sampling_updates" %
-                type(self))
 
 class SuperDBM_HidLayer(SuperDBM_Layer):
 
@@ -2832,59 +2746,8 @@ class CompositeLayer(SuperDBM_HidLayer):
         return rval
 
 
-class BinaryVisLayer(SuperDBM_Layer):
-    """
+class BinaryVisLayer(SuperDBM_Layer, dbm.BinaryVisLayer):
 
-    """
-
-    def __init__(self,
-            nvis,
-            bias_from_marginals = None):
-        """
-            Implements a visible layer consisting of binary-valued random
-            variable. The layer lives in a VectorSpace.
-
-            nvis: the dimension of the space
-            bias_from_marginals: a dataset, whose marginals are used to
-                            initialize the visible biases
-
-        """
-
-        self.__dict__.update(locals())
-        del self.self
-        # Don't serialize the dataset
-        del self.bias_from_marginals
-
-        self.space = VectorSpace(nvis)
-        self.input_space = self.space
-
-        origin = self.space.get_origin()
-
-        if bias_from_marginals is None:
-            init_bias = np.zeros((nvis,))
-        else:
-            X = bias_from_marginals.get_design_matrix()
-            assert X.max() == 1.
-            assert X.min() == 0.
-            assert not np.any( (X > 0.) * (X < 1.) )
-
-            mean = X.mean(axis=0)
-
-            mean = np.clip(mean, 1e-7, 1-1e-7)
-
-            init_bias = inverse_sigmoid_numpy(mean)
-
-        self.bias = sharedX(init_bias, 'visible_bias')
-
-    def get_biases(self):
-        return self.bias.get_value()
-
-    def set_biases(self, biases):
-        self.bias.set_value(biases)
-
-
-    def get_params(self):
-        return set([self.bias])
 
     def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
 
@@ -2948,21 +2811,6 @@ class BinaryVisLayer(SuperDBM_Layer):
 
         return rval
 
-    def get_sampling_updates(self, state_below = None, state_above = None,
-            layer_above = None,
-            theano_rng = None):
-
-        assert state_below is None
-        msg = layer_above.downward_message(state_above)
-
-        z = msg + self.bias
-
-        phi = T.nnet.sigmoid(z)
-
-        rval = theano_rng.binomial(size = phi.shape, p = phi, dtype = phi.dtype,
-                       n = 1 )
-
-        return rval
 
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
 
@@ -3000,15 +2848,6 @@ class BinaryVisLayer(SuperDBM_Layer):
         return masked_cost.mean()
 
 
-    def make_state(self, num_examples, numpy_rng):
-
-        driver = numpy_rng.uniform(0.,1., (num_examples, self.nvis))
-        mean = sigmoid_numpy(self.bias.get_value())
-        sample = driver < mean
-
-        rval = sharedX(sample, name = 'v_sample_shared')
-
-        return rval
 
     def expected_energy_term(self, state, average, state_below = None, average_below = None):
 
