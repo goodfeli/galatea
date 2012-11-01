@@ -3429,11 +3429,18 @@ class MLP_Wrapper(Model):
             assert not train_rnn_y
 
         self.force_batch_size = super_dbm.force_batch_size
-        assert len(super_dbm.hidden_layers) == 3
-        l1, l2, c = super_dbm.hidden_layers
+        if len(super_dbm.hidden_layers) == 3:
+            self.orig_sup = True
+            l1, l2, c = super_dbm.hidden_layers
+        else:
+            self.orig_sup = False
+            assert not decapitate # can't decapitate the already headless
+            assert final_irange is not None
+            l1, l2 = super_dbm.hidden_layers
         assert isinstance(l1, DenseMaxPool)
         assert isinstance(l2, DenseMaxPool)
-        assert isinstance(c, Softmax)
+        if self.orig_sup:
+            assert isinstance(c, Softmax)
 
         self._params = []
 
@@ -3462,11 +3469,12 @@ class MLP_Wrapper(Model):
             self.c = c
             del super_dbm.hidden_layers[-1]
         else:
-            self.c = Softmax(n_classes = c.n_classes, irange = 0., layer_name = 'final_output')
-            self.c.dbm = c.dbm
-            self.c.set_input_space(c.input_space)
-            self.c.set_weights(c.get_weights())
-            self.c.set_biases(c.get_biases())
+            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output')
+            self.c.dbm = l1.dbm
+            self.c.set_input_space(l2.get_output_space())
+            if self.orig_sup:
+                self.c.set_weights(c.get_weights())
+                self.c.set_biases(c.get_biases())
         self._params.extend(self.c.get_params())
 
         if train_rnn_y:
@@ -3474,7 +3482,8 @@ class MLP_Wrapper(Model):
             self._params.extend(c.get_params())
 
         if final_irange is not None:
-            del c # Make sure we don't modify the feature-generating RNN
+            if self.orig_sup:
+                del c # Make sure we don't modify the feature-generating RNN
             W = self.c.dbm.rng.uniform(-final_irange, final_irange,
                     (self.c.input_space.get_total_dimension(),
                         self.c.n_classes))
@@ -3526,7 +3535,7 @@ class MLP_Wrapper(Model):
             q[1] = (q[1], q[1])
         if not hasattr(self, 'decapitate'):
             self.decapitate = True
-        if self.decapitate:
+        if self.decapitate or not self.orig_sup:
             _, H2 = q
         else:
             _, H2, y = q
