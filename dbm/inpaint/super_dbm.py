@@ -1711,7 +1711,6 @@ class BinaryVisLayer(dbm.BinaryVector):
         if drop_mask is not None:
             rval = drop_mask * unmasked + (1-drop_mask) * V
         else:
-            assert False # this is just for debugging, remove it if it seems wrong
             rval = unmasked
 
         rval.name = 'inpainted_V[unknown_iter]'

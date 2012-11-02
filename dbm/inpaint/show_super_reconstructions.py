@@ -44,11 +44,17 @@ mapback = hasattr(dataset, 'mapback_for_viewer')
 pv = PatchViewer((rows,2*cols*(1+mapback)), (patch_rows,patch_cols), is_color = (channels==3))
 
 batch = model.visible_layer.space.make_theano_batch()
+topo = batch.ndim > 2
 reconstruction = model.reconstruct(batch)
 recons_func = function([batch], reconstruction)
 
 def show():
-    recons_batch = recons_func(vis_batch.copy())
+    ipt = vis_batch.copy()
+    if not topo:
+        ipt = dataset.get_design_matrix(ipt)
+    recons_batch = recons_func(ipt)
+    if not topo:
+        recons_batch = dataset.get_topological_view(recons_batch)
     if mapback:
         design_vis_batch = vis_batch
         if design_vis_batch.ndim != 2:
@@ -91,9 +97,10 @@ def show():
     pv.show()
 
 
-beta = model.visible_layer.beta.get_value()
-#model.visible_layer.beta.set_value(beta * 100.)
-print 'beta: ',(beta.min(), beta.mean(), beta.max())
+if hasattr(model.visible_layer, 'beta'):
+    beta = model.visible_layer.beta.get_value()
+    #model.visible_layer.beta.set_value(beta * 100.)
+    print 'beta: ',(beta.min(), beta.mean(), beta.max())
 
 while True:
     show()

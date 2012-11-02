@@ -302,7 +302,6 @@ class MaskGen:
         return drop_mask
 
 
-
 class SuperDenoise(Cost):
     """
         Implements Score Matching Denoising for RBMs

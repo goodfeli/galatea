@@ -18,18 +18,18 @@
                init_momentum: .5,
                monitoring_batches : 10,
                monitoring_dataset : { '10_train_batches' : *data },
-               cost : #!obj:pylearn2.costs.cost.SumOfCosts {
-                #costs: [
+               cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs: [
                 !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
                            supervised: 1,
                            num_chains: 100,
                            num_gibbs_steps: 5
                         },
-                 #       !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
-                  #        coeffs: [ .0005, .0005, .0005 ]
-                   #     }
-                    #   ]
-          # }
+                        !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                          coeffs: [ .0005, .0005, .0005 ]
+                        }
+                       ]
+           }
         },
     callbacks: [
             !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
@@ -40,12 +40,12 @@
             !obj:pylearn2.training_algorithms.sgd.OneOverEpoch {
                 start: 0,
                 half_life: 10
+            },
+            !obj:pylearn2.training_algorithms.sgd.PolyakAveraging {
+                start: 0,
+                save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_polyak.pkl",
+                save_freq: 1
             }
-            #!obj:pylearn2.training_algorithms.sgd.PolyakAveraging {
-            #    start: 100,
-            #    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_polyak.pkl",
-            #    save_freq: 1
-            #}
     ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
     save_freq : 1
