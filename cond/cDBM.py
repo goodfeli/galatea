@@ -38,6 +38,15 @@ class cDBM(Model):
         H2 = T.nnet.sigmoid(T.dot(H1,self.W2)+self.b2)
         return T.dot(H2,self.W3)+self.b3
 
+    def dropout(self, X):
+        from theano.sandbox.rng_mrg import MRG_RandomStreams
+        theano_rng = MRG_RandomStreams(42)
+        H1 = T.nnet.sigmoid(T.dot(X,self.W1)+self.b1)
+        H1 *= theano_rng.binomial(p=0.5,dtype=H1.dtype,size=H1.shape,n=1)
+        H2 = T.nnet.sigmoid(T.dot(H1,self.W2)+self.b2)
+        H2 *= theano_rng.binomial(p=0.5,dtype=H2.dtype,size=H2.shape,n=1)
+        return T.dot(H2,self.W3)+self.b3
+
     def mfny(self,X):
         H1 = T.nnet.sigmoid(T.dot(X,self.W1)+self.b1)
         H2 = T.nnet.sigmoid(T.dot(H1,self.W2)+self.b2)
