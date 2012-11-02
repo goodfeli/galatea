@@ -2045,19 +2045,6 @@ class BinaryVisLayer(dbm.BinaryVector):
 
 
 
-    def expected_energy_term(self, state, average, state_below = None, average_below = None):
-
-        assert state_below is None
-        assert average_below is None
-        assert average in [True, False]
-        self.space.validate(state)
-
-        # Energy function is linear so it doesn't matter if we're averaging or not
-        rval = -T.dot(state, self.bias)
-
-        assert rval.ndim == 1
-
-        return rval
 
 class DBM_PCD(Cost):
     """
