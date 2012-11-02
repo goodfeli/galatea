@@ -1,0 +1,65 @@
+# Like B4 but without shuffling the data prior to making the train/valid split
+!obj:pylearn2.scripts.train.Train {
+    dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        binarize: 1,
+        one_hot: 1,
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+                   model: !pkl: "${USERDIR}/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_H.pkl",
+                   name: 'monitor_subtrain'
+    },
+    algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               monitoring_dataset : {
+                        'train': *train,
+                        'valid': !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                binarize: 1,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            },
+               },
+               line_search_mode: 'exhaustive',
+               init_alpha : [0.0256, .128, .256, 1.28, 2.56],
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               max_iter: 5,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                       costs :[
+                               !obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost
+                               {
+                                        targets: [  .06, .06, ],
+                                        eps:     [  .04,  .04, ],
+                                        coeffs:  [ .01,  .01,  ]
+                               },
+                               !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                                        both_directions : 0,
+                                        noise : 0,
+                                        supervised: 0
+                               }
+                       ]
+               },
+               mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.5,
+                        balance: 0,
+                        sync_channels: 0
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel
+               {
+                        channel_name:      "valid_objective",
+                        prev_channel_name: "train_objective",
+                        prev_monitor_name: "monitor_subtrain"
+               }
+        },
+    callbacks: [
+                !obj:pylearn2.training_callbacks.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_objective",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+
