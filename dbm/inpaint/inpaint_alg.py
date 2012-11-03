@@ -29,7 +29,8 @@ class InpaintAlgorithm(object):
                  max_iter = 5, suicide = False, init_alpha = None,
                  reset_alpha = True, conjugate = False, reset_conjugate = True,
                  termination_criterion = None, set_batch_size = False,
-                 line_search_mode = None, min_init_alpha = None):
+                 line_search_mode = None, min_init_alpha = 1e-3,
+                 duplicate = 1):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -215,12 +216,13 @@ class InpaintAlgorithm(object):
                 assert (model.force_batch_size <= 0 or batch_size ==
                         model.force_batch_size)
 
+        assert self.batch_size % self.duplicate == 0
         rng = self.rng
         train_iteration_mode = 'shuffled_sequential'
         if not is_stochastic(train_iteration_mode):
             rng = None
         iterator = dataset.iterator(mode=train_iteration_mode,
-                batch_size=self.batch_size,
+                batch_size=self.batch_size // self.duplicate,
                 num_batches=self.batches_per_iter,
                 targets=self.cost.supervised,
                 topo=self.X.ndim != 2,
@@ -229,11 +231,16 @@ class InpaintAlgorithm(object):
         for data in iterator:
             if self.cost.supervised:
                 X, Y = data
+                if self.duplicate > 1:
+                    Y = np.concatenate([Y] * self.duplicate, axis=0)
                 self.Y.set_value(Y)
             else:
                 X = data
 
+            if self.duplicate > 1:
+                X = np.concatenate([X] * self.duplicate, axis=0)
             self.X.set_value(X)
+
             self.update_mask()
             self.optimizer.minimize()
             actual_batch_size = X.shape[0]
