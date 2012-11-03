@@ -19,6 +19,7 @@ class SuperInpaint(Cost):
                     both_directions = False,
                     l1_act_coeffs = None,
                     l1_act_targets = None,
+                    l1_act_eps = None,
                     supervised = False,
                     niter = None,
                     block_grad = None
@@ -217,10 +218,16 @@ class SuperInpaint(Cost):
         total_cost = inpaint_cost
 
         if self.l1_act_targets is not None:
-            for layer, mf_state, targets, coeffs in safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs):
+            for layer, mf_state, targets, coeffs, eps in safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs, self.l1_act_eps):
                 assert not isinstance(targets, str)
 
-                layer_cost = layer.get_l1_act_cost(mf_state, targets, coeffs)
+                try:
+                    layer_cost = layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
+                except NotImplementedError:
+                    if coeffs == 0.:
+                        layer_cost = 0.
+                    else:
+                        raise
                 if layer_cost != 0.:
                     total_cost += layer_cost
                 #for H, t, c in zip(mf_state, targets, coeffs):
@@ -316,7 +323,8 @@ class SuperDenoise(Cost):
     def __init__(self,
                     noise_precision = 1.,
                     l1_act_coeffs = None,
-                    l1_act_targets = None
+                    l1_act_targets = None,
+                    l1_act_eps = None
                     ):
         self.__dict__.update(locals())
         del self.self
@@ -419,22 +427,20 @@ class SuperDenoise(Cost):
         total_cost = smd_cost
 
         if self.l1_act_targets is not None:
-            for mf_state, targets, coeffs in safe_izip(state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs):
+            for mf_state, targets, coeffs, eps, layer in safe_izip(state['H_hat'] ,
+                    self.l1_act_targets, self.l1_act_coeffs, self.l1_act_eps, dbm.hidden_layers):
                 assert not isinstance(targets, str)
                 if not isinstance(targets, (list, tuple)):
                     assert not isinstance(mf_state, (list, tuple))
                     mf_state = [ mf_state ]
                     targets = [ targets ]
                     coeffs = [ coeffs ]
-
-                for H, t, c in safe_izip(mf_state, targets, coeffs):
-                    if c == 0.:
-                        continue
-                    axes = (0,2,3) # all but channel axis
-                                  # this assumes bc01 format
-                    h = H.mean(axis=axes)
-                    assert h.ndim == 1
-                    total_cost += c * abs(h - t).mean()
+                    eps = [ eps ]
+                total_cost += layer.get_l1_activation_cost(
+                        state = mf_state,
+                        targets = targets,
+                        coeffs = coeffs,
+                        eps = eps)
                 # end for substates
             # end for layers
         # end if act penalty
