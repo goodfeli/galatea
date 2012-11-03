@@ -25,18 +25,11 @@ io = None
 from pylearn2.training_callbacks.training_callback import TrainingCallback
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
+from pylearn2.models.dbm import flatten
 from pylearn2.models.dbm import Layer
 from pylearn2.models.dbm import HiddenLayer
 from pylearn2.models import dbm
 
-def flatten(l):
-    rval = []
-    for elem in l:
-        if isinstance(elem, (list, tuple)):
-            rval.extend(flatten(elem))
-        else:
-            rval.append(elem)
-    return rval
 def block(l):
     new = []
     for elem in l:
@@ -1791,22 +1784,6 @@ class DBM_PCD(Cost):
 
         history = model.mf(X, return_history = True)
         q = history[-1]
-
-        if len(history) > 1:
-            prev_q = history[-2]
-
-            flat_q = flatten(q)
-            flat_prev_q = flatten(prev_q)
-
-            mx = None
-            for new, old in safe_zip(flat_q, flat_prev_q):
-                cur_mx = abs(new - old).max()
-                if mx is None:
-                    mx = cur_mx
-                else:
-                    mx = T.maximum(mx, cur_mx)
-
-            rval['max_var_param_diff'] = mx
 
         if self.supervised:
             assert Y is not None
