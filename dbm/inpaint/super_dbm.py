@@ -57,7 +57,7 @@ class SuperDBM(DBM):
                 assert False
 
         X = self.get_input_space().make_batch_theano()
-        if isinstance(self.hidden_layers[-1], Softmax):
+        if isinstance(self.hidden_layers[-1], dbm.Softmax):
             Y = T.matrix()
 
             Y_hat = self.mf(X)[-1]
@@ -1340,7 +1340,7 @@ class SuperDBM_ConditionalNLL(Cost):
         self.__dict__.update(locals())
 
     def Y_hat(self, model, X, niter = None):
-        assert isinstance(model.hidden_layers[-1], Softmax)
+        assert isinstance(model.hidden_layers[-1], dbm.Softmax)
         Y_hat = model.mf(X, niter = niter, block_grad = self.block_grad)[-1]
         Y_hat.name = 'Y_hat'
 
@@ -1813,7 +1813,7 @@ class DBM_PCD(Cost):
             assert Y is not None
             # note: if the Y layer changes to something without linear energy,
             # we'll need to make the expected energy clamp Y in the positive phase
-            assert isinstance(model.hidden_layers[-1], Softmax)
+            assert isinstance(model.hidden_layers[-1], dbm.Softmax)
 
 
 
@@ -2155,7 +2155,7 @@ class MLP_Wrapper(Model):
         assert isinstance(l1, DenseMaxPool)
         assert isinstance(l2, DenseMaxPool)
         if self.orig_sup:
-            assert isinstance(c, Softmax)
+            assert isinstance(c, dbm.Softmax)
 
         self._params = []
 
