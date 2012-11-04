@@ -1,8 +1,8 @@
-# Same as D3, just giving it a different name to race two machines.
-# D3 is running on briaree, D3A on eos3
+# Few dropped pixels, no noise
 !obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
+        shuffle: 0,
         binarize: 1,
         one_hot: 1,
         start: 0,
@@ -43,6 +43,7 @@
                         'train': *train,
                         'valid': !obj:pylearn2.datasets.mnist.MNIST {
                                 which_set: "train",
+                                shuffle: 0,
                                 binarize: 1,
                                 one_hot: 1,
                                 start: 50000,
@@ -51,34 +52,37 @@
                },
                line_search_mode: 'exhaustive',
                init_alpha : [0.0256, .128, .256, 1.28, 2.56],
-               min_init_alpha: .001,
                reset_alpha: 0,
                conjugate: 1,
                reset_conjugate: 0,
                max_iter: 5,
                cost: !obj:pylearn2.costs.cost.SumOfCosts {
                        costs :[
+                               !obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost
+                               {
+                                        targets: [  .06, .06, 0. ],
+                                        eps:     [  .04,  .04, 0. ],
+                                        coeffs:  [ .01,  .001, 0.  ]
+                               },
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
-                                        both_directions : 1,
-                                        noise : 1,
-                                        supervised: 1,
-                                        niter: 25,
-                                        block_grad: 19,
-                                        l1_act_targets: [  .06, .06, 0. ],
-                                        l1_act_eps:     [  .04,  .04, 0. ],
-                                        l1_act_coeffs:  [ .01,  .01, 0.  ]
+                                        both_directions : 0,
+                                        noise : 0,
+                                        supervised: 1
+                               },
+                               !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                                        coeffs: [ .0000005, .0000005, .0000005 ]
                                }
                        ]
                },
                mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
-                        drop_prob: 0.5,
+                        drop_prob: 0.1,
                         balance: 0,
                         sync_channels: 0
                },
                termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
                {
                         channel_name: "valid_objective",
-                        N: 10,
+                        N: 15,
                         prop_decrease: 0.
                }
         },

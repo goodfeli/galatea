@@ -1,11 +1,5 @@
-<<<<<<< HEAD
 # Like B4 but without shuffling the data prior to making the train/valid split
-!obj:pylearn2.scripts.train.Train {
-=======
-# Same as D3, just giving it a different name to race two machines.
-# D3 is running on briaree, D3A on eos3
 !obj:pylearn2.train.Train {
->>>>>>> eeca6a609470487830dc89b847393a93c838e954
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
         binarize: 1,
@@ -13,35 +7,9 @@
         start: 0,
         stop: 50000
     },
-    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-              batch_size : 1250,
-              niter: 6, #note: since we have to backprop through the whole thing, this does
-                         #increase the memory usage
-              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
-                nvis: 784,
-                bias_from_marginals: *train,
-              },
-              hidden_layers: [
-                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        detector_layer_dim: 500,
-                        pool_size: 1,
-                        irange: 0.05,
-                        layer_name: 'h0',
-                        init_bias: 0.
-               },
-                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        detector_layer_dim: 1000,
-                        pool_size: 1,
-                        irange: 0.05,
-                        layer_name: 'h1',
-                        init_bias: 0.
-               },
-               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
-                        irange: .03,
-                        layer_name: 'c',
-                        n_classes: 10
-               }
-              ]
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "${USERDIR}/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_D6.pkl",
+        name: 'monitor_first'
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
                monitoring_dataset : {
@@ -72,10 +40,10 @@
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
                                         both_directions : 1,
                                         noise : 1,
-                                        supervised: 1,
-                                        niter: 25,
-                                        block_grad: 19,
-                               }
+                                        supervised: 1
+                               },
+                               !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+                               },
                        ]
                },
                mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
@@ -83,12 +51,12 @@
                         balance: 0,
                         sync_channels: 0
                },
-               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
-               {
-                        channel_name: "valid_objective",
-                        N: 10,
-                        prop_decrease: 0.
-               }
+               #termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               #{
+               #         channel_name: "valid_objective",
+               #         N: 10,
+               #         prop_decrease: 0.
+               #}
         },
     callbacks: [
                 !obj:pylearn2.training_callbacks.best_params.MonitorBasedSaveBest {
