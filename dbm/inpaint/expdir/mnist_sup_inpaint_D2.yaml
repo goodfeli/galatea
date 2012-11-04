@@ -1,5 +1,5 @@
 # Like B4 but without shuffling the data prior to making the train/valid split
-!obj:pylearn2.scripts.train.Train {
+!obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
         binarize: 1,

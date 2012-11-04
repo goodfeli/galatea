@@ -1,4 +1,6 @@
-# Like B4 but without shuffling the data prior to making the train/valid split
+# Like D1
+# but with
+# a different InfrenceProcedure
 !obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
@@ -9,6 +11,7 @@
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
               batch_size : 1250,
+              inference_procedure: !obj:galatea.dbm.inpaint.super_dbm.BiasInit {},
               niter: 6, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
@@ -67,9 +70,7 @@
                                         both_directions : 1,
                                         noise : 1,
                                         supervised: 1
-                               },
-                               !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
-                               },
+                               }
                        ]
                },
                mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
