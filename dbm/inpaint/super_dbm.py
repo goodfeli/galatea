@@ -2476,3 +2476,254 @@ class BiasInit(InferenceProcedure):
             if Y is not None:
                 return V_hat, Y_hat
             return V_hat
+
+class UpDown(InferenceProcedure):
+    """
+    An InferenceProcedure that initializes the mean field parameters based on the
+    biases in the model, then alternates between updating each of the layers bottom-to-top
+    and updating each of the layers top-to-bottom.
+    """
+
+    def mf(self, V, Y = None, return_history = False, niter = None, block_grad = None):
+
+        dbm = self.dbm
+
+        assert Y not in [True, False, 0, 1]
+        assert return_history in [True, False, 0, 1]
+
+        if Y is not None:
+            dbm.hidden_layers[-1].get_output_space().validate(Y)
+
+        if niter is None:
+            niter = dbm.niter
+
+        H_hat = [None] + [layer.init_mf_state() for layer in dbm.hidden_layers[1:]]
+
+        # Make corrections for if we're also running inference on Y
+        if Y is not None:
+            # Last layer is clamped to Y
+            H_hat[-1] = Y
+
+        history = [ list(H_hat) ]
+
+        #we only need recurrent inference if there are multiple layers
+        assert (niter > 1) == (len(dbm.hidden_layers) > 1)
+
+        for i in xrange(niter):
+            # Determine whether to go up or down on this iteration
+            if i % 2 == 0:
+                start = 0
+                stop = len(H_hat)
+                inc = 1
+            else:
+                start = len(H_hat) - 1
+                stop = -1
+                inc = -1
+            # Do the mean field updates
+            for j in xrange(start, stop, inc):
+                if j == 0:
+                    state_below = dbm.visible_layer.upward_state(V)
+                else:
+                    state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    layer_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                if Y is not None:
+                    H_hat[-1] = Y
+
+            for j in xrange(1,len(H_hat),2):
+                state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    state_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                #end ifelse
+            #end for odd layer
+
+            if Y is not None:
+                H_hat[-1] = Y
+
+            if block_grad == i + 1:
+                H_hat = block(H_hat)
+
+            history.append(list(H_hat))
+        # end for mf iter
+
+        # Run some checks on the output
+        for layer, state in safe_izip(dbm.hidden_layers, H_hat):
+            upward_state = layer.upward_state(state)
+            layer.get_output_space().validate(upward_state)
+        if Y is not None:
+            assert all([elem[-1] is Y for elem in history])
+            assert H_hat[-1] is Y
+
+        if return_history:
+            return history
+        else:
+            return H_hat
+
+    def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
+            return_history = False, noise = False, niter = None, block_grad = None):
+        """
+            Gives the mean field expression for units masked out by drop_mask.
+            Uses self.niter mean field updates.
+
+            Comes in two variants, unsupervised and supervised:
+                unsupervised:
+                    Y and drop_mask_Y are not passed to the method.
+                    The method produces V_hat, an inpainted version of V
+                supervised:
+                    Y and drop_mask_Y are passed to the method.
+                    The method produces V_hat and Y_hat
+
+            V: a theano batch in model.input_space
+            Y: a theano batch in model.output_space, ie, in the output
+                space of the last hidden layer
+                (it's not really a hidden layer anymore, but oh well.
+                it's convenient to code it this way because the labels
+                are sort of "on top" of everything else)
+                *** Y is always assumed to be a matrix of one-hot category
+                labels. ***
+            drop_mask: a theano batch in model.input_space
+                Should be all binary, with 1s indicating that the corresponding
+                element of X should be "dropped", ie, hidden from the algorithm
+                and filled in as part of the inpainting process
+            drop_mask_Y: a theano vector
+                Since we assume Y is a one-hot matrix, each row is a single
+                categorical variable. drop_mask_Y is a binary mask specifying
+                which *rows* to drop.
+        """
+
+        dbm = self.dbm
+
+        warnings.warn("""Should add unit test that calling this with a batch of
+                different inputs should yield the same output for each if noise
+                is False and drop_mask is all 1s""")
+
+        if niter is None:
+            niter = dbm.niter
+
+
+        assert drop_mask is not None
+        assert return_history in [True, False]
+        assert noise in [True, False]
+        if Y is None:
+            if drop_mask_Y is not None:
+                raise ValueError("do_inpainting got drop_mask_Y but not Y.")
+        else:
+            if drop_mask_Y is None:
+                raise ValueError("do_inpainting got Y but not drop_mask_Y.")
+
+        if Y is not None:
+            assert isinstance(dbm.hidden_layers[-1], Softmax)
+            if drop_mask_Y.ndim != 1:
+                raise ValueError("do_inpainting assumes Y is a matrix of one-hot labels,"
+                        "so each example is only one variable. drop_mask_Y should "
+                        "therefore be a vector, but we got something with ndim " +
+                        str(drop_mask_Y.ndim))
+            drop_mask_Y = drop_mask_Y.dimshuffle(0, 'x')
+
+        orig_V = V
+        orig_drop_mask = drop_mask
+
+        history = []
+
+        V_hat, V_hat_unmasked = dbm.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
+        assert V_hat_unmasked.ndim > 1
+
+        H_hat = [None] + [layer.init_mf_state() for layer in dbm.hidden_layers[1:]]
+
+        if Y is not None:
+            Y_hat_unmasked = dbm.hidden_layers[-1].init_inpainting_state(Y, noise)
+            Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
+            H_hat[-1] = Y_hat
+
+        def update_history():
+            assert V_hat_unmasked.ndim > 1
+            d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            if Y is not None:
+                d['Y_hat_unmasked'] = Y_hat_unmasked
+                d['Y_hat'] = H_hat[-1]
+            history.append( d )
+
+        update_history()
+
+        for i in xrange(niter):
+
+            if i % 2 == 0:
+                start = 0
+                stop = len(H_hat)
+                inc = 1
+                V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
+                        state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
+                        layer_above = dbm.hidden_layers[0],
+                        V = V,
+                        drop_mask = drop_mask, return_unmasked = True)
+                V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
+            else:
+                start = len(H_hat) - 1
+                stop = -1
+                inc = -1
+            for j in xrange(start, stop, inc):
+                if j == 0:
+                    state_below = dbm.visible_layer.upward_state(V_hat)
+                else:
+                    state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    layer_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                if Y is not None and j == len(dbm.hidden_layers) - 1:
+                    Y_hat_unmasked = H_hat[j]
+                    H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+
+            if i % 2 == 1:
+                V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
+                        state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
+                        layer_above = dbm.hidden_layers[0],
+                        V = V,
+                        drop_mask = drop_mask, return_unmasked = True)
+                V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
+
+            if block_grad == i + 1:
+                V_hat = block_gradient(V_hat)
+                V_hat_unmasked = block_gradient(V_hat_unmasked)
+                H_hat = block(H_hat)
+            update_history()
+        #end for i
+
+        # debugging, make sure V didn't get changed in this function
+        assert V is orig_V
+        assert drop_mask is orig_drop_mask
+
+        Y_hat = H_hat[-1]
+
+        assert V in theano.gof.graph.ancestors([V_hat])
+        if Y_hat is not None:
+            assert V in theano.gof.graph.ancestors([Y_hat])
+
+        if return_history:
+            return history
+        else:
+            if Y is not None:
+                return V_hat, Y_hat
+            return V_hat
