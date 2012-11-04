@@ -2667,12 +2667,15 @@ class UpDown(InferenceProcedure):
                 start = 0
                 stop = len(H_hat)
                 inc = 1
-                V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
-                        state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
-                        layer_above = dbm.hidden_layers[0],
-                        V = V,
-                        drop_mask = drop_mask, return_unmasked = True)
-                V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
+                if i > 0:
+                    # Don't start by updating V_hat on iteration 0 or this will throw out the
+                    # noise
+                    V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
+                            state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
+                            layer_above = dbm.hidden_layers[0],
+                            V = V,
+                            drop_mask = drop_mask, return_unmasked = True)
+                    V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
             else:
                 start = len(H_hat) - 1
                 stop = -1
