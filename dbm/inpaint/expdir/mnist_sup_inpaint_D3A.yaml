@@ -1,4 +1,5 @@
-# Like B4 but without shuffling the data prior to making the train/valid split
+# Same as D3, just giving it a different name to race two machines.
+# D3 is running on briaree, D3A on eos3
 !obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
@@ -66,10 +67,10 @@
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
                                         both_directions : 1,
                                         noise : 1,
-                                        supervised: 1
-                               },
-                               !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
-                               },
+                                        supervised: 1,
+                                        niter: 50,
+                                        block_grad: 44
+                               }
                        ]
                },
                mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {

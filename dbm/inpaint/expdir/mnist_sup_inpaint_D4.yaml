@@ -38,6 +38,7 @@
               ]
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               duplicate: 5,
                monitoring_dataset : {
                         'train': *train,
                         'valid': !obj:pylearn2.datasets.mnist.MNIST {
@@ -57,19 +58,17 @@
                max_iter: 5,
                cost: !obj:pylearn2.costs.cost.SumOfCosts {
                        costs :[
-                               !obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost
-                               {
-                                        targets: [  .06, .06, 0. ],
-                                        eps:     [  .04,  .04, 0. ],
-                                        coeffs:  [ .01,  .01, 0.  ]
-                               },
+                               #!obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost
+                               #{
+                               #         targets: [  .06, .06, 0. ],
+                               #         eps:     [  .04,  .04, 0. ],
+                               #         coeffs:  [ .01,  .01, 0.  ]
+                               #},
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
                                         both_directions : 1,
                                         noise : 1,
                                         supervised: 1
-                               },
-                               !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
-                               },
+                               }
                        ]
                },
                mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
