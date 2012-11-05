@@ -1,4 +1,4 @@
-!obj:pylearn2.scripts.train.Train {
+!obj:pylearn2.train.Train {
     dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
         binarize: 1,
