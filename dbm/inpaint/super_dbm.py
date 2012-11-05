@@ -1838,7 +1838,7 @@ class MLP_Wrapper(Model):
 
     def __init__(self, super_dbm, decapitate = True, final_irange = None,
             initially_freeze_lower = False, decapitated_value = None,
-            train_rnn_y = False, gibbs_features = False):
+            train_rnn_y = False, gibbs_features = False, top_down = False):
         assert initially_freeze_lower in [True, False, 0, 1]
         assert decapitate in [True, False, 0, 1]
         assert train_rnn_y in [True, False, 0, 1]
@@ -1917,6 +1917,13 @@ class MLP_Wrapper(Model):
 
         self.hidden_layers = [ self.c]
 
+        if top_down:
+            assert not decapitate
+            assert self.orig_sup
+            self.labpen = sharedX(self.c.get_weights().T)
+            self._params.append(self.labpen)
+
+
         if initially_freeze_lower:
             lr_scalers = {}
             gate = sharedX(0.)
@@ -1968,7 +1975,11 @@ class MLP_Wrapper(Model):
         below = T.dot(V, self.vishid)
         above = T.dot(H2, self.penhid)
         H1 = T.nnet.sigmoid(below + above + self.hidbias)
-        H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen) + self.penbias)
+        if self.top_down:
+            top_down = T.dot(y, self.labpen)
+        else:
+            top_down = 0.
+        H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen) + top_down + self.penbias)
         Y = self.c.mf_update(state_below = H2)
 
         return [ Y ]
