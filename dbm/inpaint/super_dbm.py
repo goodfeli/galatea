@@ -1623,7 +1623,7 @@ class MF_L1_ActCost(Cost):
 
     """
 
-    def __init__(self, targets, coeffs, eps):
+    def __init__(self, targets, coeffs, eps, supervised):
         """
         targets: a list, one element per layer, specifying the activation
                 each layer should be encouraged to have
@@ -1633,19 +1633,28 @@ class MF_L1_ActCost(Cost):
                     what the state should be.
         coeffs: a list, one element per layer, specifying the coefficient
                 to put on the L1 activation cost for each layer
+        supervised: If true, runs mean field on both X and Y, penalizing
+                the layers in between only
         """
         self.__dict__.update(locals())
         del self.self
 
     def __call__(self, model, X, Y = None, ** kwargs):
 
-        H_hat = model.mf(X)
+        if self.supervised:
+            assert Y is not None
+            H_hat = model.mf(X, Y= Y)
+        else:
+            H_hat = model.mf(X)
 
-        assert len(H_hat) > 0
+        hidden_layers = model.hidden_layers
+        if self.supervised:
+            hidden_layers = hidden_layers[:-1]
+            H_hat = H_hat[:-1]
 
         layer_costs = []
         for layer, mf_state, targets, coeffs, eps in \
-            safe_zip(model.hidden_layers, H_hat, self.targets, self.coeffs, self.eps):
+            safe_zip(hidden_layers, H_hat, self.targets, self.coeffs, self.eps):
             cost = None
             try:
                 cost = layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
@@ -2721,7 +2730,7 @@ class UpDown(InferenceProcedure):
         Y_hat = H_hat[-1]
 
         assert V in theano.gof.graph.ancestors([V_hat])
-        if Y_hat is not None:
+        if Y is not None:
             assert V in theano.gof.graph.ancestors([Y_hat])
 
         if return_history:
