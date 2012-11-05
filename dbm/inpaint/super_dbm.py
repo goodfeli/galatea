@@ -10,7 +10,7 @@ import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
 from theano.printing import Print
-from galatea.theano_upgrades import block_gradient
+from pylearn2.utils import block_gradient
 import warnings
 from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
@@ -18,7 +18,7 @@ import time
 from pylearn2.costs.cost import Cost
 from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
-from galatea.theano_upgrades import _ElemwiseNoGradient
+from pylearn2.utils import _ElemwiseNoGradient
 from theano import config
 io = None
 from pylearn2.training_callbacks.training_callback import TrainingCallback
@@ -31,16 +31,6 @@ from pylearn2.models.dbm import Layer
 from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models import dbm
 
-def block(l):
-    new = []
-    for elem in l:
-        if isinstance(elem, (list, tuple)):
-            new.append(block(elem))
-        else:
-            new.append(block_gradient(elem))
-    if isinstance(l, tuple):
-        return tuple(new)
-    return new
 
 class SuperDBM(DBM):
 
@@ -717,6 +707,10 @@ class ConvMaxPool(HiddenLayer):
 
         return rval
 
+    def get_weight_decay(self, coeffs):
+        W , = self.transformer.get_params()
+        return coeffs * T.sqr(W).sum()
+
 
 
     def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
@@ -1181,7 +1175,7 @@ class CompositeLayer(HiddenLayer):
         self.components = list(components)
         assert isinstance(components, list)
         for component in components:
-            assert isinstance(component, SuperDBM_HidLayer)
+            assert isinstance(component, dbm.HiddenLayer)
         self.num_components = len(components)
         self.components = list(components)
 
@@ -1275,6 +1269,11 @@ class CompositeLayer(HiddenLayer):
             rval.append(mf_update)
 
         return tuple(rval)
+
+
+    def get_weight_decay(self, coeffs):
+        return sum([component.get_weight_decay(coeff) for component, coeff
+            in safe_zip(self.components, coeffs)])
 
     def upward_state(self, total_state):
 
@@ -1994,6 +1993,106 @@ class MLP_Wrapper(Model):
 
     def get_output_space(self):
         return self.super_dbm.get_output_space()
+
+class DeepMLP_Wrapper(Model):
+
+    def __init__(self, super_dbm, decapitate = True,
+            decapitated_value = None,
+            ):
+        assert decapitate in [True, False, 0, 1]
+        self.__dict__.update(locals())
+
+        if decapitate:
+            if decapitated_value is None:
+                decapitated_value = 0.
+        else:
+            assert decapitated_value is None
+
+
+        self.force_batch_size = super_dbm.force_batch_size
+        l1, l2, l3, c = super_dbm.hidden_layers
+
+        assert isinstance(l1, DenseMaxPool)
+        assert isinstance(l2, DenseMaxPool)
+        assert isinstance(l3, DenseMaxPool)
+        assert isinstance(c, dbm.Softmax)
+
+        self._params = []
+
+        # Layer 1
+        self.vis_h0 = sharedX(l1.get_weights())
+        self._params.append(self.vis_h0)
+        self.h0_bias = sharedX(l1.get_biases())
+        self._params.append(self.h0_bias)
+
+        # Layer 2
+        self.h0_h1 = sharedX(l2.get_weights())
+        self._params.append(self.h0_h1)
+        self.h1_h0 = sharedX(l2.get_weights().T)
+        self._params.append(self.h1_h0)
+        self.h1_bias = sharedX(l2.get_biases())
+        self._params.append(self.h1_bias)
+
+        # Layer 3
+        self.h1_h2 = sharedX(l3.get_weights())
+        self._params.append(self.h1_h2)
+        self.h2_h1 = sharedX(l3.get_weights().T)
+        self._params.append(self.h2_h1)
+        penbias = l3.get_biases()
+        if decapitate:
+            Wc = c.get_weights()
+            penbias += np.dot(Wc,
+                    np.ones((c.n_classes,), dtype = penbias.dtype) * decapitated_value / c.n_classes)
+            l3.set_biases(penbias)
+        self.penbias = sharedX(l3.get_biases())
+        self._params.append(self.penbias)
+
+        # Class layer
+        if decapitate:
+            self.c = c
+            del super_dbm.hidden_layers[-1]
+        else:
+            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output')
+            self.c.dbm = l1.dbm
+            self.c.set_input_space(l3.get_output_space())
+            self.c.set_weights(c.get_weights())
+            self.c.set_biases(c.get_biases())
+        self._params.extend(self.c.get_params())
+        self.hidden_layers = [ self.c ]
+
+    def mf(self, V, return_history = False, ** kwargs):
+        assert not return_history
+        q = self.super_dbm.mf(V, ** kwargs)
+
+        if self.decapitate:
+            _, H1, H2 = q
+        else:
+            _, H1, H2, y = q
+        _, H1 = H1
+        _, H2 = H2
+
+        below = T.dot(V, self.vis_h0)
+        above = T.dot(H1, self.h1_h0)
+        H0 = T.nnet.sigmoid(below + above + self.h0_bias)
+        below = T.dot(H0, self.h0_h1)
+        above = T.dot(H2, self.h2_h1)
+        H1 = T.nnet.sigmoid(below + above + self.h1_bias)
+        below = T.dot(H1, self.h1_h2)
+        H2 = T.nnet.sigmoid(below + self.penbias)
+        Y = self.c.mf_update(state_below = H2)
+
+        return [ Y ]
+
+    def set_batch_size(self, batch_size):
+        self.super_dbm.set_batch_size(batch_size)
+        self.c.set_batch_size(batch_size)
+        self.force_batch_size = self.super_dbm.force_batch_size
+
+    def get_input_space(self):
+        return self.super_dbm.get_input_space()
+
+    def get_output_space(self):
+        return self.c.get_output_space()
 
 class ActivateLower(TrainingCallback):
     def __call__(self, model, dataset, algorithm):
@@ -2750,3 +2849,29 @@ class UpDown(InferenceProcedure):
             if Y is not None:
                 return V_hat, Y_hat
             return V_hat
+
+def mask_weights(input_shape,
+                stride,
+                shape,
+                channels):
+    """
+        input_shape: how to view a vector below as (rows, cols, channels)
+        stride: (row stride, col_stride) between receptive fields on this layer
+        channels: how many units should have the same receptive field on this layer
+    """
+
+    ipt = np.zeros(input_shape)
+    r, c, ch = ipt.shape
+    dim = r * c * ch
+
+    mask = []
+
+    for i in xrange(0, input_shape[0] - shape[0] + 1, stride[0]):
+        for j in xrange(0, input_shape[1] - shape[1] + 1, stride[1]):
+            cur_ipt = ipt.copy()
+            cur_ipt[i:i+shape[0], j:j+shape[1], :] = 1.
+            cur_mask = cur_ipt.reshape(dim, 1)
+            mask.extend([ cur_mask ] * channels)
+
+    return np.concatenate(mask, axis=1)
+

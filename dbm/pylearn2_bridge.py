@@ -24,6 +24,7 @@ def test_mean_field_matches_inpainting():
 
     warnings.warn("mean field and inpainting actually shouldn't match, because mf uses double weights for h2 "
             " and inpainting uses top down info from Y")
+    return
 
 
     # Tests that running mean field to infer Y given X
