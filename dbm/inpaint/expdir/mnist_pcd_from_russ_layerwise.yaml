@@ -21,7 +21,7 @@
                         },
                         !obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost {
                           supervised: 1,
-                          coeffs: [ .001, .001 ],
+                          coeffs: [ .00, .00 ],
                           targets: [ .2, .1 ],
                           eps: [.05, .05]
                         }

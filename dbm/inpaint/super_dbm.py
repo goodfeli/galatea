@@ -5,12 +5,13 @@ from pylearn2.space import VectorSpace
 from pylearn2.space import CompositeSpace
 from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
+from pylearn2.linear.conv2d import make_sparse_random_conv2D
 import theano.tensor as T
 import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
 from theano.printing import Print
-from galatea.theano_upgrades import block_gradient
+from pylearn2.utils import block_gradient
 import warnings
 from theano import function
 from theano.sandbox.rng_mrg import MRG_RandomStreams
@@ -18,10 +19,12 @@ import time
 from pylearn2.costs.cost import Cost
 from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
-from galatea.theano_upgrades import _ElemwiseNoGradient
+from pylearn2.utils import _ElemwiseNoGradient
 from theano import config
 io = None
 from pylearn2.training_callbacks.training_callback import TrainingCallback
+from pylearn2.costs.dbm import PCD
+from pylearn2.models.dbm import block
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import flatten
@@ -31,16 +34,6 @@ from pylearn2.models.dbm import Layer
 from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models import dbm
 
-def block(l):
-    new = []
-    for elem in l:
-        if isinstance(elem, (list, tuple)):
-            new.append(block(elem))
-        else:
-            new.append(block_gradient(elem))
-    if isinstance(l, tuple):
-        return tuple(new)
-    return new
 
 class SuperDBM(DBM):
 
@@ -533,8 +526,9 @@ class ConvMaxPool(HiddenLayer):
             kernel_cols,
             pool_rows,
             pool_cols,
-            irange,
             layer_name,
+            irange = None,
+            sparse_init = None,
             scale_by_sharing = True,
             mirror_weights = False,
             init_bias = 0.,
@@ -552,6 +546,8 @@ class ConvMaxPool(HiddenLayer):
         self.__dict__.update(locals())
         del self.self
 
+        assert (irange is None) != (sparse_init is None)
+
         self.b = sharedX( np.zeros((output_channels,)) + init_bias, name = layer_name + '_b')
         assert border_mode in ['full','valid']
 
@@ -563,6 +559,7 @@ class ConvMaxPool(HiddenLayer):
         shuffle[self.output_axes.index('c')] = 0
 
         return self.b.dimshuffle(*shuffle)
+
 
     def set_input_space(self, space):
         """ Note: this resets parameters!"""
@@ -603,9 +600,14 @@ class ConvMaxPool(HiddenLayer):
         else:
             raise NotImplementedError()
 
-        self.transformer = make_random_conv2D(self.irange, input_space = space,
-                output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
-                batch_size = self.dbm.batch_size, border_mode = self.border_mode)
+        if self.irange is not None:
+            self.transformer = make_random_conv2D(self.irange, input_space = space,
+                    output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
+                    batch_size = self.dbm.batch_size, border_mode = self.border_mode, rng = self.dbm.rng)
+        else:
+            self.transformer = make_sparse_random_conv2D(self.sparse_init, input_space = space,
+                    output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
+                    batch_size = self.dbm.batch_size, border_mode = self.border_mode, rng = self.dbm.rng)
         self.transformer._filters.name = self.layer_name + '_W'
 
         if self.mirror_weights:
@@ -717,6 +719,10 @@ class ConvMaxPool(HiddenLayer):
 
         return rval
 
+    def get_weight_decay(self, coeffs):
+        W , = self.transformer.get_params()
+        return coeffs * T.sqr(W).sum()
+
 
 
     def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
@@ -780,6 +786,24 @@ class ConvMaxPool(HiddenLayer):
 
         return np.transpose(raw,(outp,rows,cols,inp))
 
+
+    def init_mf_state(self):
+        default_z = self.broadcasted_bias()
+        shape = {
+                'b': self.dbm.batch_size,
+                0: self.h_space.shape[0],
+                1: self.h_space.shape[1],
+                'c': self.h_space.nchannels
+                }
+        # work around theano bug with broadcasted stuff
+        default_z += T.alloc(*([0.]+[shape[elem] for elem in self.h_space.axes])).astype(default_z.dtype)
+        assert default_z.ndim == 4
+
+        p, h = self.max_pool(
+                z = default_z,
+                pool_shape = (self.pool_rows, self.pool_cols))
+
+        return p, h
 
     def make_state(self, num_examples, numpy_rng):
         """ Returns a shared variable containing an actual state
@@ -1181,7 +1205,7 @@ class CompositeLayer(HiddenLayer):
         self.components = list(components)
         assert isinstance(components, list)
         for component in components:
-            assert isinstance(component, SuperDBM_HidLayer)
+            assert isinstance(component, dbm.HiddenLayer)
         self.num_components = len(components)
         self.components = list(components)
 
@@ -1275,6 +1299,14 @@ class CompositeLayer(HiddenLayer):
             rval.append(mf_update)
 
         return tuple(rval)
+
+    def init_mf_state(self):
+        return tuple([component.init_mf_state() for component in self.components])
+
+
+    def get_weight_decay(self, coeffs):
+        return sum([component.get_weight_decay(coeff) for component, coeff
+            in safe_zip(self.components, coeffs)])
 
     def upward_state(self, total_state):
 
@@ -1456,157 +1488,6 @@ class BinaryVisLayer(dbm.BinaryVector):
         return masked_cost.mean()
 
 
-class DBM_PCD(Cost):
-    """
-    An intractable cost representing the variational upper bound
-    on the negative log likelihood of a DBM.
-    The gradient of this bound is computed using a persistent
-    markov chain.
-    """
-
-    def __init__(self, num_chains, num_gibbs_steps, supervised = False):
-        self.__dict__.update(locals())
-        del self.self
-        self.theano_rng = MRG_RandomStreams(2012 + 10 + 14)
-        assert supervised in [True, False]
-
-    def __call__(self, model, X, Y=None):
-        """
-        The partition function makes this intractable.
-        """
-
-        if self.supervised:
-            assert Y is not None
-
-        return None
-
-    def get_monitoring_channels(self, model, X, Y = None):
-        rval = {}
-
-        history = model.mf(X, return_history = True)
-        q = history[-1]
-
-        if self.supervised:
-            assert Y is not None
-            Y_hat = q[-1]
-            true = T.argmax(Y,axis=1)
-            pred = T.argmax(Y_hat, axis=1)
-
-            #true = Print('true')(true)
-            #pred = Print('pred')(pred)
-
-            wrong = T.neq(true, pred)
-            err = T.cast(wrong.mean(), X.dtype)
-            rval['err'] = err
-
-        return rval
-
-
-
-    def get_gradients(self, model, X, Y=None):
-        """
-        PCD approximation to the gradient of the bound.
-        Keep in mind this is a cost, so we are upper bounding
-        the negative log likelihood.
-        """
-
-        if self.supervised:
-            assert Y is not None
-            # note: if the Y layer changes to something without linear energy,
-            # we'll need to make the expected energy clamp Y in the positive phase
-            assert isinstance(model.hidden_layers[-1], dbm.Softmax)
-
-
-
-        q = model.mf(X, Y)
-
-
-        """
-            Use the non-negativity of the KL divergence to construct a lower bound
-            on the log likelihood. We can drop all terms that are constant with
-            repsect to the model parameters:
-
-            log P(v) = L(v, q) + KL(q || P(h|v))
-            L(v, q) = log P(v) - KL(q || P(h|v))
-            L(v, q) = log P(v) - sum_h q(h) log q(h) + q(h) log P(h | v)
-            L(v, q) = log P(v) + sum_h q(h) log P(h | v) + const
-            L(v, q) = log P(v) + sum_h q(h) log P(h, v) - sum_h q(h) log P(v) + const
-            L(v, q) = sum_h q(h) log P(h, v) + const
-            L(v, q) = sum_h q(h) -E(h, v) - log Z + const
-
-            so the cost we want to minimize is
-            expected_energy + log Z + const
-
-
-            Note: for the RBM, this bound is exact, since the KL divergence goes to 0.
-        """
-
-        variational_params = flatten(q)
-
-        # The gradients of the expected energy under q are easy, we can just do that in theano
-        expected_energy_q = model.expected_energy(X, q).mean()
-        params = list(model.get_params())
-        gradients = dict(safe_zip(params, T.grad(expected_energy_q, params,
-            consider_constant = variational_params,
-            disconnected_inputs = 'ignore')))
-
-        """
-        d/d theta log Z = (d/d theta Z) / Z
-                        = (d/d theta sum_h sum_v exp(-E(v,h)) ) / Z
-                        = (sum_h sum_v - exp(-E(v,h)) d/d theta E(v,h) ) / Z
-                        = - sum_h sum_v P(v,h)  d/d theta E(v,h)
-        """
-
-        layer_to_chains = model.make_layer_to_state(self.num_chains)
-
-        def recurse_check(l):
-            if isinstance(l, (list, tuple)):
-                for elem in l:
-                    recurse_check(elem)
-            else:
-                assert l.get_value().shape[0] == self.num_chains
-
-        recurse_check(layer_to_chains.values())
-
-        model.layer_to_chains = layer_to_chains
-
-        orig_V = layer_to_chains[model.visible_layer] # rm
-        orig_Y = layer_to_chains[model.hidden_layers[-1]] # rm
-
-        # Note that we replace layer_to_chains with a dict mapping to the new
-        # state of the chains
-        updates, layer_to_chains = model.get_sampling_updates(layer_to_chains,
-                self.theano_rng, num_steps=self.num_gibbs_steps,
-                return_layer_to_updated = True)
-
-        assert self.num_gibbs_steps >= len(model.hidden_layers) # rm
-        assert orig_Y in theano.gof.graph.ancestors([layer_to_chains[model.visible_layer]]) # rm
-        assert updates[orig_V] is layer_to_chains[model.visible_layer] #rm
-
-        warnings.warn("""TODO: reduce variance of negative phase by integrating out
-                the even-numbered layers. The Rao-Blackwellize method can do this
-                for you when expected gradient = gradient of expectation, but doing
-                this in general is trickier.""")
-        #layer_to_chains = model.rao_blackwellize(layer_to_chains)
-
-        expected_energy_p = model.energy(layer_to_chains[model.visible_layer],
-                [layer_to_chains[layer] for layer in model.hidden_layers]).mean()
-
-        samples = flatten(layer_to_chains.values())
-        for i, sample in enumerate(samples):
-            if sample.name is None:
-                sample.name = 'sample_'+str(i)
-
-        neg_phase_grads = dict(safe_zip(params, T.grad(-expected_energy_p, params, consider_constant
-            = samples, disconnected_inputs='ignore')))
-
-
-        for param in list(gradients.keys()):
-            #print param.name,': '
-            #print theano.printing.min_informative_str(neg_phase_grads[param])
-            gradients[param] =  neg_phase_grads[param]  + gradients[param]
-
-        return gradients, updates
 
 
 class MF_L1_ActCost(Cost):
@@ -1995,6 +1876,106 @@ class MLP_Wrapper(Model):
     def get_output_space(self):
         return self.super_dbm.get_output_space()
 
+class DeepMLP_Wrapper(Model):
+
+    def __init__(self, super_dbm, decapitate = True,
+            decapitated_value = None,
+            ):
+        assert decapitate in [True, False, 0, 1]
+        self.__dict__.update(locals())
+
+        if decapitate:
+            if decapitated_value is None:
+                decapitated_value = 0.
+        else:
+            assert decapitated_value is None
+
+
+        self.force_batch_size = super_dbm.force_batch_size
+        l1, l2, l3, c = super_dbm.hidden_layers
+
+        assert isinstance(l1, DenseMaxPool)
+        assert isinstance(l2, DenseMaxPool)
+        assert isinstance(l3, DenseMaxPool)
+        assert isinstance(c, dbm.Softmax)
+
+        self._params = []
+
+        # Layer 1
+        self.vis_h0 = sharedX(l1.get_weights(), 'vis_h0')
+        self._params.append(self.vis_h0)
+        self.h0_bias = sharedX(l1.get_biases(), 'h0_bias')
+        self._params.append(self.h0_bias)
+
+        # Layer 2
+        self.h0_h1 = sharedX(l2.get_weights(), 'h0_h1')
+        self._params.append(self.h0_h1)
+        self.h1_h0 = sharedX(l2.get_weights().T, 'h1_h0')
+        self._params.append(self.h1_h0)
+        self.h1_bias = sharedX(l2.get_biases(), 'h1_bias')
+        self._params.append(self.h1_bias)
+
+        # Layer 3
+        self.h1_h2 = sharedX(l3.get_weights(), 'h1_h2')
+        self._params.append(self.h1_h2)
+        self.h2_h1 = sharedX(l3.get_weights().T, 'h2_h1')
+        self._params.append(self.h2_h1)
+        penbias = l3.get_biases()
+        if decapitate:
+            Wc = c.get_weights()
+            penbias += np.dot(Wc,
+                    np.ones((c.n_classes,), dtype = penbias.dtype) * decapitated_value / c.n_classes)
+            l3.set_biases(penbias)
+        self.penbias = sharedX(l3.get_biases(), 'h2_bias')
+        self._params.append(self.penbias)
+
+        # Class layer
+        if decapitate:
+            self.c = c
+            del super_dbm.hidden_layers[-1]
+        else:
+            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output')
+            self.c.dbm = l1.dbm
+            self.c.set_input_space(l3.get_output_space())
+            self.c.set_weights(c.get_weights())
+            self.c.set_biases(c.get_biases())
+        self._params.extend(self.c.get_params())
+        self.hidden_layers = [ self.c ]
+
+    def mf(self, V, return_history = False, ** kwargs):
+        assert not return_history
+        q = self.super_dbm.mf(V, ** kwargs)
+
+        if self.decapitate:
+            _, H1, H2 = q
+        else:
+            _, H1, H2, y = q
+        _, H1 = H1
+        _, H2 = H2
+
+        below = T.dot(V, self.vis_h0)
+        above = T.dot(H1, self.h1_h0)
+        H0 = T.nnet.sigmoid(below + above + self.h0_bias)
+        below = T.dot(H0, self.h0_h1)
+        above = T.dot(H2, self.h2_h1)
+        H1 = T.nnet.sigmoid(below + above + self.h1_bias)
+        below = T.dot(H1, self.h1_h2)
+        H2 = T.nnet.sigmoid(below + self.penbias)
+        Y = self.c.mf_update(state_below = H2)
+
+        return [ Y ]
+
+    def set_batch_size(self, batch_size):
+        self.super_dbm.set_batch_size(batch_size)
+        self.c.set_batch_size(batch_size)
+        self.force_batch_size = self.super_dbm.force_batch_size
+
+    def get_input_space(self):
+        return self.super_dbm.get_input_space()
+
+    def get_output_space(self):
+        return self.c.get_output_space()
+
 class ActivateLower(TrainingCallback):
     def __call__(self, model, dataset, algorithm):
         if model.monitor.get_epochs_seen() == 6:
@@ -2243,7 +2224,7 @@ class SuperWeightDoubling(WeightDoubling):
         Y_hat = H_hat[-1]
 
         assert V in theano.gof.graph.ancestors([V_hat])
-        if Y_hat is not None:
+        if Y is not None:
             assert V in theano.gof.graph.ancestors([Y_hat])
 
         if return_history:
@@ -2750,3 +2731,31 @@ class UpDown(InferenceProcedure):
             if Y is not None:
                 return V_hat, Y_hat
             return V_hat
+
+def mask_weights(input_shape,
+                stride,
+                shape,
+                channels):
+    """
+        input_shape: how to view a vector below as (rows, cols, channels)
+        stride: (row stride, col_stride) between receptive fields on this layer
+        channels: how many units should have the same receptive field on this layer
+    """
+
+    ipt = np.zeros(input_shape)
+    r, c, ch = ipt.shape
+    dim = r * c * ch
+
+    mask = []
+
+    for i in xrange(0, input_shape[0] - shape[0] + 1, stride[0]):
+        for j in xrange(0, input_shape[1] - shape[1] + 1, stride[1]):
+            cur_ipt = ipt.copy()
+            cur_ipt[i:i+shape[0], j:j+shape[1], :] = 1.
+            cur_mask = cur_ipt.reshape(dim, 1)
+            mask.extend([ cur_mask ] * channels)
+
+    return np.concatenate(mask, axis=1)
+
+DBM_PCD = PCD
+

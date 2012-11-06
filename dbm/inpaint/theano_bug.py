@@ -23,6 +23,7 @@ msg = transformer.lmul_T(H2)
 
 obj = msg.sum()
 
+
 grad = T.grad(obj, W2, disconnected_inputs='ignore')
 f = function([], grad)
 
