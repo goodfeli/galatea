@@ -5,8 +5,6 @@
         shuffle: 0,
         binarize: 1,
         one_hot: 1,
-        start: 0,
-        stop: 50000
     },
     model: !obj:pylearn2.monitor.push_monitor {
         model: !pkl: "${USERDIR}/galatea/dbm/inpaint/expdir/mnist_sup_inpaint_MA2_best.pkl",
