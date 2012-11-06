@@ -787,6 +787,24 @@ class ConvMaxPool(HiddenLayer):
         return np.transpose(raw,(outp,rows,cols,inp))
 
 
+    def init_mf_state(self):
+        default_z = self.broadcasted_bias()
+        shape = {
+                'b': self.dbm.batch_size,
+                0: self.h_space.shape[0],
+                1: self.h_space.shape[1],
+                'c': self.h_space.nchannels
+                }
+        # work around theano bug with broadcasted stuff
+        default_z += T.alloc(*([0.]+[shape[elem] for elem in self.h_space.axes])).astype(default_z.dtype)
+        assert default_z.ndim == 4
+
+        p, h = self.max_pool(
+                z = default_z,
+                pool_shape = (self.pool_rows, self.pool_cols))
+
+        return p, h
+
     def make_state(self, num_examples, numpy_rng):
         """ Returns a shared variable containing an actual state
            (not a mean field state) for this variable.
@@ -1281,6 +1299,9 @@ class CompositeLayer(HiddenLayer):
             rval.append(mf_update)
 
         return tuple(rval)
+
+    def init_mf_state(self):
+        return tuple([component.init_mf_state() for component in self.components])
 
 
     def get_weight_decay(self, coeffs):
