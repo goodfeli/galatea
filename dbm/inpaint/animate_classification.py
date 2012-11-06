@@ -67,18 +67,22 @@ while True:
 
     Y_sequence = f(*args)
 
+    for elem in Y_sequence:
+        assert elem.shape[0] == m
+
     rows = m
 
     cols = 1+len(Y_sequence)
 
 
-    pv = PatchViewer( (rows, cols), (Xt.shape[1], Xt.shape[2]), is_color = True,
+    pv = PatchViewer((rows, cols), (Xt.shape[1], Xt.shape[2]), is_color = True,
             pad = (8,8) )
 
     for i in xrange(m):
 
         #add original patch
-        patch = Xt[i,:,:,:]
+        patch = Xt[i,:,:,:].copy()
+        patch = dataset.adjust_for_viewer(patch)
         if patch.shape[-1] != 3:
             patch = np.concatenate( (patch,patch,patch), axis=2)
         pv.add_patch(patch, rescale = False, activation = (1,0,0))
