@@ -5,6 +5,7 @@ from pylearn2.space import VectorSpace
 from pylearn2.space import CompositeSpace
 from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
+from pylearn2.linear.conv2d import make_sparse_random_conv2D
 import theano.tensor as T
 import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
@@ -22,6 +23,8 @@ from pylearn2.utils import _ElemwiseNoGradient
 from theano import config
 io = None
 from pylearn2.training_callbacks.training_callback import TrainingCallback
+from pylearn2.costs.dbm import PCD
+from pylearn2.models.dbm import block
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import flatten
@@ -523,8 +526,9 @@ class ConvMaxPool(HiddenLayer):
             kernel_cols,
             pool_rows,
             pool_cols,
-            irange,
             layer_name,
+            irange = None,
+            sparse_init = None,
             scale_by_sharing = True,
             mirror_weights = False,
             init_bias = 0.,
@@ -542,6 +546,8 @@ class ConvMaxPool(HiddenLayer):
         self.__dict__.update(locals())
         del self.self
 
+        assert (irange is None) != (sparse_init is None)
+
         self.b = sharedX( np.zeros((output_channels,)) + init_bias, name = layer_name + '_b')
         assert border_mode in ['full','valid']
 
@@ -553,6 +559,7 @@ class ConvMaxPool(HiddenLayer):
         shuffle[self.output_axes.index('c')] = 0
 
         return self.b.dimshuffle(*shuffle)
+
 
     def set_input_space(self, space):
         """ Note: this resets parameters!"""
@@ -593,9 +600,14 @@ class ConvMaxPool(HiddenLayer):
         else:
             raise NotImplementedError()
 
-        self.transformer = make_random_conv2D(self.irange, input_space = space,
-                output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
-                batch_size = self.dbm.batch_size, border_mode = self.border_mode)
+        if self.irange is not None:
+            self.transformer = make_random_conv2D(self.irange, input_space = space,
+                    output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
+                    batch_size = self.dbm.batch_size, border_mode = self.border_mode, rng = self.dbm.rng)
+        else:
+            self.transformer = make_sparse_random_conv2D(self.sparse_init, input_space = space,
+                    output_space = self.h_space, kernel_shape = (self.kernel_rows, self.kernel_cols),
+                    batch_size = self.dbm.batch_size, border_mode = self.border_mode, rng = self.dbm.rng)
         self.transformer._filters.name = self.layer_name + '_W'
 
         if self.mirror_weights:

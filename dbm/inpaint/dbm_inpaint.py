@@ -5,7 +5,7 @@ import theano.tensor as T
 from theano.printing import Print
 import numpy as np
 import warnings
-from galatea.theano_upgrades import block_gradient
+from pylearn2.utils import block_gradient
 
 class DBM_Inpaint_Binary(Cost):
     def __init__(self,
