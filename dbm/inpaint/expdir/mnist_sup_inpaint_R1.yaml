@@ -1,4 +1,4 @@
-# Few dropped pixels, no noise, sparse init
+# Fewer hidden units. This did not classify well.
 !obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
