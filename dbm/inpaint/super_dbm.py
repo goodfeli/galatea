@@ -1902,23 +1902,23 @@ class DeepMLP_Wrapper(Model):
         self._params = []
 
         # Layer 1
-        self.vis_h0 = sharedX(l1.get_weights())
+        self.vis_h0 = sharedX(l1.get_weights(), 'vis_h0')
         self._params.append(self.vis_h0)
-        self.h0_bias = sharedX(l1.get_biases())
+        self.h0_bias = sharedX(l1.get_biases(), 'h0_bias')
         self._params.append(self.h0_bias)
 
         # Layer 2
-        self.h0_h1 = sharedX(l2.get_weights())
+        self.h0_h1 = sharedX(l2.get_weights(), 'h0_h1')
         self._params.append(self.h0_h1)
-        self.h1_h0 = sharedX(l2.get_weights().T)
+        self.h1_h0 = sharedX(l2.get_weights().T, 'h1_h0')
         self._params.append(self.h1_h0)
-        self.h1_bias = sharedX(l2.get_biases())
+        self.h1_bias = sharedX(l2.get_biases(), 'h1_bias')
         self._params.append(self.h1_bias)
 
         # Layer 3
-        self.h1_h2 = sharedX(l3.get_weights())
+        self.h1_h2 = sharedX(l3.get_weights(), 'h1_h2')
         self._params.append(self.h1_h2)
-        self.h2_h1 = sharedX(l3.get_weights().T)
+        self.h2_h1 = sharedX(l3.get_weights().T, 'h2_h1')
         self._params.append(self.h2_h1)
         penbias = l3.get_biases()
         if decapitate:
@@ -1926,7 +1926,7 @@ class DeepMLP_Wrapper(Model):
             penbias += np.dot(Wc,
                     np.ones((c.n_classes,), dtype = penbias.dtype) * decapitated_value / c.n_classes)
             l3.set_biases(penbias)
-        self.penbias = sharedX(l3.get_biases())
+        self.penbias = sharedX(l3.get_biases(), 'h2_bias')
         self._params.append(self.penbias)
 
         # Class layer
@@ -2224,7 +2224,7 @@ class SuperWeightDoubling(WeightDoubling):
         Y_hat = H_hat[-1]
 
         assert V in theano.gof.graph.ancestors([V_hat])
-        if Y_hat is not None:
+        if Y is not None:
             assert V in theano.gof.graph.ancestors([Y_hat])
 
         if return_history:
@@ -2756,4 +2756,6 @@ def mask_weights(input_shape,
             mask.extend([ cur_mask ] * channels)
 
     return np.concatenate(mask, axis=1)
+
+DBM_PCD = PCD
 
