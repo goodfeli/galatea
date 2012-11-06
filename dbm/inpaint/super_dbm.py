@@ -11,6 +11,7 @@ import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
 from theano.printing import Print
+from theano.printing import min_informative_str
 from pylearn2.utils import block_gradient
 import warnings
 from theano import function
@@ -33,6 +34,7 @@ from pylearn2.models.dbm import InferenceProcedure
 from pylearn2.models.dbm import Layer
 from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models import dbm
+from theano.gof.op import get_debug_values
 
 
 class SuperDBM(DBM):
@@ -632,6 +634,42 @@ class ConvMaxPool(HiddenLayer):
             return state
         return [ Conv2DSpace.convert(elem, self.output_axes, ('b', 0, 1, 'c'))
                 for elem in state ]
+
+    def get_range_rewards(self, state, coeffs):
+        """
+        TODO: WRITEME
+        """
+        rval = 0.
+
+        if self.pool_rows == 1 and self.pool_cols == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            assert isinstance(coeffs, float)
+            _, state = state
+            state = [state]
+            coeffs = [coeffs]
+        else:
+            assert all([len(elem) == 2 for elem in [state, coeffs]])
+
+        for s, c in safe_zip(state, coeffs):
+            if c == 0.:
+                continue
+            # Range over everything but the channel index
+            # theano can only take gradient through max if the max is over 1 axis or all axes
+            # so I manually unroll the max for the case I use here
+            assert self.h_space.axes == ('b', 'c', 0, 1)
+            assert self.output_space.axes == ('b', 'c', 0, 1)
+            mx = s.max(axis=3).max(axis=2).max(axis=0)
+            assert hasattr(mx.owner.op, 'grad')
+            mn = s.min(axis=3).max(axis=2).max(axis=0)
+            assert hasattr(mn.owner.op, 'grad')
+            assert mx.ndim == 1
+            assert mn.ndim == 1
+            r = mx - mn
+            rval += (1. - r).mean() * c
+
+        return rval
 
     def get_l1_act_cost(self, state, target, coeff, eps):
         """
@@ -1365,6 +1403,10 @@ class CompositeLayer(HiddenLayer):
     def get_l1_act_cost(self, state, target, coeff, eps):
         return sum([ comp.get_l1_act_cost(s, t, c, e) \
             for comp, s, t, c, e in safe_zip(self.components, state, target, coeff, eps)])
+
+    def get_range_rewards(self, state, coeffs):
+        return sum([comp.get_range_rewards(s, c)
+            for comp, s, c in safe_zip(self.components, state, coeffs)])
 
     def get_params(self):
         return reduce(lambda x, y: x.union(y),
@@ -2304,6 +2346,14 @@ class BiasInit(InferenceProcedure):
             if Y is not None:
                 H_hat[-1] = Y
 
+            for i, elem in enumerate(H_hat):
+                if elem is Y:
+                    assert i == len(H_hat) -1
+                    continue
+                else:
+                    assert elem not in history[-1]
+
+
             if block_grad == i + 1:
                 H_hat = block(H_hat)
 
@@ -2314,11 +2364,24 @@ class BiasInit(InferenceProcedure):
         for layer, state in safe_izip(dbm.hidden_layers, H_hat):
             upward_state = layer.upward_state(state)
             layer.get_output_space().validate(upward_state)
+
+        for elem in flatten(H_hat):
+            for value in get_debug_values(elem):
+                assert value.shape[0] == dbm.batch_size
+            assert V in theano.gof.graph.ancestors([elem])
+            if Y is not None:
+                assert Y in theano.gof.graph.ancestors([elem])
+
         if Y is not None:
             assert all([elem[-1] is Y for elem in history])
             assert H_hat[-1] is Y
 
+        for elem in history:
+            assert len(elem) == len(dbm.hidden_layers)
+
         if return_history:
+            for hist_elem, H_elem in safe_zip(history[-1], H_hat):
+                assert hist_elem is H_elem
             return history
         else:
             return H_hat

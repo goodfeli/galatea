@@ -1,13 +1,12 @@
 import numpy as np
 from pylearn2.utils import serial
 import sys
-from dbm_inpaint import DBM_Inpaint_Binary
-from dbm_inpaint import MaskGen
-import theano.tensor as T
 from theano import function
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
 from galatea.ui import get_choice
+from theano.gof.op import get_debug_values
+from theano.printing import min_informative_str
 
 ignore, model_path = sys.argv
 m = 10
@@ -20,10 +19,22 @@ dataset = yaml_parse.load(model.dataset_yaml_src)
 
 space = model.get_input_space()
 X = space.make_theano_batch()
+X.tag.test_value = space.get_origin_batch(m).astype(X.dtype)
 
 inputs = [X]
 
-outputs = [elem[-1] for elem in model.mf(X, return_history=True)]
+history = model.mf(X, return_history=True)
+for elem in history:
+    assert isinstance(elem, (list, tuple))
+    assert len(elem) == len(model.hidden_layers)
+outputs = [elem[-1] for elem in history]
+
+for elem in outputs:
+    for value in get_debug_values(elem):
+        if value.shape[0] != m:
+            print 'culprint is',id(elem)
+            print min_informative_str(elem)
+            quit(-1)
 
 f = function(inputs, outputs)
 
@@ -56,18 +67,22 @@ while True:
 
     Y_sequence = f(*args)
 
+    for elem in Y_sequence:
+        assert elem.shape[0] == m
+
     rows = m
 
     cols = 1+len(Y_sequence)
 
 
-    pv = PatchViewer( (rows, cols), (Xt.shape[1], Xt.shape[2]), is_color = True,
+    pv = PatchViewer((rows, cols), (Xt.shape[1], Xt.shape[2]), is_color = True,
             pad = (8,8) )
 
     for i in xrange(m):
 
         #add original patch
-        patch = Xt[i,:,:,:]
+        patch = Xt[i,:,:,:].copy()
+        patch = dataset.adjust_for_viewer(patch)
         if patch.shape[-1] != 3:
             patch = np.concatenate( (patch,patch,patch), axis=2)
         pv.add_patch(patch, rescale = False, activation = (1,0,0))
