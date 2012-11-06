@@ -20,6 +20,7 @@ class SuperInpaint(Cost):
                     l1_act_coeffs = None,
                     l1_act_targets = None,
                     l1_act_eps = None,
+                    range_rewards = None,
                     supervised = False,
                     niter = None,
                     block_grad = None
@@ -216,6 +217,21 @@ class SuperInpaint(Cost):
         # end if both directions
 
         total_cost = inpaint_cost
+
+        if self.range_rewards is not None:
+            for layer, mf_state, coeffs in safe_izip(
+                    dbm.hidden_layers,
+                    state['H_hat'],
+                    self.range_rewards):
+                try:
+                    layer_cost = layer.get_range_rewards(mf_state, coeffs)
+                except NotImplementedError:
+                    if coeffs == 0.:
+                        layer_cost = 0.
+                    else:
+                        raise
+                if layer_cost != 0.:
+                    total_cost += layer_cost
 
         if self.l1_act_targets is not None:
             for layer, mf_state, targets, coeffs, eps in safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs, self.l1_act_eps):
