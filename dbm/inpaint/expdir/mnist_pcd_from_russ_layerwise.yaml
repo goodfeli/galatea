@@ -4,11 +4,14 @@
         one_hot: 1,
         binarize: 1
     },
-    model: !pkl: "${USERDIR}/galatea/dbm/inpaint/russ/pretrained.pkl", 
+    model: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
+        super_dbm: !pkl: "${G}/dbm/inpaint/russ/pretrained.pkl", 
+        niter: 11 # Russ's for loop does 10 iterations after the initial double weights pass,
+                  # my algorithm counts the double weights pass as the first iteration
+    },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
                learning_rate: 1e-3,
                init_momentum: .5,
-               monitoring_batches : 10,
                monitoring_dataset : *data,
                cost : !obj:pylearn2.costs.cost.SumOfCosts {
                 costs: [ !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
@@ -26,7 +29,13 @@
                           eps: [.05, .05]
                         }
                        ]
-           }
+           },
+           update_callbacks: [
+                !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+                        decay_factor: 1.000015,
+                        min_lr:       0.0001
+                }
+           ]
         },
     callbacks: [
             !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
@@ -34,11 +43,6 @@
                 start: 5,
                 saturate: 6
             },
-            !obj:pylearn2.training_algorithms.sgd.PolyakAveraging {
-                start: 0,
-                save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_polyak.pkl",
-                save_freq: 1
-            }
     ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
     save_freq : 1
