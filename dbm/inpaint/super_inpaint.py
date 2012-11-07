@@ -1,8 +1,7 @@
 from pylearn2.costs.cost import Cost
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import theano.tensor as T
-from theano.printing import Print
-import numpy as np
+from theano import config
 from pylearn2.utils import make_name
 from pylearn2.utils import safe_izip
 import warnings
@@ -269,7 +268,7 @@ class MaskGen:
         del self.self
 
     def __call__(self, X, Y = None):
-        assert X.dtype == 'float32'
+        assert X.dtype == config.floatX
         theano_rng = RandomStreams(20120712)
 
         if X.ndim == 2 and self.sync_channels:
