@@ -563,6 +563,9 @@ class ConvMaxPool(HiddenLayer):
         return self.b.dimshuffle(*shuffle)
 
 
+    def get_total_state_space(self):
+        return CompositeSpace((self.h_space, self.output_space))
+
     def set_input_space(self, space):
         """ Note: this resets parameters!"""
         if not isinstance(space, Conv2DSpace):

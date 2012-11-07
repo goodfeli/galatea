@@ -9,7 +9,7 @@ model = serial.load(model_path)
 
 monitor = model.monitor
 
-obj = monitor.channels['valid_err']
+obj = monitor.channels['valid_objective']
 
 val_record = obj.val_record
 
