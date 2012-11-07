@@ -5,7 +5,11 @@ from pylearn2.gui.patch_viewer import PatchViewer
 from pylearn2.gui.patch_viewer import make_viewer
 from pylearn2.config import yaml_parse
 
-_, model_path = sys.argv
+if len(sys.argv) == 2:
+    _, model_path = sys.argv
+    out_prefix = None
+else:
+    _, model_path, out_prefix =sys.argv
 
 model = serial.load(model_path)
 
@@ -18,7 +22,10 @@ print W2.shape
 
 prod = np.dot(W1,W2)
 pv = make_viewer(prod.T)
-pv.show()
+if out_prefix is None:
+    pv.show()
+else:
+    pv.save(out_prefix+"_prod.png")
 
 
 print 'Sorting so largest-norm layer 2 weights are plotted at the top'
@@ -110,4 +117,7 @@ for i in xrange(N):
 
         pv.add_patch( imgs[idx,...], rescale = True, activation = act)
 
-pv.show()
+if out_prefix is None:
+    pv.show()
+else:
+    pv.save(out_prefix+".png")
