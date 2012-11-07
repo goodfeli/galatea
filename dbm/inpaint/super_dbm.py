@@ -684,6 +684,7 @@ class ConvMaxPool(HiddenLayer):
         """
         rval = 0.
 
+
         if self.pool_rows == 1 and self.pool_cols == 1:
             # If the pool size is 1 then pools = detectors
             # and we should not penalize pools and detectors separately
@@ -694,10 +695,14 @@ class ConvMaxPool(HiddenLayer):
             state = [state]
             target = [target]
             coeff = [coeff]
+            if eps is None:
+                eps = 0.
             eps = [eps]
         else:
+            if eps is None:
+                eps = [0., 0.]
             assert all([len(elem) == 2 for elem in [state, target, coeff]])
-            if target[1] < target[0]:
+            if target[1] < target[0] and coeff[1] != 0.:
                 warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
 
         for s, t, c, e in safe_zip(state, target, coeff, eps):
@@ -2809,6 +2814,296 @@ class UpDown(InferenceProcedure):
                         drop_mask = drop_mask, return_unmasked = True)
                 V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
 
+            if block_grad == i + 1:
+                V_hat = block_gradient(V_hat)
+                V_hat_unmasked = block_gradient(V_hat_unmasked)
+                H_hat = block(H_hat)
+            update_history()
+        #end for i
+
+        # debugging, make sure V didn't get changed in this function
+        assert V is orig_V
+        assert drop_mask is orig_drop_mask
+
+        Y_hat = H_hat[-1]
+
+        assert V in theano.gof.graph.ancestors([V_hat])
+        if Y is not None:
+            assert V in theano.gof.graph.ancestors([Y_hat])
+
+        if return_history:
+            return history
+        else:
+            if Y is not None:
+                return V_hat, Y_hat
+            return V_hat
+
+class Dropout(InferenceProcedure):
+    """
+    An InferenceProcedure that initializes the mean field parameters based on the
+    biases in the model. This InferenceProcedure uses the same weights at every
+    iteration, rather than doubling the weights on the first pass.
+    """
+
+    def mf(self, V, Y = None, return_history = False, niter = None, block_grad = None):
+
+        dbm = self.dbm
+
+        assert Y not in [True, False, 0, 1]
+        assert return_history in [True, False, 0, 1]
+
+        if Y is not None:
+            dbm.hidden_layers[-1].get_output_space().validate(Y)
+
+        if niter is None:
+            niter = dbm.niter
+
+        H_hat = [None] + [layer.init_mf_state() for layer in dbm.hidden_layers[1:]]
+
+        # Make corrections for if we're also running inference on Y
+        if Y is not None:
+            # Last layer is clamped to Y
+            H_hat[-1] = Y
+
+        history = [ list(H_hat) ]
+
+        #we only need recurrent inference if there are multiple layers
+        assert (niter > 1) == (len(dbm.hidden_layers) > 1)
+
+        for i in xrange(niter):
+            for j in xrange(0,len(H_hat),2):
+                if j == 0:
+                    state_below = dbm.visible_layer.upward_state(V)
+                else:
+                    state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    layer_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+
+            if Y is not None:
+                H_hat[-1] = Y
+
+            for j in xrange(1,len(H_hat),2):
+                state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    state_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                #end ifelse
+            #end for odd layer
+
+            if Y is not None:
+                H_hat[-1] = Y
+
+            for i, elem in enumerate(H_hat):
+                if elem is Y:
+                    assert i == len(H_hat) -1
+                    continue
+                else:
+                    assert elem not in history[-1]
+
+
+            if block_grad == i + 1:
+                H_hat = block(H_hat)
+
+            history.append(list(H_hat))
+        # end for mf iter
+
+        # Run some checks on the output
+        for layer, state in safe_izip(dbm.hidden_layers, H_hat):
+            upward_state = layer.upward_state(state)
+            layer.get_output_space().validate(upward_state)
+
+        for elem in flatten(H_hat):
+            for value in get_debug_values(elem):
+                assert value.shape[0] == dbm.batch_size
+            assert V in theano.gof.graph.ancestors([elem])
+            if Y is not None:
+                assert Y in theano.gof.graph.ancestors([elem])
+
+        if Y is not None:
+            assert all([elem[-1] is Y for elem in history])
+            assert H_hat[-1] is Y
+
+        for elem in history:
+            assert len(elem) == len(dbm.hidden_layers)
+
+        if return_history:
+            for hist_elem, H_elem in safe_zip(history[-1], H_hat):
+                assert hist_elem is H_elem
+            return history
+        else:
+            return H_hat
+
+    def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
+            return_history = False, noise = False, niter = None, block_grad = None):
+        """
+            Gives the mean field expression for units masked out by drop_mask.
+            Uses self.niter mean field updates.
+
+            Comes in two variants, unsupervised and supervised:
+                unsupervised:
+                    Y and drop_mask_Y are not passed to the method.
+                    The method produces V_hat, an inpainted version of V
+                supervised:
+                    Y and drop_mask_Y are passed to the method.
+                    The method produces V_hat and Y_hat
+
+            V: a theano batch in model.input_space
+            Y: a theano batch in model.output_space, ie, in the output
+                space of the last hidden layer
+                (it's not really a hidden layer anymore, but oh well.
+                it's convenient to code it this way because the labels
+                are sort of "on top" of everything else)
+                *** Y is always assumed to be a matrix of one-hot category
+                labels. ***
+            drop_mask: a theano batch in model.input_space
+                Should be all binary, with 1s indicating that the corresponding
+                element of X should be "dropped", ie, hidden from the algorithm
+                and filled in as part of the inpainting process
+            drop_mask_Y: a theano vector
+                Since we assume Y is a one-hot matrix, each row is a single
+                categorical variable. drop_mask_Y is a binary mask specifying
+                which *rows* to drop.
+        """
+
+        theano_rng = MRG_RandomStreams(2012 + 11 + 7)
+
+        dbm = self.dbm
+
+        warnings.warn("""Should add unit test that calling this with a batch of
+                different inputs should yield the same output for each if noise
+                is False and drop_mask is all 1s""")
+
+        if niter is None:
+            niter = dbm.niter
+
+
+        assert drop_mask is not None
+        assert return_history in [True, False]
+        assert noise in [True, False]
+        if Y is None:
+            if drop_mask_Y is not None:
+                raise ValueError("do_inpainting got drop_mask_Y but not Y.")
+        else:
+            if drop_mask_Y is None:
+                raise ValueError("do_inpainting got Y but not drop_mask_Y.")
+
+        if Y is not None:
+            assert isinstance(dbm.hidden_layers[-1], Softmax)
+            if drop_mask_Y.ndim != 1:
+                raise ValueError("do_inpainting assumes Y is a matrix of one-hot labels,"
+                        "so each example is only one variable. drop_mask_Y should "
+                        "therefore be a vector, but we got something with ndim " +
+                        str(drop_mask_Y.ndim))
+            drop_mask_Y = drop_mask_Y.dimshuffle(0, 'x')
+
+        orig_V = V
+        orig_drop_mask = drop_mask
+
+        history = []
+
+        V_hat, V_hat_unmasked = dbm.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
+        assert V_hat_unmasked.ndim > 1
+
+        H_hat = [layer.init_mf_state() for layer in dbm.hidden_layers]
+
+        if Y is not None:
+            Y_hat_unmasked = dbm.hidden_layers[-1].init_inpainting_state(Y, noise)
+            Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
+            H_hat[-1] = Y_hat
+
+        def dropout_mask_like(x):
+            return 2. * theano_rng.binomial(p=.5, size=x.shape, dtype=x.dtype, n=1)
+
+        def dropout_structure(x):
+            if isinstance(x, (list, tuple)):
+                return [ dropout_structure(elem) for elem in x]
+            return dropout_mask_like(x)
+
+        V_dropout = dropout_structure(V)
+        H_dropout = dropout_structure(H_hat)
+
+        def apply_dropout(x, d):
+            if isinstance(x, (list, tuple)):
+                return [ apply_dropout(x_elem, d_elem) for x_elem, d_elem in safe_zip(x, d) ]
+            return x * d
+
+        def update_history():
+
+            assert V_hat_unmasked.ndim > 1
+            d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            if Y is not None:
+                d['Y_hat_unmasked'] = Y_hat_unmasked
+                d['Y_hat'] = H_hat[-1]
+            history.append( d )
+
+        V_hat = apply_dropout(V_hat, V_dropout)
+        H_hat = apply_dropout(H_hat, H_dropout)
+        update_history()
+
+        for i in xrange(niter):
+            for j in xrange(0, len(H_hat), 2):
+                if j == 0:
+                    state_below = dbm.visible_layer.upward_state(V_hat)
+                else:
+                    state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    layer_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                if Y is not None and j == len(dbm.hidden_layers) - 1:
+                    Y_hat_unmasked = H_hat[j]
+                    H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+                H_hat[j] = apply_dropout(H_hat[j], H_dropout[j])
+
+            V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
+                    state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
+                    layer_above = dbm.hidden_layers[0],
+                    V = V,
+                    drop_mask = drop_mask, return_unmasked = True)
+            V_hat = apply_dropout(V_hat, V_dropout)
+            V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
+
+
+            for j in xrange(1,len(H_hat),2):
+                state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    layer_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                #end if j
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                if Y is not None and j == len(dbm.hidden_layers) - 1:
+                    Y_hat_unmasked = H_hat[j]
+                    H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+                #end if y
+                H_hat[j] = apply_dropout(H_hat[j], H_dropout[j])
+            #end for j
             if block_grad == i + 1:
                 V_hat = block_gradient(V_hat)
                 V_hat_unmasked = block_gradient(V_hat_unmasked)

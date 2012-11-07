@@ -233,6 +233,8 @@ class SuperInpaint(Cost):
                     total_cost += layer_cost
 
         if self.l1_act_targets is not None:
+            if self.l1_act_eps is None:
+                self.l1_act_eps = [ None ] * len(self.l1_act_targets)
             for layer, mf_state, targets, coeffs, eps in safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs, self.l1_act_eps):
                 assert not isinstance(targets, str)
 

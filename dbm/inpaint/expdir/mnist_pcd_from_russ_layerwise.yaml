@@ -16,7 +16,8 @@
                cost : !obj:pylearn2.costs.cost.SumOfCosts {
                 costs: [ !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
                         supervised: 1,
-                        num_chains: 100,
+                        # use a lot of chains to compensate for lack of rao-blackwell
+                        num_chains: 2000,
                         num_gibbs_steps: 5
                         },
                         !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
