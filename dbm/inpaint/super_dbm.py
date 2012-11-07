@@ -2566,7 +2566,7 @@ class BiasInit(InferenceProcedure):
         Y_hat = H_hat[-1]
 
         assert V in theano.gof.graph.ancestors([V_hat])
-        if Y_hat is not None:
+        if Y is not None:
             assert V in theano.gof.graph.ancestors([Y_hat])
 
         if return_history:
@@ -2706,14 +2706,17 @@ class UpDown(InferenceProcedure):
                 which *rows* to drop.
         """
 
-        dbm = self.dbm
+        if Y is not None:
+            assert isinstance(self.hidden_layers[-1], dbm.Softmax)
+
+        model = self.dbm
 
         warnings.warn("""Should add unit test that calling this with a batch of
                 different inputs should yield the same output for each if noise
                 is False and drop_mask is all 1s""")
 
         if niter is None:
-            niter = dbm.niter
+            niter = model.niter
 
 
         assert drop_mask is not None
@@ -2727,7 +2730,7 @@ class UpDown(InferenceProcedure):
                 raise ValueError("do_inpainting got Y but not drop_mask_Y.")
 
         if Y is not None:
-            assert isinstance(dbm.hidden_layers[-1], Softmax)
+            assert isinstance(model.hidden_layers[-1], Softmax)
             if drop_mask_Y.ndim != 1:
                 raise ValueError("do_inpainting assumes Y is a matrix of one-hot labels,"
                         "so each example is only one variable. drop_mask_Y should "
@@ -2740,13 +2743,13 @@ class UpDown(InferenceProcedure):
 
         history = []
 
-        V_hat, V_hat_unmasked = dbm.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
+        V_hat, V_hat_unmasked = model.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
         assert V_hat_unmasked.ndim > 1
 
-        H_hat = [None] + [layer.init_mf_state() for layer in dbm.hidden_layers[1:]]
+        H_hat = [None] + [layer.init_mf_state() for layer in model.hidden_layers[1:]]
 
         if Y is not None:
-            Y_hat_unmasked = dbm.hidden_layers[-1].init_inpainting_state(Y, noise)
+            Y_hat_unmasked = model.hidden_layers[-1].init_inpainting_state(Y, noise)
             Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
             H_hat[-1] = Y_hat
 
@@ -2769,9 +2772,9 @@ class UpDown(InferenceProcedure):
                 if i > 0:
                     # Don't start by updating V_hat on iteration 0 or this will throw out the
                     # noise
-                    V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
-                            state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
-                            layer_above = dbm.hidden_layers[0],
+                    V_hat, V_hat_unmasked = model.visible_layer.inpaint_update(
+                            state_above = model.hidden_layers[0].downward_state(H_hat[0]),
+                            layer_above = model.hidden_layers[0],
                             V = V,
                             drop_mask = drop_mask, return_unmasked = True)
                     V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
@@ -2781,27 +2784,27 @@ class UpDown(InferenceProcedure):
                 inc = -1
             for j in xrange(start, stop, inc):
                 if j == 0:
-                    state_below = dbm.visible_layer.upward_state(V_hat)
+                    state_below = model.visible_layer.upward_state(V_hat)
                 else:
-                    state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                    state_below = model.hidden_layers[j-1].upward_state(H_hat[j-1])
                 if j == len(H_hat) - 1:
                     state_above = None
                     layer_above = None
                 else:
-                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
-                    layer_above = dbm.hidden_layers[j+1]
-                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                    state_above = model.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = model.hidden_layers[j+1]
+                H_hat[j] = model.hidden_layers[j].mf_update(
                         state_below = state_below,
                         state_above = state_above,
                         layer_above = layer_above)
-                if Y is not None and j == len(dbm.hidden_layers) - 1:
+                if Y is not None and j == len(model.hidden_layers) - 1:
                     Y_hat_unmasked = H_hat[j]
                     H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
 
             if i % 2 == 1:
-                V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
-                        state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
-                        layer_above = dbm.hidden_layers[0],
+                V_hat, V_hat_unmasked = model.visible_layer.inpaint_update(
+                        state_above = model.hidden_layers[0].downward_state(H_hat[0]),
+                        layer_above = model.hidden_layers[0],
                         V = V,
                         drop_mask = drop_mask, return_unmasked = True)
                 V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
