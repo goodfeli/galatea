@@ -1951,6 +1951,11 @@ class DeepMLP_Wrapper(Model):
         self._params.append(self.vis_h0)
         self.h0_bias = sharedX(l1.get_biases(), 'h0_bias')
         self._params.append(self.h0_bias)
+        if hasattr(l1, 'mask'):
+            assert False # debugging, remove if surprising
+            self.vis_h0_mask = l1.mask
+        else:
+            self.vis_h0_mask = None
 
         # Layer 2
         self.h0_h1 = sharedX(l2.get_weights(), 'h0_h1')
@@ -1959,6 +1964,11 @@ class DeepMLP_Wrapper(Model):
         self._params.append(self.h1_h0)
         self.h1_bias = sharedX(l2.get_biases(), 'h1_bias')
         self._params.append(self.h1_bias)
+        if hasattr(l2, 'mask'):
+            self.h0_h1_mask = l2.mask
+        else:
+            assert False # debugging, remove if surprising
+            self.h0_h1_mask = None
 
         # Layer 3
         self.h1_h2 = sharedX(l3.get_weights(), 'h1_h2')
@@ -1973,6 +1983,11 @@ class DeepMLP_Wrapper(Model):
             l3.set_biases(penbias)
         self.penbias = sharedX(l3.get_biases(), 'h2_bias')
         self._params.append(self.penbias)
+        if hasattr(l3, 'mask'):
+            self.h1_h2_mask = l3.mask
+        else:
+            assert False # debugging, remove if surprising
+            self.h1_h2_mask = None
 
         # Class layer
         if decapitate:
@@ -1986,6 +2001,23 @@ class DeepMLP_Wrapper(Model):
             self.c.set_biases(c.get_biases())
         self._params.extend(self.c.get_params())
         self.hidden_layers = [ self.c ]
+
+    def censor_updates(self, updates):
+
+        def apply_mask(param, mask):
+            if mask is not None and param in updates:
+                updates[param] = updates[param] * mask
+
+        def transpose(x):
+            if x is None:
+                return x
+            return x.T
+
+        params = [ self.vis_h0, self.h0_h1, self.h1_h0, self.h1_h2 ]
+        masks  = [ self.vis_h0_mask, self.h0_h1_mask, transpose(self.h0_h1_mask), self.h1_h2_mask]
+
+        for param, mask in safe_zip(params, masks):
+            apply_mask(param, mask)
 
     def mf(self, V, return_history = False, ** kwargs):
         assert not return_history
