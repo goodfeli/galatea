@@ -684,6 +684,7 @@ class ConvMaxPool(HiddenLayer):
         """
         rval = 0.
 
+
         if self.pool_rows == 1 and self.pool_cols == 1:
             # If the pool size is 1 then pools = detectors
             # and we should not penalize pools and detectors separately
@@ -694,10 +695,14 @@ class ConvMaxPool(HiddenLayer):
             state = [state]
             target = [target]
             coeff = [coeff]
+            if eps is None:
+                eps = 0.
             eps = [eps]
         else:
+            if eps is None:
+                eps = [0., 0.]
             assert all([len(elem) == 2 for elem in [state, target, coeff]])
-            if target[1] < target[0]:
+            if target[1] < target[0] and coeff[1] != 0.:
                 warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
 
         for s, t, c, e in safe_zip(state, target, coeff, eps):
