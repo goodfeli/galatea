@@ -138,8 +138,9 @@ for layer_idx in xrange(num_layers):
         thresh = perc * peak
         while num_top_filters < len(filter_act_record) and filter_act_record[-num_top_filters][0] > thresh:
             num_top_filters += 1
-        print '\t\t\tUsing %d top filters' % num_top_filters
         top = filter_act_record[-num_top_filters:]
+        print '\t\t\tUsing %d top examples (activation value %f - %f)' % \
+                (num_top_filters, top[0][0], peak)
         idxs = [ elem[1] for elem in top]
         coeffs = [ elem[0] for elem in top]
         coeffs = np.asarray(coeffs)
