@@ -6,7 +6,7 @@
     },
     model: !obj:pylearn2.monitor.push_monitor {
           # this pulls in batch size (which we override below) and niter from previous job
-          model: !pkl: "${USERDIR}/galatea/dbm/inpaint/expdir/mnist_sup_from_sup_inpaint_P_stage1_best.pkl",
+          model: !pkl: "${G}/dbm/inpaint/expdir/mnist_sup_from_sup_inpaint_P_stage1_best.pkl",
           name: 'monitor_early_stopping'
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
@@ -34,10 +34,11 @@
                },
                cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
                },
-               termination_criterion: !obj:pylearn2.termination_criteria.ChannelTarget
+               termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel
                {
                         channel_name: "train_err",
-                        target: 0.
+                        prev_channel_name: "valid_err",
+                        prev_monitor_name: "monitor_early_stopping"
                }
         },
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
