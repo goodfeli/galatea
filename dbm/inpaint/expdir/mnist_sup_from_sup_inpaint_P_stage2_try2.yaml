@@ -34,11 +34,10 @@
                },
                cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
                },
-               termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel
+               termination_criterion: !obj:pylearn2.termination_criteria.ChannelTarget
                {
                         channel_name: "train_err",
-                        prev_channel_name: "valid_err",
-                        prev_monitor_name: "monitor_early_stopping"
+                        target: 0.
                }
         },
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",

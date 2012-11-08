@@ -3153,5 +3153,19 @@ def mask_weights(input_shape,
 
     return np.concatenate(mask, axis=1)
 
+class ProductDecay(Cost):
+
+    def __init__(self, coeff):
+        self.coeff = coeff
+
+    def __call__(self, model, X, Y=None, **kwargs):
+        h1, h2 = model.hidden_layers[0:2]
+        W1, = h1.transformer.get_params()
+        W2, = h2.transformer.get_params()
+        prod = T.dot(W1, W2)
+        fro = T.sqr(prod).sum()
+        return self.coeff * fro
+
+
 DBM_PCD = PCD
 
