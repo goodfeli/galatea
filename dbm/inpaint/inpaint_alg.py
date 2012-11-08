@@ -128,6 +128,7 @@ class InpaintAlgorithm(object):
         gradients, gradient_updates = self.cost.get_gradients(model, X, Y, drop_mask = drop_mask,
                 drop_mask_Y = drop_mask_Y)
 
+
         if self.monitoring_dataset is not None:
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
                 Y = None
@@ -181,6 +182,8 @@ class InpaintAlgorithm(object):
                                              ipt=ipt,
                                              val=J, dataset=monitoring_dataset,
                                              prereqs=prereqs)
+
+
 
 
         self.optimizer = BatchGradientDescent(

@@ -148,6 +148,7 @@ for layer_idx in xrange(num_layers):
         if coeffs.sum() == 0.0:
             print 'WARNING: skipping totally inactive unit.'
             continue
+        coeffs /= coeffs.max()
 
         assert len(dataset.X.shape) == 2
         batch = dataset.X[idxs,:]
