@@ -4,6 +4,7 @@ import theano.tensor as T
 from theano import config
 from pylearn2.utils import make_name
 from pylearn2.utils import safe_izip
+from pylearn2.models.dbm import flatten
 import warnings
 
 warnings.warn("""Check math on all of super DBM--make sure probabilistic max pooling,
@@ -20,6 +21,7 @@ class SuperInpaint(Cost):
                     l1_act_targets = None,
                     l1_act_eps = None,
                     range_rewards = None,
+                    robustness = None,
                     supervised = False,
                     niter = None,
                     block_grad = None
@@ -113,6 +115,7 @@ class SuperInpaint(Cost):
 
         if not self.supervised:
             assert drop_mask_Y is None
+            Y = None # ignore Y if some other cost is supervised and has made it get passed in
         if self.supervised:
             assert Y is not None
             if drop_mask is not None:
@@ -168,6 +171,15 @@ class SuperInpaint(Cost):
         new_final_state = new_history[-1]
 
         total_cost = self.cost_from_states(final_state, new_final_state, dbm, X, Y, drop_mask, drop_mask_Y, new_drop_mask, new_drop_mask_Y)
+
+        if self.robustness is not None:
+            inpainting_H_hat = history[-1]['H_hat']
+            mf_H_hat = dbm.mf(X, Y=Y)
+            if self.supervised:
+                inpainting_H_hat = inpainting_H_hat[:-1]
+                mf_H_hat = mf_H_hat[:-1]
+                for ihh, mhh in safe_izip(flatten(inpainting_H_hat), flatten(mf_H_hat)):
+                    total_cost += self.robustness * T.sqr(mhh-ihh).sum()
 
         if return_locals:
             return locals()
