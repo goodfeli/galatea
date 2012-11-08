@@ -30,6 +30,7 @@ from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import flatten
 from pylearn2.models.dbm import HiddenLayer
+from pylearn2.models.dbm import VisibleLayer
 from pylearn2.models.dbm import InferenceProcedure
 from pylearn2.models.dbm import Layer
 from pylearn2.models.dbm import WeightDoubling
@@ -308,7 +309,7 @@ class SuperDBM(DBM):
 
 
 
-class GaussianConvolutionalVisLayer(Layer):
+class GaussianConvolutionalVisLayer(VisibleLayer):
     def __init__(self,
             rows,
             cols,
@@ -467,7 +468,7 @@ class GaussianConvolutionalVisLayer(Layer):
 
         return rval
 
-    def get_sampling_updates(self, state_below = None, state_above = None,
+    def sample(self, state_below = None, state_above = None,
             layer_above = None,
             theano_rng = None):
 
@@ -804,7 +805,7 @@ class ConvMaxPool(HiddenLayer):
 
         return p, h
 
-    def get_sampling_updates(self, state_below = None, state_above = None,
+    def sample(self, state_below = None, state_above = None,
             layer_above = None,
             theano_rng = None):
 
