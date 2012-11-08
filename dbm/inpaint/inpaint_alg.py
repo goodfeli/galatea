@@ -204,6 +204,8 @@ class InpaintAlgorithm(object):
                             line_search_mode = self.line_search_mode)
         self.X = X
 
+        self.monitor.add_channel(name='ave_step_size',
+                ipt=ipt, val = self.optimizer.ave_step_size, dataset=self.monitoring_dataset.values()[0])
 
         self.first = True
         self.bSetup = True
