@@ -23,7 +23,7 @@ from pylearn2.utils import safe_izip
 from pylearn2.utils import _ElemwiseNoGradient
 from theano import config
 io = None
-from pylearn2.training_callbacks.training_callback import TrainingCallback
+from pylearn2.train_extensions import TrainExtension
 from pylearn2.costs.dbm import PCD
 from pylearn2.models.dbm import block
 from pylearn2.models.dbm import BinaryVectorMaxPool
@@ -2059,8 +2059,8 @@ class DeepMLP_Wrapper(Model):
     def get_output_space(self):
         return self.c.get_output_space()
 
-class ActivateLower(TrainingCallback):
-    def __call__(self, model, dataset, algorithm):
+class ActivateLower(TrainExtension):
+    def on_monitor(self, model, dataset, algorithm):
         if model.monitor.get_epochs_seen() == 6:
             lr_scalers = model.lr_scalers
             values = lr_scalers.values()
