@@ -10,7 +10,7 @@
         stop: 50000
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-              batch_size : 1000,
+              batch_size : 500,
               niter: 6, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
@@ -40,7 +40,7 @@
               ]
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
-               combine_batches : 10,
+               combine_batches : 2,
                monitoring_dataset : {
                         'train': *train,
                         'valid': !obj:pylearn2.datasets.mnist.MNIST {
@@ -78,14 +78,14 @@
                         balance: 0,
                         sync_channels: 0
                },
-               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               termination_criterion: &batch_grower !obj:galatea.dbm.inpaint.inpaint_alg.BatchGrower
                {
-                        channel_name: "valid_objective",
-                        N: 15,
-                        prop_decrease: 0.
+                        channel: "valid_objective",
+                        available_batches: 100
                }
         },
     extensions: [
+                *batch_grower,
                 !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
                         channel_name: "valid_err",
                         save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
