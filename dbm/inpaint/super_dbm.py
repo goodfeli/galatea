@@ -1505,6 +1505,7 @@ class BinaryVisLayer(dbm.BinaryVector):
 
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
 
+
         V_hat = V_hat_unmasked
 
         assert hasattr(V_hat, 'owner')
