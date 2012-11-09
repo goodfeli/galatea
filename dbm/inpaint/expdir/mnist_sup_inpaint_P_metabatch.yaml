@@ -10,7 +10,7 @@
         stop: 50000
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-              batch_size : 1250,
+              batch_size : 1000,
               niter: 6, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
@@ -57,7 +57,7 @@
                reset_alpha: 0,
                conjugate: 1,
                reset_conjugate: 0,
-               max_iter: 1,
+               max_iter: 5,
                cost: !obj:pylearn2.costs.cost.SumOfCosts {
                        costs :[
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {

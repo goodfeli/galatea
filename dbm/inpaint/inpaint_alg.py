@@ -271,6 +271,7 @@ class InpaintAlgorithm(object):
                 self.optimizer.minimize()
             actual_batch_size = X.shape[0]
             model.monitor.report_batch(actual_batch_size)
+        assert len(accum_batches) == 0
 
     def continue_learning(self, model):
         if self.termination_criterion is not None:
