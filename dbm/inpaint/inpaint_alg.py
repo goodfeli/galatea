@@ -340,7 +340,8 @@ class BatchGrower(TrainExtension, TerminationCriterion):
                     algorithm.combine_batches = cur
                     self.monitor_channel.set_value(np.cast[config.floatX](cur))
                     break
-        if len(v) - 1 in self.reset_best:
+        if (len(v) - 1) in self.reset_best:
+            print "Resetting our the previous best."
             self.best = np.inf
 
 
