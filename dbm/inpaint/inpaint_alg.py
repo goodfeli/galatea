@@ -98,10 +98,10 @@ class InpaintAlgorithm(object):
         #monitor is working, and we don't want the monitor to increase the memory
         #overhead. So we make the monitor work off of the same shared variable
         space = model.get_input_space()
-        X = sharedX( space.get_origin_batch(2) , 'X')
+        X = sharedX( space.get_origin_batch(model.batch_size) , 'X')
         self.space = space
         rng = np.random.RandomState([2012,7,20])
-        test_mask = space.get_origin_batch(2)
+        test_mask = space.get_origin_batch(model.batch_size)
         test_mask = rng.randint(0,2,test_mask.shape)
         if hasattr(self.mask_gen,'sync_channels') and self.mask_gen.sync_channels:
             if test_mask.ndim != 4:
@@ -115,9 +115,9 @@ class InpaintAlgorithm(object):
         Y = None
         drop_mask_Y = None
         if self.cost.supervised:
-            Y = sharedX(model.get_output_space().get_origin_batch(2), 'Y')
+            Y = sharedX(model.get_output_space().get_origin_batch(model.batch_size), 'Y')
             self.Y = Y
-            test_mask_Y = rng.randint(0,2,(2,))
+            test_mask_Y = rng.randint(0,2,(model.batch_size,))
             drop_mask_Y = sharedX( np.cast[Y.dtype](test_mask_Y), name = 'drop_mask_Y')
             self.drop_mask_Y = drop_mask_Y
             dmx, dmy = self.mask_gen(X, Y)

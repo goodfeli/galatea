@@ -60,23 +60,20 @@
                max_iter: 5,
                cost: !obj:pylearn2.costs.cost.SumOfCosts {
                        costs :[
+                               !obj:galatea.dbm.inpaint.super_dbm.Recons {
+                                        supervised: 1,
+                                        coeffs: [ 1., 1.]
+                               },
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
                                         both_directions : 0,
                                         noise : 0,
                                         supervised: 1,
                                         l1_act_targets: [  .06, .07, 0. ],
                                         l1_act_eps:     [  .04,  .05, 0. ],
-                                        l1_act_coeffs:  [  .01,
-                                           &l2_sparse_coeff !obj:pylearn2.utils.sharedX {
-                                                              value: 0.,
-                                                                                name: 'l2_sparse_coeff' }, 0.  ]
+                                        l1_act_coeffs:  [ .01,  .000, 0.  ]
                                },
                                !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
-                                        coeffs: [ &weight_cost !obj:pylearn2.utils.sharedX {
-                                                value: .0000005,
-                                                name: 'weight_cost'
-                                                },
-                                        *weight_cost, *weight_cost ]
+                                        coeffs: [ .0000005, .0000005, .0000005 ]
                                }
                        ]
                },
@@ -88,18 +85,11 @@
                termination_criterion: &batch_grower !obj:galatea.dbm.inpaint.inpaint_alg.BatchGrower
                {
                         channel: "valid_objective",
-                        available_batches: 100,
-                        reset_best: [ &activate 5 ]
+                        available_batches: 100
                }
         },
     extensions: [
                 *batch_grower,
-                !obj:pylearn2.train_extensions.SharedSetter {
-                        epoch_updates: [
-                                [ *activate, *l2_sparse_coeff, .00 ],
-                                [ *activate, *weight_cost, .0000006 ]
-                        ]
-                },
                 !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
                         channel_name: "valid_err",
                         save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
