@@ -269,11 +269,13 @@ class InpaintAlgorithm(object):
                 accum_batches.append([elem.get_value() for elem in self.inputs])
                 if len(accum_batches) == self.combine_batches:
                     self.optimizer.minimize(*accum_batches)
+                    actual_batch_size = sum([batch[0].shape[0] for batch in accum_batches])
+                    model.monitor.report_batch(actual_batch_size)
                     accum_batches = []
             else:
                 self.optimizer.minimize()
-            actual_batch_size = X.shape[0]
-            model.monitor.report_batch(actual_batch_size)
+                actual_batch_size = X.shape[0]
+                model.monitor.report_batch(actual_batch_size)
         assert len(accum_batches) == 0
 
     def continue_learning(self, model):
@@ -283,13 +285,17 @@ class InpaintAlgorithm(object):
 
 class BatchGrower(TrainExtension, TerminationCriterion):
 
-    def __init__(self, channel, available_batches, giveup_after = None):
+    def __init__(self, channel, available_batches, giveup_after = None,
+            reset_best = None):
         """
         Grows the combine_batches setting (to the next factor of available_batches)
         whenever the given channel fails to decrease.
 
         Gives up when the channel fails to decrease and combine_batches >= giveup_after
         giveup_after defaults to available_batches if unspecified.
+
+        reset_best is a list of epochs after which the best value should be reset, eg,
+            because the objective function changes at that point in time.
         """
 
         if giveup_after is None:
@@ -298,6 +304,9 @@ class BatchGrower(TrainExtension, TerminationCriterion):
         del self.self
         self.continue_learning = True
         self.first = True
+        self.best_prev = np.inf
+        if reset_best is None:
+            self.reset_best = []
 
     def on_monitor(self, model, dataset, algorithm):
         monitor = model.monitor
@@ -315,10 +324,9 @@ class BatchGrower(TrainExtension, TerminationCriterion):
         if len(v) == 1:
             return
         latest = v[-1]
-        best_prev = min(v[:-1])
         print "Latest "+self.channel+": "+str(latest)
-        print "Best previous is "+str(best_prev)
-        if latest >= best_prev:
+        print "Best previous is "+str(self.best_prev)
+        if latest >= self.best_prev:
             cur = algorithm.combine_batches
             print "Looks like using "+str(cur)+" isn't working out so great for us."
             while True:
@@ -332,6 +340,8 @@ class BatchGrower(TrainExtension, TerminationCriterion):
                     algorithm.combine_batches = cur
                     self.monitor_channel.set_value(np.cast[config.floatX](cur))
                     break
+        if len(v) - 1 in self.reset_best:
+            self.best = np.inf
 
 
     def __call__(self, model):
