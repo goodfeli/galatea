@@ -10,6 +10,7 @@ from pylearn2.utils.iteration import is_stochastic
 from theano import config
 from pylearn2.train_extensions import TrainExtension
 from pylearn2.termination_criteria import TerminationCriterion
+from pylearn2.utils import safe_zip
 
 class SetupBatch:
     def __init__(self,alg):
@@ -33,7 +34,7 @@ class InpaintAlgorithm(object):
                  reset_alpha = True, conjugate = False, reset_conjugate = True,
                  termination_criterion = None, set_batch_size = False,
                  line_search_mode = None, min_init_alpha = 1e-3,
-                 duplicate = 1, combine_batches = 1):
+                 duplicate = 1, combine_batches = 1, scale_step = 1.):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -223,6 +224,17 @@ class InpaintAlgorithm(object):
         self.first = True
         self.bSetup = True
 
+    def before_step(self, model):
+        if self.scale_step != 1.:
+            self.params = list(model.get_params())
+            self.value = [ param.get_value() for param in self.params ]
+
+    def after_step(self, model):
+        if self.scale_step != 1:
+            for param, value in safe_zip(self.params, self.value):
+                value = (1.-self.scale_step) * value + self.scale_step * param.get_value()
+                param.set_value(value)
+
     def train(self, dataset):
         assert self.bSetup
         model = self.model
@@ -268,12 +280,16 @@ class InpaintAlgorithm(object):
             if self.accumulate:
                 accum_batches.append([elem.get_value() for elem in self.inputs])
                 if len(accum_batches) == self.combine_batches:
+                    self.before_step(model)
                     self.optimizer.minimize(*accum_batches)
+                    self.after_step(model)
                     actual_batch_size = sum([batch[0].shape[0] for batch in accum_batches])
                     model.monitor.report_batch(actual_batch_size)
                     accum_batches = []
             else:
+                self.before_step(model)
                 self.optimizer.minimize()
+                self.after_step(model)
                 actual_batch_size = X.shape[0]
                 model.monitor.report_batch(actual_batch_size)
         assert len(accum_batches) == 0
