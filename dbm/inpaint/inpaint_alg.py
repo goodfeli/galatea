@@ -357,10 +357,10 @@ class BatchGrower(TrainExtension, TerminationCriterion):
                     self.monitor_channel.set_value(np.cast[config.floatX](cur))
                     break
         else:
-            self.best = latest
+            self.best_prev = latest
         if (len(v) - 1) in self.reset_best:
-            print "Resetting our the previous best."
-            self.best = np.inf
+            print "Resetting our record of the previous best."
+            self.best_prev = np.inf
 
 
     def __call__(self, model):
