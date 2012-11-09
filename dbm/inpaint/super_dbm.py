@@ -1826,7 +1826,7 @@ class MLP_Wrapper(Model):
             self.c = c
             del super_dbm.hidden_layers[-1]
         else:
-            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output')
+            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output', copies = c.copies)
             self.c.dbm = l1.dbm
             self.c.set_input_space(l2.get_output_space())
             if self.orig_sup:
@@ -1908,7 +1908,7 @@ class MLP_Wrapper(Model):
         above = T.dot(H2, self.penhid)
         H1 = T.nnet.sigmoid(below + above + self.hidbias)
         if self.top_down:
-            top_down = T.dot(y, self.labpen)
+            top_down = T.dot(y, self.labpen) * self.c.copies
         else:
             top_down = 0.
         H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen) + top_down + self.penbias)
