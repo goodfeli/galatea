@@ -24,13 +24,13 @@ class SetupBatch:
         return {}
 
 class InpaintAlgorithm(object):
-    def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=10,
+    def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=None,
                  monitoring_batches=None, monitoring_dataset=None,
                  max_iter = 5, suicide = False, init_alpha = None,
                  reset_alpha = True, conjugate = False, reset_conjugate = True,
                  termination_criterion = None, set_batch_size = False,
                  line_search_mode = None, min_init_alpha = 1e-3,
-                 duplicate = 1):
+                 duplicate = 1, combine_batches = 1):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -184,10 +184,15 @@ class InpaintAlgorithm(object):
                                              prereqs=prereqs)
 
 
-
+        self.accumulate = self.combine_batches > 1
+        if self.accumulate:
+            self.inputs = [elem for elem in [X, Y, drop_mask, drop_mask_Y] if elem is not None]
+        else:
+            self.inputs = None
 
         self.optimizer = BatchGradientDescent(
                             objective = obj,
+                            inputs = self.inputs,
                             verbose = True,
                             gradients = gradients,
                             gradient_updates = gradient_updates,
@@ -201,7 +206,8 @@ class InpaintAlgorithm(object):
                             conjugate = self.conjugate,
                             reset_conjugate = self.reset_conjugate,
                             min_init_alpha = self.min_init_alpha,
-                            line_search_mode = self.line_search_mode)
+                            line_search_mode = self.line_search_mode,
+                            accumulate = self.accumulate)
         self.X = X
 
         self.monitor.add_channel(name='ave_step_size',
@@ -237,6 +243,11 @@ class InpaintAlgorithm(object):
                 topo=self.X.ndim != 2,
                 rng = rng)
 
+        accum_batches = []
+
+        if self.accumulate:
+            warnings.warn("InpaintAlg.train wastes time setting shared variables only to pull their value back out.")
+
         for data in iterator:
             if self.cost.supervised:
                 X, Y = data
@@ -251,11 +262,15 @@ class InpaintAlgorithm(object):
             self.X.set_value(X)
 
             self.update_mask()
-            self.optimizer.minimize()
+            if self.accumulate:
+                accum_batches.append([elem.get_value() for elem in self.inputs])
+                if len(accum_batches) == self.combine_batches:
+                    self.optimizer.minimize(*accum_batches)
+                    accum_batches = []
+            else:
+                self.optimizer.minimize()
             actual_batch_size = X.shape[0]
             model.monitor.report_batch(actual_batch_size)
-            if self.suicide:
-                return False
 
     def continue_learning(self, model):
         if self.termination_criterion is not None:
