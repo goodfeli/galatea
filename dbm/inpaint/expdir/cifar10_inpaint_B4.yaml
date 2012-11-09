@@ -6,7 +6,7 @@
         preprocessor: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/preprocessor.pkl"
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-              batch_size : 150,
+              batch_size : 100,
               niter: 6, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
@@ -31,7 +31,7 @@
                                },
                                 !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
                                         scale_by_sharing: 0,
-                                        border_mode : 'valid',
+                                        border_mode : 'full',
                                         output_channels: 64,
                                         kernel_rows: 4,
                                         kernel_cols: 4,
@@ -44,6 +44,7 @@
                                ],
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               combine_batches: 10,
                conjugate: 1,
                line_search_mode: 'exhaustive',
                reset_conjugate: 0,
