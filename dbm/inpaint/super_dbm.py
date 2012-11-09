@@ -3170,3 +3170,58 @@ class ProductDecay(Cost):
 
 DBM_PCD = PCD
 
+
+class Recons(Cost):
+
+    def __init__(self, supervised, coeffs):
+        self.__dict__.update(locals())
+        del self.self
+
+    def __call__(self, model, X, Y = None, ** kwargs):
+
+        if not self.supervised:
+            raise NotImplementedError()
+        else:
+            Q = model.mf(X, Y = Y, niter = model.niter / 2)
+            assert len(Q) == 3
+            assert len(model.hidden_layers) == 3
+            assert isinstance(model.hidden_layers[0], dbm.BinaryVectorMaxPool)
+            assert isinstance(model.hidden_layers[1], dbm.BinaryVectorMaxPool)
+            assert model.hidden_layers[0].pool_size == 1
+            assert model.hidden_layers[1].pool_size == 1
+
+            H1, H2 = Q[0:2]
+            H1, _ = H1
+            H2, _ = H2
+
+            h1, h2, y = model.hidden_layers
+            v = model.visible_layer
+
+            # H1 penalty
+            V = T.nnet.sigmoid(h1.downward_message(H1)+v.bias)
+            V_recons = v.recons_cost(X, V, T.zeros_like(X))
+
+            H2new = H2
+
+            for i in xrange(model.niter / 2):
+                Y_hat = y.mf_update(state_below = H2new)
+                H2new = h2.mf_update(state_below = H1, layer_above = y, state_above = Y_hat)[0]
+            Y_recons = y.recons_cost(Y, Y_hat, T.zeros_like(Y[:,0]), 1./T.cast(X.shape[1], 'float32'))
+
+            total_cost = self.coeffs[0] * (V_recons + Y_recons)
+
+            # H2 penalty
+
+            Y_hat = y.mf_update(state_below = H2)
+            total_cost += self.coeffs[1] * y.recons_cost(Y, Y_hat,
+                    T.zeros_like(Y[:,0]), 1./T.cast(X.shape[1], 'float32'))
+
+            for i in xrange(model.niter / 2):
+                V_hat = T.nnet.sigmoid(h1.downward_message(H1)+v.bias)
+                H1 = h1.mf_update(state_below = V_hat, state_above = H2, layer_above = h2)[0]
+
+            total_cost += self.coeffs[1] * v.recons_cost(X, V_hat, T.zeros_like(X))
+
+            return total_cost
+
+
