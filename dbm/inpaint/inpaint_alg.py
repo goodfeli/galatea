@@ -7,6 +7,9 @@ import numpy as np
 import warnings
 from pylearn2.datasets.dataset import Dataset
 from pylearn2.utils.iteration import is_stochastic
+from theano import config
+from pylearn2.train_extensions import TrainExtension
+from pylearn2.termination_criteria import TerminationCriterion
 
 class SetupBatch:
     def __init__(self,alg):
@@ -278,3 +281,58 @@ class InpaintAlgorithm(object):
             return self.termination_criterion(self.model)
         return True
 
+class BatchGrower(TrainExtension, TerminationCriterion):
+
+    def __init__(self, channel, available_batches, giveup_after = None):
+        """
+        Grows the combine_batches setting (to the next factor of available_batches)
+        whenever the given channel fails to decrease.
+
+        Gives up when the channel fails to decrease and combine_batches >= giveup_after
+        giveup_after defaults to available_batches if unspecified.
+        """
+
+        if giveup_after is None:
+            giveup_after = available_batches
+        self.__dict__.update(locals())
+        del self.self
+        self.continue_learning = True
+        self.first = True
+
+    def on_monitor(self, model, dataset, algorithm):
+        monitor = model.monitor
+
+        if self.first:
+            self.first = False
+            assert algorithm.accumulate
+            self.monitor_channel = sharedX(algorithm.combine_batches)
+            # TODO: make monitor accept channels not associated with any dataset,
+            # so this hack won't be necessary
+            hack = monitor.channels.values()[0]
+            monitor.add_channel('combine_batches', hack.graph_input, self.monitor_channel, dataset=hack.dataset)
+        channel = monitor.channels[self.channel]
+        v = channel.val_record
+        if len(v) == 1:
+            return
+        latest = v[-1]
+        best_prev = min(v[:-1])
+        print "Latest "+self.channel+": "+str(latest)
+        print "Best previous is "+str(best_prev)
+        if latest >= best_prev:
+            cur = algorithm.combine_batches
+            print "Looks like using "+str(cur)+" isn't working out so great for us."
+            while True:
+                cur += 1
+                if cur > self.giveup_after:
+                    print "Guess we just have to give up."
+                    self.continue_learning = False
+                    break
+                if self.available_batches % cur == 0:
+                    print "Let's see how "+str(cur)+" does."
+                    algorithm.combine_batches = cur
+                    self.monitor_channel.set_value(np.cast[config.floatX](cur))
+                    break
+
+
+    def __call__(self, model):
+        return self.continue_learning
