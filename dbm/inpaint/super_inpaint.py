@@ -277,7 +277,7 @@ class SuperInpaint(Cost):
 
 
 class MaskGen:
-    def __init__(self, drop_prob, balance, sync_channels = True):
+    def __init__(self, drop_prob, balance, sync_channels = True, drop_prob_y = None):
         self.__dict__.update(locals())
         del self.self
 
@@ -290,7 +290,10 @@ class MaskGen:
 
         p = self.drop_prob
 
-        yp = p
+        if self.drop_prob_y is None:
+            yp = p
+        else:
+            yp =self.drop_prob_y
 
         if self.balance:
             flip = theano_rng.binomial(
