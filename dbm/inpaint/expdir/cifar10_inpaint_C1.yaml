@@ -5,7 +5,7 @@
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
               inference_procedure: !obj:galatea.dbm.inpaint.super_dbm.BiasInit {},
-              batch_size : 150,
+              batch_size : 100,
               niter: 6, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
@@ -43,15 +43,16 @@
               ]
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               scale_step: .1,
                conjugate: 1,
                line_search_mode: 'exhaustive',
-               reset_conjugate: 0,
+               reset_conjugate: 1,
                reset_alpha: 0,
                batches_per_iter : 10,
                monitoring_batches : 1,
                monitoring_dataset : *data,
                init_alpha : [ 1e-3, 1e-2, 1e-1, 2e-1, 1.],
-               max_iter: 2,
+               max_iter: 10,
                cost : !obj:pylearn2.costs.cost.SumOfCosts {
                 costs: [
                         !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {

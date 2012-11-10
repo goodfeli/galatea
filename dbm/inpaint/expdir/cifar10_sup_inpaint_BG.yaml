@@ -5,7 +5,7 @@
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
               inference_procedure: !obj:galatea.dbm.inpaint.super_dbm.BiasInit {},
-              batch_size : 100,
+              batch_size : 150,
               niter: 6, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
@@ -17,7 +17,7 @@
               },
               hidden_layers: [
                                 !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
-                                        scale_by_sharing: 1,
+                                        scale_by_sharing: 0,
                                         border_mode : 'valid',
                                         output_channels: 64,
                                         kernel_rows: 6,
@@ -29,7 +29,7 @@
                                         init_bias: -5.
                                },
                                 !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
-                                        scale_by_sharing: 1,
+                                        scale_by_sharing: 0,
                                         border_mode : 'valid',
                                         output_channels: 64,
                                         kernel_rows: 4,
@@ -55,12 +55,17 @@
               }
               ]
     },
-    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-               learning_rate: .001, 
-               init_momentum: .5,
-               batches_per_iter : 100,
+    algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+                scale_step: .1,
+               conjugate: 1,
+               line_search_mode: 'exhaustive',
+               reset_conjugate: 1,
+               reset_alpha: 0,
+               batches_per_iter : 10,
                monitoring_batches : 1,
                monitoring_dataset : *data,
+               init_alpha : [ 1e-3, 1e-2, 1e-1, 2e-1, 1.],
+               max_iter: 10,
                cost : !obj:pylearn2.costs.cost.SumOfCosts {
                 costs: [
                         !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
@@ -91,11 +96,6 @@
                                #                 .01,
                                #                 0.
                                #               ]
-                               mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
-                                        drop_prob: 0.2,
-                                        balance: 0,
-                                        sync_channels: 0
-                                }
                         },
                         #!obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
                         #        coeffs: [
@@ -106,6 +106,11 @@
                         #}
                        ]
                },
+               mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.2,
+                        balance: 0,
+                        sync_channels: 0
+               }
         },
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
     save_freq : 1
