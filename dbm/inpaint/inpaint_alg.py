@@ -197,7 +197,7 @@ class InpaintAlgorithm(object):
         self.optimizer = BatchGradientDescent(
                             objective = obj,
                             inputs = self.inputs,
-                            verbose = True,
+                            verbose = 1,
                             gradients = gradients,
                             gradient_updates = gradient_updates,
                             params = model.get_params(),
@@ -356,6 +356,58 @@ class BatchGrower(TrainExtension, TerminationCriterion):
                     algorithm.combine_batches = cur
                     self.monitor_channel.set_value(np.cast[config.floatX](cur))
                     break
+        else:
+            self.best_prev = latest
+        if (len(v) - 1) in self.reset_best:
+            print "Resetting our record of the previous best."
+            self.best_prev = np.inf
+
+
+    def __call__(self, model):
+        return self.continue_learning
+
+class StepShrinker(TrainExtension, TerminationCriterion):
+
+    def __init__(self, channel, scale, giveup_after,
+            reset_best = None):
+        """
+        """
+
+        self.__dict__.update(locals())
+        del self.self
+        self.continue_learning = True
+        self.first = True
+        self.best_prev = np.inf
+        if reset_best is None:
+            self.reset_best = []
+
+    def on_monitor(self, model, dataset, algorithm):
+        monitor = model.monitor
+
+        if self.first:
+            self.first = False
+            self.monitor_channel = sharedX(algorithm.scale_step)
+            # TODO: make monitor accept channels not associated with any dataset,
+            # so this hack won't be necessary
+            hack = monitor.channels.values()[0]
+            monitor.add_channel('scale_step', hack.graph_input, self.monitor_channel, dataset=hack.dataset)
+        channel = monitor.channels[self.channel]
+        v = channel.val_record
+        if len(v) == 1:
+            return
+        latest = v[-1]
+        print "Latest "+self.channel+": "+str(latest)
+        print "Best previous is "+str(self.best_prev)
+        if latest >= self.best_prev:
+            cur = algorithm.scale_step
+            print "Looks like using "+str(cur)+" isn't working out so great for us."
+            cur *= self.scale
+            if cur < self.giveup_after:
+                print "Guess we just have to give up."
+                self.continue_learning = False
+            print "Let's see how "+str(cur)+" does."
+            algorithm.scale_step = cur
+            self.monitor_channel.set_value(np.cast[config.floatX](cur))
         else:
             self.best_prev = latest
         if (len(v) - 1) in self.reset_best:
