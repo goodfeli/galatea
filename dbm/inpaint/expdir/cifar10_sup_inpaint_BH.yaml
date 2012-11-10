@@ -1,0 +1,118 @@
+!obj:pylearn2.train.Train {
+    dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "${PYLEARN2_GCN_WHITENED}/train.pkl",
+        preprocessor: !pkl: "${PYLEARN2_GCN_WHITENED}/preprocessor.pkl"
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              inference_procedure: !obj:galatea.dbm.inpaint.super_dbm.BiasInit {},
+              batch_size : 10,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
+                rows: 32,
+                cols: 32,
+                channels: 3,
+                init_beta: 3.7,
+                init_mu: 0.
+              },
+              hidden_layers: [
+                                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                                        scale_by_sharing: 0,
+                                        border_mode : 'valid',
+                                        output_channels: 64,
+                                        kernel_rows: 6,
+                                        kernel_cols: 6,
+                                        pool_rows: 3,
+                                        pool_cols: 3,
+                                        irange: 0.005,
+                                        layer_name: 'h0_conv',
+                                        init_bias: -5.
+                               },
+                                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                                        scale_by_sharing: 0,
+                                        border_mode : 'valid',
+                                        output_channels: 64,
+                                        kernel_rows: 4,
+                                        kernel_cols: 4,
+                                        pool_rows: 2,
+                                        pool_cols: 2,
+                                        irange: .005,
+                                        layer_name: 'h1_conv',
+                                        init_bias: -4.
+                               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        pool_size : 1,
+                        detector_layer_dim: 4000,
+                        sparse_init: 15,
+                        sparse_stdev: .3,
+                        init_bias: -1.,
+                        layer_name: 'h2_dense'
+                },
+              !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                        layer_name: "c",
+                        sparse_init: 15,
+                        n_classes: 10
+              }
+              ]
+    },
+    algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+                scale_step: .1,
+               conjugate: 1,
+               line_search_mode: 'exhaustive',
+               reset_conjugate: 1,
+               reset_alpha: 0,
+               batches_per_iter : 100,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               init_alpha : [ 1e-3, 1e-2, 1e-1, 2e-1, 1.],
+               max_iter: 10,
+               cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs: [
+                        !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                                supervised: 1,
+                                both_directions : 0,
+                                noise : 0,
+                                l1_act_targets: [
+                                                  [.06, 1.0],
+                                                  [.12, 1.0],
+                                                  .1 ,
+                                                  0.
+                                                             ],
+                                l1_act_eps: [
+                                                   [.04, .0],
+                                                  [.04, .0],
+                                                  .02,
+                                                  0.
+                                                             ],
+                                l1_act_coeffs: [
+                                                  [1., 0.],
+                                                  [.01, 0.],
+                                                 .000001,
+                                                 0.
+                                                           ],
+                               #range_rewards: [
+                               #                 [  .002, [.001, 0.] ],
+                               #                 [  .02, [.001, 0.] ],
+                               #                 .01,
+                               #                 0.
+                               #               ]
+                        },
+                        #!obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                        #        coeffs: [
+                        #                [    .0000005],
+                        #                [  .00000005],
+                        #                .000000005,
+                        #                  .000000005 ]
+                        #}
+                       ]
+               },
+               mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.2,
+                        balance: 0,
+                        sync_channels: 0
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+
