@@ -12,25 +12,28 @@
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
                learning_rate: 1e-3,
                init_momentum: .5,
+               monitoring_batches: 10,
                monitoring_dataset : *data,
                cost : !obj:pylearn2.costs.cost.SumOfCosts {
                 costs: [ !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
                         supervised: 1,
                         # use a lot of chains to compensate for lack of rao-blackwell
-                        num_chains: 2000,
-                        num_gibbs_steps: 5
+                        num_chains: 100,
+                        num_gibbs_steps: 5,
+                        toronto_neg: 1
                         },
                         !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
                           coeffs: [ .0001, .0001, .0001 ]
                         },
-                        #!obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost {
-                        #  supervised: 1,
-                        #  coeffs: [ .00, .00 ],
-                       #   targets: [ .2, .1 ],
-                       #   eps: [.05, .05]
-                       # }
-                       ]
+                        !obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost {
+                          supervised: 1,
+                         coeffs: [ .0001, .0001 ],
+                          targets: [ .2, .1 ],
+                          eps: [.05, .05]
+                        }
+                       ],
            },
+           termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter { max_epochs: 300 },
            update_callbacks: [
                 !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
                         decay_factor: 1.000015,
@@ -38,7 +41,7 @@
                 }
            ]
         },
-    callbacks: [
+    extensions: [
             !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
                 final_momentum: .9,
                 start: 5,
