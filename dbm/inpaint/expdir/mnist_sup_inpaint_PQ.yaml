@@ -40,6 +40,7 @@
               ]
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               scale_step: .6,
                monitoring_dataset : {
                         'train': *train,
                         'valid': !obj:pylearn2.datasets.mnist.MNIST {
@@ -65,13 +66,7 @@
                                         supervised: 1,
                                         l1_act_targets: [  .06, .07, 0. ],
                                         l1_act_eps:     [  .04,  .05, 0. ],
-                                        l1_act_coeffs:  [ .01,  .000, 0.  ],
-<<<<<<< HEAD
-                                        range_rewards: [ -.001, 0.000, 0.] # -.01 killed it, -.0001 had no discernible effect
-=======
-                                        range_rewards: [ -.0005, 0.000, 0.] # -.01 killed it, -.0001 had no discernible effect
-                                                                           #-.001 mostly killed it
->>>>>>> 7dad76305be5a0984ab061d9e9d0e73d5e19b300
+                                        l1_act_coeffs:  [ .01,  .000, 0.  ]
                                },
                                !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
                                         coeffs: [ .0000005, .0000005, .0000005 ]

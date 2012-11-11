@@ -1827,6 +1827,8 @@ class MLP_Wrapper(Model):
             self.c = c
             del super_dbm.hidden_layers[-1]
         else:
+            if not hasattr(c, 'copies'):
+                c.copies = 1
             self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output', copies = c.copies)
             self.c.dbm = l1.dbm
             self.c.set_input_space(l2.get_output_space())
@@ -2059,6 +2061,13 @@ class DeepMLP_Wrapper(Model):
 
     def get_output_space(self):
         return self.c.get_output_space()
+
+class MatrixDecay(Cost):
+    def __init__(self, coeff):
+        self.coeff = coeff
+
+    def __call__(self, model, X, Y = None, ** kwargs):
+        return self.coeff * sum([ T.sqr(param).sum() for param in model.get_params() if param.ndim == 2])
 
 class ActivateLower(TrainExtension):
     def on_monitor(self, model, dataset, algorithm):
@@ -3226,3 +3235,6 @@ class Recons(Cost):
             return total_cost
 
 
+def freeze_layer_0(super_dbm):
+    super_dbm.freeze(super_dbm.hidden_layers[0].get_params())
+    return super_dbm

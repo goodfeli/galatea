@@ -4,10 +4,13 @@
         one_hot: 1,
         binarize: 1
     },
-    model: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-        super_dbm: !pkl: "${G}/dbm/inpaint/russ/pretrained.pkl", 
-        niter: 11 # Russ's for loop does 10 iterations after the initial double weights pass,
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
+                super_dbm: !pkl: "${G}/dbm/inpaint/expdir/mnist_sup_inpaint_Prr_best.pkl", 
+                niter: 11 # Russ's for loop does 10 iterations after the initial double weights pass,
                   # my algorithm counts the double weights pass as the first iteration
+                },
+        name: 'monitor_inpaint'
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
                learning_rate: 1e-3,
