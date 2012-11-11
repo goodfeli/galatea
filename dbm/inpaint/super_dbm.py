@@ -3235,3 +3235,6 @@ class Recons(Cost):
             return total_cost
 
 
+def freeze_layer_0(super_dbm):
+    super_dbm.freeze(super_dbm.hidden_layers[0].get_params())
+    return super_dbm
