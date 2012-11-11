@@ -1827,6 +1827,8 @@ class MLP_Wrapper(Model):
             self.c = c
             del super_dbm.hidden_layers[-1]
         else:
+            if not hasattr(c, 'copies'):
+                c.copies = 1
             self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output', copies = c.copies)
             self.c.dbm = l1.dbm
             self.c.set_input_space(l2.get_output_space())
