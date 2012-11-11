@@ -2062,6 +2062,13 @@ class DeepMLP_Wrapper(Model):
     def get_output_space(self):
         return self.c.get_output_space()
 
+class MatrixDecay(Cost):
+    def __init__(self, coeff):
+        self.coeff = coeff
+
+    def __call__(self, model, X, Y = None, ** kwargs):
+        return self.coeff * sum([ T.sqr(param).sum() for param in model.get_params() if param.ndim == 2])
+
 class ActivateLower(TrainExtension):
     def on_monitor(self, model, dataset, algorithm):
         if model.monitor.get_epochs_seen() == 6:
