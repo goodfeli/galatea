@@ -1,9 +1,12 @@
 from pylearn2.costs.cost import Cost
+from theano.gradient import grad_sources_inputs
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import theano.tensor as T
+import theano
 from theano import config
 from pylearn2.utils import make_name
 from pylearn2.utils import safe_izip
+from pylearn2.utils import safe_zip
 from pylearn2.models.dbm import flatten
 import warnings
 
@@ -29,7 +32,9 @@ class SuperInpaint(Cost):
                     vis_presynaptic_cost = None,
                     hid_presynaptic_cost = None,
                     reweighted_act_coeffs = None,
-                    reweighted_act_targets = None
+                    reweighted_act_targets = None,
+                    toronto_act_targets = None,
+                    toronto_act_coeffs = None
                     ):
         self.__dict__.update(locals())
         del self.self
@@ -116,7 +121,7 @@ class SuperInpaint(Cost):
         return rval
 
     def __call__(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None,
-            return_locals = False):
+            return_locals = False, include_toronto = True):
 
         if not self.supervised:
             assert drop_mask_Y is None
@@ -186,11 +191,66 @@ class SuperInpaint(Cost):
                 for ihh, mhh in safe_izip(flatten(inpainting_H_hat), flatten(mf_H_hat)):
                     total_cost += self.robustness * T.sqr(mhh-ihh).sum()
 
+        if self.toronto_act_targets is not None and include_toronto:
+            H_hat = history[-1]['H_hat']
+            for s, c, t in zip(H_hat, self.toronto_act_coeffs, self.toronto_act_targets):
+                if c == 0.:
+                    continue
+                s, _ = s
+                m = s.mean(axis=0)
+                total_cost += c * T.sqr(m-t).mean()
 
         if return_locals:
             return locals()
 
         return total_cost
+
+    def get_gradients(self, model, X, Y = None, **kwargs):
+
+        scratch = self(model, X, Y, include_toronto = False, return_locals=True, **kwargs)
+
+        total_cost = scratch['total_cost']
+
+        params = list(model.get_params())
+        grads = dict(safe_zip(params, T.grad(total_cost, params)))
+
+        if self.toronto_act_targets is not None:
+            H_hat = scratch['history'][-1]['H_hat']
+            for i, packed in enumerate(safe_zip(H_hat, self.toronto_act_coeffs, self.toronto_act_targets)):
+                s, c, t = packed
+                if c == 0.:
+                    continue
+                s, _ = s
+                m = s.mean(axis=0)
+                m_cost = c * T.sqr(m-t).mean()
+                real_grads = T.grad(m_cost, s)
+                if i == 0:
+                    below = X
+                else:
+                    below = H_hat[i-1][0]
+                W, = model.hidden_layers[i].transformer.get_params()
+                assert W in grads
+                b = model.hidden_layers[i].b
+
+                ancestor = T.scalar()
+                hack_W = W + ancestor
+                hack_b = b + ancestor
+
+                fake_s = T.dot(below, hack_W) + hack_b
+                if fake_s.ndim != real_grads.ndim:
+                    print fake_s.ndim
+                    print real_grads.ndim
+                    assert False
+                sources = [ (fake_s, real_grads) ]
+
+                fake_grads = grad_sources_inputs(sources, [below, ancestor])
+
+                grads[W] = grads[W] + fake_grads[hack_W]
+                grads[b] = grads[b] + fake_grads[hack_b]
+
+
+        return grads, {}
+
 
     def cost_from_states(self, state, new_state, dbm, X, Y, drop_mask, drop_mask_Y,
             new_drop_mask, new_drop_mask_Y):
