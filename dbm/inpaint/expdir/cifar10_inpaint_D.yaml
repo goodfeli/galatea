@@ -1,7 +1,7 @@
 !obj:pylearn2.train.Train {
-    dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
-        preprocessed_dataset: !pkl: "${PYLEARN2_GCN_WHITENED}/train.pkl",
-        preprocessor: !pkl: "${PYLEARN2_GCN_WHITENED}/preprocessor.pkl"
+    dataset: &data !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        which_set : 'train',
+        gcn: 55.
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
               inference_procedure: !obj:galatea.dbm.inpaint.super_dbm.BiasInit {},
@@ -16,29 +16,46 @@
                 init_mu: 0.
               },
               hidden_layers: [
+                                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                                        scale_by_sharing: 0,
+                                        border_mode : 'full',
+                                        output_channels: 64,
+                                        kernel_rows: 5,
+                                        kernel_cols: 5,
+                                        pool_rows: 3,
+                                        pool_cols: 3,
+                                        irange: 0.005,
+                                        layer_name: 'h0_conv',
+                                        init_bias: -5.
+                               },
+                                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                                        scale_by_sharing: 0,
+                                        border_mode : 'full',
+                                        output_channels: 64,
+                                        kernel_rows: 5,
+                                        kernel_cols: 5,
+                                        pool_rows: 2,
+                                        pool_cols: 2,
+                                        sparse_init: 15,
+                                        layer_name: 'h1_conv',
+                                        init_bias: -4.
+                               },
                 !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
                         pool_size : 1,
                         detector_layer_dim: 400,
-                        irange: .05,
+                        sparse_init: 15,
                         init_bias: 0.,
-                        layer_name: 'h0_dense'
-                },
-                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        pool_size : 1,
-                        detector_layer_dim: 400,
-                        irange: .05,
-                        init_bias: 0.,
-                        layer_name: 'h1_dense'
+                        layer_name: 'h2_dense'
                 },
               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
                         layer_name: "c",
-                        irange: .05,
+                        sparse_init: 15,
                         n_classes: 10
               }
               ]
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
-                scale_step: .1,
+                scale_step: .01,
                conjugate: 1,
                line_search_mode: 'exhaustive',
                reset_conjugate: 1,
@@ -50,26 +67,29 @@
                cost : !obj:pylearn2.costs.cost.SumOfCosts {
                 costs: [
                         !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
-                                supervised: 1,
                                 both_directions : 0,
                                 noise : 0,
                                 l1_act_targets: [
-                                                  .06,
-                                                  .06,
+                                                  [.06, 1.0],
+                                                  [.12, 1.0],
+                                                  .1 ,
                                                   0.
                                                              ],
                                 l1_act_eps: [
-                                                   .04,
+                                                   [.04, .0],
+                                                  [.04, .0],
                                                   .02,
                                                   0.
                                                              ],
                                 l1_act_coeffs: [
-                                                  1.,
+                                                  [1., 0.],
+                                                  [.01, 0.],
                                                  .000001,
                                                  0.
                                                            ],
                                range_rewards: [
-                                                  0. ,
+                                                [  .00, 0. ],
+                                                [  .00001, 0. ],
                                                 .001,
                                                 0.0
                                               ]
@@ -78,20 +98,20 @@
                                 coeffs: [
                                             .0000005,
                                           .00000005,
+                                        .000000005,
                                           .000000005 ]
                         }
                        ]
                },
                mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
-                        drop_prob: 0.2,
-                        drop_prob_y: 0.4,
+                        drop_prob: 0.5,
                         balance: 0,
-                        sync_channels: 0
+                        sync_channels: 1
                },
                termination_criterion: &step_shrinker !obj:galatea.dbm.inpaint.inpaint_alg.StepShrinker {
                         channel: 'objective',
                         scale: .8,
-                        giveup_after: .000001,
+                        giveup_after: .0000001,
                },
         },
     extensions: [

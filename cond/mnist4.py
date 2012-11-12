@@ -126,9 +126,9 @@ min_lr = 5e-5
 init_tv = 2.
 tv_mult = 1.001
 max_tv = 10.
-l1wd = 1e-10
-l2wd = 1e-10
-l3wd = 1e-10
+l1wd = 1e-3
+l2wd = 1e-3
+l3wd = 1e-3
 sp_coeff = .000
 sp_targ = .1
 
