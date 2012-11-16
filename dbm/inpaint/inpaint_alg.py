@@ -368,8 +368,7 @@ class BatchGrower(TrainExtension, TerminationCriterion):
 
 class StepShrinker(TrainExtension, TerminationCriterion):
 
-    def __init__(self, channel, scale, giveup_after,
-            reset_best = None):
+    def __init__(self, channel, scale, giveup_after):
         """
         """
 
@@ -377,9 +376,7 @@ class StepShrinker(TrainExtension, TerminationCriterion):
         del self.self
         self.continue_learning = True
         self.first = True
-        self.best_prev = np.inf
-        if reset_best is None:
-            self.reset_best = []
+        self.prev = np.inf
 
     def on_monitor(self, model, dataset, algorithm):
         monitor = model.monitor
@@ -397,22 +394,24 @@ class StepShrinker(TrainExtension, TerminationCriterion):
             return
         latest = v[-1]
         print "Latest "+self.channel+": "+str(latest)
-        print "Best previous is "+str(self.best_prev)
-        if latest >= self.best_prev:
+        # Only compare to the previous step, not the best step so far
+        # Another extension can be in charge of saving the best parameters ever seen.
+        # We want to keep learning as long as we're making progress.
+        # We don't want to give up on a step size just because it failed to undo the damage
+        # of the bigger one that preceded it in a single epoch
+        print "Previous is "+str(self.prev)
+        if latest >= self.prev:
             cur = algorithm.scale_step
             print "Looks like using "+str(cur)+" isn't working out so great for us."
             cur *= self.scale
             if cur < self.giveup_after:
                 print "Guess we just have to give up."
                 self.continue_learning = False
+                cur = self.giveup_after
             print "Let's see how "+str(cur)+" does."
             algorithm.scale_step = cur
             self.monitor_channel.set_value(np.cast[config.floatX](cur))
-        else:
-            self.best_prev = latest
-        if (len(v) - 1) in self.reset_best:
-            print "Resetting our record of the previous best."
-            self.best_prev = np.inf
+        self.prev = latest
 
 
     def __call__(self, model):
