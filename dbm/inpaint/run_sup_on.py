@@ -9,7 +9,9 @@ outpath = parent + '/' + 'sup_on_'+path.split('/')[-1]
 outpath = outpath.replace('.pkl','.yaml')
 print outpath
 
-assert not os.path.exists(outpath.replace('.yaml','.pkl'))
+if os.path.exists(outpath.replace('.yaml','.pkl')):
+    print outpath.replace('.yaml', '.pkl')
+    assert False
 
 f = open(outpath, 'w')
 
@@ -74,7 +76,8 @@ f.write(
 """ % locals())
 
 f.close()
-
+print 'run train yourself, for some reason the subprocess was claiming a second gpu'
+quit()
 from pylearn2.utils.shell import run_shell_command
 print 'shell will hide output until done, yay python'
 out, rc = run_shell_command('train.py '+outpath)
