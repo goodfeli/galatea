@@ -24,7 +24,6 @@ from pylearn2.utils import _ElemwiseNoGradient
 from theano import config
 io = None
 from pylearn2.train_extensions import TrainExtension
-from pylearn2.costs.dbm import PCD
 from pylearn2.models.dbm import block
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
@@ -1593,6 +1592,10 @@ class MF_L1_ActCost(Cost):
                 cost = layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
             except NotImplementedError:
                 assert isinstance(coeffs, float) and coeffs == 0.
+                assert cost is None # if this gets triggered, there might
+                    # have been a bug, where costs from lower layers got
+                    # applied to higher layers that don't implement the cost
+                cost = None
             if cost is not None:
                 layer_costs.append(cost)
 
