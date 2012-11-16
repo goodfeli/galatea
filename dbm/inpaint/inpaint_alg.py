@@ -417,3 +417,24 @@ class StepShrinker(TrainExtension, TerminationCriterion):
 
     def __call__(self, model):
         return self.continue_learning
+
+class ScaleStep(TrainExtension):
+    def __init__(self, scale, min_value):
+        self.scale = scale
+        self.min_value = min_value
+        self.first = True
+
+    def on_monitor(self, model, dataset, algorithm):
+        if self.first:
+            monitor = model.monitor
+            self.first = False
+            self.monitor_channel = sharedX(algorithm.scale_step)
+            # TODO: make monitor accept channels not associated with any dataset,
+            # so this hack won't be necessary
+            hack = monitor.channels.values()[0]
+            monitor.add_channel('scale_step', hack.graph_input, self.monitor_channel, dataset=hack.dataset)
+        cur = algorithm.scale_step
+        cur *= self.scale
+        cur = max(cur, self.min_value)
+        algorithm.scale_step = cur
+        self.monitor_channel.set_value(np.cast[config.floatX](cur))
