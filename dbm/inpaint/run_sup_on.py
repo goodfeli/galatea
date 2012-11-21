@@ -7,7 +7,7 @@ parent = '/'.join(parent)
 
 outpath = parent + '/' + 'sup_on_'+path.split('/')[-1]
 outpath = outpath.replace('.pkl','.yaml')
-print outpath
+print "THEANO_FLAGS='device=gpu' train.py",outpath
 
 if os.path.exists(outpath.replace('.yaml','.pkl')):
     print outpath.replace('.yaml', '.pkl')

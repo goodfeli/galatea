@@ -3096,19 +3096,17 @@ class Dropout(InferenceProcedure):
         def update_history():
 
             assert V_hat_unmasked.ndim > 1
-            d =  { 'V_hat' :  V_hat_not_dropped, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            d =  { 'V_hat' :  V_hat_not_dropped, 'H_hat' : H_hat_not_dropped, 'V_hat_unmasked' : V_hat_unmasked }
             if Y is not None:
                 d['Y_hat_unmasked'] = Y_hat_unmasked
                 d['Y_hat'] = Y_hat_not_dropped
-                hist_H_hat = list(H_hat)
-                hist_H_hat[-1] = Y_hat_not_dropped
-                d['H_hat'] = hist_H_hat
             history.append( d )
 
         V_hat_not_dropped = V_hat
         V_hat = apply_dropout(V_hat, V_dropout)
         if Y is not None:
             Y_hat_not_dropped = H_hat[-1]
+        H_hat_not_dropped = list(H_hat)
         H_hat = apply_dropout(H_hat, H_dropout)
         update_history()
 
@@ -3132,6 +3130,7 @@ class Dropout(InferenceProcedure):
                     Y_hat_unmasked = H_hat[j]
                     H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
                     Y_hat_not_dropped = H_hat[-1]
+                H_hat_not_dropped[j] = H_hat[j]
                 H_hat[j] = apply_dropout(H_hat[j], H_dropout[j])
 
             V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
@@ -3162,6 +3161,7 @@ class Dropout(InferenceProcedure):
                     H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
                     Y_hat_not_dropped = H_hat[-1]
                 #end if y
+                H_hat_not_dropped[j] = H_hat[j]
                 H_hat[j] = apply_dropout(H_hat[j], H_dropout[j])
             #end for j
             if block_grad == i + 1:
