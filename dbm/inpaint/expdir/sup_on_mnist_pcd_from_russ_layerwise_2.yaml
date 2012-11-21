@@ -1,22 +1,4 @@
-import sys
-import os
-_, path = sys.argv
 
-parent = path.split('/')[:-1]
-parent = '/'.join(parent)
-
-outpath = parent + '/' + 'sup_on_'+path.split('/')[-1]
-outpath = outpath.replace('.pkl','.yaml')
-print "THEANO_FLAGS='device=gpu' train.py",outpath
-
-if os.path.exists(outpath.replace('.yaml','.pkl')):
-    print outpath.replace('.yaml', '.pkl')
-    assert False
-
-f = open(outpath, 'w')
-
-f.write(
-"""
 !obj:pylearn2.train.Train {
     dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
@@ -26,10 +8,10 @@ f.write(
         stop: 50000
     },
         model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
-                        decapitate: 0,
+                        decapitate: 1,
                         super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-                                super_dbm: !pkl: "%(path)s",
-                                niter: 6
+                                super_dbm: !pkl: "expdir/mnist_pcd_from_russ_layerwise_2.pkl",
+                                niter: 50
                         },
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
@@ -73,13 +55,3 @@ f.write(
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
     save_freq : 1
 }
-""" % locals())
-
-f.close()
-print 'run train yourself, for some reason the subprocess was claiming a second gpu'
-quit()
-from pylearn2.utils.shell import run_shell_command
-print 'shell will hide output until done, yay python'
-out, rc = run_shell_command('train.py '+outpath)
-print 'return code ',rc
-print out

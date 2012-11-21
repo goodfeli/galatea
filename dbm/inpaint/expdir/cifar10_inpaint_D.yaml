@@ -20,8 +20,8 @@
                                         scale_by_sharing: 0,
                                         border_mode : 'full',
                                         output_channels: 64,
-                                        kernel_rows: 5,
-                                        kernel_cols: 5,
+                                        kernel_rows: 8,
+                                        kernel_cols: 8,
                                         pool_rows: 3,
                                         pool_cols: 3,
                                         irange: 0.005,
@@ -32,8 +32,8 @@
                                         scale_by_sharing: 0,
                                         border_mode : 'full',
                                         output_channels: 64,
-                                        kernel_rows: 5,
-                                        kernel_cols: 5,
+                                        kernel_rows: 6,
+                                        kernel_cols: 6,
                                         pool_rows: 2,
                                         pool_cols: 2,
                                         sparse_init: 15,
@@ -47,11 +47,6 @@
                         init_bias: 0.,
                         layer_name: 'h2_dense'
                 },
-              !obj:galatea.dbm.inpaint.super_dbm.Softmax {
-                        layer_name: "c",
-                        sparse_init: 15,
-                        n_classes: 10
-              }
               ]
     },
     algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
@@ -73,32 +68,27 @@
                                                   [.06, 1.0],
                                                   [.12, 1.0],
                                                   .1 ,
-                                                  0.
                                                              ],
                                 l1_act_eps: [
                                                    [.04, .0],
                                                   [.04, .0],
                                                   .02,
-                                                  0.
                                                              ],
                                 l1_act_coeffs: [
-                                                  [1., 0.],
+                                                  [2., 0.],
                                                   [.01, 0.],
                                                  .000001,
-                                                 0.
                                                            ],
                                range_rewards: [
                                                 [  .00, 0. ],
                                                 [  .00001, 0. ],
                                                 .001,
-                                                0.0
                                               ]
                         },
                         !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
                                 coeffs: [
                                             .0000005,
                                           .00000005,
-                                        .000000005,
                                           .000000005 ]
                         }
                        ]

@@ -11,6 +11,8 @@ from theano import config
 from pylearn2.train_extensions import TrainExtension
 from pylearn2.termination_criteria import TerminationCriterion
 from pylearn2.utils import safe_zip
+from pylearn2.models.dbm import flatten
+from theano.sandbox.rng_mrg import MRG_RandomStreams
 
 class SetupBatch:
     def __init__(self,alg):
@@ -126,11 +128,18 @@ class InpaintAlgorithm(object):
                     drop_mask_Y: dmy }
         else:
             updates = { drop_mask : self.mask_gen(X) }
-        self.update_mask = function([], updates = updates)
+
 
         obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
         gradients, gradient_updates = self.cost.get_gradients(model, X, Y, drop_mask = drop_mask,
                 drop_mask_Y = drop_mask_Y)
+
+        if hasattr(model.inference_procedure, 'V_dropout'):
+            include_prob = model.inference_procedure.include_prob
+            theano_rng = MRG_RandomStreams(2012+11+20)
+            for elem in flatten([model.inference_procedure.V_dropout, model.inference_procedure.H_dropout]):
+                updates[elem] =  theano_rng.binomial(p=include_prob, size=elem.shape, dtype=elem.dtype, n=1) / include_prob
+        self.update_mask = function([], updates = updates)
 
 
         if self.monitoring_dataset is not None:
@@ -368,8 +377,7 @@ class BatchGrower(TrainExtension, TerminationCriterion):
 
 class StepShrinker(TrainExtension, TerminationCriterion):
 
-    def __init__(self, channel, scale, giveup_after,
-            reset_best = None):
+    def __init__(self, channel, scale, giveup_after):
         """
         """
 
@@ -377,9 +385,7 @@ class StepShrinker(TrainExtension, TerminationCriterion):
         del self.self
         self.continue_learning = True
         self.first = True
-        self.best_prev = np.inf
-        if reset_best is None:
-            self.reset_best = []
+        self.prev = np.inf
 
     def on_monitor(self, model, dataset, algorithm):
         monitor = model.monitor
@@ -397,22 +403,24 @@ class StepShrinker(TrainExtension, TerminationCriterion):
             return
         latest = v[-1]
         print "Latest "+self.channel+": "+str(latest)
-        print "Best previous is "+str(self.best_prev)
-        if latest >= self.best_prev:
+        # Only compare to the previous step, not the best step so far
+        # Another extension can be in charge of saving the best parameters ever seen.
+        # We want to keep learning as long as we're making progress.
+        # We don't want to give up on a step size just because it failed to undo the damage
+        # of the bigger one that preceded it in a single epoch
+        print "Previous is "+str(self.prev)
+        if latest >= self.prev:
             cur = algorithm.scale_step
             print "Looks like using "+str(cur)+" isn't working out so great for us."
             cur *= self.scale
             if cur < self.giveup_after:
                 print "Guess we just have to give up."
                 self.continue_learning = False
+                cur = self.giveup_after
             print "Let's see how "+str(cur)+" does."
             algorithm.scale_step = cur
             self.monitor_channel.set_value(np.cast[config.floatX](cur))
-        else:
-            self.best_prev = latest
-        if (len(v) - 1) in self.reset_best:
-            print "Resetting our record of the previous best."
-            self.best_prev = np.inf
+        self.prev = latest
 
 
     def __call__(self, model):
