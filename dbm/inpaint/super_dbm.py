@@ -364,8 +364,8 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
 
     def get_params(self):
         if self.mu is None:
-            return set([self.beta])
-        return set([self.beta, self.mu])
+            return [self.beta]
+        return [self.beta, self.mu]
 
     def get_lr_scalers(self):
         rval = {}
@@ -529,20 +529,15 @@ class ConvMaxPool(HiddenLayer):
             pool_rows,
             pool_cols,
             layer_name,
+            center = False,
             irange = None,
             sparse_init = None,
             scale_by_sharing = True,
-            mirror_weights = False,
             init_bias = 0.,
             border_mode = 'valid',
             output_axes = ('b', 'c', 0, 1)):
         """
 
-        mirror_weights:
-            if true, initializes kernel i to be the negation of kernel i - 1
-                I found this helps resolve a problem where the initial kernels often
-                had a tendency to take grey inputs and turn them a different color,
-                such as red
 
         """
         self.__dict__.update(locals())
@@ -615,21 +610,24 @@ class ConvMaxPool(HiddenLayer):
                     batch_size = self.dbm.batch_size, border_mode = self.border_mode, rng = self.dbm.rng)
         self.transformer._filters.name = self.layer_name + '_W'
 
-        if self.mirror_weights:
-            filters = self.transformer._filters
-            v = filters.get_value()
-            for i in xrange(1, v.shape[0], 2):
-                v[i, :, :, :] = - v[i-1,:, :, :].copy()
-            filters.set_value(v)
 
         W ,= self.transformer.get_params()
         assert W.name is not None
+
+        if self.center:
+            p_ofs, h_ofs = self.init_mf_state()
+            self.p_offset = sharedX(self.output_space.get_origin(), 'p_offset')
+            self.h_offset = sharedX(self.h_space.get_origin(), 'h_offset')
+            f = function([], updates={self.p_offset: p_ofs[0,:,:,:], self.h_offset: h_ofs[0,:,:,:]})
+            f()
+
 
     def get_params(self):
         assert self.b.name is not None
         W ,= self.transformer.get_params()
         assert W.name is not None
-        return self.transformer.get_params().union([self.b])
+
+        return [ W, self.b]
 
     def state_to_b01c(self, state):
 
@@ -727,10 +725,20 @@ class ConvMaxPool(HiddenLayer):
 
     def upward_state(self, total_state):
         p,h = total_state
+
+        if self.center:
+            p -= self.p_offset
+            h -= self.h_offset
+
         return p
 
     def downward_state(self, total_state):
         p,h = total_state
+
+        if self.center:
+            p -= self.p_offset
+            h -= self.h_offset
+
         return h
 
     def get_monitoring_channels_from_state(self, state):
@@ -1058,7 +1066,11 @@ class AugmentedDBM(Model):
     def get_params(self):
         if self.freeze_lower:
             return self.extra_layer.get_params()
-        return self.super_dbm.get_params().union(self.extra_layer.get_params())
+        lower = self.super_dbm.get_params()
+        for param in self.extra_layer.get_params():
+            if param not in lower:
+                lower.append(param)
+        return lower
 
     def get_input_space(self):
         return self.super_dbm.get_input_space()
@@ -1775,6 +1787,10 @@ class MLP_Wrapper(Model):
     def __init__(self, super_dbm, decapitate = True, final_irange = None,
             initially_freeze_lower = False, decapitated_value = None,
             train_rnn_y = False, gibbs_features = False, top_down = False):
+
+        # Note: this doesn't handle the 'copies' feature very well.
+        # The best way to fit it is probably to write the mf method more generically
+
         assert initially_freeze_lower in [True, False, 0, 1]
         assert decapitate in [True, False, 0, 1]
         assert train_rnn_y in [True, False, 0, 1]
@@ -1812,13 +1828,13 @@ class MLP_Wrapper(Model):
         self._params.append(self.hidbias)
 
         # Layer 2
-        self.hidpen = sharedX(l2.get_weights())
+        self.hidpen = sharedX(l2.get_weights()*l1.copies)
         self._params.append(self.hidpen)
-        self.penhid = sharedX(l2.get_weights().T)
+        self.penhid = sharedX(l2.get_weights().T*l2.copies)
         self._params.append(self.penhid)
         penbias = l2.get_biases()
         if decapitate:
-            Wc = c.get_weights()
+            Wc = c.get_weights() * l2.copies
             penbias += np.dot(Wc,
                     np.ones((c.n_classes,), dtype = penbias.dtype) * decapitated_value / c.n_classes)
             l2.set_biases(penbias)
@@ -1836,7 +1852,7 @@ class MLP_Wrapper(Model):
             self.c.dbm = l1.dbm
             self.c.set_input_space(l2.get_output_space())
             if self.orig_sup:
-                self.c.set_weights(c.get_weights())
+                self.c.set_weights(c.get_weights() * l2.copies)
                 self.c.set_biases(c.get_biases())
         self._params.extend(self.c.get_params())
 
@@ -1849,7 +1865,7 @@ class MLP_Wrapper(Model):
                 del c # Make sure we don't modify the feature-generating RNN
             W = self.c.dbm.rng.uniform(-final_irange, final_irange,
                     (self.c.input_space.get_total_dimension(),
-                        self.c.n_classes))
+                        self.c.n_classes)) * l2.copies
             self.c.set_weights(W.astype('float32'))
             self.c.set_biases(np.zeros((self.c.n_classes)).astype('float32'))
 
@@ -2419,10 +2435,23 @@ class BiasInit(InferenceProcedure):
             upward_state = layer.upward_state(state)
             layer.get_output_space().validate(upward_state)
 
-        for elem in flatten(H_hat):
+        if Y is not None:
+            assert H_hat[-1] is Y
+            inferred = H_hat[:-1]
+        else:
+            inferred = H_hat
+        for elem in flatten(inferred):
             for value in get_debug_values(elem):
                 assert value.shape[0] == dbm.batch_size
-            assert V in theano.gof.graph.ancestors([elem])
+            if V not in theano.gof.graph.ancestors([elem]):
+                print str(elem)+" does not have V as an ancestor!"
+                print theano.printing.min_informative_str(V)
+                if elem is V:
+                    print "this variational parameter *is* V"
+                else:
+                    print "this variational parameter is not the same as V"
+                print "V is ",V
+                assert False
             if Y is not None:
                 assert Y in theano.gof.graph.ancestors([elem])
 
@@ -2859,6 +2888,10 @@ class Dropout(InferenceProcedure):
     iteration, rather than doubling the weights on the first pass.
     """
 
+    def __init__(self, include_prob=0.5):
+        self.__dict__.update(locals())
+        del self.self
+
     def mf(self, V, Y = None, return_history = False, niter = None, block_grad = None):
 
         dbm = self.dbm
@@ -3041,15 +3074,19 @@ class Dropout(InferenceProcedure):
             H_hat[-1] = Y_hat
 
         def dropout_mask_like(x):
-            return 2. * theano_rng.binomial(p=.5, size=x.shape, dtype=x.dtype, n=1)
+            return sharedX(2. * (dbm.rng.uniform(0., 1., x.get_value().shape) > 0.5))
 
         def dropout_structure(x):
             if isinstance(x, (list, tuple)):
                 return [ dropout_structure(elem) for elem in x]
             return dropout_mask_like(x)
 
-        V_dropout = dropout_structure(V)
-        H_dropout = dropout_structure(H_hat)
+        if not hasattr(self, 'V_dropout'):
+            self.V_dropout = dropout_structure(V)
+            H_hat_states = [layer.make_state(dbm.batch_size, dbm.rng) for layer in dbm.hidden_layers]
+            self.H_dropout = dropout_structure(H_hat_states)
+        V_dropout = self.V_dropout
+        H_dropout = self.H_dropout
 
         def apply_dropout(x, d):
             if isinstance(x, (list, tuple)):
@@ -3059,13 +3096,19 @@ class Dropout(InferenceProcedure):
         def update_history():
 
             assert V_hat_unmasked.ndim > 1
-            d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            d =  { 'V_hat' :  V_hat_not_dropped, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
             if Y is not None:
                 d['Y_hat_unmasked'] = Y_hat_unmasked
-                d['Y_hat'] = H_hat[-1]
+                d['Y_hat'] = Y_hat_not_dropped
+                hist_H_hat = list(H_hat)
+                hist_H_hat[-1] = Y_hat_not_dropped
+                d['H_hat'] = hist_H_hat
             history.append( d )
 
+        V_hat_not_dropped = V_hat
         V_hat = apply_dropout(V_hat, V_dropout)
+        if Y is not None:
+            Y_hat_not_dropped = H_hat[-1]
         H_hat = apply_dropout(H_hat, H_dropout)
         update_history()
 
@@ -3088,6 +3131,7 @@ class Dropout(InferenceProcedure):
                 if Y is not None and j == len(dbm.hidden_layers) - 1:
                     Y_hat_unmasked = H_hat[j]
                     H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+                    Y_hat_not_dropped = H_hat[-1]
                 H_hat[j] = apply_dropout(H_hat[j], H_dropout[j])
 
             V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
@@ -3095,6 +3139,7 @@ class Dropout(InferenceProcedure):
                     layer_above = dbm.hidden_layers[0],
                     V = V,
                     drop_mask = drop_mask, return_unmasked = True)
+            V_hat_not_dropped = V_hat
             V_hat = apply_dropout(V_hat, V_dropout)
             V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
 
@@ -3115,6 +3160,7 @@ class Dropout(InferenceProcedure):
                 if Y is not None and j == len(dbm.hidden_layers) - 1:
                     Y_hat_unmasked = H_hat[j]
                     H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+                    Y_hat_not_dropped = H_hat[-1]
                 #end if y
                 H_hat[j] = apply_dropout(H_hat[j], H_dropout[j])
             #end for j
@@ -3139,8 +3185,16 @@ class Dropout(InferenceProcedure):
             return history
         else:
             if Y is not None:
-                return V_hat, Y_hat
-            return V_hat
+                return V_hat_not_dropped, Y_hat_not_dropped
+            return V_hat_not_dropped
+
+    def set_batch_size(self, batch_size):
+        for var in flatten([self.V_dropout, self.H_dropout]):
+            old_val = var.get_value()
+            shape = list(old_val.shape)
+            shape[0] = batch_size
+            new_val = np.ones(shape, dtype=old_val.dtype)/self.include_prob
+            var.set_value(new_val)
 
 def mask_weights(input_shape,
                 stride,
@@ -3179,9 +3233,6 @@ class ProductDecay(Cost):
         prod = T.dot(W1, W2)
         fro = T.sqr(prod).sum()
         return self.coeff * fro
-
-
-DBM_PCD = PCD
 
 
 class Recons(Cost):

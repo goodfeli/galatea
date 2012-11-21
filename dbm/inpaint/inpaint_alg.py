@@ -11,6 +11,8 @@ from theano import config
 from pylearn2.train_extensions import TrainExtension
 from pylearn2.termination_criteria import TerminationCriterion
 from pylearn2.utils import safe_zip
+from pylearn2.models.dbm import flatten
+from theano.sandbox.rng_mrg import MRG_RandomStreams
 
 class SetupBatch:
     def __init__(self,alg):
@@ -126,11 +128,18 @@ class InpaintAlgorithm(object):
                     drop_mask_Y: dmy }
         else:
             updates = { drop_mask : self.mask_gen(X) }
-        self.update_mask = function([], updates = updates)
+
 
         obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
         gradients, gradient_updates = self.cost.get_gradients(model, X, Y, drop_mask = drop_mask,
                 drop_mask_Y = drop_mask_Y)
+
+        if hasattr(model.inference_procedure, 'V_dropout'):
+            include_prob = model.inference_procedure.include_prob
+            theano_rng = MRG_RandomStreams(2012+11+20)
+            for elem in flatten([model.inference_procedure.V_dropout, model.inference_procedure.H_dropout]):
+                updates[elem] =  theano_rng.binomial(p=include_prob, size=elem.shape, dtype=elem.dtype, n=1) / include_prob
+        self.update_mask = function([], updates = updates)
 
 
         if self.monitoring_dataset is not None:

@@ -1,8 +1,6 @@
 from pylearn2.costs.cost import Cost
-from theano.gradient import grad_sources_inputs
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import theano.tensor as T
-import theano
 from theano import config
 from pylearn2.utils import make_name
 from pylearn2.utils import safe_izip
@@ -243,7 +241,7 @@ class SuperInpaint(Cost):
                     assert False
                 sources = [ (fake_s, real_grads) ]
 
-                fake_grads = grad_sources_inputs(sources, [below, ancestor])
+                fake_grads = T.grad(cost=None, known_grads=dict(sources), wrt=[below, ancestor])
 
                 grads[W] = grads[W] + fake_grads[hack_W]
                 grads[b] = grads[b] + fake_grads[hack_b]

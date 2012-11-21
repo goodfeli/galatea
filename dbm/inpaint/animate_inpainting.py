@@ -8,6 +8,8 @@ from theano import function
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
 from galatea.ui import get_choice
+from pylearn2.models.dbm import flatten
+from theano.sandbox.rng_mrg import MRG_RandomStreams
 
 ignore, model_path = sys.argv
 m = 10
@@ -111,10 +113,21 @@ if choice == 'y':
     dataset = dataset.get_test_set()
 
 
+dropout = hasattr(model.inference_procedure, 'V_dropout')
+if dropout:
+    include_prob = model.inference_procedure.include_prob
+    theano_rng = MRG_RandomStreams(2012+11+20)
+    updates = {}
+    for elem in flatten([model.inference_procedure.V_dropout, model.inference_procedure.H_dropout]):
+        updates[elem] =  theano_rng.binomial(p=include_prob, size=elem.shape, dtype=elem.dtype, n=1) / include_prob
+    do_dropout = function([], updates=updates)
 
 topo = X.ndim > 2
 
 while True:
+    if dropout:
+        do_dropout()
+
     if cost.supervised:
         X, Y = dataset.get_batch_design(m, include_labels = True)
     else:
