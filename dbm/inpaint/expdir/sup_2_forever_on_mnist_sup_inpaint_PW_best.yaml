@@ -1,0 +1,57 @@
+
+!obj:pylearn2.train.Train {
+    dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        #binarize: 1,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    },
+        model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
+                        decapitate: 0,
+                        super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
+                                super_dbm: !pkl: "expdir/mnist_sup_inpaint_PW_best.pkl",
+                                niter: 6
+                        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               line_search_mode: 'exhaustive',
+               batch_size: 5000,
+               set_batch_size: 1,
+               updates_per_batch: 3,
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               monitoring_dataset: {
+                                'train' : *train,
+                                'valid' : !obj:pylearn2.datasets.mnist.MNIST {
+                                        which_set: "train",
+                                        #binarize: 1,
+                                        one_hot: 1,
+                                        start: 50000,
+                                        stop:  60000
+                                        },
+                                'test' : !obj:pylearn2.datasets.mnist.MNIST {
+                                        which_set: "test",
+                                        #binarize: 1,
+                                        one_hot: 1,
+                                        }
+               },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               },
+               #termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               #{
+               #         channel_name: "valid_err",
+               #         prop_decrease: .000,
+               #         N : 10
+               #}
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_err",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
