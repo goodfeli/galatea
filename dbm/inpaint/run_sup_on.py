@@ -20,7 +20,7 @@ f.write(
 !obj:pylearn2.train.Train {
     dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
-        binarize: 1,
+        #binarize: 1,
         one_hot: 1,
         start: 0,
         stop: 50000
@@ -44,14 +44,14 @@ f.write(
                                 'train' : *train,
                                 'valid' : !obj:pylearn2.datasets.mnist.MNIST {
                                         which_set: "train",
-                                        binarize: 1,
+                                        #binarize: 1,
                                         one_hot: 1,
                                         start: 50000,
                                         stop:  60000
                                         },
                                 'test' : !obj:pylearn2.datasets.mnist.MNIST {
                                         which_set: "test",
-                                        binarize: 1,
+                                        #binarize: 1,
                                         one_hot: 1,
                                         }
                },
