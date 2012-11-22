@@ -1828,6 +1828,10 @@ class MLP_Wrapper(Model):
         self._params.append(self.hidbias)
 
         # Layer 2
+        if not hasattr(l1, 'copies'):
+            l1.copies = 1
+        if not hasattr(l2, 'copies'):
+            l2.copies = 1
         self.hidpen = sharedX(l2.get_weights()*l1.copies)
         self._params.append(self.hidpen)
         self.penhid = sharedX(l2.get_weights().T*l2.copies)
