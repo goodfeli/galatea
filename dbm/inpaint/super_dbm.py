@@ -10,8 +10,7 @@ import theano.tensor as T
 import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
-from theano.printing import Print
-from theano.printing import min_informative_str
+from collections import OrderedDict
 from pylearn2.utils import block_gradient
 import warnings
 from theano import function
@@ -174,7 +173,7 @@ class SuperDBM(DBM):
                 become distributional.
         """
 
-        layer_to_rao_blackwellized = {}
+        layer_to_rao_blackwellized = OrderedDict()
 
         # Copy over visible layer
         layer_to_rao_blackwellized[self.visible_layer] = layer_to_state[self.visible_layer]
@@ -368,7 +367,7 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
         return [self.beta, self.mu]
 
     def get_lr_scalers(self):
-        rval = {}
+        rval = OrderedDict()
         warn = False
 
         rows, cols = self.space.shape
@@ -718,10 +717,10 @@ class ConvMaxPool(HiddenLayer):
             # scale each learning rate by 1 / # times param is reused
             h_rows, h_cols = self.h_space.shape
             num_h = float(h_rows * h_cols)
-            return { self.transformer._filters : 1./num_h,
-                     self.b : 1. / num_h  }
+            return OrderedDict([(self.transformer._filters, 1./num_h),
+                     (self.b, 1. / num_h)])
         else:
-            return {}
+            return OrderedDict()
 
     def upward_state(self, total_state):
         p,h = total_state
@@ -1184,7 +1183,7 @@ class SuperDBM_ConditionalNLL(Cost):
         params = list(model.get_params())
         grads = dict(safe_zip(params, T.grad(cost, params, disconnected_inputs = 'ignore')))
 
-        return grads, {}
+        return grads, OrderedDict()
 
     def get_monitoring_channels(self, model, X, Y, **kwargs):
 
@@ -1272,7 +1271,7 @@ class CompositeLayer(HiddenLayer):
         else:
             if not isinstance(inputs_to_components, dict):
                 raise TypeError("CompositeLayer expected inputs_to_components to be a dict, got "+str(type(inputs_to_components)))
-            self.inputs_to_components = {}
+            self.inputs_to_components = OrderedDict()
             for key in inputs_to_components:
                 assert isinstance(key, int)
                 assert key >= 0
@@ -1297,7 +1296,7 @@ class CompositeLayer(HiddenLayer):
                 self.routing_needed = True
                 assert max(self.inputs_to_components) < space.num_components
                 # Invert the dictionary
-                self.components_to_inputs = {}
+                self.components_to_inputs = OrderedDict()
                 for i in xrange(self.num_components):
                     inputs = []
                     for j in xrange(space.num_components):
@@ -1440,7 +1439,7 @@ class CompositeLayer(HiddenLayer):
         return self.components[int(x)].get_weights_topo()
 
     def get_monitoring_channels_from_state(self, state):
-        rval = {}
+        rval = OrderedDict()
 
         for layer, s in safe_zip(self.components, state):
             d = layer.get_monitoring_channels_from_state(s)
@@ -1883,14 +1882,14 @@ class MLP_Wrapper(Model):
 
 
         if initially_freeze_lower:
-            lr_scalers = {}
+            lr_scalers = OrderedDict()
             gate = sharedX(0.)
             for param in self._params:
                 if param not in self.c.get_params():
                     lr_scalers[param] = gate
             self.lr_scalers = lr_scalers
         else:
-            self.lr_scalers = {}
+            self.lr_scalers = OrderedDict()
 
     def get_lr_scalers(self):
         return self.lr_scalers
