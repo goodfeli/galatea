@@ -13,6 +13,7 @@ from theano import function
 import theano.tensor as T
 import sys
 from pylearn2.devtools.record import Record
+from collections import OrderedDict
 
 _, replay = sys.argv
 if replay in ['0', '1']:
@@ -52,7 +53,7 @@ params = [sharedX(np.zeros((10,)), name='param_0'),
            ]
 allocate_random()
 
-param_to_grad_shared = {}
+param_to_grad_shared = OrderedDict()
 allocate_random()
 
 for param in params:
@@ -64,20 +65,19 @@ for param in params:
 
 
 allocate_random()
-norm = T.scalar()
 
 
 allocate_random()
 grad_shared = param_to_grad_shared.values()
 
-grad_to_old_grad = {}
+grad_to_old_grad = OrderedDict()
 allocate_random()
 for elem in grad_shared:
     allocate_random()
     grad_to_old_grad[elem] = sharedX(elem.get_value(), 'old_'+elem.name)
 allocate_random()
-_store_old_grad = function([], updates = dict([(grad_to_old_grad[grad], grad)
+f = function([], updates = OrderedDict([(grad_to_old_grad[grad], grad)
                 for grad in grad_to_old_grad]), mode=record_mode, name='BatchGradientDescent._store_old_grad')
 
 allocate_random()
-_store_old_grad()
+f()
