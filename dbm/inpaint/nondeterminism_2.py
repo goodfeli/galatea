@@ -28,7 +28,6 @@ class DummyModel(Model):
         self._params = [sharedX(np.zeros(param_spec[name]), name) for name in sorted(param_spec.keys())]
         self.input_space = VectorSpace(28*28)
 
-#DummyModel(model)
 model = DummyModel()
 
 from pylearn2.training_algorithms.bgd import BGD
@@ -47,13 +46,7 @@ algorithm =  BGD( **{
                         path = 'nondeterminism_2_record.txt',
                         replay = replay
                ),
-               'line_search_mode': 'exhaustive',
                'batch_size': 100,
-               'set_batch_size': 1,
-               'updates_per_batch': 1,
-               'reset_alpha': 0,
-               'conjugate': 1,
-               'reset_conjugate': 0,
                'cost' : DummyCost()
 })
 
