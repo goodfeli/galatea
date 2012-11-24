@@ -31,7 +31,7 @@ class DummyModel(Model):
 model = DummyModel()
 
 from pylearn2.training_algorithms.bgd import BGD
-from pylearn2.devtools.record import Record
+from pylearn2.devtools.record import RecordMode
 allocate_random()
 from pylearn2.costs.cost import Cost
 
@@ -43,10 +43,11 @@ class DummyCost(Cost):
 
 
 algorithm =  BGD( **{
-               'theano_function_mode': Record(
+               'theano_function_mode': RecordMode(
                         path = 'nondeterminism_2_record.txt',
                         replay = replay
                ),
+               'conjugate': 1,
                'batch_size': 100,
                'cost' : DummyCost()
 })

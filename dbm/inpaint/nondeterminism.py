@@ -12,7 +12,7 @@ from theano import config
 from theano import function
 import theano.tensor as T
 import sys
-from pylearn2.devtools.record import Record
+from pylearn2.devtools.record import RecordMode
 from collections import OrderedDict
 
 _, replay = sys.argv
@@ -21,7 +21,7 @@ if replay in ['0', '1']:
 else:
     assert False
 
-record_mode = Record('nondeterminism_record.txt', replay=replay)
+record_mode = RecordMode('nondeterminism_record.txt', replay=replay)
 
 def allocate_random():
     # Allocate a time-dependent amount of objects to increase
