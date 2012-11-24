@@ -101,6 +101,6 @@ algorithm =  BGD( **{
                'cost' : DummyCost()
 })
 
-algorithm.setup(model=model, dataset=dataset)
+algorithm.setup(model=model, dataset=None)
 algorithm.optimizer._cache_values()
 
