@@ -1,40 +1,11 @@
-from pylearn2.models.model import Model
 import theano
 from pylearn2.space import Conv2DSpace
-from pylearn2.space import VectorSpace
-from pylearn2.space import CompositeSpace
-from pylearn2.utils import sharedX
-from pylearn2.linear.conv2d import make_random_conv2D
-from pylearn2.linear.conv2d import make_sparse_random_conv2D
 import theano.tensor as T
-import numpy as np
-from pylearn2.expr.probabilistic_max_pooling import max_pool
-from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
-from theano.printing import Print
-from theano.printing import min_informative_str
-from pylearn2.utils import block_gradient
 import warnings
-from theano import function
-from theano.sandbox.rng_mrg import MRG_RandomStreams
-import time
-from pylearn2.costs.cost import Cost
-from pylearn2.utils import safe_zip
-from pylearn2.utils import safe_izip
-from pylearn2.utils import _ElemwiseNoGradient
-from theano import config
 io = None
-from pylearn2.train_extensions import TrainExtension
-from pylearn2.models.dbm import block
-from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
-from pylearn2.models.dbm import flatten
-from pylearn2.models.dbm import HiddenLayer
 from pylearn2.models.dbm import VisibleLayer
-from pylearn2.models.dbm import InferenceProcedure
-from pylearn2.models.dbm import Layer
-from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models import dbm
-from theano.gof.op import get_debug_values
 
 
 class SuperDBM(DBM):
