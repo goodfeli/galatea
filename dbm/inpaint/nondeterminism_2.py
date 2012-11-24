@@ -20,41 +20,6 @@ def allocate_random():
     l = [[0]*m for i in xrange(n)]
 allocate_random()
 
-yaml_src = """
-    !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
-                        decapitate: 0,
-                        super_dbm: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-                              batch_size : 100,
-                              niter: 6, #note: since we have to backprop through the whole thing, this does
-                                         #increase the memory usage
-                              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
-                                nvis: 784,
-                                #bias_from_marginals: *train,
-                              },
-              hidden_layers: [
-                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        detector_layer_dim: 100,
-                        pool_size: 1,
-                        sparse_init: 15,
-                        layer_name: 'h0',
-                        init_bias: 0.
-               },
-                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        detector_layer_dim: 100,
-                        pool_size: 1,
-                        sparse_init: 15,
-                        layer_name: 'h1',
-                        init_bias: 0.
-               },
-               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
-                        sparse_init: 15,
-                        layer_name: 'c',
-                        n_classes: 10
-               }
-              ]
-    },
-    }"""
-model =  yaml_parse.load(yaml_src)
 
 from pylearn2.models.model import Model
 from pylearn2.space import VectorSpace
