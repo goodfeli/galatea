@@ -64,8 +64,7 @@ for param in params:
 
 
 allocate_random()
-norm = T.sqrt(sum([T.sqr(elem).sum() for elem in param_to_grad_shared.values()]))
-norm.name = 'BatchGradientDescent.norm'
+norm = T.scalar()
 
 
 allocate_random()
@@ -77,8 +76,8 @@ for elem in grad_shared:
     allocate_random()
     grad_to_old_grad[elem] = sharedX(elem.get_value(), 'old_'+elem.name)
 allocate_random()
-_store_old_grad = function([norm], updates = dict([(grad_to_old_grad[grad], grad * norm)
+_store_old_grad = function([], updates = dict([(grad_to_old_grad[grad], grad)
                 for grad in grad_to_old_grad]), mode=record_mode, name='BatchGradientDescent._store_old_grad')
 
 allocate_random()
-_store_old_grad(1)
+_store_old_grad()
