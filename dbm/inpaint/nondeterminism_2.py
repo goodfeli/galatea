@@ -67,4 +67,5 @@ yaml_src = """
 """ % locals()
 
 train = yaml_parse.load(yaml_src)
-train.main_loop()
+train.algorithm.setup(model=train.model, dataset=train.dataset)
+train.algorithm.optimizer._cache_values()
