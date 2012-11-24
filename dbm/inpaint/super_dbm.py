@@ -1822,9 +1822,9 @@ class MLP_Wrapper(Model):
         self._params = []
 
         # Layer 1
-        self.vishid = sharedX(l1.get_weights())
+        self.vishid = sharedX(l1.get_weights(), 'vishid')
         self._params.append(self.vishid)
-        self.hidbias = sharedX(l1.get_biases())
+        self.hidbias = sharedX(l1.get_biases(), 'hidbias')
         self._params.append(self.hidbias)
 
         # Layer 2
@@ -1832,9 +1832,9 @@ class MLP_Wrapper(Model):
             l1.copies = 1
         if not hasattr(l2, 'copies'):
             l2.copies = 1
-        self.hidpen = sharedX(l2.get_weights()*l1.copies)
+        self.hidpen = sharedX(l2.get_weights()*l1.copies, 'hidpen')
         self._params.append(self.hidpen)
-        self.penhid = sharedX(l2.get_weights().T*l2.copies)
+        self.penhid = sharedX(l2.get_weights().T*l2.copies, 'penhid')
         self._params.append(self.penhid)
         penbias = l2.get_biases()
         if decapitate:
@@ -1842,7 +1842,7 @@ class MLP_Wrapper(Model):
             penbias += np.dot(Wc,
                     np.ones((c.n_classes,), dtype = penbias.dtype) * decapitated_value / c.n_classes)
             l2.set_biases(penbias)
-        self.penbias = sharedX(l2.get_biases())
+        self.penbias = sharedX(l2.get_biases(), 'penbias')
         self._params.append(self.penbias)
 
         # Class layer
@@ -1878,7 +1878,7 @@ class MLP_Wrapper(Model):
         if top_down:
             assert not decapitate
             assert self.orig_sup
-            self.labpen = sharedX(self.c.get_weights().T)
+            self.labpen = sharedX(self.c.get_weights().T, 'labpen')
             self._params.append(self.labpen)
 
 
@@ -1952,6 +1952,13 @@ class MLP_Wrapper(Model):
 
     def get_output_space(self):
         return self.super_dbm.get_output_space()
+
+    def get_weights(self):
+        print 'MLP weights'
+        return self.vishid.get_value()
+
+    def get_weights_format(self):
+        return ('v','h')
 
 class DeepMLP_Wrapper(Model):
 
@@ -2084,6 +2091,13 @@ class DeepMLP_Wrapper(Model):
 
     def get_output_space(self):
         return self.c.get_output_space()
+
+    def get_weights(self):
+        print 'MLP weights'
+        return self.vishid.get_value()
+
+    def get_weights_format(self):
+        return ('v','h')
 
 class MatrixDecay(Cost):
     def __init__(self, coeff):

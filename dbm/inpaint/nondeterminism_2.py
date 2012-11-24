@@ -3,16 +3,18 @@ import sys
 
 _, replay = sys.argv
 
-yaml_src = """
-!obj:pylearn2.train.Train {
-    dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
+yaml_src = """ !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
         #binarize: 1,
         one_hot: 1,
         start: 0,
         stop: 100
-    },
-        model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
+    }
+"""
+dataset = yaml_parse.load(yaml_src)
+
+yaml_src = """
+    !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
                         decapitate: 0,
                         super_dbm: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
                               batch_size : 100,
@@ -20,7 +22,7 @@ yaml_src = """
                                          #increase the memory usage
                               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
                                 nvis: 784,
-                                bias_from_marginals: *train,
+                                #bias_from_marginals: *train,
                               },
               hidden_layers: [
                 !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
@@ -44,8 +46,11 @@ yaml_src = """
                }
               ]
     },
-    },
-    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+    }"""
+model =  yaml_parse.load(yaml_src)
+
+
+yaml_src = """!obj:pylearn2.training_algorithms.bgd.BGD {
                theano_function_mode: !obj:pylearn2.devtools.record.Record {
                         path: 'nondeterminism_2_record.txt',
                         replay: %(replay)s
@@ -57,15 +62,11 @@ yaml_src = """
                reset_alpha: 0,
                conjugate: 1,
                reset_conjugate: 0,
-               monitoring_dataset: {
-                                'train' : *train,
-               },
                cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
                },
-        },
-}
+        }
 """ % locals()
+algorithm =  yaml_parse.load(yaml_src)
 
-train = yaml_parse.load(yaml_src)
-train.algorithm.setup(model=train.model, dataset=train.dataset)
-train.algorithm.optimizer._cache_values()
+algorithm.setup(model=model, dataset=dataset)
+algorithm.optimizer._cache_values()
