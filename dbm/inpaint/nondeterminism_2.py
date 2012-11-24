@@ -60,7 +60,7 @@ from pylearn2.models.model import Model
 from pylearn2.space import VectorSpace
 
 class DummyModel(Model):
-    def __init__(self, model):
+    def __init__(self):
         param_spec = {"vishid" : (784, 100), "hidbias" : (100,), "hidpen" : (100, 100), "penhid" : (100, 100), "penbias" : (100,), "softmax_b" : (10,), "softmax_W" : (100, 10)}
         self._params = [sharedX(np.zeros(param_spec[name]), name) for name in sorted(param_spec.keys())]
         """
@@ -75,7 +75,7 @@ class DummyModel(Model):
         self.input_space = VectorSpace(28*28)
 
 #DummyModel(model)
-model = DummyModel(model)
+model = DummyModel()
 
 from pylearn2.training_algorithms.bgd import BGD
 from pylearn2.devtools.record import Record
