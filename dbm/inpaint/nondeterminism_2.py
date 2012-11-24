@@ -50,6 +50,17 @@ yaml_src = """
     }"""
 model =  yaml_parse.load(yaml_src)
 
+from pylearn2.models.model import Model
+from pylearn2.space import VectorSpace
+
+class DummyModel(Model):
+    def __init__(self, model):
+        self._params = model.get_params()
+        self.input_space = VectorSpace(28*28)
+
+#DummyModel(model)
+model = DummyModel(model)
+
 from pylearn2.training_algorithms.bgd import BGD
 from pylearn2.devtools.record import Record
 from galatea.dbm.inpaint import super_dbm

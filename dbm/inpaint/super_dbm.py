@@ -1862,7 +1862,7 @@ class MLP_Wrapper(Model):
 
         if train_rnn_y:
             assert not decapitate
-            self._params.extend(c.get_params())
+            self._params = safe_union(self._params, c.get_params())
 
         if final_irange is not None:
             if self.orig_sup:
@@ -2038,7 +2038,7 @@ class DeepMLP_Wrapper(Model):
             self.c.set_input_space(l3.get_output_space())
             self.c.set_weights(c.get_weights())
             self.c.set_biases(c.get_biases())
-        self._params.extend(self.c.get_params())
+        self._params = safe_union(self._params, self.c.get_params())
         self.hidden_layers = [ self.c ]
 
     def censor_updates(self, updates):
