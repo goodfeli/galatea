@@ -38,6 +38,7 @@ from pylearn2.costs.cost import Cost
 class DummyCost(Cost):
     supervised = True
     def __call__(self, model, X, Y, **kwargs):
+        return sharedX(0.)
         return sum([x.sum() for x in (model.get_params()+[X, Y])])
 
 
