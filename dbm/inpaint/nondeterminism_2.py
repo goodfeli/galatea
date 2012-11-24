@@ -4,6 +4,20 @@ import sys
 _, replay = sys.argv
 replay = int(replay)
 
+def allocate_random():
+    # Allocate a time-dependent amount of objects to increase
+    # chances of all subsequent objects' ids changing from run
+    # to run
+    global l
+    from datetime import datetime
+    now = datetime.now()
+    ms = now.microsecond
+    ms = int(ms)
+    n = ms % 1000
+    m = ms / 1000
+    l = [[0]*m for i in xrange(n)]
+allocate_random()
+
 yaml_src = """ !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
         #binarize: 1,
