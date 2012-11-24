@@ -53,6 +53,13 @@ model =  yaml_parse.load(yaml_src)
 from pylearn2.training_algorithms.bgd import BGD
 from pylearn2.devtools.record import Record
 from galatea.dbm.inpaint import super_dbm
+from pylearn2.costs.cost import Cost
+
+class DummyCost(Cost):
+    supervised = True
+    def __call__(self, model, X, Y, **kwargs):
+        return sum([x.sum() for x in (model.get_params()+[X, Y])])
+
 
 algorithm =  BGD( **{
                'theano_function_mode': Record(
@@ -66,7 +73,7 @@ algorithm =  BGD( **{
                'reset_alpha': 0,
                'conjugate': 1,
                'reset_conjugate': 0,
-               'cost' : super_dbm.SuperDBM_ConditionalNLL ()
+               'cost' : DummyCost()
 })
 
 algorithm.setup(model=model, dataset=dataset)
