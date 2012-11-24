@@ -1,4 +1,3 @@
-from pylearn2.config import yaml_parse
 import sys
 import numpy as np
 from pylearn2.utils import sharedX
@@ -20,7 +19,6 @@ def allocate_random():
     l = [[0]*m for i in xrange(n)]
 allocate_random()
 
-
 from pylearn2.models.model import Model
 from pylearn2.space import VectorSpace
 
@@ -28,15 +26,6 @@ class DummyModel(Model):
     def __init__(self):
         param_spec = {"vishid" : (784, 100), "hidbias" : (100,), "hidpen" : (100, 100), "penhid" : (100, 100), "penbias" : (100,), "softmax_b" : (10,), "softmax_W" : (100, 10)}
         self._params = [sharedX(np.zeros(param_spec[name]), name) for name in sorted(param_spec.keys())]
-        """
-        self._params = model.get_params()
-        param_rep = []
-        for param in self._params:
-            param_rep.append('"'+param.name+'" : '+str(param.get_value().shape))
-        param_rep = '{' + ', '.join(param_rep) + '}'
-        print param_rep
-        quit(-1)
-        """
         self.input_space = VectorSpace(28*28)
 
 #DummyModel(model)
