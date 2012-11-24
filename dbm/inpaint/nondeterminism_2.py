@@ -77,7 +77,8 @@ model = DummyModel(model)
 
 from pylearn2.training_algorithms.bgd import BGD
 from pylearn2.devtools.record import Record
-from galatea.dbm.inpaint import wtf#super_dbm
+#from galatea.dbm.inpaint import wtf#super_dbm
+allocate_random()
 from pylearn2.costs.cost import Cost
 
 class DummyCost(Cost):
