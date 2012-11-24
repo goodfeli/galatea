@@ -2,6 +2,7 @@ from pylearn2.config import yaml_parse
 import sys
 
 _, replay = sys.argv
+replay = int(replay)
 
 yaml_src = """ !obj:pylearn2.datasets.mnist.MNIST {
         which_set: "train",
@@ -49,24 +50,25 @@ yaml_src = """
     }"""
 model =  yaml_parse.load(yaml_src)
 
+from pylearn2.training_algorithms.bgd import BGD
+from pylearn2.devtools.record import Record
+from galatea.dbm.inpaint import super_dbm
 
-yaml_src = """!obj:pylearn2.training_algorithms.bgd.BGD {
-               theano_function_mode: !obj:pylearn2.devtools.record.Record {
-                        path: 'nondeterminism_2_record.txt',
-                        replay: %(replay)s
-               },
-               line_search_mode: 'exhaustive',
-               batch_size: 100,
-               set_batch_size: 1,
-               updates_per_batch: 1,
-               reset_alpha: 0,
-               conjugate: 1,
-               reset_conjugate: 0,
-               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
-               },
-        }
-""" % locals()
-algorithm =  yaml_parse.load(yaml_src)
+algorithm =  BGD( **{
+               'theano_function_mode': Record(
+                        path = 'nondeterminism_2_record.txt',
+                        replay = replay
+               ),
+               'line_search_mode': 'exhaustive',
+               'batch_size': 100,
+               'set_batch_size': 1,
+               'updates_per_batch': 1,
+               'reset_alpha': 0,
+               'conjugate': 1,
+               'reset_conjugate': 0,
+               'cost' : super_dbm.SuperDBM_ConditionalNLL ()
+})
 
 algorithm.setup(model=model, dataset=dataset)
 algorithm.optimizer._cache_values()
+
