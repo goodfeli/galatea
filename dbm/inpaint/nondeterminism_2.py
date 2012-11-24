@@ -18,16 +18,6 @@ def allocate_random():
     l = [[0]*m for i in xrange(n)]
 allocate_random()
 
-yaml_src = """ !obj:pylearn2.datasets.mnist.MNIST {
-        which_set: "train",
-        #binarize: 1,
-        one_hot: 1,
-        start: 0,
-        stop: 100
-    }
-"""
-dataset = yaml_parse.load(yaml_src)
-
 yaml_src = """
     !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
                         decapitate: 0,
