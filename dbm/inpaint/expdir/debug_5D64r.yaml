@@ -41,7 +41,6 @@
     },
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
-               verbose_optimization: 3,
                theano_function_mode: !obj:pylearn2.devtools.record.RecordMode {
                         path: 'debug_5D64_record.txt',
                         replay: 1
