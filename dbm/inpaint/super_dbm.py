@@ -34,6 +34,7 @@ from pylearn2.models.dbm import Layer
 from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models import dbm
 from theano.gof.op import get_debug_values
+from theano import printing
 
 
 class SuperDBM(DBM):
@@ -1173,15 +1174,30 @@ class SuperDBM_ConditionalNLL(Cost):
 
         return - example_costs.mean()
 
-    def get_gradients(self, model, X, Y, **kwargs):
+    def get_gradients(self, model, X, Y, record=None,
+            ** kwargs):
 
         new_kwargs = { 'niter' : self.grad_niter }
         new_kwargs.update(kwargs)
 
         cost = self(model, X, Y, ** new_kwargs)
 
-        params = list(model.get_params())
-        grads = dict(safe_zip(params, T.grad(cost, params, disconnected_inputs = 'ignore')))
+        if record is not None:
+            record.handle_line("SuperDBM_NLL.get_gradients cost " \
+                + printing.var_descriptor(cost)+'\n')
+
+        params = model.get_params()
+        assert isinstance(params, list)
+        grads = T.grad(cost, params, disconnected_inputs='ignore')
+
+        if record is not None:
+            for param, grad in zip(params, grads):
+                record.handle_line("SuperDBM_NLL.get_gradients param order check "\
+                        + printing.var_descriptor(param)+'\n')
+                record.handle_line("SuperDBM_NLL.get_gradients grad check "\
+                        + printing.var_descriptor(grad)+'\n')
+
+        grads = OrderedDict(safe_zip(params, grads))
 
         return grads, OrderedDict()
 

@@ -1,4 +1,6 @@
+from collections import OrderedDict
 from pylearn2.costs.cost import Cost
+from pylearn2.costs.cost import FixedVarDescr
 from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
 import theano.tensor as T
 from theano import config
@@ -6,7 +8,11 @@ from pylearn2.utils import make_name
 from pylearn2.utils import safe_izip
 from pylearn2.utils import safe_zip
 from pylearn2.models.dbm import flatten
+from theano import function
+from pylearn2.utils import sharedX
 import warnings
+import numpy as np
+from theano.printing import Print
 
 warnings.warn("""Check math on all of super DBM--make sure probabilistic max pooling,
 gaussian units, and treating half of v as hidden has all been handled correctly. Also,
@@ -15,7 +21,7 @@ in the max pooling into a unit test, etc.""")
 
 class SuperInpaint(Cost):
     def __init__(self,
-                    mask_gen = None,
+                    mask_gen,
                     noise = False,
                     both_directions = False,
                     l1_act_coeffs = None,
@@ -44,7 +50,7 @@ class SuperInpaint(Cost):
         if self.supervised:
             assert Y is not None
 
-        rval = {}
+        rval = OrderedDict()
 
         # TODO: shouldn't self() handle this?
         if drop_mask is not None and drop_mask.ndim < X.ndim:
@@ -113,8 +119,7 @@ class SuperInpaint(Cost):
             if err.dtype != Y_hat.dtype:
                 err = T.cast(err, Y_hat.dtype)
 
-            rval.update( {  'err' : err })
-
+            rval.update(OrderedDict([('err', err)]))
 
         return rval
 
@@ -141,8 +146,6 @@ class SuperInpaint(Cost):
                 drop_mask, drop_mask_Y = self.mask_gen(X, Y)
             else:
                 drop_mask = self.mask_gen(X)
-        else:
-            assert self.mask_gen is None
 
         if drop_mask_Y is not None:
             assert drop_mask_Y.ndim == 1
@@ -203,6 +206,29 @@ class SuperInpaint(Cost):
 
         return total_cost
 
+    def get_fixed_var_descr(self, model, X, Y=None):
+
+        batch_size = model.batch_size
+
+        drop_mask_X = sharedX(model.get_input_space().get_origin_batch(batch_size))
+
+        updates = OrderedDict()
+
+        if Y is None:
+            update_X = self.mask_gen(X)
+        else:
+            drop_mask_Y = sharedX(np.ones(batch_size,))
+            update_X, update_Y = self.mask_gen(X, Y)
+            updates[drop_mask_Y] = update_Y
+        updates[drop_mask_X] = update_X
+
+        rval = FixedVarDescr()
+        rval.fixed_vars = {'drop_mask': drop_mask_X, 'drop_mask_Y': drop_mask_Y}
+        rval.on_load_batch = [function([X, Y], updates=updates, on_unused_input='ignore')]
+
+        return rval
+
+
     def get_gradients(self, model, X, Y = None, **kwargs):
 
         scratch = self(model, X, Y, include_toronto = False, return_locals=True, **kwargs)
@@ -241,13 +267,13 @@ class SuperInpaint(Cost):
                     assert False
                 sources = [ (fake_s, real_grads) ]
 
-                fake_grads = T.grad(cost=None, known_grads=dict(sources), wrt=[below, ancestor])
+                fake_grads = T.grad(cost=None, known_grads=dict(sources), wrt=[below, ancestor, hack_W, hack_b])
 
-                grads[W] = grads[W] + fake_grads[hack_W]
-                grads[b] = grads[b] + fake_grads[hack_b]
+                grads[W] = grads[W] + fake_grads[2]
+                grads[b] = grads[b] + fake_grads[3]
 
 
-        return grads, {}
+        return grads, OrderedDict()
 
 
     def cost_from_states(self, state, new_state, dbm, X, Y, drop_mask, drop_mask_Y,
@@ -384,7 +410,7 @@ class SuperInpaint(Cost):
         return total_cost
 
 
-class MaskGen:
+class MaskGen(object):
     def __init__(self, drop_prob, balance, sync_channels = True, drop_prob_y = None):
         self.__dict__.update(locals())
         del self.self
@@ -444,6 +470,8 @@ class MaskGen:
             assert drop_mask_Y.ndim == 1
             Y_name = make_name(Y, 'anon_Y')
             drop_mask_Y.name = 'drop_mask_Y(%s)' % Y_name
+            #drop_mask = Print('drop_mask',attrs=['sum'])(drop_mask)
+            #drop_mask_Y = Print('drop_mask_Y',attrs=['sum'])(drop_mask_Y)
             return drop_mask, drop_mask_Y
 
         return drop_mask
@@ -474,7 +502,7 @@ class SuperDenoise(Cost):
     def get_monitoring_channels(self, model, X, Y = None, drop_mask = None):
 
 
-        rval = {}
+        rval = OrderedDict()
 
         scratch = self(model, X, drop_mask, return_locals = True)
 
@@ -531,7 +559,7 @@ class SuperDenoise(Cost):
             H1 = elem[0]
             ds = hid.downward_state(H1)
             V_hat = dbm.visible_layer.inpaint_update(layer_above = hid, state_above = ds)
-            new_elem = { 'V_hat' : V_hat }
+            new_elem = OrderedDict([( 'V_hat' , V_hat )])
             new_elem['H_hat'] = elem
             new_history.append(new_elem)
         history = new_history
