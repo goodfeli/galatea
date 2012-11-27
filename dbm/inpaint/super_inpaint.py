@@ -410,7 +410,7 @@ class SuperInpaint(Cost):
         return total_cost
 
 
-class MaskGen(object):
+class MaskGen:
     def __init__(self, drop_prob, balance, sync_channels = True, drop_prob_y = None):
         self.__dict__.update(locals())
         del self.self
