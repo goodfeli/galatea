@@ -34,7 +34,7 @@ f.write(
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
                line_search_mode: 'exhaustive',
-               batch_size: 5000,
+               batch_size: 100,
                set_batch_size: 1,
                updates_per_batch: 3,
                reset_alpha: 0,
