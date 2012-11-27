@@ -41,9 +41,12 @@
     },
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+                    max_epochs: 10,
+               },
                theano_function_mode: !obj:pylearn2.devtools.record.RecordMode {
-                        path: 'debug_5D64_record.txt',
-                        replay: 1
+                    path: 'debug_5D64_record.txt',
+                    replay: 1
                },
                line_search_mode: 'exhaustive',
                batch_size: 100,

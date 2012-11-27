@@ -13,6 +13,7 @@ from pylearn2.termination_criteria import TerminationCriterion
 from pylearn2.utils import safe_zip
 from pylearn2.models.dbm import flatten
 from theano.sandbox.rng_mrg import MRG_RandomStreams
+from collections import OrderedDict
 
 class SetupBatch:
     def __init__(self,alg):
@@ -124,10 +125,10 @@ class InpaintAlgorithm(object):
             drop_mask_Y = sharedX( np.cast[Y.dtype](test_mask_Y), name = 'drop_mask_Y')
             self.drop_mask_Y = drop_mask_Y
             dmx, dmy = self.mask_gen(X, Y)
-            updates = { drop_mask: dmx,
-                    drop_mask_Y: dmy }
+            updates = OrderedDict([ (drop_mask, dmx),\
+                    (drop_mask_Y, dmy)] )
         else:
-            updates = { drop_mask : self.mask_gen(X) }
+            updates = OrderedDict([( drop_mask, self.mask_gen(X) )])
 
 
         obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
