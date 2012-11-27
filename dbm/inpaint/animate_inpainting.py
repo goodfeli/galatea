@@ -102,10 +102,11 @@ if cost.supervised:
         n_classes = int(n_classes)
     assert isinstance(n_classes, int)
     templates = np.zeros((n_classes, space.get_total_dimension()))
+    X, y = dataset.get_batch_design(5000, include_labels=1)
     for i in xrange(n_classes):
-        for j in xrange(-1, -dataset.X.shape[0], -1):
-            if dataset.y[j,i]:
-                templates[i, :] = dataset.X[j, :]
+        for j in xrange(-1, -y.shape[0], -1):
+            if y[j,i]:
+                templates[i, :] = X[j, :]
 
 print 'use test set?'
 choice = get_choice({ 'y' : 'yes', 'n' : 'no' })
