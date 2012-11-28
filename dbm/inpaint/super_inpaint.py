@@ -208,23 +208,28 @@ class SuperInpaint(Cost):
 
     def get_fixed_var_descr(self, model, X, Y=None):
 
+        assert (Y is None) == (not self.supervised)
+
         batch_size = model.batch_size
 
         drop_mask_X = sharedX(model.get_input_space().get_origin_batch(batch_size))
 
         updates = OrderedDict()
+        rval = FixedVarDescr()
+        inputs=[X]
 
         if Y is None:
             update_X = self.mask_gen(X)
         else:
+            inputs.append(Y)
             drop_mask_Y = sharedX(np.ones(batch_size,))
             update_X, update_Y = self.mask_gen(X, Y)
             updates[drop_mask_Y] = update_Y
+            rval.fixed_vars['drop_mask_Y'] =  drop_mask_Y
         updates[drop_mask_X] = update_X
 
-        rval = FixedVarDescr()
-        rval.fixed_vars = {'drop_mask': drop_mask_X, 'drop_mask_Y': drop_mask_Y}
-        rval.on_load_batch = [function([X, Y], updates=updates, on_unused_input='ignore')]
+        rval.fixed_vars['drop_mask'] = drop_mask_X
+        rval.on_load_batch = [function(inputs, updates=updates, on_unused_input='ignore')]
 
         return rval
 
