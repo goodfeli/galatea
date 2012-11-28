@@ -416,6 +416,12 @@ class MaskGen:
         del self.self
 
     def __call__(self, X, Y = None):
+        if hasattr(self, 'called'):
+            # shouldn't be called twice because the seed is hardcoded
+            # inside the call.
+            # also, for current application, calling twice indicates a bug.
+            assert False
+        self.called = True
         assert X.dtype == config.floatX
         theano_rng = RandomStreams(20120712)
 
