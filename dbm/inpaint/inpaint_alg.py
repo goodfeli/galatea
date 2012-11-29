@@ -14,6 +14,7 @@ from pylearn2.utils import safe_zip
 from pylearn2.models.dbm import flatten
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 from collections import OrderedDict
+import theano
 
 class SetupBatch:
     def __init__(self,alg):
@@ -37,7 +38,8 @@ class InpaintAlgorithm(object):
                  reset_alpha = True, conjugate = False, reset_conjugate = True,
                  termination_criterion = None, set_batch_size = False,
                  line_search_mode = None, min_init_alpha = 1e-3,
-                 duplicate = 1, combine_batches = 1, scale_step = 1.):
+                 duplicate = 1, combine_batches = 1, scale_step = 1.,
+                 theano_function_mode=None):
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model
@@ -95,6 +97,7 @@ class InpaintAlgorithm(object):
         model.mask_gen = self.mask_gen
 
         self.monitor = Monitor.get_monitor(model)
+        self.monitor.set_theano_function_mode(self.theano_function_mode)
         prereq = self.get_setup_batch_object()
         #We want to use big batches. We need to make several theano calls on each
         #batch. To avoid paying the GPU latency every time, we use a shared variable
@@ -221,7 +224,8 @@ class InpaintAlgorithm(object):
                             reset_conjugate = self.reset_conjugate,
                             min_init_alpha = self.min_init_alpha,
                             line_search_mode = self.line_search_mode,
-                            accumulate = self.accumulate)
+                            accumulate = self.accumulate,
+                            theano_function_mode = self.theano_function_mode)
         self.X = X
 
         self.monitor.add_channel(name='ave_step_size',
