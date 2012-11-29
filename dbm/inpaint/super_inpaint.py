@@ -213,6 +213,7 @@ class SuperInpaint(Cost):
         batch_size = model.batch_size
 
         drop_mask_X = sharedX(model.get_input_space().get_origin_batch(batch_size))
+        drop_mask_X.name = 'drop_mask'
 
         updates = OrderedDict()
         rval = FixedVarDescr()
@@ -223,6 +224,7 @@ class SuperInpaint(Cost):
         else:
             inputs.append(Y)
             drop_mask_Y = sharedX(np.ones(batch_size,))
+            drop_mask_Y.name = 'drop_mask_Y'
             update_X, update_Y = self.mask_gen(X, Y)
             updates[drop_mask_Y] = update_Y
             rval.fixed_vars['drop_mask_Y'] =  drop_mask_Y
