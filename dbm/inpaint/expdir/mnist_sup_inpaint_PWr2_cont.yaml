@@ -1,0 +1,69 @@
+# Like mnist_sup_inpaint_P, but rerun after fixing a bug in inpaint_alg that made it do only
+# 10 batches per epoch
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarizer.Binarizer {
+      raw: &raw_train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 0,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    }},
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "${G}/dbm/inpaint/expdir/mnist_sup_inpaint_PWr2_best.pkl",
+        name: 'monitor_first'
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               monitoring_dataset : {
+                        'train': *train,
+                        'valid': !obj:pylearn2.datasets.binarizer.Binarizer { raw: !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 0,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            }},
+               },
+               line_search_mode: 'exhaustive',
+               #init_alpha : [0.0256, .128, .256, 1.28, 2.56],
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               updates_per_batch: 5,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                       costs :[
+                               !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                                        both_directions : 0,
+                                        noise : 0,
+                                        supervised: 1,
+                                        l1_act_targets: [  .06, .07, 0. ],
+                                        l1_act_eps:     [  .04,  .05, 0. ],
+                                        l1_act_coeffs:  [ .01,  .000, 0.  ],
+                                       mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                                                drop_prob: 0.1,
+                                                balance: 0,
+                                                sync_channels: 0
+                                       },
+                               },
+                               !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                                        coeffs: [ .0000005, .0000005, .0000005 ]
+                               }
+                       ]
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel
+               {
+                        channel_name: "valid_objective",
+                        prev_channel_name: "train_objective",
+                        prev_monitor_name: "monitor_first"
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_err",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

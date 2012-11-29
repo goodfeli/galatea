@@ -1829,6 +1829,7 @@ class MLP_Wrapper(Model):
             assert not decapitate # can't decapitate the already headless
             assert final_irange is not None
             l1, l2 = super_dbm.hidden_layers
+            c = None
         assert isinstance(l1, DenseMaxPool)
         assert isinstance(l2, DenseMaxPool)
         if self.orig_sup:
@@ -1865,9 +1866,11 @@ class MLP_Wrapper(Model):
             self.c = c
             del super_dbm.hidden_layers[-1]
         else:
-            if not hasattr(c, 'copies'):
-                c.copies = 1
-            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output', copies = c.copies)
+            if c is not None and hasattr(c, 'copies'):
+                c_copies = c.copies
+            else:
+                c_copies = 1
+            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output', copies = c_copies)
             self.c.dbm = l1.dbm
             self.c.set_input_space(l2.get_output_space())
             if self.orig_sup:
