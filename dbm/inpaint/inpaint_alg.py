@@ -177,7 +177,13 @@ class InpaintAlgorithm(object):
                 #each time you say "self.setup_batch" you get a new object with a
                 #different id, and if you install n of those the prereq will run n
                 #times. It won't cause any wrong results, just a big slowdown
-                self.monitor.add_channel(prefix+'objective',ipt=X,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
+                assert X.name == 'BGD_X'
+                assert self.cost.supervised
+                assert Y is not None
+                assert Y in theano.gof.graph.ancestors([obj])
+                warnings.warn("This is weird-- ipt=(X,Y)=tell the monitor to replace X, Y with the givens dict, "
+                        " but you don't actually want them to be replaced.")
+                self.monitor.add_channel(prefix+'objective',ipt=(X, Y),val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
 
                 for name in channels:
                     J = channels[name]
