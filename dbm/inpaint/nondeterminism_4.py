@@ -95,7 +95,7 @@ class A(Cost):
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        history = dbm.do_inpainting(X, drop_mask = drop_mask)
+        history = do_inpainting(dbm, X, drop_mask = drop_mask)
         final_state = history[-1]
 
         new_drop_mask = None
@@ -111,50 +111,34 @@ class A(Cost):
 
         return total_cost
 
-class SuperWeightDoubling(WeightDoubling):
-    def do_inpainting(self, V, drop_mask = None):
-        dbm = self.dbm
+def do_inpainting(dbm, V, drop_mask = None):
 
-        history = []
+    history = []
 
-        V_hat = V
-        V_hat_unmasked = V
+    V_hat = V
+    V_hat_unmasked = V
 
-        H_hat = []
-        H_hat.append(dbm.hidden_layers[0].mf_update(
-            state_above = None,
-            state_below = V_hat,
-            iter_name = '0'))
+    H_hat = []
+    H_hat.append(dbm.hidden_layers[0].mf_update(
+        state_above = None,
+        state_below = V_hat,
+        iter_name = '0'))
 
-        def update_history():
-            assert V_hat_unmasked.ndim > 1
-            d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
-            history.append( d )
+    def update_history():
+        assert V_hat_unmasked.ndim > 1
+        d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+        history.append( d )
 
-        update_history()
+    update_history()
 
-        V_hat_unmasked = dbm.hidden_layers[0].downward_message(H_hat[0][0])
-        V_hat = V_hat_unmasked
-        V_hat.name = 'V_hat[%d](V_hat = %s)' % (1, V_hat.name)
+    V_hat_unmasked = dbm.hidden_layers[0].downward_message(H_hat[0][0])
+    V_hat = V_hat_unmasked
+    V_hat.name = 'V_hat[%d](V_hat = %s)' % (1, V_hat.name)
 
-        update_history()
+    update_history()
 
-        return history
+    return history
 
-class ADBM(DBM):
-    def setup_inference_procedure(self):
-        if not hasattr(self, 'inference_procedure') or \
-                self.inference_procedure is None:
-            self.inference_procedure = SuperWeightDoubling()
-            self.inference_procedure.set_dbm(self)
-
-    def do_inpainting(self, *args, **kwargs):
-        self.setup_inference_procedure()
-        return self.inference_procedure.do_inpainting(*args, **kwargs)
-
-    def mf(self, *args, **kwargs):
-        self.setup_inference_procedure()
-        return self.inference_procedure.mf(*args, **kwargs)
 
 def prereq(*args):
     disturb_mem.disturb_mem()
@@ -203,7 +187,7 @@ class InpaintAlgorithm(object):
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
                 Y = None
             assert X.name is not None
-            channels = {} #model.get_monitoring_channels(X,Y)
+            channels = {}
             assert X.name is not None
             cost_channels = self.cost.get_monitoring_channels(model, X = X, Y = Y, drop_mask = drop_mask,
                     drop_mask_Y = drop_mask_Y)
@@ -255,7 +239,7 @@ def run(replay):
 
     train = raw_train
 
-    model = ADBM(
+    model = DBM(
             batch_size = 2,
             niter= 2,
             visible_layer= BinaryVector(
