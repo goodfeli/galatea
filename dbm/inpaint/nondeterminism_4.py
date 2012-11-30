@@ -1,5 +1,3 @@
-import galatea.dbm.inpaint.super_dbm
-import galatea.dbm.inpaint.super_inpaint
 from pylearn2.devtools.record import RecordMode
 from collections import OrderedDict
 from pylearn2.datasets.dataset import Dataset
@@ -61,10 +59,7 @@ class A(Cost):
 
         for ii, packed in enumerate(safe_izip(history, new_history)):
             state, new_state = packed
-            rval['inpaint_after_' + str(ii)] = self.cost_from_states(state,
-                    new_state,
-                    model, X, Y, drop_mask, drop_mask_Y,
-                    new_drop_mask, new_drop_mask_Y)
+            rval['inpaint_after_' + str(ii)] = state['V_hat_unmasked'].sum()
 
             if ii > 0:
                 prev_state = history[ii-1]
@@ -109,7 +104,7 @@ class A(Cost):
 
         new_final_state = new_history[-1]
 
-        total_cost = self.cost_from_states(final_state, new_final_state, dbm, X, Y, drop_mask, drop_mask_Y, new_drop_mask, new_drop_mask_Y)
+        total_cost = final_state['V_hat_unmasked'].sum()
 
         if return_locals:
             return locals()
@@ -164,125 +159,6 @@ class A(Cost):
 
 
         return grads, OrderedDict()
-
-
-    def cost_from_states(self, state, new_state, dbm, X, Y, drop_mask, drop_mask_Y,
-            new_drop_mask, new_drop_mask_Y):
-
-        assert drop_mask_Y is None
-        assert new_drop_mask_Y is None
-
-        V_hat_unmasked = state['V_hat_unmasked']
-        assert V_hat_unmasked.ndim == X.ndim
-
-        inpaint_cost = V_hat_unmasked.sum()
-        return inpaint_cost
-
-
-        if new_state is not None:
-
-            new_V_hat_unmasked = new_state['V_hat_unmasked']
-
-            new_inpaint_cost = dbm.visible_layer.recons_cost(X, new_V_hat_unmasked, new_drop_mask)
-            if self.supervised:
-                new_Y_hat_unmasked = new_state['Y_hat_unmasked']
-                new_inpaint_cost = new_inpaint_cost + \
-                        dbm.hidden_layers[-1].recons_cost(Y, new_Y_hat_unmasked, new_drop_mask_Y, scale)
-            # end if include_Y
-            inpaint_cost = 0.5 * inpaint_cost + 0.5 * new_inpaint_cost
-        # end if both directions
-
-        total_cost = inpaint_cost
-
-        if self.range_rewards is not None:
-            for layer, mf_state, coeffs in safe_izip(
-                    dbm.hidden_layers,
-                    state['H_hat'],
-                    self.range_rewards):
-                try:
-                    layer_cost = layer.get_range_rewards(mf_state, coeffs)
-                except NotImplementedError:
-                    if coeffs == 0.:
-                        layer_cost = 0.
-                    else:
-                        raise
-                if layer_cost != 0.:
-                    total_cost += layer_cost
-
-        if self.stdev_rewards is not None:
-            for layer, mf_state, coeffs in safe_izip(
-                    dbm.hidden_layers,
-                    state['H_hat'],
-                    self.stdev_rewards):
-                try:
-                    layer_cost = layer.get_stdev_rewards(mf_state, coeffs)
-                except NotImplementedError:
-                    if coeffs == 0.:
-                        layer_cost = 0.
-                    else:
-                        raise
-                if layer_cost != 0.:
-                    total_cost += layer_cost
-
-        if self.l1_act_targets is not None:
-            if self.l1_act_eps is None:
-                self.l1_act_eps = [ None ] * len(self.l1_act_targets)
-            for layer, mf_state, targets, coeffs, eps in safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs, self.l1_act_eps):
-                assert not isinstance(targets, str)
-
-                try:
-                    layer_cost = layer.get_l1_act_cost(mf_state, targets, coeffs, eps)
-                except NotImplementedError:
-                    if coeffs == 0.:
-                        layer_cost = 0.
-                    else:
-                        raise
-                if layer_cost != 0.:
-                    total_cost += layer_cost
-                #for H, t, c in zip(mf_state, targets, coeffs):
-                    #if c == 0.:
-                    #    continue
-                    #axes = (0,2,3) # all but channel axis
-                                  # this assumes bc01 format
-                    #h = H.mean(axis=axes)
-                    #assert h.ndim == 1
-                    #total_cost += c * abs(h - t).mean()
-                # end for substates
-            # end for layers
-        # end if act penalty
-
-        if self.hid_presynaptic_cost is not None:
-            for c, s, in safe_izip(self.hid_presynaptic_cost, state['H_hat']):
-                if c == 0.:
-                    continue
-                s = s[1]
-                assert hasattr(s, 'owner')
-                owner = s.owner
-                assert owner is not None
-                op = owner.op
-
-                if not hasattr(op, 'scalar_op'):
-                    raise ValueError("Expected V_hat_unmasked to be generated by an Elemwise op, got "+str(op)+" of type "+str(type(op)))
-                assert isinstance(op.scalar_op, T.nnet.sigm.ScalarSigmoid)
-                z ,= owner.inputs
-
-                total_cost += c * T.sqr(z).mean()
-
-        if self.reweighted_act_targets is not None:
-            # hardcoded for sigmoid layers
-            for c, t, s in safe_izip(self.reweighted_act_coeffs, self.reweighted_act_targets, state['H_hat']):
-                if c == 0:
-                    continue
-                s, _ = s
-                m = s.mean(axis=0)
-                d = T.sqr(m-t)
-                weight = 1./(1e-7+s*(1-s))
-                total_cost += c * (weight * d).mean()
-
-
-        total_cost.name = 'total_cost(V_hat_unmasked = %s)' % V_hat_unmasked.name
-
-        return total_cost
 
 class BinaryVisLayer(BinaryVector):
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
