@@ -134,18 +134,13 @@ class InpaintAlgorithm(object):
         rng = np.random.RandomState([2012,7,20])
         test_mask = space.get_origin_batch(model.batch_size)
         test_mask = rng.randint(0,2,test_mask.shape)
-        #if hasattr(self.mask_gen,'sync_channels') and self.mask_gen.sync_channels:
-        #    if test_mask.ndim != 4:
-        #        raise NotImplementedError()
-        #    test_mask = test_mask[:,:,:,0]
-        #    assert test_mask.ndim == 3
         drop_mask = sharedX( np.cast[X.dtype] ( test_mask), name = 'drop_mask')
         self.drop_mask = drop_mask
         assert drop_mask.ndim == test_mask.ndim
 
         Y = None
         drop_mask_Y = None
-        updates = OrderedDict([( drop_mask, self.mask_gen(X) )])
+        #updates = OrderedDict([( drop_mask, self.mask_gen(X) )])
 
         obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
 
