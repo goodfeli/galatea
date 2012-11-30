@@ -60,13 +60,15 @@ def run(replay):
                             replay=replay
                    ),
                    monitoring_dataset = OrderedDict([
-                            ('train', train),
-                            ('valid', Binarizer(raw=MNIST(
-                                    which_set= "train",
-                                    shuffle= 0,
-                                    one_hot= 1,
-                                    start= 50000,
-                                    stop= 51250)))]
+                            ('train', train)
+                            #,
+                            #('valid', Binarizer(raw=MNIST(
+                            #        which_set= "train",
+                            #        shuffle= 0,
+                            #        one_hot= 1,
+                            #        start= 50000,
+                            #        stop= 51250)))
+                            ]
                    ),
                    line_search_mode= 'exhaustive',
                    init_alpha= [0.0256, .128, .256, 1.28, 2.56],
