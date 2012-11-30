@@ -62,6 +62,7 @@ class A(Cost):
 
     def __call__(self, model, X,
             return_locals = False):
+        assert not return_locals
 
         dbm = model
 
@@ -78,8 +79,6 @@ class A(Cost):
 
 def foo(dbm, V, drop_mask = None):
 
-    history = []
-
     H_hat = []
     H_hat.append(dbm.hidden_layers[0].mf_update(
         state_above = None,
@@ -87,16 +86,6 @@ def foo(dbm, V, drop_mask = None):
         iter_name = '0'))
 
     return H_hat
-
-    def update_history():
-        d =  {  'H_hat' : H_hat }
-        history.append( d )
-
-    update_history()
-    update_history()
-
-    return history
-
 
 def prereq(*args):
     disturb_mem.disturb_mem()
