@@ -22,9 +22,6 @@ def run(replay):
     mode = RecordMode(file_path= "nondeterminism_4.txt",
                       replay=replay)
 
-    monitor = Monitor.get_monitor(model)
-    monitor.set_theano_function_mode(mode)
-
     b = model.param
     channels = OrderedDict()
 
