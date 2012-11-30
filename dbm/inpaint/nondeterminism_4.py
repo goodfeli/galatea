@@ -21,19 +21,19 @@ def run(replay):
     v_mean = b.mean(axis=0)
     v_range = v_max - v_min
 
-    for key, val in [
-            ('max_x.max_u', v_max.max()),
-            ('max_x.min_u', v_max.min()),
-            ('min_x.max_u', v_min.max()),
-            ('range_x.max_u', v_range.max()),
-            ('mean_x.max_u', v_mean.max()),
+    updates = []
+    for val in [
+            v_max.max(),
+            v_max.min(),
+            v_min.max(),
+            v_range.max(),
+            v_mean.max(),
             ]:
         disturb_mem.disturb_mem()
-        channels[key] = val
-
-    updates = []
-    for key in channels:
         s = sharedX(0.)
+        updates.append((s, val))
+
+    for key in channels:
         updates.append((s, channels[key]))
     X = theano.tensor.matrix()
     f = theano.function([X], mode=mode, updates=updates, on_unused_input='ignore', name='f')
