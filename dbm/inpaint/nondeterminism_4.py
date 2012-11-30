@@ -100,24 +100,12 @@ class A(Cost):
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        history = dbm.do_inpainting(X, Y = Y, drop_mask = drop_mask,
-                drop_mask_Y = drop_mask_Y, return_history = True,
-                niter = self.niter, block_grad = self.block_grad)
+        history = dbm.do_inpainting(X, drop_mask = drop_mask)
         final_state = history[-1]
 
         new_drop_mask = None
         new_drop_mask_Y = None
         new_history = [ None for state in history ]
-
-        if not hasattr(self, 'both_directions'):
-            self.both_directions = False
-        if self.both_directions:
-            new_drop_mask = 1. - drop_mask
-            if self.supervised:
-                new_drop_mask_Y = 1. - drop_mask_Y
-            new_history = dbm.do_inpainting(X, Y = Y, drop_mask = new_drop_mask,
-                    drop_mask_Y = new_drop_mask_Y, return_history = True, noise = self.noise,
-                    niter = self.niter, block_grad = self.block_grad)
 
         new_final_state = new_history[-1]
 
@@ -188,6 +176,7 @@ class A(Cost):
         assert V_hat_unmasked.ndim == X.ndim
 
         inpaint_cost = V_hat_unmasked.sum()
+        return inpaint_cost
 
 
         if new_state is not None:
@@ -300,12 +289,8 @@ class BinaryVisLayer(BinaryVector):
         return V_hat_unmasked.sum()
 
 class SuperWeightDoubling(WeightDoubling):
-    def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
-            return_history = False, noise = False, niter = None, block_grad = None):
-        assert return_history
+    def do_inpainting(self, V, drop_mask = None):
         dbm = self.dbm
-
-        niter = 2
 
         history = []
 
@@ -331,10 +316,7 @@ class SuperWeightDoubling(WeightDoubling):
 
         update_history()
 
-        if return_history:
-            return history
-        else:
-            return V_hat
+        return history
 
 class ADBM(DBM):
     def setup_inference_procedure(self):
