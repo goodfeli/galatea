@@ -39,7 +39,7 @@ def run(replay):
                             layer_name= 'h0',
                             init_bias= 0.
                    ),
-                   galatea.dbm.inpaint.super_dbm.DenseMaxPool (
+                galatea.dbm.inpaint.super_dbm.DenseMaxPool (
                             detector_layer_dim= 1000,
                             pool_size= 1,
                             sparse_init= 15,
@@ -75,13 +75,10 @@ def run(replay):
                                             both_directions = 0,
                                             noise =  0,
                                             supervised =  1,
-                                            l1_act_targets = [  .06, .07, 0. ],
-                                            l1_act_eps =     [  .04,  .05, 0. ],
-                                            l1_act_coeffs =  [ .01,  .000, 0.  ]
+                                            #l1_act_targets = [  .06, .07, 0. ],
+                                            #l1_act_eps =     [  .04,  .05, 0. ],
+                                            #l1_act_coeffs =  [ .01,  .000, 0.  ]
                                    ),
-                                   #galatea.dbm.inpaint.super_dbm.DBM_WeightDecay(
-                                   #         coeffs = [ .0000005, .0000005, .0000005 ]
-                                   #)
                            ]
                    ),
                    mask_gen = galatea.dbm.inpaint.super_inpaint.MaskGen (
