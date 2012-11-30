@@ -8,10 +8,19 @@ from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import BinaryVector
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
+from pylearn2.models.model import Model
+from pylearn2.space import VectorSpace
+from pylearn2.utils import sharedX
 import theano.tensor as T
 
 def prereq(*args):
     disturb_mem.disturb_mem()
+
+class DummyModel(Model):
+    def __init__(self):
+        self.param = sharedX(np.zeros((2,)))
+        self._params = [self.param]
+        self.input_space = VectorSpace(2)
 
 def run(replay):
     X = np.zeros((2,2))
@@ -36,6 +45,7 @@ def run(replay):
                    )
                   ]
         )
+    model = DummyModel()
     disturb_mem.disturb_mem()
 
     theano_function_mode = RecordMode(
@@ -46,9 +56,8 @@ def run(replay):
     monitor = Monitor.get_monitor(model)
     monitor.set_theano_function_mode(theano_function_mode)
 
-    X = theano.tensor.matrix()
 
-    b = model.hidden_layers[0].b
+    b = model.param #hidden_layers[0].b
     channels = OrderedDict()
 
     disturb_mem.disturb_mem()
@@ -68,10 +77,11 @@ def run(replay):
         disturb_mem.disturb_mem()
         channels[key] = val
 
+
     monitor.add_dataset(dataset=train, mode="sequential",
                                     batch_size=2,
                                     num_batches=1)
-    ipt = X
+    ipt = theano.tensor.matrix()
     prereqs = [prereq]
 
     for name in channels:
