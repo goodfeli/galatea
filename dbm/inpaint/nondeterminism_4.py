@@ -41,9 +41,6 @@ class SuperInpaint(Cost):
 
     def get_monitoring_channels(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None):
 
-        if self.supervised:
-            assert Y is not None
-
         rval = OrderedDict()
 
         if drop_mask is not None and drop_mask.ndim < X.ndim:
@@ -86,31 +83,6 @@ class SuperInpaint(Cost):
                 mod_key = 'final_inpaint_' + layer.layer_name + '_' + key
                 assert mod_key not in rval
                 rval[mod_key] = d[key]
-
-        if self.supervised:
-            inpaint_Y_hat = history[-1]['H_hat'][-1]
-            err = T.neq(T.argmax(inpaint_Y_hat, axis=1), T.argmax(Y, axis=1))
-            assert err.ndim == 1
-            assert drop_mask_Y.ndim == 1
-            err =  T.dot(err, drop_mask_Y) / drop_mask_Y.sum()
-            if err.dtype != inpaint_Y_hat.dtype:
-                err = T.cast(err, inpaint_Y_hat.dtype)
-
-            rval['inpaint_err'] = err
-
-            Y_hat = model.mf(X)[-1]
-
-            Y = T.argmax(Y, axis=1)
-            Y = T.cast(Y, Y_hat.dtype)
-
-            argmax = T.argmax(Y_hat,axis=1)
-            if argmax.dtype != Y_hat.dtype:
-                argmax = T.cast(argmax, Y_hat.dtype)
-            err = T.neq(Y , argmax).mean()
-            if err.dtype != Y_hat.dtype:
-                err = T.cast(err, Y_hat.dtype)
-
-            rval.update(OrderedDict([('err', err)]))
 
         return rval
 
@@ -185,36 +157,10 @@ class SuperInpaint(Cost):
 
         return total_cost
 
-    def get_fixed_var_descr(self, model, X, Y):
-
-        assert Y is not None
-
-        batch_size = model.batch_size
-
-        drop_mask_X = sharedX(model.get_input_space().get_origin_batch(batch_size))
-        drop_mask_X.name = 'drop_mask'
-
-        updates = OrderedDict()
-        rval = FixedVarDescr()
-        inputs=[X, Y]
-
-        if not self.supervised:
-            update_X = self.mask_gen(X)
-        else:
-            drop_mask_Y = sharedX(np.ones(batch_size,))
-            drop_mask_Y.name = 'drop_mask_Y'
-            update_X, update_Y = self.mask_gen(X, Y)
-            updates[drop_mask_Y] = update_Y
-            rval.fixed_vars['drop_mask_Y'] =  drop_mask_Y
-        updates[drop_mask_X] = update_X
-
-        rval.fixed_vars['drop_mask'] = drop_mask_X
-        rval.on_load_batch = [function(inputs, updates=updates, on_unused_input='ignore')]
-
-        return rval
 
 
     def get_gradients(self, model, X, Y = None, **kwargs):
+        assert False
 
         scratch = self(model, X, Y, include_toronto = False, return_locals=True, **kwargs)
 
@@ -394,7 +340,6 @@ class SuperInpaint(Cost):
 
         return total_cost
 
-
 class BinaryVisLayer(BinaryVector):
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
         return V_hat_unmasked.sum()
@@ -454,7 +399,7 @@ def prereq(*args):
     disturb_mem.disturb_mem()
 
 class InpaintAlgorithm(object):
-    def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=None,
+    def __init__(self, cost, batch_size=None, batches_per_iter=None,
                  monitoring_batches=None, monitoring_dataset=None,
                  max_iter = 5, suicide = False, init_alpha = None,
                  reset_alpha = True, conjugate = False, reset_conjugate = True,
@@ -583,11 +528,6 @@ def run(replay):
                                             noise =  0,
                                             supervised =  0,
                                    ),
-                   mask_gen = galatea.dbm.inpaint.super_inpaint.MaskGen (
-                            drop_prob= 0.1,
-                            balance= 0,
-                            sync_channels= 0
-                   )
             )
 
     algorithm.setup(model=model, dataset=train)
