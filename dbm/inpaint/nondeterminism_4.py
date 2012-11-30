@@ -35,7 +35,6 @@ def get_monitoring_channels(model, X):
 
             for key, val in [
                     ('max_x.max_u', v_max.max()),
-                    ('max_x.mean_u', v_max.mean()),
                     ('max_x.min_u', v_max.min()),
                     ('min_x.max_u', v_min.max()),
                     ('range_x.max_u', v_range.max()),
