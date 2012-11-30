@@ -14,61 +14,28 @@ from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.costs.cost import Cost
 
 class A(Cost):
-    def __init__(self,
-                    noise = False,
-                    both_directions = False,
-                    l1_act_coeffs = None,
-                    l1_act_targets = None,
-                    l1_act_eps = None,
-                    range_rewards = None,
-                    stdev_rewards = None,
-                    robustness = None,
-                    supervised = False,
-                    niter = None,
-                    block_grad = None,
-                    vis_presynaptic_cost = None,
-                    hid_presynaptic_cost = None,
-                    reweighted_act_coeffs = None,
-                    reweighted_act_targets = None,
-                    toronto_act_targets = None,
-                    toronto_act_coeffs = None
-                    ):
-        self.__dict__.update(locals())
-        del self.self
-
-
     def get_monitoring_channels(self, model, X):
 
         rval = OrderedDict()
 
-        H = foo(model, X)
+        layer = model.hidden_layers[0]
+        state = layer.mf_update(
+            state_above = None,
+            state_below = X,
+            iter_name = '0')
 
-        layers = [ model.visible_layer ] + model.hidden_layers
-        states = [ X ] + H
-
-        for layer, state in safe_izip(layers, states):
-            d = layer.get_monitoring_channels_from_state(state)
-            for key in d:
-                mod_key = 'final_inpaint_' + layer.layer_name + '_' + key
-                assert mod_key not in rval
-                rval[mod_key] = d[key]
+        d = layer.get_monitoring_channels_from_state(state)
+        for key in d:
+            mod_key = '_' + key
+            assert mod_key not in rval
+            rval[mod_key] = d[key]
 
         return rval
-
-def foo(dbm, V):
-
-    H_hat = []
-    H_hat.append(dbm.hidden_layers[0].mf_update(
-        state_above = None,
-        state_below = V,
-        iter_name = '0'))
-
-    return H_hat
 
 def prereq(*args):
     disturb_mem.disturb_mem()
 
-class InpaintAlgorithm(object):
+class B(object):
     def __init__(self, cost, batch_size=None, batches_per_iter=None,
                  monitoring_batches=None, monitoring_dataset=None,
                  theano_function_mode=None):
@@ -166,7 +133,7 @@ def run(replay):
         )
     disturb_mem.disturb_mem()
 
-    algorithm = InpaintAlgorithm(
+    algorithm = B(
         theano_function_mode = RecordMode(
                             file_path= "nondeterminism_4.txt",
                             replay=replay
