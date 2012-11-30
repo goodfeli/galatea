@@ -1,7 +1,5 @@
-from pylearn2.datasets.binarizer import Binarizer
 import galatea.dbm.inpaint.super_dbm
 import galatea.dbm.inpaint.super_inpaint
-import pylearn2.costs.cost
 from pylearn2.devtools.record import RecordMode
 from collections import OrderedDict
 from pylearn2.datasets.dataset import Dataset
@@ -9,15 +7,9 @@ from pylearn2.devtools import disturb_mem
 import numpy as np
 from pylearn2.monitor import Monitor
 from pylearn2.utils import sharedX
-from pylearn2.utils import function
-import warnings
-from pylearn2.optimization.batch_gradient_descent import BatchGradientDescent
 from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models.dbm import BinaryVector
-import theano
-import theano.tensor as T
-from pylearn2.utils import block_gradient
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 
 class BinaryVisLayer(BinaryVector):
