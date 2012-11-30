@@ -20,8 +20,7 @@ def run(replay):
 
     model = galatea.dbm.inpaint.super_dbm.SuperDBM(
             batch_size = 2,
-            niter= 2, #note: since we have to backprop through the whole thing, this does
-                      #increase the memory usage
+            niter= 2,
             visible_layer= galatea.dbm.inpaint.super_dbm.BinaryVisLayer(
                 nvis= 784,
                 bias_from_marginals = raw_train,
@@ -34,13 +33,13 @@ def run(replay):
                             layer_name= 'h0',
                             init_bias= 0.
                    ),
-                galatea.dbm.inpaint.super_dbm.DenseMaxPool (
-                            detector_layer_dim= 1000,
-                            pool_size= 1,
-                            sparse_init= 15,
-                            layer_name= 'h1',
-                            init_bias= 0.
-                   ),
+                #galatea.dbm.inpaint.super_dbm.DenseMaxPool (
+                #            detector_layer_dim= 1000,
+                #            pool_size= 1,
+                #            sparse_init= 15,
+                #            layer_name= 'h1',
+                #            init_bias= 0.
+                #   ),
                    galatea.dbm.inpaint.super_dbm.Softmax(
                             sparse_init= 15,
                             layer_name= 'c',
@@ -70,7 +69,6 @@ def run(replay):
                                             noise =  0,
                                             supervised =  1,
                                    )
-                                   #]
                    ,
                    mask_gen = galatea.dbm.inpaint.super_inpaint.MaskGen (
                             drop_prob= 0.1,
@@ -79,22 +77,8 @@ def run(replay):
                    )
             )
 
-    #train = Train(dataset=train,
-            #  model=model,
-            # algorithm=algorithm,
-            # extensions= [
-            #                galatea.dbm.inpaint.hack.ErrorOnMonitor(),
-     #       ],
-        #)
-
     algorithm.setup(model=model, dataset=train)
     model.monitor()
-
-    #try:
-    #    train.main_loop()
-    #    assert False # Should raise OnMonitorError
-    #except OnMonitorError:
-    #    pass
 
     algorithm.theano_function_mode.record.f.flush()
     algorithm.theano_function_mode.record.f.close()
