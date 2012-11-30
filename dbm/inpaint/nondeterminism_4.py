@@ -84,9 +84,9 @@ def run(replay):
                                             l1_act_eps =     [  .04,  .05, 0. ],
                                             l1_act_coeffs =  [ .01,  .000, 0.  ]
                                    ),
-                                   galatea.dbm.inpaint.super_dbm.DBM_WeightDecay(
-                                            coeffs = [ .0000005, .0000005, .0000005 ]
-                                   )
+                                   #galatea.dbm.inpaint.super_dbm.DBM_WeightDecay(
+                                   #         coeffs = [ .0000005, .0000005, .0000005 ]
+                                   #)
                            ]
                    ),
                    mask_gen = galatea.dbm.inpaint.super_inpaint.MaskGen (
