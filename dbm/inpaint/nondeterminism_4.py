@@ -18,6 +18,7 @@ from pylearn2.models.dbm import BinaryVector
 import theano
 import theano.tensor as T
 from pylearn2.utils import block_gradient
+from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 
 class BinaryVisLayer(BinaryVector):
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
@@ -73,7 +74,6 @@ class ADBM(DBM):
     def mf(self, *args, **kwargs):
         self.setup_inference_procedure()
         return self.inference_procedure.mf(*args, **kwargs)
-
 
 class SetupBatch:
     def __init__(self,alg):
@@ -213,12 +213,18 @@ class InpaintAlgorithm(object):
         self.X = X
 
 def run(replay):
+    X = np.zeros((2,2))
+    X[0,0] = 1.
+    raw_train = DenseDesignMatrix(X=X)
+
+    """
     raw_train = MNIST(
         which_set="train",
         shuffle=0,
         one_hot=1,
         start=0,
         stop=2)
+    """
 
     train = raw_train
 
@@ -226,7 +232,7 @@ def run(replay):
             batch_size = 2,
             niter= 2,
             visible_layer= BinaryVisLayer(
-                nvis= 784,
+                nvis= 2,
                 bias_from_marginals = raw_train,
             ),
             hidden_layers= [
@@ -234,7 +240,7 @@ def run(replay):
                 galatea.dbm.inpaint.super_dbm.DenseMaxPool(
                     detector_layer_dim= 500,
                             pool_size= 1,
-                            sparse_init= 15,
+                            sparse_init= 1,
                             layer_name= 'h0',
                             init_bias= 0.
                    )
