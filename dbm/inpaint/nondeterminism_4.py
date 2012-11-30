@@ -24,9 +24,6 @@ class SuperWeightDoubling(WeightDoubling):
 
         niter = 2
 
-        orig_V = V
-        orig_drop_mask = drop_mask
-
         history = []
 
         V_hat, V_hat_unmasked = dbm.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
@@ -54,26 +51,6 @@ class SuperWeightDoubling(WeightDoubling):
             H_hat.append(dbm.hidden_layers[-1].mf_update(
                 state_above = None,
                 state_below = dbm.visible_layer.upward_state(V_hat)))
-
-        if Y is not None:
-            Y_hat_unmasked = dbm.hidden_layers[-1].init_inpainting_state(Y, noise)
-            Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
-            H_hat[-1] = Y_hat
-            if len(dbm.hidden_layers) > 1:
-                i = len(dbm.hidden_layers) - 2
-                if i == 0:
-                    H_hat[i] = dbm.hidden_layers[i].mf_update(
-                        state_above = Y_hat,
-                        layer_above = dbm.hidden_layers[-1],
-                        state_below = dbm.visible_layer.upward_state(V_hat),
-                        iter_name = '0')
-                else:
-                    H_hat[i] = dbm.hidden_layers[i].mf_update(
-                        state_above = Y_hat,
-                        layer_above = dbm.hidden_layers[-1],
-                        state_below = dbm.hidden_layers[i-1].upward_state(H_hat[i-1]),
-                        iter_name = '0')
-
 
         def update_history():
             assert V_hat_unmasked.ndim > 1
@@ -105,19 +82,6 @@ class SuperWeightDoubling(WeightDoubling):
                 drop_mask = drop_mask, return_unmasked = True)
         V_hat.name = 'V_hat[%d](V_hat = %s)' % (1, V_hat.name)
 
-        for j in xrange(1,len(H_hat),2):
-            state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
-            if j == len(H_hat) - 1:
-                state_above = None
-                layer_above = None
-            else:
-                state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
-                layer_above = dbm.hidden_layers[j+1]
-            #end if j
-            H_hat[j] = dbm.hidden_layers[j].mf_update(
-                    state_below = state_below,
-                    state_above = state_above,
-                    layer_above = layer_above)
         update_history()
 
         if return_history:
