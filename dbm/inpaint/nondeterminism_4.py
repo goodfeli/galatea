@@ -17,28 +17,23 @@ def get_monitoring_channels(model, X):
 
     layer = model.hidden_layers[0]
     b  = layer.b
-    H = b
-    state = (H, H)
-
-    vars_and_prefixes = [ (H,'') ]
 
     disturb_mem.disturb_mem()
 
-    for var, prefix in vars_and_prefixes:
-        v_max = var.max(axis=0)
-        v_min = var.min(axis=0)
-        v_mean = var.mean(axis=0)
-        v_range = v_max - v_min
+    v_max = b.max(axis=0)
+    v_min = b.min(axis=0)
+    v_mean = b.mean(axis=0)
+    v_range = v_max - v_min
 
-        for key, val in [
-                ('max_x.max_u', v_max.max()),
-                ('max_x.min_u', v_max.min()),
-                ('min_x.max_u', v_min.max()),
-                ('range_x.max_u', v_range.max()),
-                ('mean_x.max_u', v_mean.max()),
-                ]:
-            disturb_mem.disturb_mem()
-            rval[prefix+key] = val
+    for key, val in [
+            ('max_x.max_u', v_max.max()),
+            ('max_x.min_u', v_max.min()),
+            ('min_x.max_u', v_min.max()),
+            ('range_x.max_u', v_range.max()),
+            ('mean_x.max_u', v_mean.max()),
+            ]:
+        disturb_mem.disturb_mem()
+        rval[key] = val
 
     return rval
 
