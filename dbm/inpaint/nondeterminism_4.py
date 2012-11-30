@@ -33,13 +33,6 @@ def run(replay):
                             layer_name= 'h0',
                             init_bias= 0.
                    ),
-                #galatea.dbm.inpaint.super_dbm.DenseMaxPool (
-                #            detector_layer_dim= 1000,
-                #            pool_size= 1,
-                #            sparse_init= 15,
-                #            layer_name= 'h1',
-                #            init_bias= 0.
-                #   ),
                    galatea.dbm.inpaint.super_dbm.Softmax(
                             sparse_init= 15,
                             layer_name= 'c',
@@ -67,7 +60,7 @@ def run(replay):
                                    galatea.dbm.inpaint.super_inpaint.SuperInpaint(
                                             both_directions = 0,
                                             noise =  0,
-                                            supervised =  1,
+                                            supervised =  0,
                                    )
                    ,
                    mask_gen = galatea.dbm.inpaint.super_inpaint.MaskGen (
