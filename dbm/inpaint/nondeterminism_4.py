@@ -15,7 +15,7 @@ from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.costs.cost import Cost
 
-class SuperInpaint(Cost):
+class A(Cost):
     def __init__(self,
                     noise = False,
                     both_directions = False,
@@ -92,27 +92,16 @@ class SuperInpaint(Cost):
         if not self.supervised:
             assert drop_mask_Y is None
             Y = None # ignore Y if some other cost is supervised and has made it get passed in
-        if self.supervised:
-            assert Y is not None
-            if drop_mask is not None:
-                assert drop_mask_Y is not None
-
-        if not hasattr(model,'cost'):
-            model.cost = self
 
         dbm = model
-
 
         if drop_mask.ndim < X.ndim:
             if X.ndim != 4:
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        if not hasattr(self,'noise'):
-            self.noise = False
-
         history = dbm.do_inpainting(X, Y = Y, drop_mask = drop_mask,
-                drop_mask_Y = drop_mask_Y, return_history = True, noise = self.noise,
+                drop_mask_Y = drop_mask_Y, return_history = True,
                 niter = self.niter, block_grad = self.block_grad)
         final_state = history[-1]
 
@@ -133,24 +122,6 @@ class SuperInpaint(Cost):
         new_final_state = new_history[-1]
 
         total_cost = self.cost_from_states(final_state, new_final_state, dbm, X, Y, drop_mask, drop_mask_Y, new_drop_mask, new_drop_mask_Y)
-
-        if self.robustness is not None:
-            inpainting_H_hat = history[-1]['H_hat']
-            mf_H_hat = dbm.mf(X, Y=Y)
-            if self.supervised:
-                inpainting_H_hat = inpainting_H_hat[:-1]
-                mf_H_hat = mf_H_hat[:-1]
-                for ihh, mhh in safe_izip(flatten(inpainting_H_hat), flatten(mf_H_hat)):
-                    total_cost += self.robustness * T.sqr(mhh-ihh).sum()
-
-        if self.toronto_act_targets is not None and include_toronto:
-            H_hat = history[-1]['H_hat']
-            for s, c, t in zip(H_hat, self.toronto_act_coeffs, self.toronto_act_targets):
-                if c == 0.:
-                    continue
-                s, _ = s
-                m = s.mean(axis=0)
-                total_cost += c * T.sqr(m-t).mean()
 
         if return_locals:
             return locals()
@@ -210,30 +181,14 @@ class SuperInpaint(Cost):
     def cost_from_states(self, state, new_state, dbm, X, Y, drop_mask, drop_mask_Y,
             new_drop_mask, new_drop_mask_Y):
 
-        if not self.supervised:
-            assert drop_mask_Y is None
-            assert new_drop_mask_Y is None
-        if self.supervised:
-            assert drop_mask_Y is not None
-            if self.both_directions:
-                assert new_drop_mask_Y is not None
-            assert Y is not None
+        assert drop_mask_Y is None
+        assert new_drop_mask_Y is None
 
         V_hat_unmasked = state['V_hat_unmasked']
         assert V_hat_unmasked.ndim == X.ndim
 
-        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask)
+        inpaint_cost = V_hat_unmasked.sum()
 
-        if self.supervised:
-            scale = 1. / float(dbm.get_input_space().get_total_dimension())
-            Y_hat_unmasked = state['Y_hat_unmasked']
-            inpaint_cost = inpaint_cost + \
-                    dbm.hidden_layers[-1].recons_cost(Y, Y_hat_unmasked, drop_mask_Y, scale)
-
-        if not hasattr(self, 'both_directions'):
-            self.both_directions = False
-
-        assert self.both_directions == (new_state is not None)
 
         if new_state is not None:
 
@@ -347,6 +302,7 @@ class BinaryVisLayer(BinaryVector):
 class SuperWeightDoubling(WeightDoubling):
     def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
             return_history = False, noise = False, niter = None, block_grad = None):
+        assert return_history
         dbm = self.dbm
 
         niter = 2
@@ -497,7 +453,7 @@ def run(replay):
     model = ADBM(
             batch_size = 2,
             niter= 2,
-            visible_layer= BinaryVisLayer(
+            visible_layer= BinaryVector(
                 nvis= 2,
                 bias_from_marginals = raw_train,
             ),
@@ -523,11 +479,7 @@ def run(replay):
                             ('train', train)
                             ]
                    ),
-                   cost= SuperInpaint(
-                                            both_directions = 0,
-                                            noise =  0,
-                                            supervised =  0,
-                                   ),
+                   cost= A(),
             )
 
     algorithm.setup(model=model, dataset=train)
