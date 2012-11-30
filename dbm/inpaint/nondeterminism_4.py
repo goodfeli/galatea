@@ -75,16 +75,8 @@ class ADBM(DBM):
         self.setup_inference_procedure()
         return self.inference_procedure.mf(*args, **kwargs)
 
-class SetupBatch:
-    def __init__(self,alg):
-        self.alg = alg
-
-    def __call__(self, * args):
-        disturb_mem.disturb_mem()
-        pass
-        # if len(args) > 1:
-            #    X, Y = args
-        #    self.alg.setup_batch(X, Y)
+def prereq(*args):
+    disturb_mem.disturb_mem()
 
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=None,
@@ -108,12 +100,6 @@ class InpaintAlgorithm(object):
         self.bSetup = False
         self.rng = np.random.RandomState([2012,10,17])
 
-    def setup_batch(self, X, Y = None):
-        self.X.set_value(X)
-
-    def get_setup_batch_object(self):
-        return SetupBatch(self)
-
     def setup(self, model, dataset):
         if self.set_batch_size:
             model.set_batch_size(self.batch_size)
@@ -126,7 +112,6 @@ class InpaintAlgorithm(object):
 
         self.monitor = Monitor.get_monitor(model)
         self.monitor.set_theano_function_mode(self.theano_function_mode)
-        prereq = self.get_setup_batch_object()
         space = model.get_input_space()
         X = sharedX( space.get_origin_batch(model.batch_size) , 'BGD_X')
         self.space = space
