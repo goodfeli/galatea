@@ -156,7 +156,7 @@ class InpaintAlgorithm(object):
         gradients, gradient_updates = self.cost.get_gradients(model, X, Y, drop_mask = drop_mask,
                 drop_mask_Y = drop_mask_Y)
 
-        self.update_mask = function([], updates = updates)
+        #self.update_mask = function([], updates = updates)
 
         if self.monitoring_dataset is not None:
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
