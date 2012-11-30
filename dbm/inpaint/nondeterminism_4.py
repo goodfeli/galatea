@@ -22,6 +22,7 @@ from pylearn2.utils import block_gradient
 class BinaryVisLayer(BinaryVector):
 
     def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
+        return V, V
 
         assert drop_mask.ndim > 1
 
