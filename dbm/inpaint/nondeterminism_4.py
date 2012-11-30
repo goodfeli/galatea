@@ -35,10 +35,9 @@ def run(replay):
 
     for key in channels:
         updates.append((s, channels[key]))
-    X = theano.tensor.matrix()
-    f = theano.function([X], mode=mode, updates=updates, on_unused_input='ignore', name='f')
+    f = theano.function([], mode=mode, updates=updates, on_unused_input='ignore', name='f')
     disturb_mem.disturb_mem()
-    f(np.zeros((2,2)).astype(X.dtype))
+    f()
 
     mode.record.f.flush()
     mode.record.f.close()
