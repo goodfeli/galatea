@@ -17,7 +17,6 @@ from pylearn2.costs.cost import Cost
 
 class SuperInpaint(Cost):
     def __init__(self,
-                    mask_gen = None,
                     noise = False,
                     both_directions = False,
                     l1_act_coeffs = None,
@@ -38,7 +37,6 @@ class SuperInpaint(Cost):
                     ):
         self.__dict__.update(locals())
         del self.self
-        #assert not (reweight and reweight_correctly)
 
 
     def get_monitoring_channels(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None):
@@ -48,10 +46,7 @@ class SuperInpaint(Cost):
 
         rval = OrderedDict()
 
-        # TODO: shouldn't self() handle this?
         if drop_mask is not None and drop_mask.ndim < X.ndim:
-            if self.mask_gen is not None:
-                assert self.mask_gen.sync_channels
             if X.ndim != 4:
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
@@ -132,23 +127,11 @@ class SuperInpaint(Cost):
 
         if not hasattr(model,'cost'):
             model.cost = self
-        if not hasattr(model,'mask_gen'):
-            model.mask_gen = self.mask_gen
 
         dbm = model
 
-        if drop_mask is None:
-            if self.supervised:
-                drop_mask, drop_mask_Y = self.mask_gen(X, Y)
-            else:
-                drop_mask = self.mask_gen(X)
-
-        if drop_mask_Y is not None:
-            assert drop_mask_Y.ndim == 1
 
         if drop_mask.ndim < X.ndim:
-            if self.mask_gen is not None:
-                assert self.mask_gen.sync_channels
             if X.ndim != 4:
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
