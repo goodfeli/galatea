@@ -26,6 +26,7 @@ def run(replay):
                 bias_from_marginals = raw_train,
             ),
             hidden_layers= [
+                # removing this removes the bug. not sure if I just need to disturb mem though
                 galatea.dbm.inpaint.super_dbm.DenseMaxPool(
                     detector_layer_dim= 500,
                             pool_size= 1,
@@ -33,11 +34,11 @@ def run(replay):
                             layer_name= 'h0',
                             init_bias= 0.
                    ),
-                   galatea.dbm.inpaint.super_dbm.Softmax(
-                            sparse_init= 15,
-                            layer_name= 'c',
-                            n_classes= 10
-                   )
+                #galatea.dbm.inpaint.super_dbm.Softmax(
+                #            sparse_init= 15,
+                #            layer_name= 'c',
+                #            n_classes= 10
+                #   )
                   ]
         )
 
