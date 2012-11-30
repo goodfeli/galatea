@@ -56,24 +56,6 @@ class BinaryVisLayer(BinaryVector):
 
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
         return V_hat_unmasked.sum()
-        V_hat = V_hat_unmasked
-
-        assert hasattr(V_hat, 'owner')
-        owner = V_hat.owner
-        assert owner is not None
-        op = owner.op
-
-        z ,= owner.inputs
-
-        unmasked_cost = V * T.nnet.softplus(-z) + (1 - V) * T.nnet.softplus(z)
-        assert unmasked_cost.ndim == V_hat.ndim
-
-        #if drop_mask is None:
-        masked_cost = unmasked_cost
-        #else:
-        #    masked_cost = drop_mask * unmasked_cost
-
-        return masked_cost.mean()
 
 class SuperWeightDoubling(WeightDoubling):
     def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
@@ -99,7 +81,7 @@ class SuperWeightDoubling(WeightDoubling):
 
         update_history()
 
-        V_hat_unmasked = T.nnet.sigmoid(dbm.hidden_layers[0].downward_message(H_hat[0][0]))
+        V_hat_unmasked = dbm.hidden_layers[0].downward_message(H_hat[0][0])
         V_hat = V_hat_unmasked
         V_hat.name = 'V_hat[%d](V_hat = %s)' % (1, V_hat.name)
 
