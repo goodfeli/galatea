@@ -96,10 +96,6 @@ class InpaintAlgorithm(object):
                  line_search_mode = None, min_init_alpha = 1e-3,
                  duplicate = 1, combine_batches = 1, scale_step = 1.,
                  theano_function_mode=None):
-        """
-        if batch_size is None, reverts to the force_batch_size field of the
-        model
-        """
 
         if line_search_mode is None and init_alpha is None:
             init_alpha = ( .001, .005, .01, .05, .1 )
@@ -126,8 +122,8 @@ class InpaintAlgorithm(object):
         if self.batch_size is None:
             self.batch_size = model.force_batch_size
 
-        model.cost = self.cost
-        model.mask_gen = self.mask_gen
+        #model.cost = self.cost
+        #model.mask_gen = self.mask_gen
 
         self.monitor = Monitor.get_monitor(model)
         self.monitor.set_theano_function_mode(self.theano_function_mode)
@@ -138,11 +134,11 @@ class InpaintAlgorithm(object):
         rng = np.random.RandomState([2012,7,20])
         test_mask = space.get_origin_batch(model.batch_size)
         test_mask = rng.randint(0,2,test_mask.shape)
-        if hasattr(self.mask_gen,'sync_channels') and self.mask_gen.sync_channels:
-            if test_mask.ndim != 4:
-                raise NotImplementedError()
-            test_mask = test_mask[:,:,:,0]
-            assert test_mask.ndim == 3
+        #if hasattr(self.mask_gen,'sync_channels') and self.mask_gen.sync_channels:
+        #    if test_mask.ndim != 4:
+        #        raise NotImplementedError()
+        #    test_mask = test_mask[:,:,:,0]
+        #    assert test_mask.ndim == 3
         drop_mask = sharedX( np.cast[X.dtype] ( test_mask), name = 'drop_mask')
         self.drop_mask = drop_mask
         assert drop_mask.ndim == test_mask.ndim
@@ -151,10 +147,7 @@ class InpaintAlgorithm(object):
         drop_mask_Y = None
         updates = OrderedDict([( drop_mask, self.mask_gen(X) )])
 
-
         obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
-        #gradients, gradient_updates = self.cost.get_gradients(model, X, Y, drop_mask = drop_mask,
-        #        drop_mask_Y = drop_mask_Y)
 
 
         if self.monitoring_dataset is not None:
