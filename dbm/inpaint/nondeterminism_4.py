@@ -69,18 +69,14 @@ def run(replay):
                    conjugate= 1,
                    reset_conjugate= 0,
                    max_iter= 5,
-                   cost= pylearn2.costs.cost.SumOfCosts(
-                           costs = [
+                   cost=\
                                    galatea.dbm.inpaint.super_inpaint.SuperInpaint(
                                             both_directions = 0,
                                             noise =  0,
                                             supervised =  1,
-                                            #l1_act_targets = [  .06, .07, 0. ],
-                                            #l1_act_eps =     [  .04,  .05, 0. ],
-                                            #l1_act_coeffs =  [ .01,  .000, 0.  ]
-                                   ),
-                           ]
-                   ),
+                                   )
+                                   #]
+                   ,
                    mask_gen = galatea.dbm.inpaint.super_inpaint.MaskGen (
                             drop_prob= 0.1,
                             balance= 0,
