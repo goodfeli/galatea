@@ -50,10 +50,6 @@ class B(object):
 
         space = model.get_input_space()
         X = sharedX( space.get_origin_batch(model.batch_size) , 'BGD_X')
-        self.space = space
-        rng = np.random.RandomState([2012,7,20])
-        test_mask = space.get_origin_batch(model.batch_size)
-        test_mask = rng.randint(0,2,test_mask.shape)
 
         obj = X.sum()
 
@@ -96,10 +92,6 @@ class B(object):
                                              val=J, dataset=monitoring_dataset,
                                              prereqs=prereqs)
 
-
-        self.inputs = None
-
-        self.X = X
 
 def run(replay):
     X = np.zeros((2,2))
