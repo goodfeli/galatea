@@ -88,17 +88,9 @@ class InpaintAlgorithm(object):
                  duplicate = 1, combine_batches = 1, scale_step = 1.,
                  theano_function_mode=None):
 
-        if line_search_mode is None and init_alpha is None:
-            init_alpha = ( .001, .005, .01, .05, .1 )
-
         self.__dict__.update(locals())
-        del self.self
-        if monitoring_dataset is None:
-            assert monitoring_batches == None
         if isinstance(monitoring_dataset, Dataset):
             self.monitoring_dataset = { '': monitoring_dataset }
-        self.bSetup = False
-        self.rng = np.random.RandomState([2012,10,17])
 
     def setup(self, model, dataset):
         if self.set_batch_size:
@@ -107,11 +99,9 @@ class InpaintAlgorithm(object):
         if self.batch_size is None:
             self.batch_size = model.force_batch_size
 
-        #model.cost = self.cost
-        #model.mask_gen = self.mask_gen
-
         self.monitor = Monitor.get_monitor(model)
         self.monitor.set_theano_function_mode(self.theano_function_mode)
+
         space = model.get_input_space()
         X = sharedX( space.get_origin_batch(model.batch_size) , 'BGD_X')
         self.space = space
@@ -124,7 +114,6 @@ class InpaintAlgorithm(object):
 
         Y = None
         drop_mask_Y = None
-        #updates = OrderedDict([( drop_mask, self.mask_gen(X) )])
 
         obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
 
@@ -135,17 +124,12 @@ class InpaintAlgorithm(object):
             assert X.name is not None
             channels = model.get_monitoring_channels(X,Y)
             assert X.name is not None
-            wtf = self.cost.get_monitoring_channels(model, X = X, Y = Y, drop_mask = drop_mask,
+            cost_channels = self.cost.get_monitoring_channels(model, X = X, Y = Y, drop_mask = drop_mask,
                     drop_mask_Y = drop_mask_Y)
-            for key in wtf:
-                channels[key] = wtf[key]
+            for key in cost_channels:
+                channels[key] = cost_channels[key]
 
             for dataset_name in self.monitoring_dataset:
-
-                if dataset_name == '':
-                    prefix = ''
-                else:
-                    prefix = dataset_name + '_'
 
                 monitoring_dataset = self.monitoring_dataset[dataset_name]
                 self.monitor.add_dataset(dataset=monitoring_dataset,
@@ -219,12 +203,6 @@ def run(replay):
                             ('train', train)
                             ]
                    ),
-                   line_search_mode= 'exhaustive',
-                   init_alpha= [0.0256, .128, .256, 1.28, 2.56],
-                   reset_alpha= 0,
-                   conjugate= 1,
-                   reset_conjugate= 0,
-                   max_iter= 5,
                    cost= galatea.dbm.inpaint.super_inpaint.SuperInpaint(
                                             both_directions = 0,
                                             noise =  0,
