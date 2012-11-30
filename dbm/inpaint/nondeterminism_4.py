@@ -121,11 +121,6 @@ def prereq(*args):
 class InpaintAlgorithm(object):
     def __init__(self, cost, batch_size=None, batches_per_iter=None,
                  monitoring_batches=None, monitoring_dataset=None,
-                 max_iter = 5, suicide = False, init_alpha = None,
-                 reset_alpha = True, conjugate = False, reset_conjugate = True,
-                 termination_criterion = None, set_batch_size = False,
-                 line_search_mode = None, min_init_alpha = 1e-3,
-                 duplicate = 1, combine_batches = 1, scale_step = 1.,
                  theano_function_mode=None):
 
         self.__dict__.update(locals())
@@ -133,11 +128,6 @@ class InpaintAlgorithm(object):
             self.monitoring_dataset = { '': monitoring_dataset }
 
     def setup(self, model, dataset):
-        if self.set_batch_size:
-            model.set_batch_size(self.batch_size)
-
-        if self.batch_size is None:
-            self.batch_size = model.force_batch_size
 
         self.monitor = Monitor.get_monitor(model)
         self.monitor.set_theano_function_mode(self.theano_function_mode)
@@ -174,8 +164,8 @@ class InpaintAlgorithm(object):
                 monitoring_dataset = self.monitoring_dataset[dataset_name]
                 self.monitor.add_dataset(dataset=monitoring_dataset,
                                     mode="sequential",
-                                    batch_size=self.batch_size,
-                                    num_batches=self.monitoring_batches)
+                                    batch_size=2,
+                                    num_batches=1)
                 ipt = X
                 if Y is not None:
                     ipt = [X,Y]
