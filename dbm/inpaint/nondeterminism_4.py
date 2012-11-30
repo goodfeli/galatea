@@ -8,10 +8,6 @@ from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.models.model import Model
 from pylearn2.space import VectorSpace
 from pylearn2.utils import sharedX
-import theano.tensor as T
-
-def prereq(*args):
-    disturb_mem.disturb_mem()
 
 class DummyModel(Model):
     def __init__(self):
@@ -20,20 +16,14 @@ class DummyModel(Model):
         self.input_space = VectorSpace(2)
 
 def run(replay):
-    X = np.zeros((2,2))
-    X[0,0] = 1.
-    train = DenseDesignMatrix(X=X)
-
     model = DummyModel()
     disturb_mem.disturb_mem()
 
-    theano_function_mode = RecordMode(
-                            file_path= "nondeterminism_4.txt",
-                            replay=replay
-                   )
+    mode = RecordMode(file_path= "nondeterminism_4.txt",
+                      replay=replay)
 
     monitor = Monitor.get_monitor(model)
-    monitor.set_theano_function_mode(theano_function_mode)
+    monitor.set_theano_function_mode(mode)
 
     b = model.param
     channels = OrderedDict()
@@ -60,12 +50,12 @@ def run(replay):
         s = sharedX(0.)
         updates.append((s, channels[key]))
     X = theano.tensor.matrix()
-    f = theano.function([X], mode=theano_function_mode, updates=updates, on_unused_input='ignore', name='f')
+    f = theano.function([X], mode=mode, updates=updates, on_unused_input='ignore', name='f')
     disturb_mem.disturb_mem()
     f(np.zeros((2,2)).astype(X.dtype))
 
-    theano_function_mode.record.f.flush()
-    theano_function_mode.record.f.close()
+    mode.record.f.flush()
+    mode.record.f.close()
 
 run(0)
 run(1)
