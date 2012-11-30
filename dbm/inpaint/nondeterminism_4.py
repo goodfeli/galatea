@@ -111,59 +111,6 @@ class A(Cost):
 
         return total_cost
 
-
-
-    def get_gradients(self, model, X, Y = None, **kwargs):
-        assert False
-
-        scratch = self(model, X, Y, include_toronto = False, return_locals=True, **kwargs)
-
-        total_cost = scratch['total_cost']
-
-        params = list(model.get_params())
-        grads = dict(safe_zip(params, T.grad(total_cost, params, disconnected_inputs='ignore')))
-
-        if self.toronto_act_targets is not None:
-            H_hat = scratch['history'][-1]['H_hat']
-            for i, packed in enumerate(safe_zip(H_hat, self.toronto_act_coeffs, self.toronto_act_targets)):
-                s, c, t = packed
-                if c == 0.:
-                    continue
-                s, _ = s
-                m = s.mean(axis=0)
-                m_cost = c * T.sqr(m-t).mean()
-                real_grads = T.grad(m_cost, s)
-                if i == 0:
-                    below = X
-                else:
-                    below = H_hat[i-1][0]
-                W, = model.hidden_layers[i].transformer.get_params()
-                assert W in grads
-                b = model.hidden_layers[i].b
-
-                ancestor = T.scalar()
-                hack_W = W + ancestor
-                hack_b = b + ancestor
-
-                fake_s = T.dot(below, hack_W) + hack_b
-                if fake_s.ndim != real_grads.ndim:
-                    print fake_s.ndim
-                    print real_grads.ndim
-                    assert False
-                sources = [ (fake_s, real_grads) ]
-
-                fake_grads = T.grad(cost=None, known_grads=dict(sources), wrt=[below, ancestor, hack_W, hack_b])
-
-                grads[W] = grads[W] + fake_grads[2]
-                grads[b] = grads[b] + fake_grads[3]
-
-
-        return grads, OrderedDict()
-
-class BinaryVisLayer(BinaryVector):
-    def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
-        return V_hat_unmasked.sum()
-
 class SuperWeightDoubling(WeightDoubling):
     def do_inpainting(self, V, drop_mask = None):
         dbm = self.dbm
