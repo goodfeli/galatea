@@ -21,7 +21,7 @@ def get_monitoring_channels(model, X):
     state = (H, H)
 
     def get_monitoring_channels_from_state():
-        self = state
+        self = layer
 
         P, H = state
 
@@ -56,7 +56,7 @@ def get_monitoring_channels(model, X):
 
         return rval
 
-    d = layer.get_monitoring_channels_from_state(state)
+    d = get_monitoring_channels_from_state()
     for key in d:
         mod_key = '_' + key
         assert mod_key not in rval
