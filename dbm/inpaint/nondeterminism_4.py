@@ -124,7 +124,7 @@ class InpaintAlgorithm(object):
             assert Y.ndim == 2
             assert self.Y.ndim == 2
             self.Y.set_value(Y)
-        self.update_mask()
+        #self.update_mask()
 
     def get_setup_batch_object(self):
         return SetupBatch(self)
@@ -173,9 +173,6 @@ class InpaintAlgorithm(object):
                 Y = None
             assert X.name is not None
             channels = model.get_monitoring_channels(X,Y)
-            if not isinstance(channels, dict):
-                raise TypeError("model.get_monitoring_channels must return a "
-                                "dictionary, but it returned " + str(channels))
             assert X.name is not None
             wtf = self.cost.get_monitoring_channels(model, X = X, Y = Y, drop_mask = drop_mask,
                     drop_mask_Y = drop_mask_Y)
@@ -194,12 +191,10 @@ class InpaintAlgorithm(object):
                                     mode="sequential",
                                     batch_size=self.batch_size,
                                     num_batches=self.monitoring_batches)
-                warnings.warn("This is weird-- ipt=(X,Y)=tell the monitor to replace X, Y with the givens dict, "
-                        " but you don't actually want them to be replaced.")
                 ipt = X
                 if Y is not None:
                     ipt = [X,Y]
-                self.monitor.add_channel(prefix+'objective',ipt=ipt,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
+                self.monitor.add_channel('objective',ipt=ipt,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
 
                 for name in channels:
                     J = channels[name]
@@ -217,7 +212,7 @@ class InpaintAlgorithm(object):
                     else:
                         ipt = X
 
-                    self.monitor.add_channel(name=prefix+name,
+                    self.monitor.add_channel(name=name,
                                              ipt=ipt,
                                              val=J, dataset=monitoring_dataset,
                                              prereqs=prereqs)
