@@ -1,5 +1,4 @@
 from galatea.dbm.inpaint.hack import OnMonitorError
-import gc
 from pylearn2.datasets.binarizer import Binarizer
 from pylearn2.datasets.mnist import MNIST
 import galatea.dbm.inpaint.super_dbm
@@ -19,9 +18,7 @@ def run(replay):
         start=0,
         stop=2)
 
-    train = raw_train #Binarizer(
-            #raw = raw_train
-            #)
+    train = raw_train
 
     model = galatea.dbm.inpaint.super_dbm.SuperDBM(
             batch_size = 2,
@@ -92,16 +89,17 @@ def run(replay):
             ],
     )
 
-    try:
-        train.main_loop()
-        assert False # Should raise OnMonitorError
-    except OnMonitorError:
-        pass
+    train.algorithm.setup(model=model, dataset=train)
+    model.monitor()
+
+    #try:
+    #    train.main_loop()
+    #    assert False # Should raise OnMonitorError
+    #except OnMonitorError:
+    #    pass
 
     algorithm.theano_function_mode.record.f.flush()
     algorithm.theano_function_mode.record.f.close()
-    del train
-    gc.collect()
 
 run(0)
 run(1)
