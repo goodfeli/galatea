@@ -22,14 +22,19 @@ def run(replay):
     v_range = v_max - v_min
 
     updates = []
-    for val in [
+    for i, val in enumerate([
             v_max.max(),
             v_max.min(),
             v_range.max(),
-            ]:
+            ]):
         disturb_mem.disturb_mem()
-        s = sharedX(0.)
+        s = sharedX(0., name='s_'+str(i))
         updates.append((s, val))
+
+    for var in theano.gof.graph.ancestors(update for var, update in updates):
+        if var.name is not None:
+            if var.name[0] != 's' or len(var.name) != 2:
+                var.name = None
 
     for key in channels:
         updates.append((s, channels[key]))
