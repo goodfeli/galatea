@@ -43,14 +43,14 @@ def get_monitoring_channels(model, X):
                     ('max_x.mean_u', v_max.mean()),
                     ('max_x.min_u', v_max.min()),
                     ('min_x.max_u', v_min.max()),
-                    ('min_x.mean_u', v_min.mean()),
-                    ('min_x.min_u', v_min.min()),
+                    #('min_x.mean_u', v_min.mean()),
+                    #('min_x.min_u', v_min.min()),
                     ('range_x.max_u', v_range.max()),
-                    ('range_x.mean_u', v_range.mean()),
-                    ('range_x.min_u', v_range.min()),
+                    #('range_x.mean_u', v_range.mean()),
+                    #('range_x.min_u', v_range.min()),
                     ('mean_x.max_u', v_mean.max()),
-                    ('mean_x.mean_u', v_mean.mean()),
-                    ('mean_x.min_u', v_mean.min())
+                    #('mean_x.mean_u', v_mean.mean()),
+                    #('mean_x.min_u', v_mean.min())
                     ]:
                 rval[prefix+key] = val
 
