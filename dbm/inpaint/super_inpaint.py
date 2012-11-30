@@ -21,7 +21,7 @@ in the max pooling into a unit test, etc.""")
 
 class SuperInpaint(Cost):
     def __init__(self,
-                    mask_gen,
+                    mask_gen = None,
                     noise = False,
                     both_directions = False,
                     l1_act_coeffs = None,
