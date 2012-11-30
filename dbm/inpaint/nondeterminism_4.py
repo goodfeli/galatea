@@ -25,7 +25,7 @@ def run(replay):
 
     model = galatea.dbm.inpaint.super_dbm.SuperDBM(
             batch_size = 2,
-            niter= 6, #note: since we have to backprop through the whole thing, this does
+            niter= 2, #note: since we have to backprop through the whole thing, this does
                       #increase the memory usage
             visible_layer= galatea.dbm.inpaint.super_dbm.BinaryVisLayer(
                 nvis= 784,
