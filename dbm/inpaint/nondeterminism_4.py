@@ -46,15 +46,10 @@ class A(Cost):
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        scratch = self(model, X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y,
-                return_locals = True)
-
-        history = scratch['history']
-
-        final_state = history[-1]
+        H = foo(model, X)
 
         layers = [ model.visible_layer ] + model.hidden_layers
-        states = [ X ] + final_state['H_hat']
+        states = [ X ] + H
 
         for layer, state in safe_izip(layers, states):
             d = layer.get_monitoring_channels_from_state(state)
@@ -65,28 +60,14 @@ class A(Cost):
 
         return rval
 
-    def __call__(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None,
-            return_locals = False, include_toronto = True):
-
-        if not self.supervised:
-            assert drop_mask_Y is None
-            Y = None # ignore Y if some other cost is supervised and has made it get passed in
+    def __call__(self, model, X,
+            return_locals = False):
 
         dbm = model
 
-        if drop_mask.ndim < X.ndim:
-            if X.ndim != 4:
-                raise NotImplementedError()
-            drop_mask = drop_mask.dimshuffle(0,1,2,'x')
-
-        history = foo(dbm, X, drop_mask = drop_mask)
+        history = foo(dbm, X)
         final_state = history[-1]
 
-        new_drop_mask = None
-        new_drop_mask_Y = None
-        new_history = [ None for state in history ]
-
-        new_final_state = new_history[-1]
 
         total_cost = X.sum()
 
@@ -104,6 +85,8 @@ def foo(dbm, V, drop_mask = None):
         state_above = None,
         state_below = V,
         iter_name = '0'))
+
+    return H_hat
 
     def update_history():
         d =  {  'H_hat' : H_hat }
@@ -145,8 +128,7 @@ class InpaintAlgorithm(object):
         Y = None
         drop_mask_Y = None
 
-        obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
-
+        obj = self.cost(model,X)
 
         if self.monitoring_dataset is not None:
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
