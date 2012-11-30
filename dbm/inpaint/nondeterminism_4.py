@@ -59,6 +59,7 @@ class SuperWeightDoubling(WeightDoubling):
 
         update_history()
 
+        """
         for j in xrange(0, len(H_hat), 2):
             if j == 0:
                 state_below = dbm.visible_layer.upward_state(V_hat)
@@ -74,6 +75,7 @@ class SuperWeightDoubling(WeightDoubling):
                     state_below = state_below,
                     state_above = state_above,
                     layer_above = layer_above)
+        """
 
         V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
                 state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
