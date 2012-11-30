@@ -23,9 +23,9 @@ def get_monitoring_channels(model, X):
     def get_monitoring_channels_from_state():
         self = layer
 
-        rval = OrderedDict()
-
         vars_and_prefixes = [ (H,'') ]
+
+        disturb_mem.disturb_mem()
 
         for var, prefix in vars_and_prefixes:
             v_max = var.max(axis=0)
@@ -43,13 +43,7 @@ def get_monitoring_channels(model, X):
                     ]:
                 rval[prefix+key] = val
 
-        return rval
-
-    d = get_monitoring_channels_from_state()
-    for key in d:
-        mod_key = '_' + key
-        assert mod_key not in rval
-        rval[mod_key] = d[key]
+    get_monitoring_channels_from_state()
 
     return rval
 
