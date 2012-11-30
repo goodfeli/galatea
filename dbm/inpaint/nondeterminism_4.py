@@ -68,22 +68,6 @@ class InpaintAlgorithm(object):
         return SetupBatch(self)
 
     def setup(self, model, dataset):
-        """
-        Allows the training algorithm to do some preliminary configuration
-        *before* we actually start training the model. The dataset is provided
-        in case other derived training algorithms need to modify model based on
-        the dataset.
-
-        Parameters
-        ----------
-        model: a Python object representing the model to train loosely
-        implementing the interface of models.model.Model.
-
-        dataset: a pylearn2.datasets.dataset.Dataset object used to draw
-        training data
-        """
-        self.model = model
-
         if self.set_batch_size:
             model.set_batch_size(self.batch_size)
 
@@ -96,11 +80,6 @@ class InpaintAlgorithm(object):
         self.monitor = Monitor.get_monitor(model)
         self.monitor.set_theano_function_mode(self.theano_function_mode)
         prereq = self.get_setup_batch_object()
-        #We want to use big batches. We need to make several theano calls on each
-        #batch. To avoid paying the GPU latency every time, we use a shared variable
-        #but the shared variable needs to stay allocated during the time that the
-        #monitor is working, and we don't want the monitor to increase the memory
-        #overhead. So we make the monitor work off of the same shared variable
         space = model.get_input_space()
         X = sharedX( space.get_origin_batch(model.batch_size) , 'BGD_X')
         self.space = space
@@ -118,30 +97,14 @@ class InpaintAlgorithm(object):
 
         Y = None
         drop_mask_Y = None
-        if self.cost.supervised:
-            Y = sharedX(model.get_output_space().get_origin_batch(model.batch_size), 'BGD_Y')
-            self.Y = Y
-            test_mask_Y = rng.randint(0,2,(model.batch_size,))
-            drop_mask_Y = sharedX( np.cast[Y.dtype](test_mask_Y), name = 'drop_mask_Y')
-            self.drop_mask_Y = drop_mask_Y
-            dmx, dmy = self.mask_gen(X, Y)
-            updates = OrderedDict([ (drop_mask, dmx),\
-                    (drop_mask_Y, dmy)] )
-        else:
-            updates = OrderedDict([( drop_mask, self.mask_gen(X) )])
+        updates = OrderedDict([( drop_mask, self.mask_gen(X) )])
 
 
         obj = self.cost(model,X, Y, drop_mask = drop_mask, drop_mask_Y = drop_mask_Y)
         gradients, gradient_updates = self.cost.get_gradients(model, X, Y, drop_mask = drop_mask,
                 drop_mask_Y = drop_mask_Y)
 
-        if hasattr(model.inference_procedure, 'V_dropout'):
-            include_prob = model.inference_procedure.include_prob
-            theano_rng = MRG_RandomStreams(2012+11+20)
-            for elem in flatten([model.inference_procedure.V_dropout, model.inference_procedure.H_dropout]):
-                updates[elem] =  theano_rng.binomial(p=include_prob, size=elem.shape, dtype=elem.dtype, n=1) / include_prob
         self.update_mask = function([], updates = updates)
-
 
         if self.monitoring_dataset is not None:
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
@@ -203,14 +166,15 @@ class InpaintAlgorithm(object):
                                              prereqs=prereqs)
 
 
-        self.accumulate = self.combine_batches > 1
-        if self.accumulate:
-            self.inputs = [elem for elem in [X, Y, drop_mask, drop_mask_Y] if elem is not None]
-        else:
-            self.inputs = None
+                    #self.accumulate = self.combine_batches > 1
+        #if self.accumulate:
+        #    self.inputs = [elem for elem in [X, Y, drop_mask, drop_mask_Y] if elem is not None]
+        #else:
+        #    self.inputs = None
+        self.inputs = None
 
         self.optimizer = BatchGradientDescent(
-                            objective = obj,
+                             objective = obj,
                             inputs = self.inputs,
                             verbose = 1,
                             gradients = gradients,
@@ -226,7 +190,7 @@ class InpaintAlgorithm(object):
                             reset_conjugate = self.reset_conjugate,
                             min_init_alpha = self.min_init_alpha,
                             line_search_mode = self.line_search_mode,
-                            accumulate = self.accumulate,
+                            #accumulate = self.accumulate,
                             theano_function_mode = self.theano_function_mode)
         self.X = X
 
@@ -236,9 +200,6 @@ class InpaintAlgorithm(object):
                 ipt=ipt, val = self.optimizer.ave_grad_size, dataset=self.monitoring_dataset.values()[0])
         self.monitor.add_channel(name='ave_grad_mult',
                 ipt=ipt, val = self.optimizer.ave_grad_mult, dataset=self.monitoring_dataset.values()[0])
-
-        self.first = True
-        self.bSetup = True
 
 def run(replay):
     raw_train = MNIST(
