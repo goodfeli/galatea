@@ -1,11 +1,11 @@
 from pylearn2.datasets.binarizer import Binarizer
-from pylearn2.datasets.mnist import MNIST
 import galatea.dbm.inpaint.super_dbm
 import galatea.dbm.inpaint.super_inpaint
 import pylearn2.costs.cost
 from pylearn2.devtools.record import RecordMode
 from collections import OrderedDict
 from pylearn2.datasets.dataset import Dataset
+from pylearn2.devtools import disturb_mem
 import numpy as np
 from pylearn2.monitor import Monitor
 from pylearn2.utils import sharedX
@@ -217,15 +217,6 @@ def run(replay):
     X[0,0] = 1.
     raw_train = DenseDesignMatrix(X=X)
 
-    """
-    raw_train = MNIST(
-        which_set="train",
-        shuffle=0,
-        one_hot=1,
-        start=0,
-        stop=2)
-    """
-
     train = raw_train
 
     model = ADBM(
@@ -238,7 +229,7 @@ def run(replay):
             hidden_layers= [
                 # removing this removes the bug. not sure if I just need to disturb mem though
                 galatea.dbm.inpaint.super_dbm.DenseMaxPool(
-                    detector_layer_dim= 500,
+                    detector_layer_dim= 2,
                             pool_size= 1,
                             sparse_init= 1,
                             layer_name= 'h0',
@@ -246,6 +237,7 @@ def run(replay):
                    )
                   ]
         )
+    disturb_mem.disturb_mem()
 
     algorithm = InpaintAlgorithm(
         theano_function_mode = RecordMode(
