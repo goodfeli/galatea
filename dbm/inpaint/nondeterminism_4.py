@@ -59,7 +59,7 @@ class A(Cost):
 
         for ii, packed in enumerate(safe_izip(history, new_history)):
             state, new_state = packed
-            rval['inpaint_after_' + str(ii)] = state['V_hat_unmasked'].sum()
+            #rval['inpaint_after_' + str(ii)] = state['V_hat_unmasked'].sum()
 
             if ii > 0:
                 prev_state = history[ii-1]
