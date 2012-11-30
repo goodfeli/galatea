@@ -9,16 +9,21 @@ from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import BinaryVector
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
+import theano.tensor as T
 
 def get_monitoring_channels(model, X):
 
     rval = OrderedDict()
 
     layer = model.hidden_layers[0]
-    state = layer.mf_update(
-        state_above = None,
-        state_below = X,
-        iter_name = '0')
+    W, = layer.transformer.get_params()
+    b  = layer.b
+    H = T.nnet.sigmoid(T.dot(X, W) + b)
+    state = (H, H)
+    #state = layer.mf_update(
+    #    state_above = None,
+    #    state_below = X,
+    #    iter_name = '0')
 
     d = layer.get_monitoring_channels_from_state(state)
     for key in d:
@@ -30,7 +35,6 @@ def get_monitoring_channels(model, X):
 
 def prereq(*args):
     disturb_mem.disturb_mem()
-
 
 def run(replay):
     X = np.zeros((2,2))
@@ -73,19 +77,10 @@ def run(replay):
                                     batch_size=2,
                                     num_batches=1)
     ipt = X
+    prereqs = [prereq]
 
     for name in channels:
         J = channels[name]
-        if isinstance(J, tuple):
-            assert False
-            assert len(J) == 2
-            J, prereqs = J
-        else:
-            prereqs = []
-
-        prereqs = list(prereqs)
-        prereqs.append(prereq)
-
         monitor.add_channel(name=name,
                                  ipt=ipt,
                                  val=J, dataset=train,
