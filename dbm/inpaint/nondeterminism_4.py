@@ -30,13 +30,12 @@ class SuperWeightDoubling(WeightDoubling):
         assert V_hat_unmasked.ndim > 1
 
         H_hat = []
-        for i in xrange(0,len(dbm.hidden_layers)-1):
-            if i == 0:
-                H_hat.append(dbm.hidden_layers[i].mf_update(
-                    state_above = None,
-                    double_weights = True,
-                    state_below = dbm.visible_layer.upward_state(V_hat),
-                    iter_name = '0'))
+        i = 0
+        H_hat.append(dbm.hidden_layers[i].mf_update(
+            state_above = None,
+            state_below = dbm.visible_layer.upward_state(V_hat),
+            iter_name = '0'))
+        """
             else:
                 H_hat.append(dbm.hidden_layers[i].mf_update(
                     state_above = None,
@@ -51,6 +50,7 @@ class SuperWeightDoubling(WeightDoubling):
             H_hat.append(dbm.hidden_layers[-1].mf_update(
                 state_above = None,
                 state_below = dbm.visible_layer.upward_state(V_hat)))
+        """
 
         def update_history():
             assert V_hat_unmasked.ndim > 1
