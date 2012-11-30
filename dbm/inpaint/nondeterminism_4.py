@@ -5,14 +5,10 @@ from pylearn2.devtools import disturb_mem
 import numpy as np
 from pylearn2.monitor import Monitor
 import theano
-from pylearn2.utils import sharedX
-from pylearn2.utils import safe_izip
 from pylearn2.models.dbm import DBM
-from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models.dbm import BinaryVector
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
-from pylearn2.costs.cost import Cost
 
 def get_monitoring_channels(model, X):
 
@@ -35,74 +31,18 @@ def get_monitoring_channels(model, X):
 def prereq(*args):
     disturb_mem.disturb_mem()
 
-class B(object):
-    def __init__(self, batch_size=None, batches_per_iter=None,
-                 monitoring_batches=None, monitoring_dataset=None,
-                 theano_function_mode=None):
-
-        self.__dict__.update(locals())
-        if isinstance(monitoring_dataset, Dataset):
-            self.monitoring_dataset = { '': monitoring_dataset }
-
-    def setup(self, model, dataset):
-
-        self.monitor = Monitor.get_monitor(model)
-        self.monitor.set_theano_function_mode(self.theano_function_mode)
-
-        #space = model.get_input_space()
-        X = theano.tensor.matrix() #sharedX( space.get_origin_batch(model.batch_size) , 'BGD_X')
-
-        if self.monitoring_dataset is not None:
-            if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
-                Y = None
-            channels = get_monitoring_channels(model, X = X)
-
-            for dataset_name in self.monitoring_dataset:
-
-                monitoring_dataset = self.monitoring_dataset[dataset_name]
-                self.monitor.add_dataset(dataset=monitoring_dataset,
-                                    mode="sequential",
-                                    batch_size=2,
-                                    num_batches=1)
-                ipt = X
-                if Y is not None:
-                    ipt = [X,Y]
-
-                for name in channels:
-                    J = channels[name]
-                    if isinstance(J, tuple):
-                        assert len(J) == 2
-                        J, prereqs = J
-                    else:
-                        prereqs = []
-
-                    prereqs = list(prereqs)
-                    prereqs.append(prereq)
-
-                    if Y is not None:
-                        ipt = (X,Y)
-                    else:
-                        ipt = X
-
-                    self.monitor.add_channel(name=name,
-                                             ipt=ipt,
-                                             val=J, dataset=monitoring_dataset,
-                                             prereqs=prereqs)
-
 
 def run(replay):
     X = np.zeros((2,2))
     X[0,0] = 1.
-    raw_train = DenseDesignMatrix(X=X)
-
-    train = raw_train
+    train = DenseDesignMatrix(X=X)
 
     model = DBM(
             batch_size = 2,
             niter= 2,
             visible_layer= BinaryVector(
                 nvis= 2,
-                bias_from_marginals = raw_train,
+                bias_from_marginals = train,
             ),
             hidden_layers= [
                 # removing this removes the bug. not sure if I just need to disturb mem though
@@ -117,22 +57,43 @@ def run(replay):
         )
     disturb_mem.disturb_mem()
 
-    algorithm = B(
-        theano_function_mode = RecordMode(
+    theano_function_mode = RecordMode(
                             file_path= "nondeterminism_4.txt",
                             replay=replay
-                   ),
-                   monitoring_dataset = OrderedDict([
-                            ('train', train)
-                            ]
                    )
-            )
 
-    algorithm.setup(model=model, dataset=train)
-    model.monitor()
+    monitor = Monitor.get_monitor(model)
+    monitor.set_theano_function_mode(theano_function_mode)
 
-    algorithm.theano_function_mode.record.f.flush()
-    algorithm.theano_function_mode.record.f.close()
+    X = theano.tensor.matrix()
+
+    channels = get_monitoring_channels(model, X = X)
+
+    monitor.add_dataset(dataset=train, mode="sequential",
+                                    batch_size=2,
+                                    num_batches=1)
+    ipt = X
+
+    for name in channels:
+        J = channels[name]
+        if isinstance(J, tuple):
+            assert False
+            assert len(J) == 2
+            J, prereqs = J
+        else:
+            prereqs = []
+
+        prereqs = list(prereqs)
+        prereqs.append(prereq)
+
+        monitor.add_channel(name=name,
+                                 ipt=ipt,
+                                 val=J, dataset=train,
+                                 prereqs=prereqs)
+    monitor()
+
+    theano_function_mode.record.f.flush()
+    theano_function_mode.record.f.close()
 
 run(0)
 run(1)
