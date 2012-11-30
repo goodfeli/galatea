@@ -50,22 +50,6 @@ class A(Cost):
                 return_locals = True)
 
         history = scratch['history']
-        new_history = scratch['new_history']
-        new_drop_mask = scratch['new_drop_mask']
-        new_drop_mask_Y = None
-        if self.supervised:
-            drop_mask_Y = scratch['drop_mask_Y']
-            new_drop_mask_Y = scratch['new_drop_mask_Y']
-
-        for ii, packed in enumerate(safe_izip(history, new_history)):
-            state, new_state = packed
-            #rval['inpaint_after_' + str(ii)] = state['V_hat_unmasked'].sum()
-
-            if ii > 0:
-                prev_state = history[ii-1]
-                V_hat = state['V_hat']
-                prev_V_hat = prev_state['V_hat']
-                rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
 
         final_state = history[-1]
 
@@ -95,7 +79,7 @@ class A(Cost):
                 raise NotImplementedError()
             drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
-        history = do_inpainting(dbm, X, drop_mask = drop_mask)
+        history = foo(dbm, X, drop_mask = drop_mask)
         final_state = history[-1]
 
         new_drop_mask = None
@@ -111,7 +95,7 @@ class A(Cost):
 
         return total_cost
 
-def do_inpainting(dbm, V, drop_mask = None):
+def foo(dbm, V, drop_mask = None):
 
     history = []
 
