@@ -242,7 +242,7 @@ class SuperInpaint(Cost):
         total_cost = scratch['total_cost']
 
         params = list(model.get_params())
-        grads = dict(safe_zip(params, T.grad(total_cost, params)))
+        grads = dict(safe_zip(params, T.grad(total_cost, params, disconnected_inputs='ignore')))
 
         if self.toronto_act_targets is not None:
             H_hat = scratch['history'][-1]['H_hat']

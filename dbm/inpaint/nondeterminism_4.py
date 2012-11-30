@@ -15,6 +15,7 @@ from pylearn2.optimization.batch_gradient_descent import BatchGradientDescent
 from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import WeightDoubling
 import theano
+import theano.tensor as T
 
 
 class SuperWeightDoubling(WeightDoubling):
@@ -35,22 +36,6 @@ class SuperWeightDoubling(WeightDoubling):
             state_above = None,
             state_below = dbm.visible_layer.upward_state(V_hat),
             iter_name = '0'))
-        """
-            else:
-                H_hat.append(dbm.hidden_layers[i].mf_update(
-                    state_above = None,
-                    double_weights = True,
-                    state_below = dbm.hidden_layers[i-1].upward_state(H_hat[i-1]),
-                    iter_name = '0'))
-        if len(dbm.hidden_layers) > 1:
-            H_hat.append(dbm.hidden_layers[-1].mf_update(
-                state_above = None,
-                state_below = dbm.hidden_layers[-2].upward_state(H_hat[-1])))
-        else:
-            H_hat.append(dbm.hidden_layers[-1].mf_update(
-                state_above = None,
-                state_below = dbm.visible_layer.upward_state(V_hat)))
-        """
 
         def update_history():
             assert V_hat_unmasked.ndim > 1
@@ -59,29 +44,13 @@ class SuperWeightDoubling(WeightDoubling):
 
         update_history()
 
-        """
-        for j in xrange(0, len(H_hat), 2):
-            if j == 0:
-                state_below = dbm.visible_layer.upward_state(V_hat)
-            else:
-                state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
-            if j == len(H_hat) - 1:
-                state_above = None
-                layer_above = None
-            else:
-                state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
-                layer_above = dbm.hidden_layers[j+1]
-            H_hat[j] = dbm.hidden_layers[j].mf_update(
-                    state_below = state_below,
-                    state_above = state_above,
-                    layer_above = layer_above)
-        """
-
         V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
                 state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
                 layer_above = dbm.hidden_layers[0],
                 V = V,
                 drop_mask = drop_mask, return_unmasked = True)
+        V_hat_unmasked = T.nnet.sigmoid(dbm.hidden_layers[0].downward_message(H_hat[0][0]))
+        V_hat = V_hat_unmasked
         V_hat.name = 'V_hat[%d](V_hat = %s)' % (1, V_hat.name)
 
         update_history()
