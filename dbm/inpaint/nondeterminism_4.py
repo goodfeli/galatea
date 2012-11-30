@@ -12,6 +12,24 @@ from pylearn2.utils import sharedX
 from pylearn2.utils import function
 import warnings
 from pylearn2.optimization.batch_gradient_descent import BatchGradientDescent
+from pylearn2.models.dbm import DBM
+from galatea.dbm.inpaint.super_dbm import SuperWeightDoubling
+
+class ADBM(DBM):
+    def setup_inference_procedure(self):
+        if not hasattr(self, 'inference_procedure') or \
+                self.inference_procedure is None:
+            self.inference_procedure = SuperWeightDoubling()
+            self.inference_procedure.set_dbm(self)
+
+    def do_inpainting(self, *args, **kwargs):
+        self.setup_inference_procedure()
+        return self.inference_procedure.do_inpainting(*args, **kwargs)
+
+    def mf(self, *args, **kwargs):
+        self.setup_inference_procedure()
+        return self.inference_procedure.mf(*args, **kwargs)
+
 
 class SetupBatch:
     def __init__(self,alg):
@@ -132,11 +150,6 @@ class InpaintAlgorithm(object):
                                     mode="sequential",
                                     batch_size=self.batch_size,
                                     num_batches=self.monitoring_batches)
-                #we only need to put the prereq in once to make sure it gets run
-                #adding it more times shouldn't hurt, but be careful
-                #each time you say "self.setup_batch" you get a new object with a
-                #different id, and if you install n of those the prereq will run n
-                #times. It won't cause any wrong results, just a big slowdown
                 warnings.warn("This is weird-- ipt=(X,Y)=tell the monitor to replace X, Y with the givens dict, "
                         " but you don't actually want them to be replaced.")
                 ipt = X
@@ -166,42 +179,9 @@ class InpaintAlgorithm(object):
                                              prereqs=prereqs)
 
 
-                    #self.accumulate = self.combine_batches > 1
-        #if self.accumulate:
-        #    self.inputs = [elem for elem in [X, Y, drop_mask, drop_mask_Y] if elem is not None]
-        #else:
-        #    self.inputs = None
         self.inputs = None
 
-        self.optimizer = BatchGradientDescent(
-                             objective = obj,
-                            inputs = self.inputs,
-                            verbose = 1,
-                            gradients = gradients,
-                            gradient_updates = gradient_updates,
-                            params = model.get_params(),
-                            lr_scalers = model.get_lr_scalers(),
-                            param_constrainers = [ model.censor_updates ],
-                            max_iter = self.max_iter,
-                            tol = 3e-7,
-                            init_alpha = self.init_alpha,
-                            reset_alpha = self.reset_alpha,
-                            conjugate = self.conjugate,
-                            reset_conjugate = self.reset_conjugate,
-                            min_init_alpha = self.min_init_alpha,
-                            line_search_mode = self.line_search_mode,
-                            #accumulate = self.accumulate,
-                            theano_function_mode = self.theano_function_mode)
         self.X = X
-
-        """
-        self.monitor.add_channel(name='ave_step_size',
-                ipt=ipt, val = self.optimizer.ave_step_size, dataset=self.monitoring_dataset.values()[0])
-        self.monitor.add_channel(name='ave_grad_size',
-                ipt=ipt, val = self.optimizer.ave_grad_size, dataset=self.monitoring_dataset.values()[0])
-        self.monitor.add_channel(name='ave_grad_mult',
-                ipt=ipt, val = self.optimizer.ave_grad_mult, dataset=self.monitoring_dataset.values()[0])
-        """
 
 def run(replay):
     raw_train = MNIST(
@@ -213,7 +193,7 @@ def run(replay):
 
     train = raw_train
 
-    model = galatea.dbm.inpaint.super_dbm.SuperDBM(
+    model = ADBM(
             batch_size = 2,
             niter= 2,
             visible_layer= galatea.dbm.inpaint.super_dbm.BinaryVisLayer(
@@ -247,13 +227,11 @@ def run(replay):
                    conjugate= 1,
                    reset_conjugate= 0,
                    max_iter= 5,
-                   cost=\
-                                   galatea.dbm.inpaint.super_inpaint.SuperInpaint(
+                   cost= galatea.dbm.inpaint.super_inpaint.SuperInpaint(
                                             both_directions = 0,
                                             noise =  0,
                                             supervised =  0,
-                                   )
-                   ,
+                                   ),
                    mask_gen = galatea.dbm.inpaint.super_inpaint.MaskGen (
                             drop_prob= 0.1,
                             balance= 0,
