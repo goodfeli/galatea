@@ -1,10 +1,8 @@
-from galatea.dbm.inpaint.hack import OnMonitorError
 from pylearn2.datasets.binarizer import Binarizer
 from pylearn2.datasets.mnist import MNIST
 import galatea.dbm.inpaint.super_dbm
 import galatea.dbm.inpaint.inpaint_alg
 import galatea.dbm.inpaint.super_inpaint
-from pylearn2.train import Train
 import pylearn2.costs.cost
 from pylearn2.devtools.record import RecordMode
 from collections import OrderedDict
@@ -81,15 +79,15 @@ def run(replay):
                    )
             )
 
-    train = Train(dataset=train,
-            model=model,
-            algorithm=algorithm,
-        extensions= [
-                    galatea.dbm.inpaint.hack.ErrorOnMonitor(),
-            ],
-    )
+    #train = Train(dataset=train,
+            #  model=model,
+            # algorithm=algorithm,
+            # extensions= [
+            #                galatea.dbm.inpaint.hack.ErrorOnMonitor(),
+     #       ],
+        #)
 
-    train.algorithm.setup(model=model, dataset=train)
+    algorithm.setup(model=model, dataset=train)
     model.monitor()
 
     #try:
