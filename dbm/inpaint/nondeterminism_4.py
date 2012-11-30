@@ -17,14 +17,14 @@ def run(replay):
         shuffle=0,
         one_hot=1,
         start=0,
-        stop=1250)
+        stop=2)
 
     train = Binarizer(
             raw = raw_train
             )
 
     model = galatea.dbm.inpaint.super_dbm.SuperDBM(
-            batch_size = 1250,
+            batch_size = 2,
             niter= 6, #note: since we have to backprop through the whole thing, this does
                       #increase the memory usage
             visible_layer= galatea.dbm.inpaint.super_dbm.BinaryVisLayer(
@@ -61,13 +61,6 @@ def run(replay):
                    ),
                    monitoring_dataset = OrderedDict([
                             ('train', train)
-                            #,
-                            #('valid', Binarizer(raw=MNIST(
-                            #        which_set= "train",
-                            #        shuffle= 0,
-                            #        one_hot= 1,
-                            #        start= 50000,
-                            #        stop= 51250)))
                             ]
                    ),
                    line_search_mode= 'exhaustive',
