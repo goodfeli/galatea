@@ -25,7 +25,7 @@ def run(replay):
     for val in [
             v_max.max(),
             v_max.min(),
-            v_min.max(),
+            #v_min.max(),
             v_range.max(),
             v_mean.max(),
             ]:
@@ -42,5 +42,8 @@ def run(replay):
     mode.record.f.flush()
     mode.record.f.close()
 
-run(0)
-run(1)
+# Do several trials, since failure doesn't always occur
+# (Sometimes you sample the same outcome twice in a row)
+for i in xrange(10):
+    run(0)
+    run(1)
