@@ -25,9 +25,8 @@ def run(replay):
     for val in [
             v_max.max(),
             v_max.min(),
-            #v_min.max(),
             v_range.max(),
-            v_mean.max(),
+            #v_mean.max(),
             ]:
         disturb_mem.disturb_mem()
         s = sharedX(0.)
