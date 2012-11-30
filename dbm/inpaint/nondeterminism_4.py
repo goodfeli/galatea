@@ -4,6 +4,7 @@ from pylearn2.datasets.dataset import Dataset
 from pylearn2.devtools import disturb_mem
 import numpy as np
 from pylearn2.monitor import Monitor
+import theano
 from pylearn2.utils import sharedX
 from pylearn2.utils import safe_izip
 from pylearn2.models.dbm import DBM
@@ -48,15 +49,12 @@ class B(object):
         self.monitor = Monitor.get_monitor(model)
         self.monitor.set_theano_function_mode(self.theano_function_mode)
 
-        space = model.get_input_space()
-        X = sharedX( space.get_origin_batch(model.batch_size) , 'BGD_X')
-
-        obj = X.sum()
+        #space = model.get_input_space()
+        X = theano.tensor.matrix() #sharedX( space.get_origin_batch(model.batch_size) , 'BGD_X')
 
         if self.monitoring_dataset is not None:
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
                 Y = None
-            assert X.name is not None
             channels = get_monitoring_channels(model, X = X)
 
             for dataset_name in self.monitoring_dataset:
@@ -69,7 +67,6 @@ class B(object):
                 ipt = X
                 if Y is not None:
                     ipt = [X,Y]
-                #self.monitor.add_channel('objective',ipt=ipt,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
 
                 for name in channels:
                     J = channels[name]
