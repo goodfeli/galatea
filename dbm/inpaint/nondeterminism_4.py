@@ -55,8 +55,7 @@ class BinaryVisLayer(BinaryVector):
         return rval
 
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
-
-
+        return V_hat_unmasked.sum()
         V_hat = V_hat_unmasked
 
         assert hasattr(V_hat, 'owner')
@@ -69,10 +68,10 @@ class BinaryVisLayer(BinaryVector):
         unmasked_cost = V * T.nnet.softplus(-z) + (1 - V) * T.nnet.softplus(z)
         assert unmasked_cost.ndim == V_hat.ndim
 
-        if drop_mask is None:
-            masked_cost = unmasked_cost
-        else:
-            masked_cost = drop_mask * unmasked_cost
+        #if drop_mask is None:
+        masked_cost = unmasked_cost
+        #else:
+        #    masked_cost = drop_mask * unmasked_cost
 
         return masked_cost.mean()
 
