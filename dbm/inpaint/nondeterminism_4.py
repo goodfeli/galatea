@@ -37,14 +37,9 @@ class A(Cost):
         del self.self
 
 
-    def get_monitoring_channels(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None):
+    def get_monitoring_channels(self, model, X):
 
         rval = OrderedDict()
-
-        if drop_mask is not None and drop_mask.ndim < X.ndim:
-            if X.ndim != 4:
-                raise NotImplementedError()
-            drop_mask = drop_mask.dimshuffle(0,1,2,'x')
 
         H = foo(model, X)
 
@@ -60,7 +55,7 @@ class A(Cost):
 
         return rval
 
-def foo(dbm, V, drop_mask = None):
+def foo(dbm, V):
 
     H_hat = []
     H_hat.append(dbm.hidden_layers[0].mf_update(
@@ -93,12 +88,6 @@ class InpaintAlgorithm(object):
         rng = np.random.RandomState([2012,7,20])
         test_mask = space.get_origin_batch(model.batch_size)
         test_mask = rng.randint(0,2,test_mask.shape)
-        drop_mask = sharedX( np.cast[X.dtype] ( test_mask), name = 'drop_mask')
-        self.drop_mask = drop_mask
-        assert drop_mask.ndim == test_mask.ndim
-
-        Y = None
-        drop_mask_Y = None
 
         obj = X.sum()
 
@@ -108,8 +97,7 @@ class InpaintAlgorithm(object):
             assert X.name is not None
             channels = {}
             assert X.name is not None
-            cost_channels = self.cost.get_monitoring_channels(model, X = X, Y = Y, drop_mask = drop_mask,
-                    drop_mask_Y = drop_mask_Y)
+            cost_channels = self.cost.get_monitoring_channels(model, X = X)
             for key in cost_channels:
                 channels[key] = cost_channels[key]
 
