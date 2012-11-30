@@ -87,9 +87,6 @@ class SetupBatch:
             X = args
             self.alg.setup_batch(X)
 
-    def __getstate__(self):
-        return {}
-
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=None,
                  monitoring_batches=None, monitoring_dataset=None,
@@ -117,14 +114,7 @@ class InpaintAlgorithm(object):
         self.rng = np.random.RandomState([2012,10,17])
 
     def setup_batch(self, X, Y = None):
-        assert not isinstance(X,tuple)
         self.X.set_value(X)
-        assert self.cost.supervised == (Y is not None)
-        if Y is not None:
-            assert Y.ndim == 2
-            assert self.Y.ndim == 2
-            self.Y.set_value(Y)
-        #self.update_mask()
 
     def get_setup_batch_object(self):
         return SetupBatch(self)
