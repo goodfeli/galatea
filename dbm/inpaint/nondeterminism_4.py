@@ -13,30 +13,29 @@ from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.costs.cost import Cost
 
-class A(Cost):
-    def get_monitoring_channels(self, model, X):
+def get_monitoring_channels(model, X):
 
-        rval = OrderedDict()
+    rval = OrderedDict()
 
-        layer = model.hidden_layers[0]
-        state = layer.mf_update(
-            state_above = None,
-            state_below = X,
-            iter_name = '0')
+    layer = model.hidden_layers[0]
+    state = layer.mf_update(
+        state_above = None,
+        state_below = X,
+        iter_name = '0')
 
-        d = layer.get_monitoring_channels_from_state(state)
-        for key in d:
-            mod_key = '_' + key
-            assert mod_key not in rval
-            rval[mod_key] = d[key]
+    d = layer.get_monitoring_channels_from_state(state)
+    for key in d:
+        mod_key = '_' + key
+        assert mod_key not in rval
+        rval[mod_key] = d[key]
 
-        return rval
+    return rval
 
 def prereq(*args):
     disturb_mem.disturb_mem()
 
 class B(object):
-    def __init__(self, cost, batch_size=None, batches_per_iter=None,
+    def __init__(self, batch_size=None, batches_per_iter=None,
                  monitoring_batches=None, monitoring_dataset=None,
                  theano_function_mode=None):
 
@@ -62,11 +61,7 @@ class B(object):
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
                 Y = None
             assert X.name is not None
-            channels = {}
-            assert X.name is not None
-            cost_channels = self.cost.get_monitoring_channels(model, X = X)
-            for key in cost_channels:
-                channels[key] = cost_channels[key]
+            channels = get_monitoring_channels(model, X = X)
 
             for dataset_name in self.monitoring_dataset:
 
@@ -141,8 +136,7 @@ def run(replay):
                    monitoring_dataset = OrderedDict([
                             ('train', train)
                             ]
-                   ),
-                   cost= A(),
+                   )
             )
 
     algorithm.setup(model=model, dataset=train)
