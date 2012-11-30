@@ -2,27 +2,16 @@ from pylearn2.devtools.record import RecordMode
 from collections import OrderedDict
 from pylearn2.devtools import disturb_mem
 import numpy as np
-from pylearn2.monitor import Monitor
 import theano
-from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
-from pylearn2.models.model import Model
-from pylearn2.space import VectorSpace
 from pylearn2.utils import sharedX
 
-class DummyModel(Model):
-    def __init__(self):
-        self.param = sharedX(np.zeros((2,)))
-        self._params = [self.param]
-        self.input_space = VectorSpace(2)
-
 def run(replay):
-    model = DummyModel()
     disturb_mem.disturb_mem()
 
     mode = RecordMode(file_path= "nondeterminism_4.txt",
                       replay=replay)
 
-    b = model.param
+    b = sharedX(np.zeros((2,)))
     channels = OrderedDict()
 
     disturb_mem.disturb_mem()
