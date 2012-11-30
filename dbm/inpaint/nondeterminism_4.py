@@ -17,7 +17,7 @@ def run(replay):
         shuffle=0,
         one_hot=1,
         start=0,
-        stop=50000)
+        stop=1250)
 
     train = Binarizer(
             raw = raw_train
@@ -66,7 +66,7 @@ def run(replay):
                                     shuffle= 0,
                                     one_hot= 1,
                                     start= 50000,
-                                    stop= 60000)))]
+                                    stop= 51250)))]
                    ),
                    line_search_mode= 'exhaustive',
                    init_alpha= [0.0256, .128, .256, 1.28, 2.56],
@@ -110,6 +110,8 @@ def run(replay):
     except OnMonitorError:
         pass
 
+    algorithm.theano_function_mode.record.f.flush()
+    algorithm.theano_function_mode.record.f.close()
     del train
     gc.collect()
 
