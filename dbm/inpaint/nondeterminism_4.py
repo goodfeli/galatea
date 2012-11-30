@@ -80,12 +80,11 @@ class SetupBatch:
         self.alg = alg
 
     def __call__(self, * args):
-        if len(args) > 1:
-            X, Y = args
-            self.alg.setup_batch(X, Y)
-        else:
-            X = args
-            self.alg.setup_batch(X)
+        disturb_mem.disturb_mem()
+        pass
+        # if len(args) > 1:
+            #    X, Y = args
+        #    self.alg.setup_batch(X, Y)
 
 class InpaintAlgorithm(object):
     def __init__(self, mask_gen, cost, batch_size=None, batches_per_iter=None,
