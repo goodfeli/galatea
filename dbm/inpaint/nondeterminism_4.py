@@ -54,7 +54,7 @@ class A(Cost):
         final_state = history[-1]
 
         layers = [ model.visible_layer ] + model.hidden_layers
-        states = [ final_state['V_hat'] ] + final_state['H_hat']
+        states = [ X ] + final_state['H_hat']
 
         for layer, state in safe_izip(layers, states):
             d = layer.get_monitoring_channels_from_state(state)
@@ -88,7 +88,7 @@ class A(Cost):
 
         new_final_state = new_history[-1]
 
-        total_cost = final_state['V_hat_unmasked'].sum()
+        total_cost = X.sum()
 
         if return_locals:
             return locals()
@@ -99,26 +99,17 @@ def foo(dbm, V, drop_mask = None):
 
     history = []
 
-    V_hat = V
-    V_hat_unmasked = V
-
     H_hat = []
     H_hat.append(dbm.hidden_layers[0].mf_update(
         state_above = None,
-        state_below = V_hat,
+        state_below = V,
         iter_name = '0'))
 
     def update_history():
-        assert V_hat_unmasked.ndim > 1
-        d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+        d =  {  'H_hat' : H_hat }
         history.append( d )
 
     update_history()
-
-    V_hat_unmasked = dbm.hidden_layers[0].downward_message(H_hat[0][0])
-    V_hat = V_hat_unmasked
-    V_hat.name = 'V_hat[%d](V_hat = %s)' % (1, V_hat.name)
-
     update_history()
 
     return history
