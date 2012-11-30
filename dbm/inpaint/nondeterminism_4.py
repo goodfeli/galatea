@@ -14,9 +14,67 @@ import warnings
 from pylearn2.optimization.batch_gradient_descent import BatchGradientDescent
 from pylearn2.models.dbm import DBM
 from pylearn2.models.dbm import WeightDoubling
+from pylearn2.models.dbm import BinaryVector
 import theano
 import theano.tensor as T
+from pylearn2.utils import block_gradient
 
+class BinaryVisLayer(BinaryVector):
+
+    def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
+
+        assert drop_mask.ndim > 1
+
+        unmasked = T.nnet.sigmoid(self.bias.dimshuffle('x',0))
+        # this condition is needed later if unmasked is used as V_hat
+        assert unmasked.ndim == 2
+        # this condition is also needed later if unmasked is used as V_hat
+        assert hasattr(unmasked.owner.op, 'scalar_op')
+        masked_mean = unmasked * drop_mask
+        masked_mean = block_gradient(masked_mean)
+        masked_mean.name = 'masked_mean'
+
+        if noise:
+            theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
+            # we want a set of random mean field parameters, not binary samples
+            unmasked = T.nnet.sigmoid(theano_rng.normal(avg = 0.,
+                    std = 1., size = masked_mean.shape,
+                    dtype = masked_mean.dtype))
+            masked_mean = unmasked * drop_mask
+            masked_mean.name = 'masked_noise'
+
+
+        masked_V  = V  * (1-drop_mask)
+        rval = masked_mean + masked_V
+        rval.name = 'init_inpainting_state'
+
+        if return_unmasked:
+            assert unmasked.ndim > 1
+            return rval, unmasked
+
+        return rval
+
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
+
+
+        V_hat = V_hat_unmasked
+
+        assert hasattr(V_hat, 'owner')
+        owner = V_hat.owner
+        assert owner is not None
+        op = owner.op
+
+        z ,= owner.inputs
+
+        unmasked_cost = V * T.nnet.softplus(-z) + (1 - V) * T.nnet.softplus(z)
+        assert unmasked_cost.ndim == V_hat.ndim
+
+        if drop_mask is None:
+            masked_cost = unmasked_cost
+        else:
+            masked_cost = drop_mask * unmasked_cost
+
+        return masked_cost.mean()
 
 class SuperWeightDoubling(WeightDoubling):
     def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
@@ -28,13 +86,11 @@ class SuperWeightDoubling(WeightDoubling):
         history = []
 
         V_hat, V_hat_unmasked = dbm.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
-        assert V_hat_unmasked.ndim > 1
 
         H_hat = []
-        i = 0
-        H_hat.append(dbm.hidden_layers[i].mf_update(
+        H_hat.append(dbm.hidden_layers[0].mf_update(
             state_above = None,
-            state_below = dbm.visible_layer.upward_state(V_hat),
+            state_below = V_hat,
             iter_name = '0'))
 
         def update_history():
@@ -44,11 +100,6 @@ class SuperWeightDoubling(WeightDoubling):
 
         update_history()
 
-        V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
-                state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
-                layer_above = dbm.hidden_layers[0],
-                V = V,
-                drop_mask = drop_mask, return_unmasked = True)
         V_hat_unmasked = T.nnet.sigmoid(dbm.hidden_layers[0].downward_message(H_hat[0][0]))
         V_hat = V_hat_unmasked
         V_hat.name = 'V_hat[%d](V_hat = %s)' % (1, V_hat.name)
@@ -241,7 +292,7 @@ def run(replay):
     model = ADBM(
             batch_size = 2,
             niter= 2,
-            visible_layer= galatea.dbm.inpaint.super_dbm.BinaryVisLayer(
+            visible_layer= BinaryVisLayer(
                 nvis= 784,
                 bias_from_marginals = raw_train,
             ),
