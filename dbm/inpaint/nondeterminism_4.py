@@ -69,7 +69,7 @@ class B(object):
                 ipt = X
                 if Y is not None:
                     ipt = [X,Y]
-                self.monitor.add_channel('objective',ipt=ipt,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
+                #self.monitor.add_channel('objective',ipt=ipt,val=obj, dataset=monitoring_dataset, prereqs =  [ prereq ])
 
                 for name in channels:
                     J = channels[name]
