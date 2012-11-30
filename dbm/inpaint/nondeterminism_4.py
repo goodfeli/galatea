@@ -4,9 +4,6 @@ from pylearn2.devtools import disturb_mem
 import numpy as np
 from pylearn2.monitor import Monitor
 import theano
-from pylearn2.models.dbm import DBM
-from pylearn2.models.dbm import BinaryVector
-from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.models.model import Model
 from pylearn2.space import VectorSpace
@@ -27,24 +24,6 @@ def run(replay):
     X[0,0] = 1.
     train = DenseDesignMatrix(X=X)
 
-    model = DBM(
-            batch_size = 2,
-            niter= 2,
-            visible_layer= BinaryVector(
-                nvis= 2,
-                bias_from_marginals = train,
-            ),
-            hidden_layers= [
-                # removing this removes the bug. not sure if I just need to disturb mem though
-                BinaryVectorMaxPool(
-                    detector_layer_dim= 2,
-                            pool_size= 1,
-                            sparse_init= 1,
-                            layer_name= 'h0',
-                            init_bias= 0.
-                   )
-                  ]
-        )
     model = DummyModel()
     disturb_mem.disturb_mem()
 
@@ -56,8 +35,7 @@ def run(replay):
     monitor = Monitor.get_monitor(model)
     monitor.set_theano_function_mode(theano_function_mode)
 
-
-    b = model.param #hidden_layers[0].b
+    b = model.param
     channels = OrderedDict()
 
     disturb_mem.disturb_mem()
@@ -76,6 +54,15 @@ def run(replay):
             ]:
         disturb_mem.disturb_mem()
         channels[key] = val
+
+    updates = []
+    for key in channels:
+        s = sharedX(0.)
+        updates.append((s, channels[key]))
+    X = theano.tensor.matrix()
+    f = theano.function([X], mode=theano_function_mode, updates=updates, on_unused_input='ignore', name='f')
+    disturb_mem.disturb_mem()
+    f(np.zeros((2,2)).astype(X.dtype))
 
 
     monitor.add_dataset(dataset=train, mode="sequential",
