@@ -203,7 +203,7 @@ class InpaintAlgorithm(object):
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
                 Y = None
             assert X.name is not None
-            channels = model.get_monitoring_channels(X,Y)
+            channels = {} #model.get_monitoring_channels(X,Y)
             assert X.name is not None
             cost_channels = self.cost.get_monitoring_channels(model, X = X, Y = Y, drop_mask = drop_mask,
                     drop_mask_Y = drop_mask_Y)
