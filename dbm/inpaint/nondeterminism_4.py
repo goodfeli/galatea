@@ -60,23 +60,6 @@ class A(Cost):
 
         return rval
 
-    def __call__(self, model, X,
-            return_locals = False):
-        assert not return_locals
-
-        dbm = model
-
-        history = foo(dbm, X)
-        final_state = history[-1]
-
-
-        total_cost = X.sum()
-
-        if return_locals:
-            return locals()
-
-        return total_cost
-
 def foo(dbm, V, drop_mask = None):
 
     H_hat = []
@@ -117,7 +100,7 @@ class InpaintAlgorithm(object):
         Y = None
         drop_mask_Y = None
 
-        obj = self.cost(model,X)
+        obj = X.sum()
 
         if self.monitoring_dataset is not None:
             if not any([dataset.has_targets() for dataset in self.monitoring_dataset.values()]):
