@@ -20,6 +20,42 @@ def get_monitoring_channels(model, X):
     H = b
     state = (H, H)
 
+    def get_monitoring_channels_from_state():
+        self = state
+
+        P, H = state
+
+        rval = OrderedDict()
+
+        if self.pool_size == 1:
+            vars_and_prefixes = [ (P,'') ]
+        else:
+            vars_and_prefixes = [ (P, 'p_'), (H, 'h_') ]
+
+        for var, prefix in vars_and_prefixes:
+            v_max = var.max(axis=0)
+            v_min = var.min(axis=0)
+            v_mean = var.mean(axis=0)
+            v_range = v_max - v_min
+
+            for key, val in [
+                    ('max_x.max_u', v_max.max()),
+                    ('max_x.mean_u', v_max.mean()),
+                    ('max_x.min_u', v_max.min()),
+                    ('min_x.max_u', v_min.max()),
+                    ('min_x.mean_u', v_min.mean()),
+                    ('min_x.min_u', v_min.min()),
+                    ('range_x.max_u', v_range.max()),
+                    ('range_x.mean_u', v_range.mean()),
+                    ('range_x.min_u', v_range.min()),
+                    ('mean_x.max_u', v_mean.max()),
+                    ('mean_x.mean_u', v_mean.mean()),
+                    ('mean_x.min_u', v_mean.min())
+                    ]:
+                rval[prefix+key] = val
+
+        return rval
+
     d = layer.get_monitoring_channels_from_state(state)
     for key in d:
         mod_key = '_' + key
