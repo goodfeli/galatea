@@ -18,7 +18,6 @@ def run(replay):
 
     v_max = b.max(axis=0)
     v_min = b.min(axis=0)
-    v_mean = b.mean(axis=0)
     v_range = v_max - v_min
 
     updates = []
@@ -26,7 +25,6 @@ def run(replay):
             v_max.max(),
             v_max.min(),
             v_range.max(),
-            #v_mean.max(),
             ]:
         disturb_mem.disturb_mem()
         s = sharedX(0.)
