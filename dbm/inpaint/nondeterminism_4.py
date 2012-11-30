@@ -1,6 +1,5 @@
 from pylearn2.devtools.record import RecordMode
 from collections import OrderedDict
-from pylearn2.datasets.dataset import Dataset
 from pylearn2.devtools import disturb_mem
 import numpy as np
 from pylearn2.monitor import Monitor
@@ -10,32 +9,6 @@ from pylearn2.models.dbm import BinaryVector
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 import theano.tensor as T
-
-def get_monitoring_channels(model, X):
-
-    rval = OrderedDict()
-
-    layer = model.hidden_layers[0]
-    b  = layer.b
-
-    disturb_mem.disturb_mem()
-
-    v_max = b.max(axis=0)
-    v_min = b.min(axis=0)
-    v_mean = b.mean(axis=0)
-    v_range = v_max - v_min
-
-    for key, val in [
-            ('max_x.max_u', v_max.max()),
-            ('max_x.min_u', v_max.min()),
-            ('min_x.max_u', v_min.max()),
-            ('range_x.max_u', v_range.max()),
-            ('mean_x.max_u', v_mean.max()),
-            ]:
-        disturb_mem.disturb_mem()
-        rval[key] = val
-
-    return rval
 
 def prereq(*args):
     disturb_mem.disturb_mem()
@@ -75,7 +48,25 @@ def run(replay):
 
     X = theano.tensor.matrix()
 
-    channels = get_monitoring_channels(model, X = X)
+    b = model.hidden_layers[0].b
+    channels = OrderedDict()
+
+    disturb_mem.disturb_mem()
+
+    v_max = b.max(axis=0)
+    v_min = b.min(axis=0)
+    v_mean = b.mean(axis=0)
+    v_range = v_max - v_min
+
+    for key, val in [
+            ('max_x.max_u', v_max.max()),
+            ('max_x.min_u', v_max.min()),
+            ('min_x.max_u', v_min.max()),
+            ('range_x.max_u', v_range.max()),
+            ('mean_x.max_u', v_mean.max()),
+            ]:
+        disturb_mem.disturb_mem()
+        channels[key] = val
 
     monitor.add_dataset(dataset=train, mode="sequential",
                                     batch_size=2,
