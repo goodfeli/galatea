@@ -20,41 +20,6 @@ import theano.tensor as T
 from pylearn2.utils import block_gradient
 
 class BinaryVisLayer(BinaryVector):
-
-    def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
-        return V, V
-
-        assert drop_mask.ndim > 1
-
-        unmasked = T.nnet.sigmoid(self.bias.dimshuffle('x',0))
-        # this condition is needed later if unmasked is used as V_hat
-        assert unmasked.ndim == 2
-        # this condition is also needed later if unmasked is used as V_hat
-        assert hasattr(unmasked.owner.op, 'scalar_op')
-        masked_mean = unmasked * drop_mask
-        masked_mean = block_gradient(masked_mean)
-        masked_mean.name = 'masked_mean'
-
-        if noise:
-            theano_rng = theano.sandbox.rng_mrg.MRG_RandomStreams(42)
-            # we want a set of random mean field parameters, not binary samples
-            unmasked = T.nnet.sigmoid(theano_rng.normal(avg = 0.,
-                    std = 1., size = masked_mean.shape,
-                    dtype = masked_mean.dtype))
-            masked_mean = unmasked * drop_mask
-            masked_mean.name = 'masked_noise'
-
-
-        masked_V  = V  * (1-drop_mask)
-        rval = masked_mean + masked_V
-        rval.name = 'init_inpainting_state'
-
-        if return_unmasked:
-            assert unmasked.ndim > 1
-            return rval, unmasked
-
-        return rval
-
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
         return V_hat_unmasked.sum()
 
@@ -67,7 +32,8 @@ class SuperWeightDoubling(WeightDoubling):
 
         history = []
 
-        V_hat, V_hat_unmasked = dbm.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
+        V_hat = V
+        V_hat_unmasked = V
 
         H_hat = []
         H_hat.append(dbm.hidden_layers[0].mf_update(
