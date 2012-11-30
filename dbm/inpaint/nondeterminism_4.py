@@ -4,6 +4,7 @@ from pylearn2.devtools import disturb_mem
 import numpy as np
 import theano
 from pylearn2.utils import sharedX
+from theano.printing import var_descriptor
 
 def run(replay):
     disturb_mem.disturb_mem()
@@ -33,6 +34,8 @@ def run(replay):
     for key in channels:
         updates.append((s, channels[key]))
     f = theano.function([], mode=mode, updates=updates, on_unused_input='ignore', name='f')
+    for output in f.maker.fgraph.outputs:
+        mode.record.handle_line(var_descriptor(output)+'\n')
     disturb_mem.disturb_mem()
     f()
 
