@@ -64,21 +64,6 @@ def run(replay):
     disturb_mem.disturb_mem()
     f(np.zeros((2,2)).astype(X.dtype))
 
-
-    monitor.add_dataset(dataset=train, mode="sequential",
-                                    batch_size=2,
-                                    num_batches=1)
-    ipt = theano.tensor.matrix()
-    prereqs = [prereq]
-
-    for name in channels:
-        J = channels[name]
-        monitor.add_channel(name=name,
-                                 ipt=ipt,
-                                 val=J, dataset=train,
-                                 prereqs=prereqs)
-    monitor()
-
     theano_function_mode.record.f.flush()
     theano_function_mode.record.f.close()
 
