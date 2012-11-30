@@ -19,9 +19,9 @@ def run(replay):
         start=0,
         stop=2)
 
-    train = Binarizer(
-            raw = raw_train
-            )
+    train = raw_train #Binarizer(
+            #raw = raw_train
+            #)
 
     model = galatea.dbm.inpaint.super_dbm.SuperDBM(
             batch_size = 2,
