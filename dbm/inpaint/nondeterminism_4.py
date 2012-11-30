@@ -16,14 +16,9 @@ def get_monitoring_channels(model, X):
     rval = OrderedDict()
 
     layer = model.hidden_layers[0]
-    W, = layer.transformer.get_params()
     b  = layer.b
-    H = T.nnet.sigmoid(T.dot(X, W) + b)
+    H = b
     state = (H, H)
-    #state = layer.mf_update(
-    #    state_above = None,
-    #    state_below = X,
-    #    iter_name = '0')
 
     d = layer.get_monitoring_channels_from_state(state)
     for key in d:
