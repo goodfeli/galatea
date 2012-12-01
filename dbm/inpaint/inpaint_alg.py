@@ -287,6 +287,10 @@ class InpaintAlgorithm(object):
         for data in iterator:
             if self.cost.supervised:
                 X, Y = data
+                mode = self.theano_function_mode
+                if mode is not None and hasattr(mode, 'record'):
+                    stry = str(Y).replace('\n',' ')
+                    mode.record.handle_line('data Y '+stry+'\n')
                 if self.duplicate > 1:
                     Y = np.concatenate([Y] * self.duplicate, axis=0)
                 self.Y.set_value(Y)

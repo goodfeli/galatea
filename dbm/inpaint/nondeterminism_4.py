@@ -12,7 +12,7 @@ def run(replay):
     mode = RecordMode(file_path= "nondeterminism_4.txt",
                       replay=replay)
 
-    b = sharedX(np.zeros((2,)))
+    b = sharedX(np.zeros((2,)), name='b')
     channels = OrderedDict()
 
     disturb_mem.disturb_mem()
@@ -32,7 +32,7 @@ def run(replay):
         updates.append((s, val))
 
     for var in theano.gof.graph.ancestors(update for var, update in updates):
-        if var.name is not None:
+        if var.name is not None and var.name is not 'b':
             if var.name[0] != 's' or len(var.name) != 2:
                 var.name = None
 
