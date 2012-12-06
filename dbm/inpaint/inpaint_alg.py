@@ -40,6 +40,7 @@ class InpaintAlgorithm(object):
                  line_search_mode = None, min_init_alpha = 1e-3,
                  duplicate = 1, combine_batches = 1, scale_step = 1.,
                  theano_function_mode=None):
+        assert False # deprecated
         """
         if batch_size is None, reverts to the force_batch_size field of the
         model

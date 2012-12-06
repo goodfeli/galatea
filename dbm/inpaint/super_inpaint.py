@@ -45,7 +45,7 @@ class SuperInpaint(Cost):
         #assert not (reweight and reweight_correctly)
 
 
-    def get_monitoring_channels(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None):
+    def get_monitoring_channels(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None, **kwargs):
 
         if self.supervised:
             assert Y is not None
@@ -71,9 +71,16 @@ class SuperInpaint(Cost):
             drop_mask_Y = scratch['drop_mask_Y']
             new_drop_mask_Y = scratch['new_drop_mask_Y']
 
+        ii = 0
+        for name in ['inpaint_cost', 'l1_act_cost', 'toronto_act_cost']:
+            var = scratch[name]
+            if var is not None:
+                rval['total_inpaint_cost_term_'+str(ii)+'_'+name] = var
+                ii = ii + 1
+
         for ii, packed in enumerate(safe_izip(history, new_history)):
             state, new_state = packed
-            rval['inpaint_after_' + str(ii)] = self.cost_from_states(state,
+            rval['all_inpaint_costs_after_' + str(ii)] = self.cost_from_states(state,
                     new_state,
                     model, X, Y, drop_mask, drop_mask_Y,
                     new_drop_mask, new_drop_mask_Y)
@@ -124,7 +131,7 @@ class SuperInpaint(Cost):
         return rval
 
     def __call__(self, model, X, Y = None, drop_mask = None, drop_mask_Y = None,
-            return_locals = False, include_toronto = True):
+            return_locals = False, include_toronto = True, ** kwargs):
 
         if not self.supervised:
             assert drop_mask_Y is None
@@ -181,7 +188,10 @@ class SuperInpaint(Cost):
 
         new_final_state = new_history[-1]
 
-        total_cost = self.cost_from_states(final_state, new_final_state, dbm, X, Y, drop_mask, drop_mask_Y, new_drop_mask, new_drop_mask_Y)
+        total_cost, sublocals = self.cost_from_states(final_state, new_final_state, dbm, X, Y, drop_mask, drop_mask_Y, new_drop_mask, new_drop_mask_Y,
+                return_locals=True)
+        l1_act_cost = sublocals['l1_act_cost']
+        inpaint_cost = sublocals['inpaint_cost']
 
         if self.robustness is not None:
             inpainting_H_hat = history[-1]['H_hat']
@@ -192,17 +202,22 @@ class SuperInpaint(Cost):
                 for ihh, mhh in safe_izip(flatten(inpainting_H_hat), flatten(mf_H_hat)):
                     total_cost += self.robustness * T.sqr(mhh-ihh).sum()
 
+        toronto_act_cost = None
         if self.toronto_act_targets is not None and include_toronto:
+            toronto_act_cost = 0.
             H_hat = history[-1]['H_hat']
             for s, c, t in zip(H_hat, self.toronto_act_coeffs, self.toronto_act_targets):
                 if c == 0.:
                     continue
                 s, _ = s
                 m = s.mean(axis=0)
-                total_cost += c * T.sqr(m-t).mean()
+                toronto_act_cost += c * T.sqr(m-t).mean()
+            total_cost += toronto_act_cost
 
         if return_locals:
             return locals()
+
+        total_cost.name = 'total_inpaint_cost'
 
         return total_cost
 
@@ -283,7 +298,7 @@ class SuperInpaint(Cost):
 
 
     def cost_from_states(self, state, new_state, dbm, X, Y, drop_mask, drop_mask_Y,
-            new_drop_mask, new_drop_mask_Y):
+            new_drop_mask, new_drop_mask_Y, return_locals = False):
 
         if not self.supervised:
             assert drop_mask_Y is None
@@ -341,6 +356,7 @@ class SuperInpaint(Cost):
                     total_cost += layer_cost
 
         if self.stdev_rewards is not None:
+            assert False # not monitored yet
             for layer, mf_state, coeffs in safe_izip(
                     dbm.hidden_layers,
                     state['H_hat'],
@@ -355,10 +371,14 @@ class SuperInpaint(Cost):
                 if layer_cost != 0.:
                     total_cost += layer_cost
 
+        l1_act_cost = None
         if self.l1_act_targets is not None:
+            l1_act_cost = 0.
             if self.l1_act_eps is None:
                 self.l1_act_eps = [ None ] * len(self.l1_act_targets)
-            for layer, mf_state, targets, coeffs, eps in safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs, self.l1_act_eps):
+            for layer, mf_state, targets, coeffs, eps in \
+                    safe_izip(dbm.hidden_layers, state['H_hat'] , self.l1_act_targets, self.l1_act_coeffs, self.l1_act_eps):
+
                 assert not isinstance(targets, str)
 
                 try:
@@ -369,20 +389,14 @@ class SuperInpaint(Cost):
                     else:
                         raise
                 if layer_cost != 0.:
-                    total_cost += layer_cost
-                #for H, t, c in zip(mf_state, targets, coeffs):
-                    #if c == 0.:
-                    #    continue
-                    #axes = (0,2,3) # all but channel axis
-                                  # this assumes bc01 format
-                    #h = H.mean(axis=axes)
-                    #assert h.ndim == 1
-                    #total_cost += c * abs(h - t).mean()
+                    l1_act_cost += layer_cost
                 # end for substates
             # end for layers
+            total_cost += l1_act_cost
         # end if act penalty
 
         if self.hid_presynaptic_cost is not None:
+            assert False # not monitored yet
             for c, s, in safe_izip(self.hid_presynaptic_cost, state['H_hat']):
                 if c == 0.:
                     continue
@@ -400,6 +414,7 @@ class SuperInpaint(Cost):
                 total_cost += c * T.sqr(z).mean()
 
         if self.reweighted_act_targets is not None:
+            assert False # not monitored yet
             # hardcoded for sigmoid layers
             for c, t, s in safe_izip(self.reweighted_act_coeffs, self.reweighted_act_targets, state['H_hat']):
                 if c == 0:
@@ -410,8 +425,10 @@ class SuperInpaint(Cost):
                 weight = 1./(1e-7+s*(1-s))
                 total_cost += c * (weight * d).mean()
 
-
         total_cost.name = 'total_cost(V_hat_unmasked = %s)' % V_hat_unmasked.name
+
+        if return_locals:
+            return total_cost, locals()
 
         return total_cost
 
@@ -510,9 +527,7 @@ class SuperDenoise(Cost):
         del self.self
         self.theano_rng = RandomStreams(20120930)
 
-
     def get_monitoring_channels(self, model, X, Y = None, drop_mask = None):
-
 
         rval = OrderedDict()
 
@@ -520,6 +535,7 @@ class SuperDenoise(Cost):
 
         history = scratch['history']
         X_tilde = scratch['X_tilde']
+
 
         for ii, state in enumerate(history):
             rval['obj_after_' + str(ii)] = self.cost_from_state(state,
@@ -534,7 +550,7 @@ class SuperDenoise(Cost):
                 h0 = state['H_hat'][0]
                 prev_h0 = prev_state['H_hat'][0]
                 assert h0 is not prev_h0
-                rval['max_h0_diff[%d]'%ii] = abs(h0[0] - prev_h0[0]).max()
+                rval['max_h0_diff[%d]' % ii] = abs(h0[0] - prev_h0[0]).max()
 
         final_state = history[-1]
 
