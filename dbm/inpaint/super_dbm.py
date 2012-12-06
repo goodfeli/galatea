@@ -1,4 +1,6 @@
 from pylearn2.models.model import Model
+from pylearn2 import utils
+from pylearn2.costs.cost import FixedVarDescr
 import theano
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
@@ -1666,14 +1668,69 @@ class DBM_WeightDecay(Cost):
         layer_costs = [ cost for cost in layer_costs if cost != 0.]
 
         if len(layer_costs) == 0:
-            return T.as_tensor_variable(0.)
+            rval =  T.as_tensor_variable(0.)
+            rval.name = '0_weight_decay'
+            return rval
         else:
             total_cost = reduce(lambda x, y: x + y, layer_costs)
         total_cost.name = 'DBM_WeightDecay'
 
         assert total_cost.ndim == 0
 
+        total_cost.name = 'weight_decay'
+
         return total_cost
+
+class StochasticWeightDecay(Cost):
+
+    def __init__(self, coeffs, include_prob):
+        self.__dict__.update(locals())
+        del self.self
+
+    def __call__(self, model, X, Y=None, swd_masks=None, **kwargs):
+        weights = self.get_weights(model)
+
+        total_cost = 0.
+
+        for c, w, m in safe_zip(self.coeffs, weights, swd_masks):
+            total_cost += c * T.sqr(w*m).sum()
+
+        total_cost.name = 'stochastic_weight_decay'
+
+        return total_cost
+
+    def get_weights(self, model):
+
+        rval = []
+
+        for layer in model.hidden_layers:
+            params = layer.get_params()
+            weights = [ param for param in params if param.ndim == 2]
+            assert len(weights) == 1
+            rval.append(weights[0])
+
+        return rval
+
+    def get_fixed_var_descr(self, model, X, Y):
+
+        rval = FixedVarDescr()
+
+        masks = [sharedX(w.get_value() * 0.) for w in self.get_weights(model)]
+
+        rval.fixed_vars = {'swd_masks' : masks}
+
+        theano_rng = MRG_RandomStreams(201255319)
+
+        updates = [(m, theano_rng.binomial(p=self.include_prob, size=m.shape, dtype=config.floatX))
+                for m in masks]
+
+        rval.on_load_batch = [ utils.function([X, Y], updates=updates) ]
+
+        return rval
+
+
+
+
 
 def set_niter(super_dbm, niter):
     super_dbm.niter = niter

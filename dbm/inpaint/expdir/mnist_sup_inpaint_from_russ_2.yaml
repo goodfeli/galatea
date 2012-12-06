@@ -9,11 +9,12 @@
         stop: 50000
     }},
     model: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-              niter: 6, #note: since we have to backprop through the whole thing, this does
-                         #increase the memory usage
+              niter: 6,
            super_dbm: !pkl: "${G}/dbm/inpaint/russ/after_joint_train_gpu.pkl"
     },
-    algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               scale_step: .1,
+               seed: [2012, 10, 17],
                monitoring_dataset : {
                         'train': *train,
                         'valid': !obj:pylearn2.datasets.binarizer.Binarizer { raw: !obj:pylearn2.datasets.mnist.MNIST {
@@ -29,26 +30,25 @@
                reset_alpha: 0,
                conjugate: 1,
                reset_conjugate: 0,
-               max_iter: 5,
+               updates_per_batch: 5,
                cost: !obj:pylearn2.costs.cost.SumOfCosts {
                        costs :[
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
                                         both_directions : 0,
                                         noise : 0,
                                         supervised: 1,
-                                        l1_act_targets: [  .06, .07, 0. ],
-                                        l1_act_eps:     [  .04,  .05, 0. ],
-                                        l1_act_coeffs:  [ .01,  .000, 0.  ]
+                                        toronto_act_targets: [  .2, .1, 0. ],
+                                        toronto_act_coeffs:  [ .001,  .001, 0.  ],
+                                        mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                                                drop_prob: 0.1,
+                                                balance: 0,
+                                                sync_channels: 0
+                                        }
                                },
                                !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
                                         coeffs: [ .0000005, .0000005, .0000005 ]
                                }
                        ]
-               },
-               mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
-                        drop_prob: 0.1,
-                        balance: 0,
-                        sync_channels: 0
                },
                termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
                {
