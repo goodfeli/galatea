@@ -22,6 +22,7 @@ from pylearn2.costs.cost import Cost
 from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
 from pylearn2.utils import _ElemwiseNoGradient
+from pylearn2.utils import safe_union
 from theano import config
 io = None
 from pylearn2.train_extensions import TrainExtension
@@ -728,6 +729,9 @@ class ConvMaxPool(HiddenLayer):
     def upward_state(self, total_state):
         p,h = total_state
 
+        if not hasattr(self, 'center'):
+            self.center = False
+
         if self.center:
             p -= self.p_offset
             h -= self.h_offset
@@ -736,6 +740,9 @@ class ConvMaxPool(HiddenLayer):
 
     def downward_state(self, total_state):
         p,h = total_state
+
+        if not hasattr(self, 'center'):
+            self.center = False
 
         if self.center:
             p -= self.p_offset
@@ -1333,6 +1340,9 @@ class CompositeLayer(HiddenLayer):
 
         self.output_space = CompositeSpace([ component.get_output_space() for component in self.components ])
 
+    def get_total_state_space(self):
+        return CompositeSpace([component.get_total_state_space() for component in self.components])
+
     def set_batch_size(self, batch_size):
         for component in self.components:
             component.set_batch_size(batch_size)
@@ -1446,7 +1456,7 @@ class CompositeLayer(HiddenLayer):
             for comp, s, c in safe_zip(self.components, state, coeffs)])
 
     def get_params(self):
-        return reduce(lambda x, y: x.union(y),
+        return reduce(lambda x, y: safe_union(x, y),
                 [component.get_params() for component in self.components])
 
     def get_weights_topo(self):

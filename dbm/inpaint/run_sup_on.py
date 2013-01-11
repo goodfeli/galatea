@@ -2,6 +2,8 @@ import sys
 import os
 _, path = sys.argv
 
+assert 'best' in path
+
 parent = path.split('/')[:-1]
 parent = '/'.join(parent)
 
