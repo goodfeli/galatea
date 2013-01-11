@@ -7,6 +7,7 @@ from theano import config
 from pylearn2.utils import make_name
 from pylearn2.utils import safe_izip
 from pylearn2.utils import safe_zip
+from pylearn2 import utils
 from pylearn2.models.dbm import flatten
 from theano import function
 from pylearn2.utils import sharedX
@@ -194,6 +195,8 @@ class SuperInpaint(Cost):
         l1_act_cost = sublocals['l1_act_cost']
         inpaint_cost = sublocals['inpaint_cost']
 
+        if not hasattr(self, 'robustness'):
+            self.robustness = None
         if self.robustness is not None:
             inpainting_H_hat = history[-1]['H_hat']
             mf_H_hat = dbm.mf(X, Y=Y)
@@ -203,6 +206,8 @@ class SuperInpaint(Cost):
                 for ihh, mhh in safe_izip(flatten(inpainting_H_hat), flatten(mf_H_hat)):
                     total_cost += self.robustness * T.sqr(mhh-ihh).sum()
 
+        if not hasattr(self, 'toronto_act_targets'):
+            self.toronto_act_targets = None
         toronto_act_cost = None
         if self.toronto_act_targets is not None and include_toronto:
             toronto_act_cost = 0.
@@ -243,6 +248,14 @@ class SuperInpaint(Cost):
             update_X, update_Y = self.mask_gen(X, Y)
             updates[drop_mask_Y] = update_Y
             rval.fixed_vars['drop_mask_Y'] =  drop_mask_Y
+        if self.mask_gen.sync_channels:
+            n = update_X.ndim
+            assert n == drop_mask_X.ndim - 1
+            update_X.name = 'raw_update_X'
+            zeros_like_X = T.zeros_like(X)
+            zeros_like_X.name = 'zeros_like_X'
+            update_X = zeros_like_X + update_X.dimshuffle(0,1,2,'x')
+            update_X.name = 'update_X'
         updates[drop_mask_X] = update_X
 
         rval.fixed_vars['drop_mask'] = drop_mask_X
@@ -264,7 +277,7 @@ class SuperInpaint(Cost):
             for elem in flatten(hid):
                 updates[elem] =  theano_rng.binomial(p=include_prob, size=elem.shape, dtype=elem.dtype, n=1) / include_prob
 
-        rval.on_load_batch = [function(inputs, updates=updates, on_unused_input='ignore')]
+        rval.on_load_batch = [utils.function(inputs, updates=updates)]
 
         return rval
 
@@ -359,6 +372,8 @@ class SuperInpaint(Cost):
 
         total_cost = inpaint_cost
 
+        if not hasattr(self, 'range_rewards'):
+            self.range_rewards = None
         if self.range_rewards is not None:
             for layer, mf_state, coeffs in safe_izip(
                     dbm.hidden_layers,
@@ -374,6 +389,8 @@ class SuperInpaint(Cost):
                 if layer_cost != 0.:
                     total_cost += layer_cost
 
+        if not hasattr(self, 'stdev_rewards'):
+            self.stdev_rewards = None
         if self.stdev_rewards is not None:
             assert False # not monitored yet
             for layer, mf_state, coeffs in safe_izip(
@@ -414,6 +431,8 @@ class SuperInpaint(Cost):
             total_cost += l1_act_cost
         # end if act penalty
 
+        if not hasattr(self, 'hid_presynaptic_cost'):
+            self.hid_presynaptic_cost = None
         if self.hid_presynaptic_cost is not None:
             assert False # not monitored yet
             for c, s, in safe_izip(self.hid_presynaptic_cost, state['H_hat']):
@@ -432,6 +451,8 @@ class SuperInpaint(Cost):
 
                 total_cost += c * T.sqr(z).mean()
 
+        if not hasattr(self, 'reweighted_act_targets'):
+            self.reweighted_act_targets = None
         if self.reweighted_act_targets is not None:
             assert False # not monitored yet
             # hardcoded for sigmoid layers
@@ -458,11 +479,6 @@ class MaskGen:
         del self.self
 
     def __call__(self, X, Y = None):
-        if hasattr(self, 'called'):
-            # shouldn't be called twice because the seed is hardcoded
-            # inside the call.
-            # also, for current application, calling twice indicates a bug.
-            assert False
         self.called = True
         assert X.dtype == config.floatX
         theano_rng = RandomStreams(20120712)
@@ -472,7 +488,7 @@ class MaskGen:
 
         p = self.drop_prob
 
-        if self.drop_prob_y is None:
+        if not hasattr(self, 'drop_prob_y') or self.drop_prob_y is None:
             yp = p
         else:
             yp =self.drop_prob_y

@@ -10,7 +10,7 @@
         model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
                         decapitate: 0,
                         super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-                                super_dbm: !pkl: "expdir/mnist_sup_inpaint_PWD1.pkl",
+                                super_dbm: !pkl: "expdir/sup_on_mnist_sup_inpaint_PWE1_best.pkl",
                                 niter: 6
                         },
     },

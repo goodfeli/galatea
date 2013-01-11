@@ -1,38 +1,16 @@
-import sys
-import os
-_, path = sys.argv
-
-assert 'best' in path
-
-parent = path.split('/')[:-1]
-parent = '/'.join(parent)
-
-outpath = parent + '/' + 'sup_on_'+path.split('/')[-1]
-outpath = outpath.replace('.pkl','.yaml')
-print "THEANO_FLAGS='device=gpu' train.py",outpath
-
-if os.path.exists(outpath.replace('.yaml','.pkl')):
-    print outpath.replace('.yaml', '.pkl')
-    assert False
-
-f = open(outpath, 'w')
-
-f.write(
-"""
 !obj:pylearn2.train.Train {
-    dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
+    dataset:  &train !obj:pylearn2.datasets.binarizer.Binarizer {
+        raw: !obj:pylearn2.datasets.mnist.MNIST {
+
         which_set: "train",
         #binarize: 1,
         one_hot: 1,
         start: 0,
         stop: 50000
-    },
-        model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
-                        decapitate: 0,
-                        super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
-                                super_dbm: !pkl: "%(path)s",
-                                niter: 6
-                        },
+    }},
+        model: !obj:pylearn2.monitor.push_monitor {
+                   model: !pkl: "expdir/mnist_sup_inpaint_PWE2_best.pkl",
+                   name: 'monitor_inpaint'
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
                line_search_mode: 'exhaustive',
@@ -44,18 +22,22 @@ f.write(
                reset_conjugate: 0,
                monitoring_dataset: {
                                 'train' : *train,
-                                'valid' : !obj:pylearn2.datasets.mnist.MNIST {
+                                'valid' : !obj:pylearn2.datasets.binarizer.Binarizer {
+                                    seed: 1973,
+                                    raw: !obj:pylearn2.datasets.mnist.MNIST {
                                         which_set: "train",
                                         #binarize: 1,
                                         one_hot: 1,
                                         start: 50000,
                                         stop:  60000
-                                        },
-                                'test' : !obj:pylearn2.datasets.mnist.MNIST {
+                                        }},
+                                'test' : !obj:pylearn2.datasets.binarizer.Binarizer {
+                                    seed: 2015,
+                                    raw: !obj:pylearn2.datasets.mnist.MNIST {
                                         which_set: "test",
                                         #binarize: 1,
                                         one_hot: 1,
-                                        }
+                                        }}
                },
                cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
                },
@@ -75,13 +57,3 @@ f.write(
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
     save_freq : 1
 }
-""" % locals())
-
-f.close()
-print 'run train yourself, for some reason the subprocess was claiming a second gpu'
-quit()
-from pylearn2.utils.shell import run_shell_command
-print 'shell will hide output until done, yay python'
-out, rc = run_shell_command('train.py '+outpath)
-print 'return code ',rc
-print out

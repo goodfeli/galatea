@@ -94,6 +94,7 @@ if cost.supervised:
 
 f = function(inputs, outputs)
 
+topo = X.ndim > 2
 
 if cost.supervised:
     n_classes = model.hidden_layers[-1].n_classes
@@ -123,7 +124,6 @@ if dropout:
         updates[elem] =  theano_rng.binomial(p=include_prob, size=elem.shape, dtype=elem.dtype, n=1) / include_prob
     do_dropout = function([], updates=updates)
 
-topo = X.ndim > 2
 
 while True:
     if dropout:

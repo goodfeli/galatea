@@ -1,0 +1,90 @@
+# like cifar100_A4
+# but on cifar10
+!obj:pylearn2.train.Train {
+    dataset: &data !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        which_set: 'train',
+        gcn: 55.
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 100,
+              niter: 6, 
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
+                rows: 32,
+                cols: 32,
+                channels: 3,
+                init_beta: 3.7,
+                init_mu: 0.
+              },
+              hidden_layers: [
+                                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                                        scale_by_sharing: 0,
+                                        border_mode : 'full',
+                                        output_channels: 64,
+                                        kernel_rows: 8,
+                                        kernel_cols: 8,
+                                        pool_rows: 3,
+                                        pool_cols: 3,
+                                        irange: 0.05,
+                                        layer_name: 'h0_conv',
+                                        init_bias: -5.
+                               },
+                                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                                        scale_by_sharing: 0,
+                                        border_mode : 'full',
+                                        output_channels: 64,
+                                        kernel_rows: 4,
+                                        kernel_cols: 4,
+                                        pool_rows: 2,
+                                        pool_cols: 2,
+                                        irange: 0.05,
+                                        layer_name: 'h1_conv',
+                                        init_bias: -5.
+                               }
+                               ],
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               scale_step: 1.,
+               conjugate: 1,
+               line_search_mode: 'exhaustive',
+               reset_conjugate: 0,
+               reset_alpha: 0,
+               batches_per_iter : 10,
+               monitoring_batches : 1,
+               monitoring_dataset : *data,
+               init_alpha : [ 1e-3, 1e-2, 1e-1, 2e-1, 1.],
+               batches_per_iter: 5,
+               cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs: [
+                        !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                                both_directions : 0,
+                                noise : 0,
+                                l1_act_targets: [ [.06, 1.], [.06, 1.]],
+                                l1_act_eps: [ [.02, .0], [.02, 1.]],
+                                l1_act_coeffs:[ [1., 0.0], [.1, 0.]],
+                                   mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                                            drop_prob: 0.5,
+                                            balance: 0,
+                                            sync_channels: 1
+                                   }
+                        },
+                        !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                                coeffs: [ .0000005, .0000005 ]
+                        }
+                       ]
+               },
+        },
+    extensions: [
+        !obj:pylearn2.training_algorithms.bgd.StepShrinker {
+            channel: 'objective',
+            scale: .5,
+            giveup_after: .01
+        },
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+            channel_name: "objective",
+            save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+
