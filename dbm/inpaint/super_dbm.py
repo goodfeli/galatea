@@ -286,22 +286,18 @@ class SuperDBM(DBM):
 
             # this should be non-negative
             hid_stuff = H * (1. - H)
-            #hid_stuff = Print('hid_stuff',attrs=['min'])(hid_stuff)
 
             # this should be non-negative
             vis_stuff =  hid.transformer.lmul_sq_T(hid_stuff)
-            #vis_stuff = Print('vis_stuff',attrs=['min'])(vis_stuff)
 
             sq_beta = T.sqr(beta)
 
             # this should be non-negative
             first_term_presum = sq_beta *(0.5* T.square(V-recons)+vis_stuff)
-            #first_term_presum = Print('first_term_presum',attrs=['min'])(first_term_presum)
             first_term = first_term_presum.sum(axis=(1,2,3)).mean()
             assert first_term.ndim == 0
 
             second_term = - beta.sum()
-            #second_term = Print('second_term')(second_term)
 
             return first_term + second_term
         #end if gconv + convmaxpool
@@ -2981,7 +2977,22 @@ class Dropout(InferenceProcedure):
     iteration, rather than doubling the weights on the first pass.
     """
 
-    def __init__(self, include_prob=0.5):
+    def set_dbm(self, dbm):
+        self.dbm = dbm
+        def dropout_mask_like(x):
+            return sharedX(0. * x.get_value())
+
+        def dropout_structure(x):
+            if isinstance(x, (list, tuple)):
+                return [ dropout_structure(elem) for elem in x]
+            return dropout_mask_like(x)
+
+        if not hasattr(self, 'V_dropout'):
+            self.V_dropout = dropout_structure(dbm.visible_layer.make_state(dbm.batch_size, dbm.rng))
+            H_hat_states = [layer.make_state(dbm.batch_size, dbm.rng) for layer in dbm.hidden_layers]
+            self.H_dropout = dropout_structure(H_hat_states)
+
+    def __init__(self, include_prob=0.5, include_prob_V = 1., include_prob_Y = 1.):
         self.__dict__.update(locals())
         del self.self
 
@@ -3166,18 +3177,6 @@ class Dropout(InferenceProcedure):
             Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
             H_hat[-1] = Y_hat
 
-        def dropout_mask_like(x):
-            return sharedX(2. * (dbm.rng.uniform(0., 1., x.get_value().shape) > 0.5))
-
-        def dropout_structure(x):
-            if isinstance(x, (list, tuple)):
-                return [ dropout_structure(elem) for elem in x]
-            return dropout_mask_like(x)
-
-        if not hasattr(self, 'V_dropout'):
-            self.V_dropout = dropout_structure(V)
-            H_hat_states = [layer.make_state(dbm.batch_size, dbm.rng) for layer in dbm.hidden_layers]
-            self.H_dropout = dropout_structure(H_hat_states)
         V_dropout = self.V_dropout
         H_dropout = self.H_dropout
 

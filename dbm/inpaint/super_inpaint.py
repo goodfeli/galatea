@@ -13,6 +13,7 @@ from pylearn2.utils import sharedX
 import warnings
 import numpy as np
 from theano.printing import Print
+from theano.sandbox.rng_mrg import MRG_RandomStreams
 
 warnings.warn("""Check math on all of super DBM--make sure probabilistic max pooling,
 gaussian units, and treating half of v as hidden has all been handled correctly. Also,
@@ -245,6 +246,24 @@ class SuperInpaint(Cost):
         updates[drop_mask_X] = update_X
 
         rval.fixed_vars['drop_mask'] = drop_mask_X
+
+        if hasattr(model.inference_procedure, 'V_dropout'):
+            include_prob = model.inference_procedure.include_prob
+            include_prob_V = model.inference_procedure.include_prob_V
+            include_prob_Y = model.inference_procedure.include_prob_Y
+
+            theano_rng = MRG_RandomStreams(2012+11+20)
+            for elem in flatten([model.inference_procedure.V_dropout]):
+                updates[elem] = theano_rng.binomial(p=include_prob_V, size=elem.shape, dtype=elem.dtype, n=1) / include_prob_V
+            if "Softmax" in str(type(model.hidden_layers[-1])):
+                hid = model.inference_procedure.H_dropout[:-1]
+                y = model.inference_procedure.H_dropout[-1]
+                updates[y] = theano_rng.binomial(p=include_prob_Y, size=y.shape, dtype=y.dtype, n=1) / include_prob_Y
+            else:
+                hid = model.inference_procedure.H_dropout
+            for elem in flatten(hid):
+                updates[elem] =  theano_rng.binomial(p=include_prob, size=elem.shape, dtype=elem.dtype, n=1) / include_prob
+
         rval.on_load_batch = [function(inputs, updates=updates, on_unused_input='ignore')]
 
         return rval
