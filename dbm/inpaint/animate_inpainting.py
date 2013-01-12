@@ -64,8 +64,27 @@ except:
         cost = DBM_Inpaint_Binary(mask_gen = mask_gen, n_iter = n_iter)
     cost.mask_gen = mask_gen
 
+
 space = model.get_input_space()
 X = space.make_theano_batch()
+if X.ndim == 4:
+    x = raw_input("mask half of image?")
+    if x == 'y':
+        class DummyMaskGen(object):
+            sync_channels = 0
+
+            def __call__(self, X, Y=None):
+                left_mask = T.ones_like(X[:, :, 0:X.shape[2]/2, :])
+                right_mask = T.zeros_like(X[:, :, X.shape[2]/2:, :])
+                X_mask = T.concatenate((left_mask, right_mask), axis=2)
+                Y_mask = T.zeros_like(Y[:,0])
+                return X_mask, Y_mask
+        mask_gen = DummyMaskGen()
+
+        cost.mask_gen = mask_gen
+
+        model.niter = 50
+
 if cost.supervised:
     Y = T.matrix()
 else:
