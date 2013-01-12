@@ -827,6 +827,10 @@ class ConvMaxPool(HiddenLayer):
 
         if state_above is not None:
             msg = layer_above.downward_message(state_above)
+            try:
+                self.output_space.validate(msg)
+            except TypeError, e:
+                raise TypeError(str(type(layer_above))+".downward_message gave something that was not the right type: "+str(e))
         else:
             msg = None
 
