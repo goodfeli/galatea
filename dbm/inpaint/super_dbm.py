@@ -897,10 +897,10 @@ class ConvMaxPool(HiddenLayer):
 
         t2 = time.time()
 
-        f = function([], updates = {
-            p_state : p_sample,
-            h_state : h_sample
-            })
+        f = function([], updates = [
+            (p_state, p_sample),
+            (h_state, h_sample)
+            ])
 
         t3 = time.time()
 
