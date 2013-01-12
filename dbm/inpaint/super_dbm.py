@@ -1344,6 +1344,10 @@ class CompositeLayer(HiddenLayer):
 
         self.output_space = CompositeSpace([ component.get_output_space() for component in self.components ])
 
+    def make_state(self, num_examples, numpy_rng):
+        return tuple(component.make_state(num_examples, numpy_rng) for
+                component in self.components)
+
     def get_total_state_space(self):
         return CompositeSpace([component.get_total_state_space() for component in self.components])
 
@@ -1479,6 +1483,40 @@ class CompositeLayer(HiddenLayer):
                 rval[layer.layer_name+'_'+key] = d[key]
 
         return rval
+
+    def sample(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+        rval = []
+
+        for i, component in enumerate(self.components):
+            if self.routing_needed and i in self.components_to_inputs:
+                cur_state_below =self.input_space.restrict_batch(state_below, self.components_to_inputs[i])
+            else:
+                cur_state_below = state_below
+
+            class RoutingLayer(object):
+                def __init__(self, idx, layer):
+                    self.__dict__.update(locals())
+                    del self.self
+                    self.layer_name = 'route_'+str(idx)+'_'+layer.layer_name
+
+                def downward_message(self, state):
+                    return self.layer.downward_message(state)[self.idx]
+
+            if layer_above is not None:
+                cur_layer_above = RoutingLayer(i, layer_above)
+            else:
+                cur_layer_above = None
+
+            sample = component.sample(state_below = cur_state_below,
+                                            state_above = state_above,
+                                            layer_above = cur_layer_above,
+                                            theano_rng = theano_rng)
+
+            rval.append(sample)
+
+        return tuple(rval)
 
 
 class BinaryVisLayer(dbm.BinaryVector):
