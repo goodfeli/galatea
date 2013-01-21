@@ -74,7 +74,8 @@ class SuperInpaint(Cost):
             new_drop_mask_Y = scratch['new_drop_mask_Y']
 
         ii = 0
-        for name in ['inpaint_cost', 'l1_act_cost', 'toronto_act_cost']:
+        for name in ['inpaint_cost', 'l1_act_cost', 'toronto_act_cost',
+                'reweighted_act_cost']:
             var = scratch[name]
             if var is not None:
                 rval['total_inpaint_cost_term_'+str(ii)+'_'+name] = var
@@ -194,6 +195,7 @@ class SuperInpaint(Cost):
                 return_locals=True)
         l1_act_cost = sublocals['l1_act_cost']
         inpaint_cost = sublocals['inpaint_cost']
+        reweighted_act_cost = sublocals['reweighted_act_cost']
 
         if not hasattr(self, 'robustness'):
             self.robustness = None
@@ -453,9 +455,11 @@ class SuperInpaint(Cost):
 
         if not hasattr(self, 'reweighted_act_targets'):
             self.reweighted_act_targets = None
+        reweighted_act_cost = None
         if self.reweighted_act_targets is not None:
-            assert False # not monitored yet
-            # hardcoded for sigmoid layers
+            reweighted_act_cost = 0.
+            warnings.warn("reweighted_act_cost is hardcoded for sigmoid layers and doesn't check that this is "
+                    "what we get.")
             for c, t, s in safe_izip(self.reweighted_act_coeffs, self.reweighted_act_targets, state['H_hat']):
                 if c == 0:
                     continue
@@ -463,7 +467,8 @@ class SuperInpaint(Cost):
                 m = s.mean(axis=0)
                 d = T.sqr(m-t)
                 weight = 1./(1e-7+s*(1-s))
-                total_cost += c * (weight * d).mean()
+                reweighted_act_cost += c * (weight * d).mean()
+            total_cost += reweighted_act_cost
 
         total_cost.name = 'total_cost(V_hat_unmasked = %s)' % V_hat_unmasked.name
 
@@ -491,7 +496,7 @@ class MaskGen:
         if not hasattr(self, 'drop_prob_y') or self.drop_prob_y is None:
             yp = p
         else:
-            yp =self.drop_prob_y
+            yp = self.drop_prob_y
 
         if self.balance:
             flip = theano_rng.binomial(

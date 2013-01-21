@@ -899,7 +899,7 @@ class ConvMaxPool(HiddenLayer):
                 'b': self.dbm.batch_size,
                 0: self.h_space.shape[0],
                 1: self.h_space.shape[1],
-                'c': self.h_space.nchannels
+                'c': self.h_space.num_channels
                 }
         # work around theano bug with broadcasted stuff
         default_z += T.alloc(*([0.]+[shape[elem] for elem in self.h_space.axes])).astype(default_z.dtype)
