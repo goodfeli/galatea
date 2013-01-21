@@ -307,16 +307,18 @@ class SuperDBM(DBM):
 
 
 
-class GaussianConvolutionalVisLayer(VisibleLayer):
+class GaussianVisLayer(VisibleLayer):
     def __init__(self,
-            rows,
-            cols,
-            channels,
+            rows = None,
+            cols = None,
+            channels = None,
+            nvis = None,
             init_beta = 1.,
             min_beta = 1.,
-            init_mu = 0.,
+            init_mu = None,
             tie_beta = None,
-            tie_mu = None):
+            tie_mu = None,
+            bias_from_marginals = None):
         """
             Implements a visible layer that is conditionally gaussian with
             diagonal variance. The layer lives in a Conv2DSpace.
@@ -342,7 +344,26 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
         self.__dict__.update(locals())
         del self.self
 
-        self.space = Conv2DSpace(shape = [rows,cols], nchannels = channels)
+        if bias_from_marginals is not None:
+            del self.bias_from_marginals
+            if self.nvis is None:
+                raise NotImplementedError()
+            assert init_mu is None
+            init_mu = bias_from_marginals.X.mean(axis=0)
+
+        if init_mu is None:
+            init_mu = 0.
+
+        if nvis is None:
+            assert rows is not None
+            assert cols is not None
+            assert channels is not None
+            self.space = Conv2DSpace(shape = [rows,cols], num_channels = channels)
+        else:
+            assert rows is None
+            assert cols is None
+            assert channels is None
+            self.space = VectorSpace(nvis)
         self.input_space = self.space
 
         origin = self.space.get_origin()
@@ -350,6 +371,7 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
         beta_origin = origin.copy()
         assert tie_beta in [ None, 'locations']
         if tie_beta == 'locations':
+            assert nvis is None
             beta_origin = beta_origin[0,0,:]
         self.beta = sharedX( beta_origin + init_beta,name = 'beta')
         assert self.beta.ndim == beta_origin.ndim
@@ -357,6 +379,7 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
         mu_origin = origin.copy()
         assert tie_mu in [None, 'locations']
         if tie_mu == 'locations':
+            assert nvis is None
             mu_origin = mu_origin[0,0,:]
         self.mu = sharedX( mu_origin + init_mu, name = 'mu')
         assert self.mu.ndim == mu_origin.ndim
@@ -370,17 +393,20 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
         rval = OrderedDict()
         warn = False
 
-        rows, cols = self.space.shape
-        num_loc = float(rows * cols)
+        if self.nvis is None:
+            rows, cols = self.space.shape
+            num_loc = float(rows * cols)
 
         assert self.tie_beta in [None, 'locations']
         if self.tie_beta == 'locations':
             warn = True
+            assert self.nvis is None
             rval[self.beta] = 1./num_loc
 
         assert self.tie_mu in [None, 'locations']
         if self.tie_mu == 'locations':
             warn = True
+            assert self.nvis is None
             rval[self.mu] = 1./num_loc
 
         if warn:
@@ -409,7 +435,10 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
             unmasked = self.mu.dimshuffle('x', 'x', 'x', 0)
         else:
             assert self.tie_mu is None
-            unmasked = self.mu.dimshuffle('x', 0, 1, 2)
+            if self.nvis is None:
+                unmasked = self.mu.dimshuffle('x', 0, 1, 2)
+            else:
+                unmasked = self.mu.dimshuffle('x', 0)
         masked_mu = unmasked * drop_mask
         masked_mu = block_gradient(masked_mu)
         masked_mu.name = 'masked_mu'
@@ -439,7 +468,11 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
         if average:
             raise NotImplementedError(str(type(self))+" doesn't support integrating out variational parameters yet.")
         else:
-            rval =  0.5 * (self.beta * T.sqr(state - self.mu)).sum(axis=(1,2,3))
+            if self.nvis is None:
+                axis = (1,2,3)
+            else:
+                axis = 1
+            rval =  0.5 * (self.beta * T.sqr(state - self.mu)).sum(axis=axis)
         assert rval.ndim == 1
         return rval
 
@@ -497,7 +530,7 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
         return masked_cost.mean()
 
     def upward_state(self, total_state):
-        if total_state.ndim != 4:
+        if self.nvis is None and total_state.ndim != 4:
             raise ValueError("total_state should have 4 dimensions, has "+str(total_state.ndim))
         assert total_state is not None
         V = total_state
@@ -506,10 +539,18 @@ class GaussianConvolutionalVisLayer(VisibleLayer):
 
     def make_state(self, num_examples, numpy_rng):
 
-        rows, cols = self.space.shape
-        channels = self.space.nchannels
+        shape = [num_examples]
 
-        sample = numpy_rng.randn(num_examples, rows, cols, channels)
+        if self.nvis is None:
+            rows, cols = self.space.shape
+            channels = self.space.num_channels
+            shape.append(rows)
+            shape.append(cols)
+            shape.append(channels)
+        else:
+            shape.append(self.nvis)
+
+        sample = numpy_rng.randn(*shape)
 
         sample *= 1./np.sqrt(self.beta.get_value())
         sample += self.mu.get_value()
@@ -567,7 +608,7 @@ class ConvMaxPool(HiddenLayer):
                     str(type(space))+" as input.")
         self.input_space = space
         self.input_rows, self.input_cols = space.shape
-        self.input_channels = space.nchannels
+        self.input_channels = space.num_channels
 
         if self.border_mode == 'valid':
             self.h_rows = self.input_rows - self.kernel_rows + 1
@@ -583,11 +624,11 @@ class ConvMaxPool(HiddenLayer):
                     (self.h_rows, self.pool_rows, self.h_rows % self.pool_rows))
         assert self.h_cols % self.pool_cols == 0
 
-        self.h_space = Conv2DSpace(shape = (self.h_rows, self.h_cols), nchannels = self.output_channels,
+        self.h_space = Conv2DSpace(shape = (self.h_rows, self.h_cols), num_channels = self.output_channels,
                 axes = self.output_axes)
         self.output_space = Conv2DSpace(shape = (self.h_rows / self.pool_rows,
                                                 self.h_cols / self.pool_cols),
-                                                nchannels = self.output_channels,
+                                                num_channels = self.output_channels,
                 axes = self.output_axes)
 
         print self.layer_name,': detector shape:',self.h_space.shape,'pool shape:',self.output_space.shape
