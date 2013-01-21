@@ -740,8 +740,10 @@ class ConvMaxPool(HiddenLayer):
             if eps is None:
                 eps = [0., 0.]
             assert all([len(elem) == 2 for elem in [state, target, coeff]])
-            if target[1] < target[0] and coeff[1] != 0.:
-                warnings.warn("Do you really want to regularize the detector units to be sparser than the pooling units?")
+            p_target, h_target = target
+            if h_target > p_target and (coeff[0] != 0. and coeff[1] != 0.):
+                # note that, within each group, E[p] is the sum of E[h]
+                warnings.warn("Do you really want to regularize the detector units to be more active than the pooling units?")
 
         for s, t, c, e in safe_zip(state, target, coeff, eps):
             if c == 0.:
