@@ -66,7 +66,7 @@ import numpy as np
 x = []
 ys = []
 
-eps = .01
+eps = .1
 for drop_prob in np.arange(eps, 1.0, eps):
     print 'Running experiment for drop_prob=%f...' % drop_prob
     mask_gen.drop_prob.set_value(np.cast[mask_gen.drop_prob.dtype](drop_prob))
