@@ -1986,7 +1986,12 @@ class MLP_Wrapper(Model):
         self._params = []
 
         # Layer 1
-        self.vishid = sharedX(l1.get_weights(), 'vishid')
+        W = l1.get_weights()
+        vis = super_dbm.visible_layer
+        if hasattr(vis, 'beta'):
+            beta = vis.beta.get_value()
+            W = (beta * W.T).T
+        self.vishid = sharedX(W, 'vishid')
         self._params.append(self.vishid)
         self.hidbias = sharedX(l1.get_biases(), 'hidbias')
         self._params.append(self.hidbias)
