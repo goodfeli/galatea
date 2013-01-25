@@ -1,0 +1,873 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+How to average together exponentially many sub-DBM's 
+\begin_inset Formula $p(v,h)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $v$
+\end_inset
+
+ be a binary vector.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $h$
+\end_inset
+
+ a sequence of binary vectors, with 
+\begin_inset Formula $h^{(l)}$
+\end_inset
+
+ being hidden layer 
+\begin_inset Formula $l$
+\end_inset
+
+, with 
+\begin_inset Formula $h^{(1)}$
+\end_inset
+
+ being the first hidden layer.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $L$
+\end_inset
+
+ be the total numer of hidden layers.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $d$
+\end_inset
+
+ be a sequence of binary vectors, with 
+\begin_inset Formula $d^{(0)}$
+\end_inset
+
+having the same dimension as 
+\begin_inset Formula $v$
+\end_inset
+
+, and 
+\begin_inset Formula $d^{(l)}$
+\end_inset
+
+ having the same dimension as 
+\begin_inset Formula $h^{(l)}$
+\end_inset
+
+ for 
+\begin_inset Formula $l=1,\dots,L$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $N$
+\end_inset
+
+be the total number of elements in all of 
+\begin_inset Formula $v$
+\end_inset
+
+ and 
+\begin_inset Formula $h$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $r(v,h,d)$
+\end_inset
+
+ be the restriction of 
+\begin_inset Formula $v$
+\end_inset
+
+ and 
+\begin_inset Formula $h$
+\end_inset
+
+ according to 
+\begin_inset Formula $d$
+\end_inset
+
+.
+ i.e., it discards all elements of 
+\begin_inset Formula $v$
+\end_inset
+
+ and 
+\begin_inset Formula $h$
+\end_inset
+
+ for which the corresponding element of 
+\begin_inset Formula $d$
+\end_inset
+
+ is 0.
+\end_layout
+
+\begin_layout Standard
+For each assignment of 
+\begin_inset Formula $d$
+\end_inset
+
+, we define a different model
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p_{d}(r(v,h,d))=\frac{1}{Z_{d}}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula 
+\[
+E(v,h)=-b^{(0)T}v-v^{T}W^{(1)}h^{(1)}-\sum_{l=2}^{L}h^{(l-1)T}W^{(l)}h^{(l)}-\sum_{l=1}^{L}b^{(l)T}h^{(l)}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now define a joint model based on geometric model averaging
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p(v,h)\propto\sqrt[2^{N}]{\Pi_{d}p_{d}(r(v,h,d))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Because I've done the math before, I know the factor on the right can be
+ expressed as 
+\begin_inset Formula $\exp(E'(v,h)).$
+\end_inset
+
+ This means that the model is normalized by a constant 
+\begin_inset Formula 
+\[
+\frac{1}{Z}=\sqrt[2^{N}]{\Pi_{D}\frac{1}{Z_{d}}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+which leaves us with 
+\begin_inset Formula 
+\[
+\tilde{p}(v,h)=\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\exp\left(-\sum_{d}E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\exp\left(-\frac{1}{2^{N}}\sum_{d}E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\exp\left(-\left(-\frac{1}{2}b^{(0)T}v-\frac{1}{4}v^{T}W^{(1)}h^{(1)}-\frac{1}{4}\sum_{l=2}^{L}h^{(l-1)T}W^{(l)}h^{(l)}-\frac{1}{2}\sum_{l=1}^{L}b^{(l)T}h^{(l)}\right)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+so
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E'(v,h)=-\frac{1}{2}b^{(0)T}v-\frac{1}{4}v^{T}W^{(1)}h^{(1)}-\frac{1}{4}\sum_{l=2}^{L}h^{(l-1)T}W^{(l)}h^{(l)}-\frac{1}{2}\sum_{l=1}^{L}b^{(l)T}h^{(l)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In other words, we can do exact model averaging by multiplying each parameter
+ by the probability of all of its associated random variables being included
+ in a submodel.
+\end_layout
+
+\begin_layout Section
+How to train this ensemble
+\end_layout
+
+\begin_layout Standard
+Obviously, the previous section shows that doing maximum likelihood on a
+ DBM is maximizing the likelihood of some collection of sub-DBMs.
+ However, this trains all of them in aggregate, so we don't get the benefits
+ usually associated with bagging and model averaging.
+\end_layout
+
+\begin_layout Standard
+Instead we should train them so that each example is stochastically mapped
+ to a different submodel and influences only that submodel.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{d}{d\theta}\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\log\sum_{h}P(v,h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\log\sum_{h}\frac{1}{Z}\tilde{p}(v,h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\left[\log\sum_{h}\tilde{p}(v,h)-\log Z\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now I expand 
+\begin_inset Formula $Z$
+\end_inset
+
+ using the result from the middle of the previous section:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\left[\log\sum_{h}\tilde{p}(v,h)-\log\sqrt[2^{N}]{\Pi_{d}Z_{d}}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\left[\log\sum_{h}\tilde{p}(v,h)-\frac{1}{2^{N}}\sum_{d}\log Z_{d}\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The term on the right shows that for the negative phase, we can just sample
+ a dropout mask 
+\begin_inset Formula $d$
+\end_inset
+
+, and do a gradient descent step on 
+\begin_inset Formula $\log Z_{d}$
+\end_inset
+
+.
+ Of course, this is easier said than done.
+ We usually estimate these gradients using PCD, but we can't hold 
+\begin_inset Formula $2^{N}$
+\end_inset
+
+ negative chains in memory.
+ One thing we can do is use PCD-
+\begin_inset Formula $k$
+\end_inset
+
+ and just hope that 
+\begin_inset Formula $k$
+\end_inset
+
+ is big enough for the dropout mask to influence the chain.
+ Or we could use CD-
+\begin_inset Formula $k$
+\end_inset
+
+ so that none of the models is influenced by the other models during training.
+\end_layout
+
+\begin_layout Standard
+Now let's focus on the positive phase, i.e., the term on the left:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\log\sum_{h}\tilde{p}(v,h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\log\sum_{h}\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{\frac{d}{d\theta}\sum_{h}\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}}{\sum_{h'}\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h'\circ d^{(1:)}\right)\right)}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{\sum_{h}\frac{d}{d\theta}\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h\circ d^{(1:)}\right)\right)}}{\sum_{h'}\sqrt[2^{N}]{\Pi_{d}\exp\left(-E\left(v\circ d^{(0)},h'\circ d^{(1:)}\right)\right)}}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I don't really see a good way to move forward beyond simplifying things
+ down to 
+\begin_inset Formula $\exp(-E').$
+\end_inset
+
+That would imply we shrink weights in the positive phase and drop units
+ in the negative phase.
+\end_layout
+
+\begin_layout Section
+How to train an average of exponentially many sub-DBM's 
+\begin_inset Formula $p(v)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Suppose instead of using averaging to define the joint, we use averaging
+ to define the marginal.
+\end_layout
+
+\begin_layout Standard
+In this approach we define
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p(v)=\sqrt[2^{N}]{\Pi_{d}p_{d}(v)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Training this model then involves taking
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{d}{d}\theta\log p(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{d}{d\theta}\log\sqrt[2^{N}]{\Pi_{d}p_{d}(v)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{2^{N}}\sum_{d}\frac{d}{d\theta}\log p_{d}(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+In this case, we compute both the positive phase and negative phase as in
+ ordinary DBM training, but with different units dropped out for each example.
+ Note that this implies the same difficulty regarding negative phase samples
+ as I pointed out above.
+\end_layout
+
+\begin_layout Section
+How to average together exponentially many sub-DBM's 
+\begin_inset Formula $p(v)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p(v)\propto\sqrt[2^{N}]{\Pi_{d}p_{d}(v)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+(We use proportionality rather than equality because the geometric mean
+ of two probability distributions is usually not a probability distribution)
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $H(d)$
+\end_inset
+
+ be the set of all possible configurations of 
+\begin_inset Formula $h$
+\end_inset
+
+ consistent with 
+\begin_inset Formula $d$
+\end_inset
+
+, i.e.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+H(d)=\left\{ h\mid h=h\circ d\right\} .
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Using this definition, we can expand our un-normalized probability distribution
+ to
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}\sum_{h\in H(d)}\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sqrt[2^{N}]{\Pi_{d}\sum_{h\in H(d)}\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sqrt[2^{N}]{\Pi_{d}\sum_{h\in H(d)}\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Using the fact that every factor is positive, and applying Jensen's inequality
+ on every factor, we construct a lower bound, rather than the exact unnormalized
+ probability.
+ We will need to carefully consider what it means to renormalize after taking
+ this bound.
+ Also, this bound seems kind of stupid, since it's just going to yield a
+ factorial distribution on 
+\begin_inset Formula $v$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\geq\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sqrt[2^{N}]{\Pi_{d}\exp(-\sum_{h\in H(d)}E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sqrt[2^{N}]{\exp(-\sum_{d}\sum_{h\in H(d)}E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\exp(-\frac{1}{2^{N}}\sum_{d}\sum_{h\in H(d)}E(v\circ d,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\exp(-\frac{1}{2^{N}}\sum_{d}\sum_{h\in H(d)}E(v\circ d,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Let's try another approach.
+ Before we tried Jensen's inequality, we had
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p(v)\propto\sqrt[2^{N}]{\Pi_{d}p_{d}(v)}=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sqrt[2^{N}]{\Pi_{d}\sum_{h\in H(d)}\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\Pi_{d}\sqrt[2^{N}]{\sum_{h\in H(d)}\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\Pi_{d}\sqrt[2^{N}]{\sum_{h}\mathbb{I}_{H(d)}(h)\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\Pi_{d}\sqrt[2^{N}]{\sum_{h}\mathbb{I}_{H(d)}(h)\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Using the fact that the geometric mean is concave, we apply Jensen's inequality
+ to get
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\leq\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sum_{h}\Pi_{d}\sqrt[2^{N}]{\mathbb{I}_{H(d)}(h)\exp(-E(v\circ d,h))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sum_{h}\Pi_{d}\sqrt[2^{N}]{\mathbb{I}_{H(d)}(h)\exp(-E(v\circ d,h\circ d))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\leq\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sum_{h}\Pi_{d}\sqrt[2^{N}]{\exp(-E(v\circ d,h\circ d))}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\exp(-E'(v,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So the story is kind of murky.
+ The 
+\emph on
+probability
+\emph default
+ (yes, normalized) that our 
+\begin_inset Formula $E'$
+\end_inset
+
+ model assigns to a point 
+\begin_inset Formula $v$
+\end_inset
+
+ is at least as high as the geometric mean, 
+\emph on
+which is not a probability
+\emph default
+, of the probabilities assigned to 
+\begin_inset Formula $v$
+\end_inset
+
+ (or the relevant subsets of 
+\begin_inset Formula $v$
+\end_inset
+
+) by each of the members of the ensemble.
+\end_layout
+
+\end_body
+\end_document
