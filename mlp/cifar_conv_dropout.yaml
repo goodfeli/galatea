@@ -61,7 +61,7 @@
         init_momentum: .5,
         monitoring_dataset:
             {
-                'train' : *train,
+                #'train' : *train,
                 'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
                               which_set: 'train',
                               gcn: 55.,
@@ -69,11 +69,11 @@
                               start: 40000,
                               stop:  50000
                           },
-                'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
-                              which_set: 'test',
-                              gcn: 55.,
-                              one_hot: 1,
-                          }
+                #'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                #              which_set: 'test',
+                #              gcn: 55.,
+                #              one_hot: 1,
+                #          }
             },
         cost: !obj:pylearn2.costs.cost.MethodCost {
                 method: 'cost_from_X',
