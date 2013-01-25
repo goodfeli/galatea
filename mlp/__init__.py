@@ -1459,3 +1459,15 @@ class ConvLinear(Layer):
 
         return p
 
+    def get_weights_view_shape(self):
+        total = self.detector_channels
+        cols = self.channel_pool_size
+        if cols == 1:
+            # Let the PatchViewer decide how to arrange the units
+            # when they're not pooled
+            raise NotImplementedError()
+        # When they are pooled, make each pooling unit have one row
+        rows = total // cols
+        if rows * cols < total:
+            rows = rows + 1
+        return rows, cols
