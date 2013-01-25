@@ -1444,7 +1444,7 @@ class ConvLinear(Layer):
         if self.channel_pool_size != 1:
             s = None
             for i in xrange(self.channel_pool_size):
-                t = z[:,i::self.chanel_pool_size,:,:]
+                t = z[:,i::self.channel_pool_size,:,:]
                 if s is None:
                     s = t
                 else:

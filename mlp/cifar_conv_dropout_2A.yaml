@@ -9,30 +9,33 @@
     model: !obj:pylearn2.models.mlp.MLP {
         batch_size: 100,
         layers: [
-                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                 !obj:galatea.mlp.ConvLinear {
                      layer_name: 'h0',
                      border_mode: 'full',
-                     output_channels: 64,
+                     detector_channels: 192,
+                     channel_pool_size: 3,
                      kernel_shape: [5, 5],
                      pool_shape: [4, 4],
                      pool_stride: [2, 2],
                      irange: .005,
                      max_kernel_norm: 1.9365,
                  },
-                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                 !obj:galatea.mlp.ConvLinear {
                      layer_name: 'h1',
                      border_mode: 'full',
-                     output_channels: 64,
+                     detector_channels: 192,
+                     channel_pool_size: 3,
                      kernel_shape: [5, 5],
                      pool_shape: [4, 4],
                      pool_stride: [2, 2],
                      irange: .005,
                      max_kernel_norm: 1.9365,
                  },
-                 !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                 !obj:galatea.mlp.ConvLinear {
                      layer_name: 'h2',
                      border_mode: 'full',
-                     output_channels: 64,
+                     detector_channels: 192,
+                     channel_pool_size: 3,
                      kernel_shape: [5, 5],
                      pool_shape: [2, 2],
                      pool_stride: [2, 2],
@@ -61,7 +64,7 @@
         init_momentum: .5,
         monitoring_dataset:
             {
-                #'train' : *train,
+                'train' : *train,
                 'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
                               which_set: 'train',
                               gcn: 55.,
@@ -69,11 +72,11 @@
                               start: 40000,
                               stop:  50000
                           },
-                #'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
-                #              which_set: 'test',
-                #              gcn: 55.,
-                #              one_hot: 1,
-                #          }
+                'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                              which_set: 'test',
+                              gcn: 55.,
+                              one_hot: 1,
+                          }
             },
         cost: !obj:pylearn2.costs.cost.MethodCost {
                 method: 'cost_from_X',
