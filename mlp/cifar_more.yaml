@@ -1,0 +1,53 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        which_set: 'train',
+        gcn: 55.,
+        one_hot: 1,
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "cifar_best.pkl",
+        name: "monitor_stage0"
+    }, 
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 100,
+        learning_rate: 0.00383506948128,
+        init_momentum: 0.700000762939,
+        monitoring_dataset:
+            {
+                'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                              which_set: 'train',
+                              gcn: 55.,
+                              one_hot: 1,
+                              start: 40000,
+                              stop:  50000
+                          },
+                'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                              which_set: 'test',
+                              gcn: 55.,
+                              one_hot: 1,
+                          }
+            },
+        cost: !obj:pylearn2.costs.cost.MethodCost {
+                method: 'cost_from_X',
+                supervised: 1
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel {
+            channel_name: "valid_objective",
+            prev_channel_name: "train_objective",
+            prev_monitor_name: "monitor_stage0"
+        },
+        update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+            decay_factor: 1.000004,
+            min_lr: .000001
+        }
+    },
+    extensions: [
+        #!obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+        #    start: 1,
+        #    saturate: 250,
+        #    final_momentum: .7
+        #}
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}
