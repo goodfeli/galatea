@@ -2324,13 +2324,13 @@ class UnrollUntie(Model):
         assert niter is None
         assert block_grad is None
 
-        H1 = T.nnet.sigmoid(T.dot(V, 2. * self.vishid[0] + self.biashid[0]))
-        H2 = T.nnet.sigmoid(T.dot(H1, 2 * self.hidpen[0] + self.biaspen[0]))
-        Y = T.nnet.softmax(T.dot(H2, self.penlab[0] + self.biaslab[0]))
+        H1 = T.nnet.sigmoid(T.dot(V, 2. * self.vishid[0]) + self.biashid[0])
+        H2 = T.nnet.sigmoid(T.dot(H1, 2 * self.hidpen[0]) + self.biaspen[0])
+        Y = T.nnet.softmax(T.dot(H2, self.penlab[0]) + self.biaslab[0])
 
         for i in xrange(1, self.niter):
             H1 = T.nnet.sigmoid(T.dot(V, self.vishid[i])+T.dot(H2, self.penhid[i])+self.biashid[i])
-            Y = T.nnet.softmax(T.dot(H2, self.penlab[i] + self.biaslab[i]))
+            Y = T.nnet.softmax(T.dot(H2, self.penlab[i]) + self.biaslab[i])
             H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen[i]) + T.dot(Y, self.labpen[i]) + self.biaspen[0])
 
         return [H1, H2, Y]
