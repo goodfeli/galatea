@@ -1640,10 +1640,7 @@ class ConvLinearC01B(Layer):
         return self.b.get_value()
 
     def get_weights_topo(self):
-        inp, rows, cols, outp = range(4)
-        raw = self.transformer._filters.get_value()
-
-        return np.transpose(raw, (outp,rows,cols,inp))
+        return self.transformer.get_weights_topo()
 
     def get_monitoring_channels(self):
 
