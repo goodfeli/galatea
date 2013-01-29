@@ -20,6 +20,7 @@ import theano.tensor as T
 from pylearn2.costs.cost import Cost
 from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from pylearn2.linear import conv2d
+from pylearn2.linear import conv2d_c01b
 from pylearn2.linear.matrixmul import MatrixMul
 from pylearn2.models.model import Model
 from pylearn2.space import Conv2DSpace
@@ -1528,6 +1529,10 @@ class ConvLinearC01B(Layer):
         self.input_space = space
 
         assert isinstance(self.input_space, Conv2DSpace)
+        # note: I think the desired space thing is actually redundant,
+        # since LinearTransform will also dimshuffle the axes if needed
+        # It's not hurting anything to have it here but we could reduce
+        # code complexity by removing it
         self.desired_space = Conv2DSpace(shape=space.shape,
                 channels=space.num_channels,
                 axes=('c', 0, 1, 'b'))
@@ -1547,10 +1552,9 @@ class ConvLinearC01B(Layer):
 
         if self.irange is not None:
             assert self.sparse_init is None
-            raise NotImplementedError("Need to make transformer use Alex convolution")
-            self.transformer = conv2d.make_random_conv2D(
+            self.transformer = conv2d_c01b.make_random_conv2D(
                     irange = self.irange,
-                    input_space = self.input_space,
+                    input_space = self.desired_space,
                     output_space = self.detector_space,
                     kernel_shape = self.kernel_shape,
                     batch_size = self.mlp.batch_size,
@@ -1558,10 +1562,9 @@ class ConvLinearC01B(Layer):
                     border_mode = self.border_mode,
                     rng = rng)
         elif self.sparse_init is not None:
-            raise NotImplementedError("Need to make transformer use Alex convolution")
-            self.transformer = conv2d.make_sparse_random_conv2D(
+            self.transformer = conv2d_c01b.make_sparse_random_conv2D(
                     num_nonzero = self.sparse_init,
-                    input_space = self.input_space,
+                    input_space = self.desired_space,
                     output_space = self.detector_space,
                     kernel_shape = self.kernel_shape,
                     batch_size = self.mlp.batch_size,
