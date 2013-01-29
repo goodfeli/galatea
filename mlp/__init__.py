@@ -29,6 +29,7 @@ from pylearn2.utils import function
 from pylearn2.utils import safe_izip
 from pylearn2.utils import sharedX
 from pylearn2.models.mlp import max_pool
+from pylearn2.models.mlp import max_pool_c01b
 from pylearn2.models.mlp import Layer
 
 class Adaptive(Layer):
@@ -1452,6 +1453,234 @@ class ConvLinear(Layer):
             z = s
 
         p = max_pool(bc01=z, pool_shape=self.pool_shape,
+                pool_stride=self.pool_stride,
+                image_shape=self.detector_space.shape)
+
+        self.output_space.validate(p)
+
+        return p
+
+    def get_weights_view_shape(self):
+        total = self.detector_channels
+        cols = self.channel_pool_size
+        if cols == 1:
+            # Let the PatchViewer decide how to arrange the units
+            # when they're not pooled
+            raise NotImplementedError()
+        # When they are pooled, make each pooling unit have one row
+        rows = total // cols
+        if rows * cols < total:
+            rows = rows + 1
+        return rows, cols
+
+class ConvLinearC01B(Layer):
+    """
+    Like ConvLinear but for (c, 0, 1, b) axes.
+    """
+
+    def __init__(self,
+                 detector_channels,
+                 kernel_shape,
+                 pool_shape,
+                 pool_stride,
+                 layer_name,
+                 channel_pool_size = 1,
+                 irange = None,
+                 border_mode = 'valid',
+                 sparse_init = None,
+                 include_prob = 1.0,
+                 init_bias = 0.,
+                 W_lr_scale = None,
+                 b_lr_scale = None,
+                 max_kernel_norm = None):
+        """
+
+            include_prob: probability of including a weight element in the set
+            of weights initialized to U(-irange, irange). If not included
+            it is initialized to 0.
+
+        """
+        self.__dict__.update(locals())
+        del self.self
+
+    def get_lr_scalers(self):
+
+        if not hasattr(self, 'W_lr_scale'):
+            self.W_lr_scale = None
+
+        if not hasattr(self, 'b_lr_scale'):
+            self.b_lr_scale = None
+
+        rval = OrderedDict()
+
+        if self.W_lr_scale is not None:
+            W, = self.transformer.get_params()
+            rval[W] = self.W_lr_scale
+
+        if self.b_lr_scale is not None:
+            rval[self.b] = self.b_lr_scale
+
+        return rval
+
+    def set_input_space(self, space):
+        """ Note: this resets parameters! """
+
+        self.input_space = space
+
+        assert isinstance(self.input_space, Conv2DSpace)
+        self.desired_space = Conv2DSpace(shape=space.shape,
+                channels=space.num_channels,
+                axes=('c', 0, 1, 'b'))
+
+        rng = self.mlp.rng
+
+        if self.border_mode == 'valid':
+            output_shape = [self.input_space.shape[0] - self.kernel_shape[0] + 1,
+                self.input_space.shape[1] - self.kernel_shape[1] + 1]
+        elif self.border_mode == 'full':
+            output_shape = [self.input_space.shape[0] + self.kernel_shape[0] - 1,
+                    self.input_space.shape[1] + self.kernel_shape[1] - 1]
+
+        self.detector_space = Conv2DSpace(shape=output_shape,
+                num_channels = self.detector_channels,
+                axes = ('c', 0, 1, 'b'))
+
+        if self.irange is not None:
+            assert self.sparse_init is None
+            raise NotImplementedError("Need to make transformer use Alex convolution")
+            self.transformer = conv2d.make_random_conv2D(
+                    irange = self.irange,
+                    input_space = self.input_space,
+                    output_space = self.detector_space,
+                    kernel_shape = self.kernel_shape,
+                    batch_size = self.mlp.batch_size,
+                    subsample = (1,1),
+                    border_mode = self.border_mode,
+                    rng = rng)
+        elif self.sparse_init is not None:
+            raise NotImplementedError("Need to make transformer use Alex convolution")
+            self.transformer = conv2d.make_sparse_random_conv2D(
+                    num_nonzero = self.sparse_init,
+                    input_space = self.input_space,
+                    output_space = self.detector_space,
+                    kernel_shape = self.kernel_shape,
+                    batch_size = self.mlp.batch_size,
+                    subsample = (1,1),
+                    border_mode = self.border_mode,
+                    rng = rng)
+        W, = self.transformer.get_params()
+        W.name = 'W'
+
+        self.b = sharedX(self.detector_space.get_origin() + self.init_bias)
+        self.b.name = 'b'
+
+        print 'Input shape: ', self.input_space.shape
+        print 'Detector space: ', self.detector_space.shape
+
+        if self.mlp.batch_size is None:
+            raise ValueError("Tried to use a convolutional layer with an MLP that has "
+                    "no batch size specified. You must specify the batch size of the "
+                    "model because theano requires the batch size to be known at "
+                    "graph construction time for convolution.")
+
+        dummy_detector = sharedX(self.detector_space.get_origin_batch(self.mlp.batch_size))
+
+        dummy_p = max_pool(bc01=dummy_detector, pool_shape=self.pool_shape,
+                pool_stride=self.pool_stride,
+                image_shape=self.detector_space.shape)
+        dummy_p = dummy_p.eval()
+        assert self.detector_channels % self.channel_pool_size == 0
+        self.output_space = Conv2DSpace(shape=[dummy_p.shape[2], dummy_p.shape[3]],
+                num_channels = self.detector_channels // self.channel_pool_size, axes = ('c', 0, 1, 'b') )
+
+        print 'Output space: ', self.output_space.shape
+
+
+
+    def censor_updates(self, updates):
+
+        if self.max_kernel_norm is not None:
+            W ,= self.transformer.get_params()
+            if W in updates:
+                updated_W = updates[W]
+                row_norms = T.sqrt(T.sum(T.sqr(updated_W), axis=(0,1,2)))
+                desired_norms = T.clip(row_norms, 0, self.max_kernel_norm)
+                updates[W] = updated_W * (desired_norms / (1e-7 + row_norms)).dimshuffle('x', 'x', 'x', 'x')
+
+
+    def get_params(self):
+        assert self.b.name is not None
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+        rval = self.transformer.get_params()
+        assert not isinstance(rval, set)
+        rval = list(rval)
+        assert self.b not in rval
+        rval.append(self.b)
+        return rval
+
+    def get_weight_decay(self, coeff):
+        if isinstance(coeff, str):
+            coeff = float(coeff)
+        assert isinstance(coeff, float) or hasattr(coeff, 'dtype')
+        W ,= self.transformer.get_params()
+        return coeff * T.sqr(W).sum()
+
+    def set_weights(self, weights):
+        W, = self.transformer.get_params()
+        W.set_value(weights)
+
+    def set_biases(self, biases):
+        self.b.set_value(biases)
+
+    def get_biases(self):
+        return self.b.get_value()
+
+    def get_weights_topo(self):
+        inp, rows, cols, outp = range(4)
+        raw = self.transformer._filters.get_value()
+
+        return np.transpose(raw, (outp,rows,cols,inp))
+
+    def get_monitoring_channels(self):
+
+        W ,= self.transformer.get_params()
+
+        assert W.ndim == 4
+
+        sq_W = T.sqr(W)
+
+        row_norms = T.sqrt(sq_W.sum(axis=(0,1,2)))
+
+        return OrderedDict([
+                            ('kernel_norms_min'  , row_norms.min()),
+                            ('kernel_norms_mean' , row_norms.mean()),
+                            ('kernel_norms_max'  , row_norms.max()),
+                            ])
+
+    def fprop(self, state_below):
+
+        self.input_space.validate(state_below)
+
+        self.input_space.format_as(state_below, self.desired_space)
+
+        z = self.transformer.lmul(state_below) + self.b
+        if self.layer_name is not None:
+            z.name = self.layer_name + '_z'
+
+        self.detector_space.validate(z)
+
+        if self.channel_pool_size != 1:
+            s = None
+            for i in xrange(self.channel_pool_size):
+                t = z[i::self.channel_pool_size,:,:,:]
+                if s is None:
+                    s = t
+                else:
+                    s = T.maximum(s, t)
+            z = s
+
+        p = max_pool_c01b(c01b=z, pool_shape=self.pool_shape,
                 pool_stride=self.pool_stride,
                 image_shape=self.detector_space.shape)
 
