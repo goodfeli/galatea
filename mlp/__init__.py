@@ -1554,10 +1554,11 @@ class ConvLinearC01B(Layer):
             assert self.sparse_init is None
             self.transformer = conv2d_c01b.make_random_conv2D(
                     irange = self.irange,
-                    input_space = self.desired_space,
-                    output_space = self.detector_space,
+                    input_axes = self.desired_space.axes,
+                    output_axes = self.detector_space.axes,
+                    input_channels = self.desired_space.num_channels,
+                    output_channels = self.detector_space.num_channels,
                     kernel_shape = self.kernel_shape,
-                    batch_size = self.mlp.batch_size,
                     subsample = (1,1),
                     border_mode = self.border_mode,
                     rng = rng)
@@ -1588,12 +1589,12 @@ class ConvLinearC01B(Layer):
 
         dummy_detector = sharedX(self.detector_space.get_origin_batch(self.mlp.batch_size))
 
-        dummy_p = max_pool(bc01=dummy_detector, pool_shape=self.pool_shape,
+        dummy_p = max_pool_c01b(c01b=dummy_detector, pool_shape=self.pool_shape,
                 pool_stride=self.pool_stride,
                 image_shape=self.detector_space.shape)
         dummy_p = dummy_p.eval()
         assert self.detector_channels % self.channel_pool_size == 0
-        self.output_space = Conv2DSpace(shape=[dummy_p.shape[2], dummy_p.shape[3]],
+        self.output_space = Conv2DSpace(shape=[dummy_p.shape[1], dummy_p.shape[2]],
                 num_channels = self.detector_channels // self.channel_pool_size, axes = ('c', 0, 1, 'b') )
 
         print 'Output space: ', self.output_space.shape
