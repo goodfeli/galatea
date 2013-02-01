@@ -412,6 +412,9 @@ class MaxPoolRectifiedLinear(Layer):
         W ,= self.transformer.get_params()
         assert W.name is not None
 
+        if not hasattr(self, 'randomize_pools'):
+            self.randomize_pools = False
+
         if self.randomize_pools:
             permute = np.zeros((self.detector_layer_dim, self.detector_layer_dim))
             for j in xrange(self.detector_layer_dim):
@@ -472,6 +475,9 @@ class MaxPoolRectifiedLinear(Layer):
             raise NotImplementedError()
         W ,= self.transformer.get_params()
         W = W.get_value()
+
+        if not hasattr(self, 'randomize_pools'):
+            self.randomize_pools = False
 
         if self.randomize_pools:
             warnings.warn("randomize_pools makes get_weights multiply by the permutation matrix. "
