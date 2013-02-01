@@ -1669,9 +1669,13 @@ class ConvLinearC01B(Layer):
 
         self.input_space.validate(state_below)
 
-        self.input_space.format_as(state_below, self.desired_space)
+        state_below = self.input_space.format_as(state_below, self.desired_space)
 
-        z = self.transformer.lmul(state_below) + self.b
+        z = self.transformer.lmul(state_below)
+        b = self.b.dimshuffle(0, 1, 2, 'x')
+
+
+        z = z + b
         if self.layer_name is not None:
             z.name = self.layer_name + '_z'
 
