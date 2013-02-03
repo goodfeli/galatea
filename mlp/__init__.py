@@ -1584,13 +1584,7 @@ class ConvLinearC01B(Layer):
         print 'Input shape: ', self.input_space.shape
         print 'Detector space: ', self.detector_space.shape
 
-        if self.mlp.batch_size is None:
-            raise ValueError("Tried to use a convolutional layer with an MLP that has "
-                    "no batch size specified. You must specify the batch size of the "
-                    "model because theano requires the batch size to be known at "
-                    "graph construction time for convolution.")
-
-        dummy_detector = sharedX(self.detector_space.get_origin_batch(self.mlp.batch_size))
+        dummy_detector = sharedX(self.detector_space.get_origin_batch(2))
 
         dummy_p = max_pool_c01b(c01b=dummy_detector, pool_shape=self.pool_shape,
                 pool_stride=self.pool_stride,
