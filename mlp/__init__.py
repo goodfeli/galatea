@@ -1493,12 +1493,12 @@ class ConvLinearC01B(Layer):
                  layer_name,
                  channel_pool_size = 1,
                  irange = None,
-                 border_mode = 'valid',
                  sparse_init = None,
                  include_prob = 1.0,
                  init_bias = 0.,
                  W_lr_scale = None,
                  b_lr_scale = None,
+                 pad = 0,
                  max_kernel_norm = None):
         """
 
@@ -1545,12 +1545,8 @@ class ConvLinearC01B(Layer):
 
         rng = self.mlp.rng
 
-        if self.border_mode == 'valid':
-            output_shape = [self.input_space.shape[0] - self.kernel_shape[0] + 1,
-                self.input_space.shape[1] - self.kernel_shape[1] + 1]
-        elif self.border_mode == 'full':
-            output_shape = [self.input_space.shape[0] + self.kernel_shape[0] - 1,
-                    self.input_space.shape[1] + self.kernel_shape[1] - 1]
+        output_shape = [self.input_space.shape[0] + 2 * self.pad - self.kernel_shape[0] + 1,
+                self.input_space.shape[1] + 2 * self.pad - self.kernel_shape[1] + 1]
 
         self.detector_space = Conv2DSpace(shape=output_shape,
                 num_channels = self.detector_channels,
@@ -1566,7 +1562,7 @@ class ConvLinearC01B(Layer):
                     output_channels = self.detector_space.num_channels,
                     kernel_shape = self.kernel_shape,
                     subsample = (1,1),
-                    border_mode = self.border_mode,
+                    pad = self.pad,
                     rng = rng)
         elif self.sparse_init is not None:
             self.transformer = conv2d_c01b.make_sparse_random_conv2D(

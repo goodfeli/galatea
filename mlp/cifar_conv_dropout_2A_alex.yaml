@@ -7,7 +7,6 @@
         stop: 40000
     },
     model: !obj:pylearn2.models.mlp.MLP {
-        batch_size: 100,
         layers: [
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h0',
