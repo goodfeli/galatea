@@ -32,6 +32,7 @@ from pylearn2.utils import sharedX
 from pylearn2.models.mlp import max_pool
 from pylearn2.models.mlp import max_pool_c01b
 from pylearn2.models.mlp import Layer
+from pylearn2.monitor import Monitor
 
 class Adaptive(Layer):
     """
@@ -1707,3 +1708,16 @@ class ConvLinearC01B(Layer):
         if rows * cols < total:
             rows = rows + 1
         return rows, cols
+
+def get_channel(model, dataset, channel, cost, batch_size):
+    monitor = Monitor(model)
+    monitor.setup(dataset=dataset, cost=cost, batch_size=batch_size)
+    monitor()
+    channels = monitor.channels
+    channel = channels[channel]
+    val_record = channel.val_record
+    value ,= val_record
+    return value
+
+
+
