@@ -1,5 +1,6 @@
 !obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        axes: ['c', 0, 1, 'b'],
         which_set: 'train',
         gcn: 55.,
         one_hot: 1,
@@ -10,7 +11,7 @@
         layers: [
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h0',
-                     border_mode: 'full',
+                     pad: 4,
                      detector_channels: 192,
                      channel_pool_size: 3,
                      kernel_shape: [5, 5],
@@ -21,7 +22,7 @@
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h1',
-                     border_mode: 'full',
+                     pad: 4,
                      detector_channels: 192,
                      channel_pool_size: 3,
                      kernel_shape: [5, 5],
@@ -32,7 +33,7 @@
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h2',
-                     border_mode: 'full',
+                     pad: 4,
                      detector_channels: 192,
                      channel_pool_size: 3,
                      kernel_shape: [5, 5],
@@ -52,6 +53,7 @@
                 ],
         input_space: !obj:pylearn2.space.Conv2DSpace {
             shape: [32, 32],
+            axes: ['c', 0, 1, 'b'],
             num_channels: 3
         },
         dropout_include_probs: [ .5, .5, .5, 1 ],
@@ -67,6 +69,7 @@
                 #'train' : *train,
                 'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
                               which_set: 'train',
+                              axes: ['c', 0, 1, 'b'],
                               gcn: 55.,
                               one_hot: 1,
                               start: 40000,
