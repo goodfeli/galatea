@@ -11,44 +11,45 @@
         layers: [
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h0',
-                     pad: 4,
-                     detector_channels: 192,
-                     channel_pool_size: 3,
-                     kernel_shape: [5, 5],
-                     pool_shape: [4, 4],
-                     pool_stride: [2, 2],
-                     irange: .005,
-                     max_kernel_norm: 1.9365,
+                     pad: %(h0_pad)d,
+                     detector_channels: %(h0_detector_channels)d,
+                     channel_pool_size: %(h0_channel_pool_size)d,
+                     kernel_shape: [%(h0_kwidth)d, %(h0_kwidth)d],
+                     pool_shape: [%(h0_pwidth)d, %(h0_pwidth)d],
+                     fix_pool_shape: 1,
+                     pool_stride: [%(h0_pstride)d, %(h0_pstride)d],
+                     irange: %(h0_irange)f,
+                     max_kernel_norm: %(h0_norm)f,
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h1',
-                     pad: 4,
-                     detector_channels: 192,
-                     channel_pool_size: 3,
-                     kernel_shape: [5, 5],
-                     pool_shape: [4, 4],
-                     pool_stride: [2, 2],
-                     irange: .005,
-                     max_kernel_norm: 1.9365,
+                     pad: %(h1_pad)d,
+                     detector_channels: %(h1_detector_channels)d,
+                     channel_pool_size: %(h1_channel_pool_size)d,
+                     kernel_shape: [%(h1_kwidth)d, %(h1_kwidth)d],
+                     pool_shape: [%(h1_pwidth)d, %(h1_pwidth)d],
+                     fix_pool_shape: 1,
+                     pool_stride: [%(h1_pstride)d, %(h1_pstride)d],
+                     irange: %(h1_irange)f,
+                     max_kernel_norm: %(h2_norm)f,
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h2',
-                     pad: 4,
-                     detector_channels: 192,
-                     channel_pool_size: 3,
-                     kernel_shape: [5, 5],
-                     pool_shape: [2, 2],
-                     pool_stride: [2, 2],
-                     irange: .005,
-                     max_kernel_norm: 1.9365,
-                     #use_bias: 0
+                     pad: %(h2_pad)d,
+                     detector_channels: %(h2_detector_channels)d,
+                     channel_pool_size: %(h2_channel_pool_size)d,
+                     kernel_shape: [%(h2_kwidth)d, %(h2_kwidth)d],
+                     pool_shape: [%(h2_pwidth)d, %(h2_pwidth)d],
+                     fix_pool_shape: 1,
+                     pool_stride: [%(h2_pstride)d, %(h2_pstride)d],
+                     irange: %(h2_irange)f,
+                     max_kernel_norm: %(h2_norm)f,
                  },
                  !obj:pylearn2.models.mlp.Softmax {
-                     #max_col_norm: 3.873,
-                     max_col_norm: 1.9365,
+                     max_col_norm: %(y_norm)f,
                      layer_name: 'y',
                      n_classes: 10,
-                     irange: .005
+                     irange: %(y_irange)f
                  }
                 ],
         input_space: !obj:pylearn2.space.Conv2DSpace {
@@ -56,17 +57,17 @@
             axes: ['c', 0, 1, 'b'],
             num_channels: 3
         },
-        dropout_include_probs: [ .5, .5, .5, 1 ],
-        dropout_input_include_prob: .8,
-        dropout_input_scale: 1.,
+        dropout_include_probs: [ %(dinc0)f, %(dinc1)f, %(dinc2)f, 1 ],
+        dropout_scales: [ %(dscale0)f, %(dscale1)f, %(dscale2)f, 1. ],
+        dropout_input_include_prob: %(dropout_include_prob)f,
+        dropout_input_scale: %(dropout_input_scale)f,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        batch_size: 100,
-        learning_rate: .01,
-        init_momentum: .5,
+        batch_size: 128,
+        learning_rate: %(learning_rate)f,
+        init_momentum: %(init_momentum)f,
         monitoring_dataset:
             {
-                #'train' : *train,
                 'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
                               which_set: 'train',
                               axes: ['c', 0, 1, 'b'],
@@ -75,11 +76,6 @@
                               start: 40000,
                               stop:  50000
                           },
-                #'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
-                #              which_set: 'test',
-                #              gcn: 55.,
-                #              one_hot: 1,
-                #          }
             },
         cost: !obj:pylearn2.costs.cost.MethodCost {
                 method: 'cost_from_X',
@@ -91,7 +87,7 @@
             N: 100
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
-            decay_factor: 1.000004,
+            decay_factor: %(decay_factor)f,
             min_lr: .000001
         }
     },
@@ -102,8 +98,8 @@
         },
         !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
             start: 1,
-            saturate: 250,
-            final_momentum: .7
+            saturate: %(saturate)d,
+            final_momentum: %(final_momentum)f
         }
     ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
