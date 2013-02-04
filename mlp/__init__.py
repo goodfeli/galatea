@@ -1500,6 +1500,7 @@ class ConvLinearC01B(Layer):
                  W_lr_scale = None,
                  b_lr_scale = None,
                  pad = 0,
+                 fix_pool_shape = False,
                  max_kernel_norm = None):
         """
 
@@ -1507,6 +1508,8 @@ class ConvLinearC01B(Layer):
             of weights initialized to U(-irange, irange). If not included
             it is initialized to 0.
 
+            fix_pool_shape: if True, will modify self.pool_shape to avoid being bigger
+                            than the detector layer
         """
         self.__dict__.update(locals())
         del self.self
@@ -1552,6 +1555,15 @@ class ConvLinearC01B(Layer):
         self.detector_space = Conv2DSpace(shape=output_shape,
                 num_channels = self.detector_channels,
                 axes = ('c', 0, 1, 'b'))
+
+        def handle_pool_shape(idx):
+            if self.pool_shape[idx] > output_shape[idx]:
+                if self.fix_pool_shape:
+                    self.pool_shape[idx] = output_shape[idx]
+                else:
+                    raise ValueError("Pool shape exceeds detector layer shape on axis %d" % idx)
+
+        map(handle_pool_shape, [0, 1])
 
         if self.irange is not None:
             assert self.sparse_init is None
