@@ -20,7 +20,11 @@ import theano.tensor as T
 from pylearn2.costs.cost import Cost
 from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from pylearn2.linear import conv2d
-from pylearn2.linear import conv2d_c01b
+try:
+    from pylearn2.linear import conv2d_c01b
+except ImportError:
+    warnings.warn("Couldn't import Alex-style convolution, probably because you don't have a GPU"
+            "Some stuff might be broken.")
 from pylearn2.linear.matrixmul import MatrixMul
 from pylearn2.models.model import Model
 from pylearn2.space import Conv2DSpace
@@ -33,6 +37,7 @@ from pylearn2.models.mlp import max_pool
 from pylearn2.models.mlp import max_pool_c01b
 from pylearn2.models.mlp import Layer
 from pylearn2.monitor import Monitor
+
 
 class Adaptive(Layer):
     """
@@ -1501,6 +1506,7 @@ class ConvLinearC01B(Layer):
                  b_lr_scale = None,
                  pad = 0,
                  fix_pool_shape = False,
+                 fix_kernel_shape = False,
                  max_kernel_norm = None):
         """
 
@@ -1508,8 +1514,11 @@ class ConvLinearC01B(Layer):
             of weights initialized to U(-irange, irange). If not included
             it is initialized to 0.
 
-            fix_pool_shape: if True, will modify self.pool_shape to avoid being bigger
-                            than the detector layer
+            fix_pool_shape: if True, will modify self.pool_shape to avoid having
+                            pool shape bigger than the entire detector layer
+            fix_kernel_shape: if True, will modify self.kernel_shape to avoid
+                            having the kernel shape bigger than the implicitly
+                            zero padded input layer
         """
         self.__dict__.update(locals())
         del self.self
@@ -1549,8 +1558,20 @@ class ConvLinearC01B(Layer):
 
         rng = self.mlp.rng
 
+
         output_shape = [self.input_space.shape[0] + 2 * self.pad - self.kernel_shape[0] + 1,
                 self.input_space.shape[1] + 2 * self.pad - self.kernel_shape[1] + 1]
+
+        def handle_kernel_shape(idx):
+            if output_shape[idx] <= 0:
+                if self.fix_kernel_shape:
+                    self.kernel_shape[idx] = self.input_space.shape[idx] + 2 * self.pad
+                    output_shape[idx] = 1
+                    warnings.warn("Had to change the kernel shape to make network feasible")
+                else:
+                    raise ValueError("kernel too big for input (even with zero padding)")
+
+        map(handle_kernel_shape, [0, 1])
 
         self.detector_space = Conv2DSpace(shape=output_shape,
                 num_channels = self.detector_channels,
@@ -1608,8 +1629,6 @@ class ConvLinearC01B(Layer):
 
         print 'Output space: ', self.output_space.shape
 
-
-
     def censor_updates(self, updates):
 
         if self.max_kernel_norm is not None:
@@ -1619,7 +1638,6 @@ class ConvLinearC01B(Layer):
                 row_norms = T.sqrt(T.sum(T.sqr(updated_W), axis=(0,1,2)))
                 desired_norms = T.clip(row_norms, 0, self.max_kernel_norm)
                 updates[W] = updated_W * (desired_norms / (1e-7 + row_norms)).dimshuffle('x', 'x', 'x', 0)
-
 
     def get_params(self):
         assert self.b.name is not None

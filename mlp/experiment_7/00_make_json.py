@@ -20,9 +20,11 @@ for i, param in enumerate(params):
             transform = param['transform']
             mn = transform.inverse(mn)
             mx = transform.inverse(mx)
-        print >>out, '\t\t"min": %f,' % param["min"]
-        print >>out, '\t\t"max": %f,' % param["max"]
+        print >>out, '\t\t"min": %f,' % mn
+        print >>out, '\t\t"max": %f,' % mx
     elif t == 'int':
+        mn = param["min"]
+        mx = param["max"]
         if 'transform' in param:
             transform = param['transform']
             mn = transform.inverse(mn)
