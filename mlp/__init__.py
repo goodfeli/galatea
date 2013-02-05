@@ -1569,9 +1569,12 @@ class ConvLinearC01B(Layer):
                 self.input_space.shape[1] + 2 * self.pad - self.kernel_shape[1] + 1]
 
         def handle_kernel_shape(idx):
+            if self.kernel_shape[idx] < 1:
+                raise ValueError("kernel must have strictly positive size on all axes but has shape: "+str(self.kernel_shape))
             if output_shape[idx] <= 0:
                 if self.fix_kernel_shape:
                     self.kernel_shape[idx] = self.input_space.shape[idx] + 2 * self.pad
+                    assert self.kernel_shape[idx] != 0
                     output_shape[idx] = 1
                     warnings.warn("Had to change the kernel shape to make network feasible")
                 else:
