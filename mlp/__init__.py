@@ -609,6 +609,12 @@ class MaxPoolRectifiedLinear(Layer):
 
         z = self.transformer.lmul(state_below) + self.b
 
+        if not hasattr(self, 'randomize_pools'):
+            self.randomize_pools = False
+
+        if not hasattr(self, 'pool_stride'):
+            self.pool_stride = self.pool_size
+
         if self.randomize_pools:
             z = T.dot(z, self.permute)
 

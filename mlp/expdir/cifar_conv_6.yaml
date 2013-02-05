@@ -61,7 +61,7 @@
         # dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        batch_size: 100,
+        batch_size: 128,
         learning_rate: .01,
         init_momentum: .5,
         monitoring_dataset:
