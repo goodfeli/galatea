@@ -1587,8 +1587,11 @@ class ConvLinearC01B(Layer):
                 axes = ('c', 0, 1, 'b'))
 
         def handle_pool_shape(idx):
+            if self.pool_shape[idx] < 1:
+                raise ValueError("bad pool shape: " + str(self.pool_shape))
             if self.pool_shape[idx] > output_shape[idx]:
                 if self.fix_pool_shape:
+                    assert output_shape[idx] > 0
                     self.pool_shape[idx] = output_shape[idx]
                 else:
                     raise ValueError("Pool shape exceeds detector layer shape on axis %d" % idx)
