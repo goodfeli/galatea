@@ -34,7 +34,7 @@ from pylearn2.utils import function
 from pylearn2.utils import safe_izip
 from pylearn2.utils import sharedX
 from pylearn2.models.mlp import max_pool
-from pylearn2.models.mlp import max_pool_c01b
+from pylearn2.sandbox.cuda_convnet.pool import max_pool_c01b
 from pylearn2.models.mlp import Layer
 from pylearn2.monitor import Monitor
 
