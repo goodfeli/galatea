@@ -1632,7 +1632,9 @@ class ConvLinearC01B(Layer):
         print 'Input shape: ', self.input_space.shape
         print 'Detector space: ', self.detector_space.shape
 
-        dummy_detector = sharedX(self.detector_space.get_origin_batch(2))
+        assert self.detector_space.num_channels >= 16
+
+        dummy_detector = sharedX(self.detector_space.get_origin_batch(2)[0:16,:,:,:])
 
         dummy_p = max_pool_c01b(c01b=dummy_detector, pool_shape=self.pool_shape,
                 pool_stride=self.pool_stride,
@@ -1717,19 +1719,40 @@ class ConvLinearC01B(Layer):
 
         self.detector_space.validate(z)
 
-        if self.channel_pool_size != 1:
-            s = None
-            for i in xrange(self.channel_pool_size):
-                t = z[i::self.channel_pool_size,:,:,:]
-                if s is None:
-                    s = t
-                else:
-                    s = T.maximum(s, t)
-            z = s
+        assert self.detector_space.num_channels % 16 == 0
 
-        p = max_pool_c01b(c01b=z, pool_shape=self.pool_shape,
-                pool_stride=self.pool_stride,
-                image_shape=self.detector_space.shape)
+        if self.output_space.num_channels % 16 == 0:
+            # alex's max pool op only works when the number of channels
+            # is divisible by 16. we can only do the cross-channel pooling
+            # first if the cross-channel pooling preserves that property
+            if self.channel_pool_size != 1:
+                s = None
+                for i in xrange(self.channel_pool_size):
+                    t = z[i::self.channel_pool_size,:,:,:]
+                    if s is None:
+                        s = t
+                    else:
+                        s = T.maximum(s, t)
+                z = s
+
+            p = max_pool_c01b(c01b=z, pool_shape=self.pool_shape,
+                    pool_stride=self.pool_stride,
+                    image_shape=self.detector_space.shape)
+        else:
+            z = max_pool_c01b(c01b=z, pool_shape=self.pool_shape,
+                    pool_stride=self.pool_stride,
+                    image_shape=self.detector_space.shape)
+            if self.channel_pool_size != 1:
+                s = None
+                for i in xrange(self.channel_pool_size):
+                    t = z[i::self.channel_pool_size,:,:,:]
+                    if s is None:
+                        s = t
+                    else:
+                        s = T.maximum(s, t)
+                z = s
+            p = z
+
 
         self.output_space.validate(p)
 
