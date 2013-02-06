@@ -1513,6 +1513,7 @@ class ConvLinearC01B(Layer):
                  pad = 0,
                  fix_pool_shape = False,
                  fix_kernel_shape = False,
+                 partial_sum = None,
                  max_kernel_norm = None):
         """
 
@@ -1525,6 +1526,7 @@ class ConvLinearC01B(Layer):
             fix_kernel_shape: if True, will modify self.kernel_shape to avoid
                             having the kernel shape bigger than the implicitly
                             zero padded input layer
+            partial_sum: a parameter that influences the performance
         """
         self.__dict__.update(locals())
         del self.self
@@ -1609,6 +1611,7 @@ class ConvLinearC01B(Layer):
                     kernel_shape = self.kernel_shape,
                     subsample = (1,1),
                     pad = self.pad,
+                    partial_sum = self.partial_sum,
                     rng = rng)
         elif self.sparse_init is not None:
             self.transformer = conv2d_c01b.make_sparse_random_conv2D(

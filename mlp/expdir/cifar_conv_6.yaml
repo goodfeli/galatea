@@ -12,6 +12,7 @@
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h0',
                      pad: 4,
+                     partial_sum: 1,
                      detector_channels: 32,
                      channel_pool_size: 1,
                      kernel_shape: [5, 5],
@@ -23,6 +24,7 @@
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h1',
                      pad: 4,
+                     partial_sum: 1,
                      detector_channels: 32,
                      channel_pool_size: 1,
                      kernel_shape: [5, 5],
@@ -34,6 +36,7 @@
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h2',
                      pad: 4,
+                     partial_sum: 1,
                      detector_channels: 64,
                      channel_pool_size: 1,
                      kernel_shape: [5, 5],
@@ -85,10 +88,8 @@
                 method: 'cost_from_X',
                 supervised: 1
         },
-        termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
-            channel_name: "valid_y_misclass",
-            prop_decrease: 0.,
-            N: 100
+        termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 1
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
             decay_factor: 1.000004,
