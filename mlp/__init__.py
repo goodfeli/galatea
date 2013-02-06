@@ -1512,6 +1512,7 @@ class ConvLinearC01B(Layer):
                  b_lr_scale = None,
                  pad = 0,
                  fix_pool_shape = False,
+                 fix_pool_stride = False,
                  fix_kernel_shape = False,
                  partial_sum = 1,
                  max_kernel_norm = None):
@@ -1528,6 +1529,17 @@ class ConvLinearC01B(Layer):
                             zero padded input layer
             partial_sum: a parameter that influences the performance
         """
+
+        assert pool_shape[0] == pool_shape[1]
+        assert pool_stride[0] == pool_stride[0]
+        assert pool_stride[0] > 0
+        if pool_stride[0] > pool_shape[0]:
+            if fix_pool_stride:
+                warnings.warn("Fixing the pool stride")
+                ps = pool_shape[0]
+                pool_stride[1] = [ps, ps]
+            else:
+                raise ValueError("Stride too big.")
         self.__dict__.update(locals())
         del self.self
 
