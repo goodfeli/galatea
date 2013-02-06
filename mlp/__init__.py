@@ -1513,7 +1513,7 @@ class ConvLinearC01B(Layer):
                  pad = 0,
                  fix_pool_shape = False,
                  fix_kernel_shape = False,
-                 partial_sum = None,
+                 partial_sum = 1,
                  max_kernel_norm = None):
         """
 

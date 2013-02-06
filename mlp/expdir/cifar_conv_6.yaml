@@ -12,7 +12,7 @@
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h0',
                      pad: 4,
-                     partial_sum: 1,
+                     partial_sum: 4,
                      detector_channels: 32,
                      channel_pool_size: 1,
                      kernel_shape: [5, 5],
@@ -24,7 +24,7 @@
                  !obj:galatea.mlp.ConvLinearC01B {
                      layer_name: 'h1',
                      pad: 4,
-                     partial_sum: 1,
+                     partial_sum: 4,
                      detector_channels: 32,
                      channel_pool_size: 1,
                      kernel_shape: [5, 5],
