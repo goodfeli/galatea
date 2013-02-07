@@ -1522,24 +1522,18 @@ class ConvLinearC01B(Layer):
             of weights initialized to U(-irange, irange). If not included
             it is initialized to 0.
 
-            fix_pool_shape: if True, will modify self.pool_shape to avoid having
-                            pool shape bigger than the entire detector layer
+            fix_pool_shape: If True, will modify self.pool_shape to avoid having
+                            pool shape bigger than the entire detector layer.
+                            If you have this on, you should probably also have
+                            fix_pool_stride on, since the pool shape might shrink
+                            smaller than the stride, even if the stride was initially
+                            valid.
             fix_kernel_shape: if True, will modify self.kernel_shape to avoid
                             having the kernel shape bigger than the implicitly
                             zero padded input layer
             partial_sum: a parameter that influences the performance
         """
 
-        assert pool_shape[0] == pool_shape[1]
-        assert pool_stride[0] == pool_stride[0]
-        assert pool_stride[0] > 0
-        if pool_stride[0] > pool_shape[0]:
-            if fix_pool_stride:
-                warnings.warn("Fixing the pool stride")
-                ps = pool_shape[0]
-                pool_stride[1] = [ps, ps]
-            else:
-                raise ValueError("Stride too big.")
         self.__dict__.update(locals())
         del self.self
 
@@ -1611,6 +1605,19 @@ class ConvLinearC01B(Layer):
                     raise ValueError("Pool shape exceeds detector layer shape on axis %d" % idx)
 
         map(handle_pool_shape, [0, 1])
+
+        assert self.pool_shape[0] == self.pool_shape[1]
+        assert self.pool_stride[0] == self.pool_stride[1]
+        assert all(isinstance(elem, int) for elem in self.pool_stride)
+        if self.pool_stride[0] > self.pool_shape[0]:
+            if self.fix_pool_stride:
+                warnings.warn("Fixing the pool stride")
+                ps = self.pool_shape[0]
+                assert isinstance(ps, int)
+                self.pool_stride = [ps, ps]
+            else:
+                raise ValueError("Stride too big.")
+        assert all(isinstance(elem, int) for elem in self.pool_stride)
 
         if self.irange is not None:
             assert self.sparse_init is None
