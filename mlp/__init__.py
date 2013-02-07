@@ -1739,6 +1739,8 @@ class ConvLinearC01B(Layer):
 
         # Alex's code requires # input channels to be <= 3 or a multiple of 4
         # so we add dummy channels if necessary
+        if not hasattr(self, 'dummy_channels'):
+            self.dummy_channels = 0
         if self.dummy_channels > 0:
             state_below = T.concatenate((state_below,
                 T.zeros_like(state_below[0:self.dummy_channels, :, :, :])),
