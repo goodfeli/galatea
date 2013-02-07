@@ -1570,8 +1570,17 @@ class ConvLinearC01B(Layer):
                 channels=space.num_channels,
                 axes=('c', 0, 1, 'b'))
 
-        rng = self.mlp.rng
+        ch = self.desired_space.num_channels
+        rem = ch % 4
+        if ch > 3 and rem != 0:
+            self.dummy_channels = 4 - rem
+        else:
+            self.dummy_channels = 0
+        self.dummy_space = Conv2DSpace(shape=space.shape,
+                channels=space.num_channels + self.dummy_channels,
+                axes=('c', 0, 1, 'b'))
 
+        rng = self.mlp.rng
 
         output_shape = [self.input_space.shape[0] + 2 * self.pad - self.kernel_shape[0] + 1,
                 self.input_space.shape[1] + 2 * self.pad - self.kernel_shape[1] + 1]
@@ -1625,7 +1634,7 @@ class ConvLinearC01B(Layer):
                     irange = self.irange,
                     input_axes = self.desired_space.axes,
                     output_axes = self.detector_space.axes,
-                    input_channels = self.desired_space.num_channels,
+                    input_channels = self.dummy_space.num_channels,
                     output_channels = self.detector_space.num_channels,
                     kernel_shape = self.kernel_shape,
                     subsample = (1,1),
@@ -1635,7 +1644,7 @@ class ConvLinearC01B(Layer):
         elif self.sparse_init is not None:
             self.transformer = conv2d_c01b.make_sparse_random_conv2D(
                     num_nonzero = self.sparse_init,
-                    input_space = self.desired_space,
+                    input_space = self.dummy_space,
                     output_space = self.detector_space,
                     kernel_shape = self.kernel_shape,
                     batch_size = self.mlp.batch_size,
@@ -1727,6 +1736,13 @@ class ConvLinearC01B(Layer):
         self.input_space.validate(state_below)
 
         state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        # Alex's code requires # input channels to be <= 3 or a multiple of 4
+        # so we add dummy channels if necessary
+        if self.dummy_channels > 0:
+            state_below = T.concatenate((state_below,
+                T.zeros_like(state_below[0:self.dummy_channels, :, :, :])),
+                axis=0)
 
         z = self.transformer.lmul(state_below)
         b = self.b.dimshuffle(0, 1, 2, 'x')
