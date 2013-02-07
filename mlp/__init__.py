@@ -1808,6 +1808,45 @@ class ConvLinearC01B(Layer):
             rows = rows + 1
         return rows, cols
 
+    def get_monitoring_channels_from_state(self, state):
+
+        P = state
+
+        rval = OrderedDict()
+
+        vars_and_prefixes = [ (P,'') ]
+
+        for var, prefix in vars_and_prefixes:
+            assert var.ndim == 4
+            v_max = var.max(axis=(1,2,3))
+            v_min = var.min(axis=(1,2,3))
+            v_mean = var.mean(axis=(1,2,3))
+            v_range = v_max - v_min
+
+            # max_x.mean_u is "the mean over *u*nits of the max over e*x*amples"
+            # The x and u are included in the name because otherwise its hard
+            # to remember which axis is which when reading the monitor
+            # I use inner.outer rather than outer_of_inner or something like that
+            # because I want mean_x.* to appear next to each other in the alphabetical
+            # list, as these are commonly plotted together
+            for key, val in [
+                             ('max_x.max_u', v_max.max()),
+                             ('max_x.mean_u', v_max.mean()),
+                             ('max_x.min_u', v_max.min()),
+                             ('min_x.max_u', v_min.max()),
+                             ('min_x.mean_u', v_min.mean()),
+                             ('min_x.min_u', v_min.min()),
+                             ('range_x.max_u', v_range.max()),
+                             ('range_x.mean_u', v_range.mean()),
+                             ('range_x.min_u', v_range.min()),
+                             ('mean_x.max_u', v_mean.max()),
+                             ('mean_x.mean_u', v_mean.mean()),
+                             ('mean_x.min_u', v_mean.min())
+                             ]:
+                rval[prefix+key] = val
+
+        return rval
+
 def get_channel(model, dataset, channel, cost, batch_size):
     monitor = Monitor(model)
     monitor.setup(dataset=dataset, cost=cost, batch_size=batch_size)
