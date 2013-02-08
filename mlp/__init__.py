@@ -1858,4 +1858,48 @@ def get_channel(model, dataset, channel, cost, batch_size):
     return value
 
 
+class CrossChannelNormalization(object):
+    """
+    See "ImageNet Classification with Deep Convolutional Neural Networks"
+    Alex Krizhevsky, Ilya Sutskever, and Geoffrey E. Hinton
+    NIPS 2012
+
+    section 3.3, Local Response Normalization
+    """
+
+    def __init__(self, alpha = 1e-4, k=2, beta=0.75, n=5):
+        """
+
+        f(c01b)_[i,j,k,l] = c01b[i,j,k,l] / scale[i,j,k,l]
+
+        scale[i,j,k,l] = (k + sqr(c01b)[clip(i-n/2):clip(i+n/2),j,k,l])^beta
+
+        clip(i) = T.clip(i, 0, c01b.shape[0]-1)
+        """
+
+        self.__dict__.update(locals())
+        del self.self
+
+        if n % 2 == 0:
+            raise NotImplementedError("Only works with odd n for now")
+
+    def __call__(self, c01b):
+        half = self.n // 2
+
+        sq = T.sqr(c01b)
+
+        ch, r, c, b = c01b.shape
+
+        extra_channels = T.alloc(0., ch + 2*half, r, c, b)
+        sq = T.set_subtensor(extra_channels[half:half+ch,:,:,:], sq)
+
+        scale = self.k
+
+        for i in xrange(self.n):
+            scale += self.alpha * sq[i:i+ch,:,:,:]
+        scale = scale ** self.beta
+
+        scale = Print('scale')(scale)
+
+        return c01b / scale
 
