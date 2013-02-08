@@ -1515,7 +1515,8 @@ class ConvLinearC01B(Layer):
                  fix_pool_stride = False,
                  fix_kernel_shape = False,
                  partial_sum = 1,
-                 max_kernel_norm = None):
+                 max_kernel_norm = None,
+                 output_normalization = None):
         """
 
             include_prob: probability of including a weight element in the set
@@ -1793,6 +1794,9 @@ class ConvLinearC01B(Layer):
 
         self.output_space.validate(p)
 
+        if self.output_normalization:
+            p = self.output_normalization(p)
+
         return p
 
     def get_weights_view_shape(self):
@@ -1899,7 +1903,6 @@ class CrossChannelNormalization(object):
             scale += self.alpha * sq[i:i+ch,:,:,:]
         scale = scale ** self.beta
 
-        scale = Print('scale')(scale)
 
         return c01b / scale
 
