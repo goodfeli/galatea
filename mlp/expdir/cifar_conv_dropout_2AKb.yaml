@@ -17,8 +17,7 @@
                      # Tried dropping this channel_pool_size to 1 in 2AK1. Hurt
                      channel_pool_size: 2,
                      # Tried dropping this kernel_shape to 5 in 2AK3. Hurt
-                     # 2Akb: kernel shape 7
-                     kernel_shape: [8, 8],
+                     kernel_shape: [7, 7],
                      pool_shape: [4, 4],
                      # 2AKY: set pool stride to 3. Pending
                      pool_stride: [2, 2],
