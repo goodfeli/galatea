@@ -1516,6 +1516,7 @@ class ConvLinearC01B(Layer):
                  fix_kernel_shape = False,
                  partial_sum = 1,
                  max_kernel_norm = None,
+                 input_normalization = None,
                  output_normalization = None):
         """
 
@@ -1737,6 +1738,9 @@ class ConvLinearC01B(Layer):
         self.input_space.validate(state_below)
 
         state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        if self.input_normalization:
+            state_below = self.input_normalization(state_below)
 
         # Alex's code requires # input channels to be <= 3 or a multiple of 4
         # so we add dummy channels if necessary
