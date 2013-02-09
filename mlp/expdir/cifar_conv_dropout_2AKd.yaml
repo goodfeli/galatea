@@ -115,8 +115,7 @@
             decay_factor: 1.00004,
             # 2AK9: set min_lr to .001. Done
             # 2AKX: set min_lr to .002. Pending
-            # 2AKd: set min_lr to .01. Pending
-            min_lr: .000001
+            min_lr: .01
         }
     },
     extensions: [
