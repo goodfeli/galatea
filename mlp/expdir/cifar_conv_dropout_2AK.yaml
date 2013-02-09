@@ -14,9 +14,12 @@
                      layer_name: 'h0',
                      pad: 4,
                      detector_channels: 96,
-                     channel_pool_size: 2, # Tried dropping this to 1 in 2AK1. Hurt
+                     # Tried dropping this channel_pool_size to 1 in 2AK1. Hurt
+                     channel_pool_size: 2,
+                     # Tried dropping this kernel_shape to 5 in 2AK3. Hurt
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
+                     # 2AKY: set pool stride to 3. Pending
                      pool_stride: [2, 2],
                      irange: .005,
                      # 2AKB: tried doubling all norm constraints, hurt slightly
@@ -41,6 +44,7 @@
                      layer_name: 'h2',
                      # 2AKD: Tried 512 detector channels, hurt slightly
                      detector_channels: 256,
+                     # 2AKW: Set channel_pool_size 2. Pending.
                      channel_pool_size: 4,
                      kernel_shape: [5, 5],
                      pool_shape: [2, 2],
@@ -63,6 +67,7 @@
             axes: ['c', 0, 1, 'b'],
         },
         # 2AKE: tried setting first layer include prob to 1, hurt
+        # 2AKa: tried setting flirt layer include prob to .6. Pending.
         # performance significantly
         dropout_include_probs: [ .5, .5, .5, 1 ],
         dropout_input_include_prob: .8,
@@ -102,6 +107,8 @@
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
             decay_factor: 1.00004,
+            # 2AK9: set min_lr to .001. Done
+            # 2AKX: set min_lr to .002. Pending
             min_lr: .000001
         }
     },
