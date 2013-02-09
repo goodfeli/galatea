@@ -1957,3 +1957,433 @@ class TwoStage(MLP):
             mask2 = theano_rng.binomial(p=np.sqrt(include_prob), size=state.shape, dtype=state.dtype)
             return state * mask * mask2 * scale
         return state * theano_rng.binomial(p=include_prob, size=state.shape, dtype=state.dtype) * scale
+
+def ave_pool_c01b(c01b, pool_shape, pool_stride, image_shape):
+    """
+    """
+    ave = None
+    r, c = image_shape
+    pr, pc = pool_shape
+    rs, cs = pool_stride
+    assert pr > 0
+    assert pc > 0
+    assert pr <= r
+    assert pc <= c
+
+    # Compute index in pooled space of last needed pool
+    # (needed = each input pixel must appear in at least one pool)
+    def last_pool(im_shp, p_shp, p_strd):
+        rval = int(np.ceil(float(im_shp - p_shp) / p_strd))
+        assert p_strd * rval + p_shp >= im_shp
+        assert p_strd * (rval - 1) + p_shp < im_shp
+        return rval
+    # Compute starting row of the last pool
+    last_pool_r = last_pool(image_shape[0] ,pool_shape[0], pool_stride[0]) * pool_stride[0]
+    # Compute number of rows needed in image for all indexes to work out
+    required_r = last_pool_r + pr
+
+    last_pool_c = last_pool(image_shape[1] ,pool_shape[1], pool_stride[1]) * pool_stride[1]
+    required_c = last_pool_c + pc
+
+    for c01bv in get_debug_values(c01b):
+        assert not np.any(np.isinf(c01bv))
+        assert c01bv.shape[1] == r
+        assert c01bv.shape[2] == c
+
+    wide_zero = T.alloc(0., c01b.shape[0], required_r, required_c, c01b.shape[3])
+
+
+    name = c01b.name
+    if name is None:
+        name = 'anon_bc01'
+    c01b = T.set_subtensor(wide_zero[:, 0:r, 0:c, :], c01b)
+    c01b.name = 'zero_padded_' + name
+
+    for row_within_pool in xrange(pool_shape[0]):
+        row_stop = last_pool_r + row_within_pool + 1
+        for col_within_pool in xrange(pool_shape[1]):
+            col_stop = last_pool_c + col_within_pool + 1
+            cur = c01b[:,row_within_pool:row_stop:rs, col_within_pool:col_stop:cs, :]
+            cur.name = 'max_pool_cur_'+c01b.name+'_'+str(row_within_pool)+'_'+str(col_within_pool)
+            if ave is None:
+                ave = cur
+            else:
+                ave = ave + cur
+                ave.name = 'ave_pool_ave_'+c01b.name+'_'+str(row_within_pool)+'_'+str(col_within_pool)
+
+    ave /= (pool_shape[0] * pool_shape[1])
+    warnings.warn("Divides boundary pools by full pool size")
+
+    ave.name = 'ave_pool('+name+')'
+
+    return ave
+
+class ConvLinearAveC01B(Layer):
+    """
+    Like ConvLinear but for (c, 0, 1, b) axes.
+    """
+
+    def __init__(self,
+                 detector_channels,
+                 kernel_shape,
+                 pool_shape,
+                 pool_stride,
+                 layer_name,
+                 channel_pool_size = 1,
+                 irange = None,
+                 sparse_init = None,
+                 include_prob = 1.0,
+                 init_bias = 0.,
+                 W_lr_scale = None,
+                 b_lr_scale = None,
+                 pad = 0,
+                 fix_pool_shape = False,
+                 fix_pool_stride = False,
+                 fix_kernel_shape = False,
+                 partial_sum = 1,
+                 max_kernel_norm = None,
+                 input_normalization = None,
+                 output_normalization = None):
+        """
+
+            include_prob: probability of including a weight element in the set
+            of weights initialized to U(-irange, irange). If not included
+            it is initialized to 0.
+
+            fix_pool_shape: If True, will modify self.pool_shape to avoid having
+                            pool shape bigger than the entire detector layer.
+                            If you have this on, you should probably also have
+                            fix_pool_stride on, since the pool shape might shrink
+                            smaller than the stride, even if the stride was initially
+                            valid.
+            fix_kernel_shape: if True, will modify self.kernel_shape to avoid
+                            having the kernel shape bigger than the implicitly
+                            zero padded input layer
+            partial_sum: a parameter that influences the performance
+        """
+
+        self.__dict__.update(locals())
+        del self.self
+
+    def get_lr_scalers(self):
+
+        if not hasattr(self, 'W_lr_scale'):
+            self.W_lr_scale = None
+
+        if not hasattr(self, 'b_lr_scale'):
+            self.b_lr_scale = None
+
+        rval = OrderedDict()
+
+        if self.W_lr_scale is not None:
+            W, = self.transformer.get_params()
+            rval[W] = self.W_lr_scale
+
+        if self.b_lr_scale is not None:
+            rval[self.b] = self.b_lr_scale
+
+        return rval
+
+    def set_input_space(self, space):
+        """ Note: this resets parameters! """
+
+        self.input_space = space
+
+        assert isinstance(self.input_space, Conv2DSpace)
+        # note: I think the desired space thing is actually redundant,
+        # since LinearTransform will also dimshuffle the axes if needed
+        # It's not hurting anything to have it here but we could reduce
+        # code complexity by removing it
+        self.desired_space = Conv2DSpace(shape=space.shape,
+                channels=space.num_channels,
+                axes=('c', 0, 1, 'b'))
+
+        ch = self.desired_space.num_channels
+        rem = ch % 4
+        if ch > 3 and rem != 0:
+            self.dummy_channels = 4 - rem
+        else:
+            self.dummy_channels = 0
+        self.dummy_space = Conv2DSpace(shape=space.shape,
+                channels=space.num_channels + self.dummy_channels,
+                axes=('c', 0, 1, 'b'))
+
+        rng = self.mlp.rng
+
+        output_shape = [self.input_space.shape[0] + 2 * self.pad - self.kernel_shape[0] + 1,
+                self.input_space.shape[1] + 2 * self.pad - self.kernel_shape[1] + 1]
+
+        def handle_kernel_shape(idx):
+            if self.kernel_shape[idx] < 1:
+                raise ValueError("kernel must have strictly positive size on all axes but has shape: "+str(self.kernel_shape))
+            if output_shape[idx] <= 0:
+                if self.fix_kernel_shape:
+                    self.kernel_shape[idx] = self.input_space.shape[idx] + 2 * self.pad
+                    assert self.kernel_shape[idx] != 0
+                    output_shape[idx] = 1
+                    warnings.warn("Had to change the kernel shape to make network feasible")
+                else:
+                    raise ValueError("kernel too big for input (even with zero padding)")
+
+        map(handle_kernel_shape, [0, 1])
+
+        self.detector_space = Conv2DSpace(shape=output_shape,
+                num_channels = self.detector_channels,
+                axes = ('c', 0, 1, 'b'))
+
+        def handle_pool_shape(idx):
+            if self.pool_shape[idx] < 1:
+                raise ValueError("bad pool shape: " + str(self.pool_shape))
+            if self.pool_shape[idx] > output_shape[idx]:
+                if self.fix_pool_shape:
+                    assert output_shape[idx] > 0
+                    self.pool_shape[idx] = output_shape[idx]
+                else:
+                    raise ValueError("Pool shape exceeds detector layer shape on axis %d" % idx)
+
+        map(handle_pool_shape, [0, 1])
+
+        assert self.pool_shape[0] == self.pool_shape[1]
+        assert self.pool_stride[0] == self.pool_stride[1]
+        assert all(isinstance(elem, int) for elem in self.pool_stride)
+        if self.pool_stride[0] > self.pool_shape[0]:
+            if self.fix_pool_stride:
+                warnings.warn("Fixing the pool stride")
+                ps = self.pool_shape[0]
+                assert isinstance(ps, int)
+                self.pool_stride = [ps, ps]
+            else:
+                raise ValueError("Stride too big.")
+        assert all(isinstance(elem, int) for elem in self.pool_stride)
+
+        if self.irange is not None:
+            assert self.sparse_init is None
+            self.transformer = conv2d_c01b.make_random_conv2D(
+                    irange = self.irange,
+                    input_axes = self.desired_space.axes,
+                    output_axes = self.detector_space.axes,
+                    input_channels = self.dummy_space.num_channels,
+                    output_channels = self.detector_space.num_channels,
+                    kernel_shape = self.kernel_shape,
+                    subsample = (1,1),
+                    pad = self.pad,
+                    partial_sum = self.partial_sum,
+                    rng = rng)
+        elif self.sparse_init is not None:
+            self.transformer = conv2d_c01b.make_sparse_random_conv2D(
+                    num_nonzero = self.sparse_init,
+                    input_space = self.dummy_space,
+                    output_space = self.detector_space,
+                    kernel_shape = self.kernel_shape,
+                    batch_size = self.mlp.batch_size,
+                    subsample = (1,1),
+                    border_mode = self.border_mode,
+                    rng = rng)
+        W, = self.transformer.get_params()
+        W.name = 'W'
+
+        self.b = sharedX(self.detector_space.get_origin() + self.init_bias)
+        self.b.name = 'b'
+
+        print 'Input shape: ', self.input_space.shape
+        print 'Detector space: ', self.detector_space.shape
+
+        assert self.detector_space.num_channels >= 16
+
+        dummy_detector = sharedX(self.detector_space.get_origin_batch(2)[0:16,:,:,:])
+
+        dummy_p = ave_pool_c01b(c01b=dummy_detector, pool_shape=self.pool_shape,
+                pool_stride=self.pool_stride,
+                image_shape=self.detector_space.shape)
+        dummy_p = dummy_p.eval()
+        assert self.detector_channels % self.channel_pool_size == 0
+        self.output_space = Conv2DSpace(shape=[dummy_p.shape[1], dummy_p.shape[2]],
+                num_channels = self.detector_channels // self.channel_pool_size, axes = ('c', 0, 1, 'b') )
+
+        print 'Output space: ', self.output_space.shape
+
+    def censor_updates(self, updates):
+
+        if self.max_kernel_norm is not None:
+            W ,= self.transformer.get_params()
+            if W in updates:
+                updated_W = updates[W]
+                row_norms = T.sqrt(T.sum(T.sqr(updated_W), axis=(0,1,2)))
+                desired_norms = T.clip(row_norms, 0, self.max_kernel_norm)
+                updates[W] = updated_W * (desired_norms / (1e-7 + row_norms)).dimshuffle('x', 'x', 'x', 0)
+
+    def get_params(self):
+        assert self.b.name is not None
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+        rval = self.transformer.get_params()
+        assert not isinstance(rval, set)
+        rval = list(rval)
+        assert self.b not in rval
+        rval.append(self.b)
+        return rval
+
+    def get_weight_decay(self, coeff):
+        if isinstance(coeff, str):
+            coeff = float(coeff)
+        assert isinstance(coeff, float) or hasattr(coeff, 'dtype')
+        W ,= self.transformer.get_params()
+        return coeff * T.sqr(W).sum()
+
+    def set_weights(self, weights):
+        W, = self.transformer.get_params()
+        W.set_value(weights)
+
+    def set_biases(self, biases):
+        self.b.set_value(biases)
+
+    def get_biases(self):
+        return self.b.get_value()
+
+    def get_weights_topo(self):
+        return self.transformer.get_weights_topo()
+
+    def get_monitoring_channels(self):
+
+        W ,= self.transformer.get_params()
+
+        assert W.ndim == 4
+
+        sq_W = T.sqr(W)
+
+        row_norms = T.sqrt(sq_W.sum(axis=(0,1,2)))
+
+        return OrderedDict([
+                            ('kernel_norms_min'  , row_norms.min()),
+                            ('kernel_norms_mean' , row_norms.mean()),
+                            ('kernel_norms_max'  , row_norms.max()),
+                            ])
+
+    def fprop(self, state_below):
+
+        self.input_space.validate(state_below)
+
+        state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        if not hasattr(self, 'input_normalization'):
+            self.input_normalization = None
+
+        if self.input_normalization:
+            state_below = self.input_normalization(state_below)
+
+        # Alex's code requires # input channels to be <= 3 or a multiple of 4
+        # so we add dummy channels if necessary
+        if not hasattr(self, 'dummy_channels'):
+            self.dummy_channels = 0
+        if self.dummy_channels > 0:
+            state_below = T.concatenate((state_below,
+                T.zeros_like(state_below[0:self.dummy_channels, :, :, :])),
+                axis=0)
+
+        z = self.transformer.lmul(state_below)
+        b = self.b.dimshuffle(0, 1, 2, 'x')
+
+
+        z = z + b
+        if self.layer_name is not None:
+            z.name = self.layer_name + '_z'
+
+        self.detector_space.validate(z)
+
+        assert self.detector_space.num_channels % 16 == 0
+
+        if self.output_space.num_channels % 16 == 0:
+            # alex's max pool op only works when the number of channels
+            # is divisible by 16. we can only do the cross-channel pooling
+            # first if the cross-channel pooling preserves that property
+            if self.channel_pool_size != 1:
+                s = None
+                for i in xrange(self.channel_pool_size):
+                    t = z[i::self.channel_pool_size,:,:,:]
+                    if s is None:
+                        s = t
+                    else:
+                        s = T.maximum(s, t)
+                z = s
+
+            p = ave_pool_c01b(c01b=z, pool_shape=self.pool_shape,
+                    pool_stride=self.pool_stride,
+                    image_shape=self.detector_space.shape)
+        else:
+            raise NotImplementedError()
+            z = max_pool_c01b(c01b=z, pool_shape=self.pool_shape,
+                    pool_stride=self.pool_stride,
+                    image_shape=self.detector_space.shape)
+            if self.channel_pool_size != 1:
+                s = None
+                for i in xrange(self.channel_pool_size):
+                    t = z[i::self.channel_pool_size,:,:,:]
+                    if s is None:
+                        s = t
+                    else:
+                        s = T.maximum(s, t)
+                z = s
+            p = z
+
+
+        self.output_space.validate(p)
+
+        if not hasattr(self, 'output_normalization'):
+            self.output_normalization = None
+
+        if self.output_normalization:
+            p = self.output_normalization(p)
+
+        return p
+
+    def get_weights_view_shape(self):
+        total = self.detector_channels
+        cols = self.channel_pool_size
+        if cols == 1:
+            # Let the PatchViewer decide how to arrange the units
+            # when they're not pooled
+            raise NotImplementedError()
+        # When they are pooled, make each pooling unit have one row
+        rows = total // cols
+        if rows * cols < total:
+            rows = rows + 1
+        return rows, cols
+
+    def get_monitoring_channels_from_state(self, state):
+
+        P = state
+
+        rval = OrderedDict()
+
+        vars_and_prefixes = [ (P,'') ]
+
+        for var, prefix in vars_and_prefixes:
+            assert var.ndim == 4
+            v_max = var.max(axis=(1,2,3))
+            v_min = var.min(axis=(1,2,3))
+            v_mean = var.mean(axis=(1,2,3))
+            v_range = v_max - v_min
+
+            # max_x.mean_u is "the mean over *u*nits of the max over e*x*amples"
+            # The x and u are included in the name because otherwise its hard
+            # to remember which axis is which when reading the monitor
+            # I use inner.outer rather than outer_of_inner or something like that
+            # because I want mean_x.* to appear next to each other in the alphabetical
+            # list, as these are commonly plotted together
+            for key, val in [
+                             ('max_x.max_u', v_max.max()),
+                             ('max_x.mean_u', v_max.mean()),
+                             ('max_x.min_u', v_max.min()),
+                             ('min_x.max_u', v_min.max()),
+                             ('min_x.mean_u', v_min.mean()),
+                             ('min_x.min_u', v_min.min()),
+                             ('range_x.max_u', v_range.max()),
+                             ('range_x.mean_u', v_range.mean()),
+                             ('range_x.min_u', v_range.min()),
+                             ('mean_x.max_u', v_mean.max()),
+                             ('mean_x.mean_u', v_mean.mean()),
+                             ('mean_x.min_u', v_mean.min())
+                             ]:
+                rval[prefix+key] = val
+
+        return rval
