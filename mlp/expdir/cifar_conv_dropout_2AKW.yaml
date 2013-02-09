@@ -14,7 +14,7 @@
                      layer_name: 'h0',
                      pad: 4,
                      detector_channels: 96,
-                     channel_pool_size: 2, # Tried dropping this to 1 in 2AK1. Hurt
+                     channel_pool_size: 2,
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
                      pool_stride: [2, 2],
@@ -33,7 +33,6 @@
                      # 2AKH: Tried bumping irange up to .05, hurt a medium amount
                      irange: .005,
                      # 2AKB: tried doubling all norm constraints, hurt slightly
-                     # 2AKC: tried dropping this norm constraint to .93, hurt moderately
                      max_kernel_norm: 1.9365,
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
@@ -41,7 +40,7 @@
                      layer_name: 'h2',
                      # 2AKD: Tried 512 detector channels, hurt slightly
                      detector_channels: 256,
-                     channel_pool_size: 4,
+                     channel_pool_size: 2,
                      kernel_shape: [5, 5],
                      pool_shape: [2, 2],
                      pool_stride: [2, 2],

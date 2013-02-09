@@ -14,7 +14,7 @@
                      layer_name: 'h0',
                      pad: 4,
                      detector_channels: 96,
-                     channel_pool_size: 2, # Tried dropping this to 1 in 2AK1. Hurt
+                     channel_pool_size: 2,
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
                      pool_stride: [2, 2],
@@ -102,7 +102,7 @@
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
             decay_factor: 1.00004,
-            min_lr: .000001
+            min_lr: .002
         }
     },
     extensions: [
