@@ -29,6 +29,7 @@
                      channel_pool_size: 2,
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
+                     # 2AKZ: tried setting pool_stride to 3. Pending.
                      pool_stride: [2, 2],
                      # 2AKH: Tried bumping irange up to .05, hurt a medium amount
                      irange: .005,
@@ -101,6 +102,7 @@
             N: 100
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+            # 2AKJ: reduced decay_factor to 1.00003, hurt slightly
             decay_factor: 1.00004,
             min_lr: .000001
         }
