@@ -14,7 +14,7 @@
                      layer_name: 'h0',
                      pad: 4,
                      detector_channels: 96,
-                     channel_pool_size: 2,
+                     channel_pool_size: 2, # Tried dropping this to 1 in 2AK1. Hurt
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
                      pool_stride: [2, 2],
