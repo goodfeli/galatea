@@ -1515,6 +1515,7 @@ class ConvLinearC01B(Layer):
                  fix_pool_stride = False,
                  fix_kernel_shape = False,
                  partial_sum = 1,
+                 tied_b = False,
                  max_kernel_norm = None,
                  input_normalization = None,
                  output_normalization = None):
@@ -1656,7 +1657,10 @@ class ConvLinearC01B(Layer):
         W, = self.transformer.get_params()
         W.name = 'W'
 
-        self.b = sharedX(self.detector_space.get_origin() + self.init_bias)
+        if self.tied_b:
+            self.b = sharedX(np.zeros((self.detector_space.num_channels)) + self.init_bias)
+        else:
+            self.b = sharedX(self.detector_space.get_origin() + self.init_bias)
         self.b.name = 'b'
 
         print 'Input shape: ', self.input_space.shape
@@ -1755,7 +1759,10 @@ class ConvLinearC01B(Layer):
                 axis=0)
 
         z = self.transformer.lmul(state_below)
-        b = self.b.dimshuffle(0, 1, 2, 'x')
+        if self.tied_b:
+            b = self.b.dimshuffle(0, 'x', 'x', 'x')
+        else:
+            b = self.b.dimshuffle(0, 1, 2, 'x')
 
 
         z = z + b
