@@ -1906,3 +1906,21 @@ class CrossChannelNormalization(object):
 
         return c01b / scale
 
+from pylearn2.models.mlp import MLP
+class ChannelSync(MLP):
+    """
+    An MLP that drops out entire channels at once when applying
+    dropout to 4-tensors. Assumes C01B tensor format.
+    """
+
+    def apply_dropout(self, state, include_prob, scale, theano_rng):
+        if include_prob in [None, 1.0, 1]:
+            return state
+        assert scale is not None
+        if isinstance(state, tuple):
+            return tuple(self.apply_dropout(substate, include_prob, scale, theano_rng) for substate in state)
+        if state.ndim == 4:
+            mask = theano_rng.binomial(p=include_prob, size=(state.shape[0], state.shape[3]), dtype=state.dtype)
+            mask = mask.dimshuffle(0, 'x', 'x', 1) * scale
+            return state * mask
+        return state * theano_rng.binomial(p=include_prob, size=state.shape, dtype=state.dtype) * scale
