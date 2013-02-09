@@ -102,7 +102,7 @@
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
             decay_factor: 1.00004,
-            min_lr: .000001
+            min_lr: .002
         }
     },
     extensions: [
