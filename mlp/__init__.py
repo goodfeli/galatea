@@ -1739,6 +1739,9 @@ class ConvLinearC01B(Layer):
 
         state_below = self.input_space.format_as(state_below, self.desired_space)
 
+        if not hasattr(self, 'input_normalization'):
+            self.input_normalization = None
+
         if self.input_normalization:
             state_below = self.input_normalization(state_below)
 
@@ -1797,6 +1800,9 @@ class ConvLinearC01B(Layer):
 
 
         self.output_space.validate(p)
+
+        if not hasattr(self, 'output_normalization'):
+            self.output_normalization = None
 
         if self.output_normalization:
             p = self.output_normalization(p)
