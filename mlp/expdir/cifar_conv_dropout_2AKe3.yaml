@@ -8,7 +8,6 @@
         stop: 40000
     },
     model: !obj:pylearn2.models.mlp.MLP {
-        # 2AKQ: set batch_size to 256. Killed it early because it seemed to be hurting.
         batch_size: 128,
         layers: [
                  !obj:galatea.mlp.ConvLinearC01B {
@@ -52,7 +51,6 @@
                      detector_channels: 256,
                      # 2AKW: Set channel_pool_size 2. Pending.
                      channel_pool_size: 4,
-                     # 2AKT: Tried setting kernel_shape to 8. Hurt.
                      kernel_shape: [5, 5],
                      pool_shape: [2, 2],
                      pool_stride: [2, 2],
@@ -74,15 +72,14 @@
             axes: ['c', 0, 1, 'b'],
         },
         # 2AKE: tried setting first layer include prob to 1, hurt
-        # 2AKa: tried setting first layer include prob to .6. Pending.
+        # 2AKa: tried setting flirt layer include prob to .6. Pending.
         # performance significantly
         dropout_include_probs: [ .5, .5, .5, 1 ],
         dropout_input_include_prob: .8,
         dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        # 2Ake: tried increasing learning_rate to 0.1. Pending
-        learning_rate: .05,
+        learning_rate: .0625,
         # 2AK4: tried decreasing init_momentum to 0., hurt moderately
         # 2Ak5: tried decreasing init_momentum to 0.25
         #           killed after 24h, about 0.5 behind 2AK.
@@ -131,7 +128,6 @@
             start: 1,
             saturate: 250,
             # 2AK8: Tried reducing final momentum to 0.6, hurt slightly
-            # 2AKS: Tried raising it to 0.8. Killed early but seemed to be hurting
             final_momentum: .7
         }
     ],
