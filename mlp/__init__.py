@@ -1759,6 +1759,8 @@ class ConvLinearC01B(Layer):
                 axis=0)
 
         z = self.transformer.lmul(state_below)
+        if not hasattr(self, 'tied_b'):
+            self.tied_b = False
         if self.tied_b:
             b = self.b.dimshuffle(0, 'x', 'x', 'x')
         else:
