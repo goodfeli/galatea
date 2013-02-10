@@ -79,6 +79,7 @@
         dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        # 2Ake: tried increasing learning_rate to 0.1. Pending
         learning_rate: .05,
         # 2AK4: tried decreasing init_momentum to 0., hurt moderately
         # 2Ak5: tried decreasing init_momentum to 0.25
