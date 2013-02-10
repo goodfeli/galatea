@@ -12,57 +12,69 @@
         batch_size: 128,
         layers: [
                  !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
                      layer_name: 'h0',
-                     pad: 4,
-                     detector_channels: 96,
+                     pad: 2,
+                     detector_channels: 128,
                      # Tried dropping this channel_pool_size to 1 in 2AK1. Hurt
                      channel_pool_size: 2,
                      # Tried dropping this kernel_shape to 5 in 2AK3. Hurt
                      # 2Akb: kernel shape 7
-                     kernel_shape: [8, 8],
-                     pool_shape: [4, 4],
+                     kernel_shape: [5, 5],
+                     pool_shape: [3, 3],
                      # 2AKY: set pool stride to 3. Pending
                      pool_stride: [2, 2],
                      irange: .005,
+                     output_normalization: !obj:galatea.mlp.CrossChannelNormalization {},
                      # 2AKB: tried doubling all norm constraints, hurt slightly
-                     max_kernel_norm: .9,
+                     #max_kernel_norm: .9,
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
                      layer_name: 'h1',
                      pad: 3,
-                     detector_channels: 256,
+                     detector_channels: 128,
                      channel_pool_size: 2,
-                     kernel_shape: [8, 8],
-                     pool_shape: [4, 4],
+                     kernel_shape: [5, 5],
+                     pool_shape: [3, 3],
                      # 2AKZ: tried setting pool_stride to 3. Pending.
                      pool_stride: [2, 2],
                      # 2AKH: Tried bumping irange up to .05, hurt a medium amount
                      irange: .005,
+                     output_normalization: !obj:galatea.mlp.CrossChannelNormalization {},
                      # 2AKB: tried doubling all norm constraints, hurt slightly
                      # 2AKC: tried dropping this norm constraint to .93, hurt moderately
-                     max_kernel_norm: 1.9365,
+                     #max_kernel_norm: 1.9365,
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
                      # 2AKL: Tried pad 4, helped slightly. Not using for now due to expense
                      pad: 3,
                      layer_name: 'h2',
                      # 2AKD: Tried 512 detector channels, hurt slightly
                      # 2AKK: Tried 320 detector channels, helped slightly. Not using for now
                      #       due to expense
-                     detector_channels: 256,
+                     detector_channels: 128,
                      # 2AKW: Set channel_pool_size 2. Pending.
-                     channel_pool_size: 4,
+                     channel_pool_size: 2,
                      # 2AKT: Tried setting kernel_shape to 8. Hurt.
                      kernel_shape: [5, 5],
-                     pool_shape: [2, 2],
+                     pool_shape: [3, 3],
                      pool_stride: [2, 2],
                      irange: .005,
+                     output_normalization: !obj:galatea.mlp.CrossChannelNormalization {},
                      # 2AKB: tried doubling all norm constraints, hurt slightly
-                     max_kernel_norm: 1.9365,
+                     #max_kernel_norm: 1.9365,
                  },
                  !obj:pylearn2.models.mlp.Softmax {
                      # 2AKB: tried doubling all norm constraints, hurt slightly
-                     max_col_norm: 1.9365,
+                     #max_col_norm: 1.9365,
                      layer_name: 'y',
                      n_classes: 10,
                      irange: .005
@@ -81,8 +93,7 @@
         dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        # 2Ake: tried increasing learning_rate to 0.1. Pending
-        learning_rate: .05,
+        learning_rate: 5.,
         # 2AK4: tried decreasing init_momentum to 0., hurt moderately
         # 2Ak5: tried decreasing init_momentum to 0.25
         #           killed after 24h, about 0.5 behind 2AK.
@@ -104,28 +115,31 @@
                 #              one_hot: 1,
                 #          }
             },
-        cost: !obj:pylearn2.costs.cost.MethodCost {
+        cost: !obj:pylearn2.costs.cost.SumOfCosts {
+            costs: [
+            !obj:pylearn2.costs.cost.MethodCost {
                 method: 'cost_from_X',
                 supervised: 1
+            },
+            !obj:pylearn2.models.mlp.WeightDecay {
+                coeffs: [.0005, .0005, .0005, .0005]
+            } ]
         },
         termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
             channel_name: "valid_y_misclass",
             prop_decrease: 0.,
             N: 100
         },
-        update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
-            # 2AKJ: reduced decay_factor to 1.00003, hurt slightly
-            decay_factor: 1.00004,
-            # 2AK9: set min_lr to .001. Done
-            # 2AKX: set min_lr to .002. Pending
-            # 2AKd: set min_lr to .01. Pending
-            min_lr: .000001
-        }
     },
     extensions: [
         !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
              channel_name: 'valid_y_misclass',
              save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+            start: 1,
+            saturate: 250,
+            decay_factor: .01
         },
         !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
             start: 1,

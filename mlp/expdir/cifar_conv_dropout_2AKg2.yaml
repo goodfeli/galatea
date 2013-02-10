@@ -12,6 +12,9 @@
         batch_size: 128,
         layers: [
                  !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
                      layer_name: 'h0',
                      pad: 4,
                      detector_channels: 96,
@@ -28,6 +31,9 @@
                      max_kernel_norm: .9,
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
                      layer_name: 'h1',
                      pad: 3,
                      detector_channels: 256,
@@ -43,6 +49,9 @@
                      max_kernel_norm: 1.9365,
                  },
                  !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
                      # 2AKL: Tried pad 4, helped slightly. Not using for now due to expense
                      pad: 3,
                      layer_name: 'h2',
@@ -81,8 +90,7 @@
         dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        # 2Ake: tried increasing learning_rate to 0.1. Pending
-        learning_rate: .05,
+        learning_rate: 1.,
         # 2AK4: tried decreasing init_momentum to 0., hurt moderately
         # 2Ak5: tried decreasing init_momentum to 0.25
         #           killed after 24h, about 0.5 behind 2AK.
@@ -118,8 +126,7 @@
             decay_factor: 1.00004,
             # 2AK9: set min_lr to .001. Done
             # 2AKX: set min_lr to .002. Pending
-            # 2AKd: set min_lr to .01. Pending
-            min_lr: .000001
+            min_lr: .01
         }
     },
     extensions: [

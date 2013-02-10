@@ -11,14 +11,13 @@
         # 2AKQ: set batch_size to 256. Killed it early because it seemed to be hurting.
         batch_size: 128,
         layers: [
-                 !obj:galatea.mlp.ConvLinearC01B {
+                 !obj:galatea.mlp.ConvLinearAveC01B {
                      layer_name: 'h0',
                      pad: 4,
                      detector_channels: 96,
                      # Tried dropping this channel_pool_size to 1 in 2AK1. Hurt
                      channel_pool_size: 2,
                      # Tried dropping this kernel_shape to 5 in 2AK3. Hurt
-                     # 2Akb: kernel shape 7
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
                      # 2AKY: set pool stride to 3. Pending
@@ -27,14 +26,13 @@
                      # 2AKB: tried doubling all norm constraints, hurt slightly
                      max_kernel_norm: .9,
                  },
-                 !obj:galatea.mlp.ConvLinearC01B {
+                 !obj:galatea.mlp.ConvLinearAveC01B {
                      layer_name: 'h1',
                      pad: 3,
                      detector_channels: 256,
                      channel_pool_size: 2,
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
-                     # 2AKZ: tried setting pool_stride to 3. Pending.
                      pool_stride: [2, 2],
                      # 2AKH: Tried bumping irange up to .05, hurt a medium amount
                      irange: .005,
@@ -42,17 +40,14 @@
                      # 2AKC: tried dropping this norm constraint to .93, hurt moderately
                      max_kernel_norm: 1.9365,
                  },
-                 !obj:galatea.mlp.ConvLinearC01B {
-                     # 2AKL: Tried pad 4, helped slightly. Not using for now due to expense
+                 !obj:galatea.mlp.ConvLinearAveC01B {
                      pad: 3,
                      layer_name: 'h2',
                      # 2AKD: Tried 512 detector channels, hurt slightly
-                     # 2AKK: Tried 320 detector channels, helped slightly. Not using for now
-                     #       due to expense
                      detector_channels: 256,
                      # 2AKW: Set channel_pool_size 2. Pending.
                      channel_pool_size: 4,
-                     # 2AKT: Tried setting kernel_shape to 8. Hurt.
+                     # 2AKT: Tried seeting kernel_shape to 8. Hurt.
                      kernel_shape: [5, 5],
                      pool_shape: [2, 2],
                      pool_stride: [2, 2],
@@ -81,7 +76,6 @@
         dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        # 2Ake: tried increasing learning_rate to 0.1. Pending
         learning_rate: .05,
         # 2AK4: tried decreasing init_momentum to 0., hurt moderately
         # 2Ak5: tried decreasing init_momentum to 0.25
@@ -114,11 +108,9 @@
             N: 100
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
-            # 2AKJ: reduced decay_factor to 1.00003, hurt slightly
             decay_factor: 1.00004,
             # 2AK9: set min_lr to .001. Done
             # 2AKX: set min_lr to .002. Pending
-            # 2AKd: set min_lr to .01. Pending
             min_lr: .000001
         }
     },
@@ -131,7 +123,6 @@
             start: 1,
             saturate: 250,
             # 2AK8: Tried reducing final momentum to 0.6, hurt slightly
-            # 2AKS: Tried raising it to 0.8. Killed early but seemed to be hurting
             final_momentum: .7
         }
     ],

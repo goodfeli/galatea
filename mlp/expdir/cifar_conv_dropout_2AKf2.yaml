@@ -81,8 +81,7 @@
         dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        # 2Ake: tried increasing learning_rate to 0.1. Pending
-        learning_rate: .05,
+        learning_rate: .075,
         # 2AK4: tried decreasing init_momentum to 0., hurt moderately
         # 2Ak5: tried decreasing init_momentum to 0.25
         #           killed after 24h, about 0.5 behind 2AK.
@@ -118,7 +117,6 @@
             decay_factor: 1.00004,
             # 2AK9: set min_lr to .001. Done
             # 2AKX: set min_lr to .002. Pending
-            # 2AKd: set min_lr to .01. Pending
             min_lr: .000001
         }
     },
@@ -132,7 +130,7 @@
             saturate: 250,
             # 2AK8: Tried reducing final momentum to 0.6, hurt slightly
             # 2AKS: Tried raising it to 0.8. Killed early but seemed to be hurting
-            final_momentum: .7
+            final_momentum: .5
         }
     ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
