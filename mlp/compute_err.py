@@ -16,7 +16,7 @@ if hasattr(model, 'batch_size') and model.batch_size != model.force_batch_size:
 
 assert src.find('train') != -1
 test = yaml_parse.load(src)
-x = raw_input("test acc? ")
+x = raw_input("use test set? ")
 if x == 'y':
     test = test.get_test_set()
     assert test.X.shape[0] == 10000
