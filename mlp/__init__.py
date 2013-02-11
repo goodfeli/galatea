@@ -1881,6 +1881,23 @@ def get_channel(model, dataset, channel, cost, batch_size):
     return value
 
 
+from pylearn2.sandbox.cuda_convnet.response_norm import CrossMapNorm
+
+class CudaConvNetCrossChannelNormalization(object):
+    def __init__(self, alpha=1e-4, beta=0.75, size_f=5, blocked=True):
+        """
+        I kept the same parameter names where I was sure they
+        actually are the same parameters (with respect to
+        CrossChannelNormalization).
+        """
+        self._op = CrossMapNorm(size_f=size_f, add_scale=alpha,
+                                pow_scale=beta, blocked=blocked)
+
+    def __call__(self, c01b):
+        """NOTE: c01b must be CudaNdarrayType."""
+        return self._op(c01b)[0]
+
+
 class CrossChannelNormalization(object):
     """
     See "ImageNet Classification with Deep Convolutional Neural Networks"
