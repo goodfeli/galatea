@@ -1,0 +1,154 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        toronto_prepro: 1,
+        which_set: 'train',
+        one_hot: 1,
+        axes: ['c', 0, 1, 'b'],
+        start: 0,
+        stop: 40000
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        # 2AKQ: set batch_size to 256. Killed it early because it seemed to be hurting.
+        batch_size: 128,
+        layers: [
+                 !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
+                     layer_name: 'h0',
+                     pad: 2,
+                     detector_channels: 128,
+                     # Tried dropping this channel_pool_size to 1 in 2AK1. Hurt
+                     channel_pool_size: 2,
+                     # Tried dropping this kernel_shape to 5 in 2AK3. Hurt
+                     # 2Akb: kernel shape 7
+                     kernel_shape: [5, 5],
+                     pool_shape: [3, 3],
+                     # 2AKY: set pool stride to 3. Pending
+                     pool_stride: [2, 2],
+                     irange: .005,
+                     output_normalization: !obj:galatea.mlp.CrossChannelNormalization {},
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     #max_kernel_norm: .9,
+                 },
+                 !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
+                     layer_name: 'h1',
+                     pad: 3,
+                     detector_channels: 128,
+                     channel_pool_size: 2,
+                     kernel_shape: [5, 5],
+                     pool_shape: [4, 4],
+                     # 2AKZ: tried setting pool_stride to 3. Pending.
+                     pool_stride: [2, 2],
+                     # 2AKH: Tried bumping irange up to .05, hurt a medium amount
+                     irange: .005,
+                     output_normalization: !obj:galatea.mlp.CrossChannelNormalization {},
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     # 2AKC: tried dropping this norm constraint to .93, hurt moderately
+                     #max_kernel_norm: 1.9365,
+                 },
+                 !obj:galatea.mlp.ConvLinearC01B {
+                     W_lr_scale: .01,
+                     b_lr_scale: .01,
+                     tied_b: 1,
+                     # 2AKL: Tried pad 4, helped slightly. Not using for now due to expense
+                     pad: 3,
+                     layer_name: 'h2',
+                     # 2AKD: Tried 512 detector channels, hurt slightly
+                     # 2AKK: Tried 320 detector channels, helped slightly. Not using for now
+                     #       due to expense
+                     detector_channels: 128,
+                     # 2AKW: Set channel_pool_size 2. Pending.
+                     channel_pool_size: 2,
+                     # 2AKT: Tried setting kernel_shape to 8. Hurt.
+                     kernel_shape: [5, 5],
+                     pool_shape: [3, 3],
+                     pool_stride: [2, 2],
+                     irange: .005,
+                     output_normalization: !obj:galatea.mlp.CrossChannelNormalization {},
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     #max_kernel_norm: 1.9365,
+                 },
+                 !obj:pylearn2.models.mlp.Softmax {
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     #max_col_norm: 1.9365,
+                     layer_name: 'y',
+                     n_classes: 10,
+                     irange: .005
+                 }
+                ],
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [32, 32],
+            num_channels: 3,
+            axes: ['c', 0, 1, 'b'],
+        },
+        # 2AKE: tried setting first layer include prob to 1, hurt
+        # 2AKa: tried setting first layer include prob to .6. Pending.
+        # performance significantly
+        dropout_include_probs: [ .5, .5, .5, 1 ],
+        dropout_input_include_prob: .8,
+        dropout_input_scale: 1.,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: 5.,
+        # 2AK4: tried decreasing init_momentum to 0., hurt moderately
+        # 2Ak5: tried decreasing init_momentum to 0.25
+        #           killed after 24h, about 0.5 behind 2AK.
+        init_momentum: .5,
+        monitoring_dataset:
+            {
+                #'train' : *train,
+                'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                              toronto_prepro: 1,
+                              axes: ['c', 0, 1, 'b'],
+                              which_set: 'train',
+                              one_hot: 1,
+                              start: 40000,
+                              stop:  50000
+                          },
+                #'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                #              which_set: 'test',
+                #              gcn: 55.,
+                #              one_hot: 1,
+                #          }
+            },
+        cost: !obj:pylearn2.costs.cost.SumOfCosts {
+            costs: [
+            !obj:pylearn2.costs.cost.MethodCost {
+                method: 'cost_from_X',
+                supervised: 1
+            },
+            !obj:pylearn2.models.mlp.WeightDecay {
+                coeffs: [.0005, .0005, .0005, .0005]
+            } ]
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
+            channel_name: "valid_y_misclass",
+            prop_decrease: 0.,
+            N: 100
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_y_misclass',
+             save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+            start: 1,
+            saturate: 250,
+            decay_factor: .01
+        },
+        !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+            start: 1,
+            saturate: 250,
+            # 2AK8: Tried reducing final momentum to 0.6, hurt slightly
+            # 2AKS: Tried raising it to 0.8. Killed early but seemed to be hurting
+            final_momentum: .7
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}
