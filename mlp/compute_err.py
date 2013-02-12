@@ -12,6 +12,8 @@ batch_size = model.force_batch_size
 # batch_size but not force_batch_size
 if hasattr(model, 'batch_size') and model.batch_size != model.force_batch_size:
     batch_size = model.batch_size
+if batch_size is None:
+    batch_size = 100
 
 
 assert src.find('train') != -1
@@ -56,6 +58,8 @@ batch_acc = function([Xb,yb],[mf1acc])
 
 def accs():
     mf1_accs = []
+    assert isinstance(test.X.shape[0], int)
+    assert isinstance(batch_size, int)
     for i in xrange(test.X.shape[0]/batch_size):
         print i
         x_arg = test.X[i*batch_size:(i+1)*batch_size,:]
