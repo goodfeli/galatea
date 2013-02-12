@@ -2754,9 +2754,9 @@ class SoftmaxOut(Layer):
             z_pieces.append(z[:,i:last_start+i+1:self.pool_stride])
 
         mx = reduce(T.maximum, z_pieces)
-        z_pieces = [z_piece - mx for z_piece in z_pieces]
+        safe_z_pieces = [z_piece - mx for z_piece in z_pieces]
 
-        p_tilde = [T.exp(z_piece) for z_piece in z_pieces]
+        p_tilde = [T.exp(z_piece) for z_piece in safe_z_pieces]
         denom = sum(p_tilde)
         p = [pt / denom for pt in p_tilde]
 
