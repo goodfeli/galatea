@@ -2396,3 +2396,7 @@ class ConvLinearAveC01B(Layer):
                 rval[prefix+key] = val
 
         return rval
+
+class ZeroMeanChannels(object):
+    def __call__(self, c01b):
+        return c01b - c01b.mean(axis=(1,2)).dimshuffle(0, 'x', 'x', 1)
