@@ -2414,7 +2414,6 @@ class ConvLinearAveC01B(Layer):
 
         return rval
 
-
 class SoftmaxOut(Layer):
     """
         A hidden layer that uses the softmax function to do
@@ -2766,3 +2765,7 @@ class SoftmaxOut(Layer):
         p.name = self.layer_name + '_p_'
 
         return p
+
+class ZeroMeanChannels(object):
+    def __call__(self, c01b):
+        return c01b - c01b.mean(axis=(1,2)).dimshuffle(0, 'x', 'x', 1)
