@@ -21,7 +21,8 @@ class ZCA_Dataset(DenseDesignMatrix):
             preprocessor,
             convert_to_one_hot = True,
             start = None,
-            stop = None):
+            stop = None,
+            axes = ['b', 0, 1, 'c']):
 
         self.args = locals()
 
@@ -55,13 +56,13 @@ class ZCA_Dataset(DenseDesignMatrix):
             assert self.y.shape[0] == self.X.shape[0]
         self.view_converter = preprocessed_dataset.view_converter
 
-
         #self.mn = self.X.min()
         #self.mx = self.X.max()
-
         print 'inverting...'
         preprocessor.invert()
         print '...done inverting'
+
+        self.view_converter.axes = axes
 
     def has_targets(self):
         return self.preprocessed_dataset.has_targets()
