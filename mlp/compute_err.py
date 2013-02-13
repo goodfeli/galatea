@@ -10,10 +10,8 @@ src = model.dataset_yaml_src
 batch_size = model.force_batch_size
 # handle bug in older pkl files, where set_batch_size had updated
 # batch_size but not force_batch_size
-if hasattr(model, 'batch_size') and model.batch_size != model.force_batch_size:
-    batch_size = model.batch_size
-if batch_size is None:
-    batch_size = 100
+batch_size = 100
+model.set_batch_size(batch_size)
 
 
 assert src.find('train') != -1
@@ -55,6 +53,8 @@ mf1acc = 1.-T.neq(yl , T.argmax(ymf,axis=1)).mean()
 
 batch_acc = function([Xb,yb],[mf1acc])
 
+# The averaging math assumes batches are all same size
+assert test.X.shape[0] % batch_size == 0
 
 def accs():
     mf1_accs = []
