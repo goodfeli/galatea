@@ -7,9 +7,6 @@ _, model_path = sys.argv
 model = serial.load(model_path)
 
 src = model.dataset_yaml_src
-batch_size = model.force_batch_size
-# handle bug in older pkl files, where set_batch_size had updated
-# batch_size but not force_batch_size
 batch_size = 100
 model.set_batch_size(batch_size)
 

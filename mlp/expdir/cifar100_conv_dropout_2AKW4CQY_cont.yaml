@@ -1,0 +1,51 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "${CIFAR100_GCN_WHITENED}/train.pkl",
+        preprocessor: !pkl: "${CIFAR100_GCN_WHITENED}/preprocessor.pkl",
+        axes: ['c', 0, 1, 'b']
+    },
+    model: &model !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "expdir/cifar100_conv_dropout_2AKW4CQY_best.pkl",
+        name: "monitor_first"
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: .1,
+        # 2AK4: tried decreasing init_momentum to 0., hurt moderately
+        # 2Ak5: tried decreasing init_momentum to 0.25
+        #           killed after 24h, about 0.5 behind 2AK.
+        init_momentum: 0.589558184147,
+        monitoring_dataset:
+            {
+                #'train' : *train,
+                'valid' : !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+                    preprocessed_dataset: !pkl: "${CIFAR100_GCN_WHITENED}/train.pkl",
+                    preprocessor: !pkl: "${CIFAR100_GCN_WHITENED}/preprocessor.pkl",
+                    start: 40000,
+                    stop: 50000,
+                    axes: ['c', 0, 1, 'b']
+                },
+            },
+        cost: &cost !obj:pylearn2.costs.cost.MethodCost {
+                method: 'cost_from_X',
+                supervised: 1
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.ChannelTarget {
+            target: !obj:galatea.mlp.get_channel {
+                batch_size: 100,
+                cost: *cost,
+                dataset : !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+                    start: 0,
+                    stop: 40000,
+                    preprocessed_dataset: !pkl: "${CIFAR100_GCN_WHITENED}/train.pkl",
+                    preprocessor: !pkl: "${CIFAR100_GCN_WHITENED}/preprocessor.pkl",
+                    axes: ['c', 0, 1, 'b']
+                },
+                model: *model,
+                channel: 'y_nll'
+            },
+            channel_name: "valid_y_nll",
+        },
+    },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}
