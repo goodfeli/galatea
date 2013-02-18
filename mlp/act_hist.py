@@ -46,5 +46,8 @@ for i in xrange(0, min(batch_size * max_batches, X.shape[0]), batch_size):
 act = np.concatenate(act, axis=0)
 
 pyplot.hist(act, bins=10000)
+pyplot.title('Distribution of maxout responses')
+pyplot.xlabel('Activation')
+pyplot.ylabel('# of occurrences')
 print 'Showing...'
 pyplot.show()

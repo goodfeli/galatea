@@ -683,6 +683,8 @@ class MaxPoolRectifiedLinear(Layer):
             cur = cur.reshape((cur.shape[0], cur.shape[1], 1))
             assert cur.ndim == 3
             pooling_stack.append(cur)
+        if self.min_zero:
+            pooling_stack.append(T.zeros_like(cur))
         pooling_stack = T.concatenate(pooling_stack, axis=2)
         p = pooling_stack.max(axis=2)
         counts = (T.eq(pooling_stack, p.dimshuffle(0, 1, 'x'))).sum(axis=0)
