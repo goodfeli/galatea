@@ -1920,15 +1920,8 @@ class ConvLinearC01B(Layer):
 
         return rval
 
-def get_channel(model, dataset, channel, cost, batch_size):
-    monitor = Monitor(model)
-    monitor.setup(dataset=dataset, cost=cost, batch_size=batch_size)
-    monitor()
-    channels = monitor.channels
-    channel = channels[channel]
-    val_record = channel.val_record
-    value ,= val_record
-    return value
+# make old imports work
+from pylearn2.monitor import get_channel
 
 
 from pylearn2.sandbox.cuda_convnet.response_norm import CrossMapNorm
