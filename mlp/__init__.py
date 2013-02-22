@@ -643,6 +643,54 @@ class MaxPoolRectifiedLinear(Layer):
 
         return p
 
+    def foo(self, state_below):
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        z = self.transformer.lmul(state_below) + self.b
+
+        if not hasattr(self, 'randomize_pools'):
+            self.randomize_pools = False
+
+        if not hasattr(self, 'pool_stride'):
+            self.pool_stride = self.pool_size
+
+        if self.randomize_pools:
+            z = T.dot(z, self.permute)
+
+        if not hasattr(self, 'min_zero'):
+            self.min_zero = False
+
+        if self.min_zero:
+            p = T.zeros_like(z)
+        else:
+            p = None
+
+        last_start = self.detector_layer_dim  - self.pool_size
+
+        pooling_stack = []
+        for i in xrange(self.pool_size):
+            cur = z[:,i:last_start+i+1:self.pool_stride]
+            cur = cur.reshape((cur.shape[0], cur.shape[1], 1))
+            assert cur.ndim == 3
+            pooling_stack.append(cur)
+        pooling_stack = T.concatenate(pooling_stack, axis=2)
+        p = pooling_stack.max(axis=2)
+        counts = (T.eq(pooling_stack, p.dimshuffle(0, 1, 'x'))).sum(axis=0)
+
+        p.name = self.layer_name + '_p_'
+
+        return p, counts
+
 class TopoMaxPoolRectifiedLinear(Layer):
     """
         A hidden layer that uses the softmax function to do
@@ -2769,3 +2817,71 @@ class SoftmaxOut(Layer):
 class ZeroMeanChannels(object):
     def __call__(self, c01b):
         return c01b - c01b.mean(axis=(1,2)).dimshuffle(0, 'x', 'x', 1)
+
+def adjust_for_viewer(x):
+    return x * 2. - 1.
+
+class make_mnisty(object):
+
+    def apply(self, dataset, can_fit=False):
+        topo = dataset.get_topological_view()
+        topo = topo[:, 2:-2, 2:-2, :].mean(axis=-1)
+        topo = topo.reshape(topo.shape[0], 28, 28, 1)
+        topo /= 255.
+        assert topo.min() == 0.
+        assert topo.max() == 1.
+        dataset.set_topological_view(topo)
+        dataset.adjust_for_viewer = adjust_for_viewer
+
+class permute_and_flip(object):
+
+    def apply(self, dataset, can_fit=False):
+
+        X = dataset.X
+        if X is None:
+            print '!!!!!!!!!!!!!!!!!permute_and_flip does nothing because no data!!!!!!!!!!!!!!!'
+            return
+
+        rng = np.random.RandomState([17., 35., 19.])
+        n = X.shape[1]
+
+        for i in xrange(X.shape[1]):
+            j = rng.randint(n)
+            tmp = X[:,i].copy()
+            X[:,i] = X[:,j].copy()
+            X[:,j] = tmp.copy()
+
+        dataset.X = 1. - X
+
+class ExtraChannels(MLP):
+
+    def get_monitoring_channels(self, X, Y = None):
+
+        rval = super(ExtraChannels, self).get_monitoring_channels(X, Y)
+
+        num_samples = 10
+
+        costs = [self.cost_from_X(X,Y) for i in xrange(num_samples)]
+
+        for layer in self.layers:
+            for param in layer.get_params():
+                grads = [T.grad(cost, param) for cost in costs]
+                mean_grad = sum(grads) / float(num_samples)
+                centered = [grad - mean_grad for grad in grads]
+                squared = [T.sqr(centered) for grad in grads]
+                stdev = sum(squared) / float(num_samples)
+                stdev = T.sqrt(stdev)
+                stdev = stdev.mean()
+                rval[layer.layer_name + '_' + param.name+'grad_stdev'] = stdev
+
+        return rval
+
+def redo_first(model):
+    rng = np.random.RandomState([1,2,3])
+    layer = model.layers[0]
+    for param in layer.get_params():
+        value = param.get_value()
+        new_value = rng.uniform(-.005, .005, value.shape)
+        param.set_value(new_value.astype(param.dtype))
+    return model
+
