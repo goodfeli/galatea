@@ -1,0 +1,66 @@
+!obj:pylearn2.train.Train {
+    dataset: &train  !pkl: "/data/lisatmp/goodfeli/esp_bow.pkl",
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 1250,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 4000,
+                bias_from_marginals: *train,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 4000,
+                        pool_size: 1,
+                        sparse_init: 15,
+                        layer_name: 'h0',
+                        init_bias: 0.
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 4000,
+                        pool_size: 1,
+                        sparse_init: 15,
+                        layer_name: 'h1',
+                        init_bias: 0.
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               seed: [2012, 10, 17],
+               monitoring_dataset : {
+                        'train': *train,
+               },
+               line_search_mode: 'exhaustive',
+               init_alpha : [0.0256, .128, .256, 1.28, 2.56],
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               updates_per_batch: 5,
+               monitoring_batches: 5,
+               batches_per_iter: 10,
+               verbose_optimization: 3,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                       costs :[
+                               !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                                        both_directions : 0,
+                                        noise : 0,
+                                        supervised: 0,
+                                        l1_act_targets: [  .06, .07 ],
+                                        l1_act_eps:     [  .04,  .05 ],
+                                        l1_act_coeffs:  [ .01,  .000  ],
+                                       mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                                                drop_prob: 0.1,
+                                                balance: 0,
+                                                sync_channels: 0
+                                       },
+                               },
+                               !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                                        coeffs: [ .0000005, .0000005 ]
+                               }
+                       ]
+               },
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

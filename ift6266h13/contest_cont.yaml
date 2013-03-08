@@ -1,0 +1,40 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:contest_dataset.ContestDataset {
+        which_set: 'train',
+        preprocessor: !obj:pylearn2.datasets.preprocessing.GlobalContrastNormalization {} 
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "contest_best.pkl",
+        name: "monitor_first"
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 100,
+        learning_rate: 0.00958194863051,
+        init_momentum: .7,
+        monitoring_dataset:
+            {
+                'valid' : !obj:contest_dataset.ContestDataset {
+                              which_set: 'train',
+                              start: 3343,
+                              stop:  4178,
+                              preprocessor:
+                              !obj:pylearn2.datasets.preprocessing.GlobalContrastNormalization {} 
+                          },
+            },
+        cost: !obj:pylearn2.costs.cost.MethodCost {
+                method: 'cost_from_X',
+                supervised: 1
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel {
+            channel_name: "valid_y_nll",
+            prev_channel_name: "train_y_nll",
+            prev_monitor_name: "monitor_first"
+        },
+        update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+            decay_factor: 1.000004,
+            min_lr: .000001
+        }
+    },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}
