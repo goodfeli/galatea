@@ -2772,6 +2772,9 @@ class make_mnisty(object):
 
 class permute_and_flip(object):
 
+    def __init__(self, flip = True):
+        self.flip = flip
+
     def apply(self, dataset, can_fit=False):
 
         X = dataset.X
@@ -2788,7 +2791,8 @@ class permute_and_flip(object):
             X[:,i] = X[:,j].copy()
             X[:,j] = tmp.copy()
 
-        dataset.X = 1. - X
+        if self.flip:
+            dataset.X = 1. - X
 
 class ExtraChannels(MLP):
 
