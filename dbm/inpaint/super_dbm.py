@@ -559,7 +559,8 @@ class GaussianVisLayer(VisibleLayer):
 
         return rval
 
-
+# make old pickle files work
+GaussianConvolutionalVisLayer = GaussianVisLayer
 
 class ConvMaxPool(HiddenLayer):
     def __init__(self,
