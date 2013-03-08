@@ -1,16 +1,23 @@
 import sys
 import os
-_, path = sys.argv
+decapitate = "0"
+batch_size = "100"
+try:
+    _, path = sys.argv
+except:
+    try:
+        _, path, decapitate = sys.argv
+    except:
+        _, path, decapitate, batch_size = sys.argv
 
-assert 'best' in path
+assert ('best' in path) or ('cont' in path) or ('retrain' in path)
 
 parent = path.split('/')[:-1]
 parent = '/'.join(parent)
 
 outpath = parent + '/' + 'sup_on_'+path.split('/')[-1]
-outpath = outpath.replace('.pkl','.yaml')
+outpath = outpath.replace('.pkl','_' + decapitate + '_' + batch_size + '.yaml')
 print "THEANO_FLAGS='device=gpu' train.py",outpath
-
 if os.path.exists(outpath.replace('.yaml','.pkl')):
     print outpath.replace('.yaml', '.pkl')
     assert False
@@ -28,7 +35,7 @@ f.write(
         stop: 50000
     },
         model: !obj:galatea.dbm.inpaint.super_dbm.MLP_Wrapper {
-                        decapitate: 0,
+                        decapitate: %(decapitate)s,
                         super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
                                 super_dbm: !pkl: "%(path)s",
                                 niter: 6
@@ -36,7 +43,7 @@ f.write(
     },
     algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
                line_search_mode: 'exhaustive',
-               batch_size: 100,
+               batch_size: %(batch_size)s,
                set_batch_size: 1,
                updates_per_batch: 3,
                reset_alpha: 0,
