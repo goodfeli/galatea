@@ -38,7 +38,6 @@ from pylearn2.sandbox.cuda_convnet.pool import max_pool_c01b
 from pylearn2.models.mlp import Layer
 from pylearn2.monitor import Monitor
 
-
 class Adaptive(Layer):
     """
         WRITEME
@@ -683,6 +682,8 @@ class MaxPoolRectifiedLinear(Layer):
             cur = cur.reshape((cur.shape[0], cur.shape[1], 1))
             assert cur.ndim == 3
             pooling_stack.append(cur)
+        if self.min_zero:
+            pooling_stack.append(T.zeros_like(cur))
         pooling_stack = T.concatenate(pooling_stack, axis=2)
         p = pooling_stack.max(axis=2)
         counts = (T.eq(pooling_stack, p.dimshuffle(0, 1, 'x'))).sum(axis=0)
@@ -1918,77 +1919,13 @@ class ConvLinearC01B(Layer):
 
         return rval
 
-def get_channel(model, dataset, channel, cost, batch_size):
-    monitor = Monitor(model)
-    monitor.setup(dataset=dataset, cost=cost, batch_size=batch_size)
-    monitor()
-    channels = monitor.channels
-    channel = channels[channel]
-    val_record = channel.val_record
-    value ,= val_record
-    return value
-
-
-from pylearn2.sandbox.cuda_convnet.response_norm import CrossMapNorm
-
-class CudaConvNetCrossChannelNormalization(object):
-    def __init__(self, alpha=1e-4, beta=0.75, size_f=5, blocked=True):
-        """
-        I kept the same parameter names where I was sure they
-        actually are the same parameters (with respect to
-        CrossChannelNormalization).
-        """
-        self._op = CrossMapNorm(size_f=size_f, add_scale=alpha,
-                                pow_scale=beta, blocked=blocked)
-
-    def __call__(self, c01b):
-        """NOTE: c01b must be CudaNdarrayType."""
-        return self._op(c01b)[0]
-
-
-class CrossChannelNormalization(object):
-    """
-    See "ImageNet Classification with Deep Convolutional Neural Networks"
-    Alex Krizhevsky, Ilya Sutskever, and Geoffrey E. Hinton
-    NIPS 2012
-
-    section 3.3, Local Response Normalization
-    """
-
-    def __init__(self, alpha = 1e-4, k=2, beta=0.75, n=5):
-        """
-
-        f(c01b)_[i,j,k,l] = c01b[i,j,k,l] / scale[i,j,k,l]
-
-        scale[i,j,k,l] = (k + sqr(c01b)[clip(i-n/2):clip(i+n/2),j,k,l])^beta
-
-        clip(i) = T.clip(i, 0, c01b.shape[0]-1)
-        """
-
-        self.__dict__.update(locals())
-        del self.self
-
-        if n % 2 == 0:
-            raise NotImplementedError("Only works with odd n for now")
-
-    def __call__(self, c01b):
-        half = self.n // 2
-
-        sq = T.sqr(c01b)
-
-        ch, r, c, b = c01b.shape
-
-        extra_channels = T.alloc(0., ch + 2*half, r, c, b)
-        sq = T.set_subtensor(extra_channels[half:half+ch,:,:,:], sq)
-
-        scale = self.k
-
-        for i in xrange(self.n):
-            scale += self.alpha * sq[i:i+ch,:,:,:]
-        scale = scale ** self.beta
-
-
-        return c01b / scale
+# make old imports work
+try:
+    from pylearn2.monitor import get_channel
+    from pylearn2.expr.normalize import CrossChannelNormalization
+    from pylearn2.expr.normalize import CudaConvNetCrossChannelNormalization
+except ImportError:
+    warnings.warn("Some imports didn't work")
 
 from pylearn2.models.mlp import MLP
 class ChannelSync(MLP):
@@ -2835,6 +2772,9 @@ class make_mnisty(object):
 
 class permute_and_flip(object):
 
+    def __init__(self, flip = True):
+        self.flip = flip
+
     def apply(self, dataset, can_fit=False):
 
         X = dataset.X
@@ -2851,7 +2791,8 @@ class permute_and_flip(object):
             X[:,i] = X[:,j].copy()
             X[:,j] = tmp.copy()
 
-        dataset.X = 1. - X
+        if self.flip:
+            dataset.X = 1. - X
 
 class ExtraChannels(MLP):
 
