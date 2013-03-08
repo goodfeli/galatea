@@ -1949,7 +1949,8 @@ class MLP_Wrapper(Model):
 
     def __init__(self, super_dbm, decapitate = True, final_irange = None,
             initially_freeze_lower = False, decapitated_value = None,
-            train_rnn_y = False, gibbs_features = False, top_down = False):
+            train_rnn_y = False, gibbs_features = False, top_down = False,
+            copy_constraints = False):
 
         # Note: this doesn't handle the 'copies' feature very well.
         # The best way to fit it is probably to write the mf method more generically
@@ -2036,8 +2037,6 @@ class MLP_Wrapper(Model):
             self._params = safe_union(self._params, c.get_params())
 
         if final_irange is not None:
-            if self.orig_sup:
-                del c # Make sure we don't modify the feature-generating RNN
             W = self.c.dbm.rng.uniform(-final_irange, final_irange,
                     (self.c.input_space.get_total_dimension(),
                         self.c.n_classes)) * l2.copies
@@ -2052,6 +2051,17 @@ class MLP_Wrapper(Model):
             self.labpen = sharedX(self.c.get_weights().T, 'labpen')
             self._params.append(self.labpen)
 
+        self.max_col_norms = {}
+        self.max_row_norms = {}
+        if copy_constraints:
+            # note: this really does not play nice with the "copies" feature
+            self.max_col_norms[self.vishid] = l1.max_col_norm
+            self.max_col_norms[self.hidpen] = l2.max_col_norm
+            self.max_row_norms[self.penhid] = l2.max_col_norm
+            self.max_col_norms[self.c.W] = c.max_col_norm
+            if hasattr(self, 'labpen'):
+                self.max_row_norms[self.labpen] = c.max_col_norm
+
 
         if initially_freeze_lower:
             lr_scalers = OrderedDict()
@@ -2062,6 +2072,25 @@ class MLP_Wrapper(Model):
             self.lr_scalers = lr_scalers
         else:
             self.lr_scalers = OrderedDict()
+
+    def censor_updates(self, updates):
+
+        for W in self.max_col_norms:
+            max_col_norm = self.max_col_norms[W]
+            if W in updates:
+                updated_W = updates[W]
+                col_norms = T.sqrt(T.sum(T.sqr(updated_W), axis=0))
+                desired_norms = T.clip(col_norms, 0, max_col_norm)
+                updates[W] = updated_W * (desired_norms / (1e-7 + col_norms))
+        for W in self.max_row_norms:
+            max_row_norm = self.max_row_norms[W]
+            if W in updates:
+                updated_W = updates[W]
+                row_norms = T.sqrt(T.sum(T.sqr(updated_W), axis=1))
+                desired_norms = T.clip(row_norms, 0, max_row_norm)
+                updates[W] = updated_W * ((desired_norms / (1e-7 + row_norms)).dimshuffle(0, 'x'))
+
+
 
     def get_lr_scalers(self):
         return self.lr_scalers
