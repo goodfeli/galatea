@@ -1,3 +1,7 @@
 *.pyc
 *.py~
 .*.swp
+*.mat
+*.pkl
+*.dat
+*.o
