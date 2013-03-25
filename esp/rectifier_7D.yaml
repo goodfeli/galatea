@@ -1,0 +1,80 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:galatea.esp.Im2Word {
+        start: 0,
+        stop: 90000
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        layers: [
+                 !obj:pylearn2.models.mlp.RectifiedLinear {
+                     layer_name: 'h0',
+                     dim: 6000,
+                     irange: .005,
+                     max_col_norm: 1.9365,
+                 },
+                 !obj:pylearn2.models.mlp.Sigmoid {
+                     layer_name: 'h1',
+                     dim: 4500,
+                     irange: .005,
+                     max_col_norm: 1.9365,
+                 },
+                 !obj:galatea.esp.load_rbm {
+                     dim: 4000,
+                     max_col_norm: 1.9365,
+                     layer_name: 'y',
+                     irange: .005
+                 }
+                ],
+        # dropout_include_probs: [ .5, .5, 1 ],
+        # dropout_input_include_prob: .8,
+        # dropout_input_scale: 1.,
+        nvis: 816,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 100,
+        learning_rate: 10.,
+        init_momentum: .5,
+        monitoring_dataset:
+            {
+                #'train' : *train,
+                'train_subset' : !obj:galatea.esp.Im2Word {
+                              start: 0,
+                              stop:  1000
+                          },
+                'valid' : !obj:galatea.esp.Im2Word {
+                              start: 90000,
+                              stop:  100000
+                          },
+                #'test'  : !obj:pylearn2.datasets.mnist.MNIST {
+                #              which_set: 'test',
+                #              one_hot: 1,
+                #          }
+            },
+        cost: !obj:pylearn2.costs.cost.SumOfCosts {
+            costs: [
+                !obj:galatea.esp.NegAveF1 {},
+                #!obj:pylearn2.costs.cost.MethodCost {
+                #    supervised: 1,
+                #    method: "cost_from_X"
+                #}
+                ]
+        },
+        update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+            decay_factor: 1.000004,
+            min_lr: .000001
+        }
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_y_per_output_f1.mean',
+             higher_is_better: 1,
+             save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+            start: 1,
+            saturate: 250,
+            final_momentum: .7
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}

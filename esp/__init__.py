@@ -12,7 +12,54 @@ class Im2Word(DenseDesignMatrix):
         word = serial.load("/data/lisatmp/goodfeli/esp_bow.pkl")
         word = word.X
 
+        img = img[start:stop, :]
+        word = word[start:stop, :]
+
         super(Im2Word, self).__init__(X = img, y=word)
+
+
+class FinalIm2Word(DenseDesignMatrix):
+
+    def __init__(self):
+        img = np.load('/data/lisatmp/goodfeli/esp/finalfeat.npy').astype('float32')
+        word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        word = word.X.astype('float32')
+
+        super(FinalIm2Word, self).__init__(X = img, y=word)
+
+
+class FinalSmallIm2Word(DenseDesignMatrix):
+
+    def __init__(self):
+        img = np.load('/data/lisatmp/goodfeli/esp/finalsmallfeat.npy').astype('float32')
+        word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        word = word.X.astype('float32')
+
+        super(FinalSmallIm2Word, self).__init__(X = img, y=word)
+
+class FinalTinyIm2Word(DenseDesignMatrix):
+
+    def __init__(self):
+        img = np.load('/data/lisatmp/goodfeli/esp/finaltinyfeat.npy').astype('float32')
+        word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        word = word.X.astype('float32')
+
+        super(FinalSmallIm2Word, self).__init__(X = img, y=word)
+
+class FinalMaxIm2Word(DenseDesignMatrix):
+
+    def __init__(self):
+        img = np.load('/data/lisatmp/goodfeli/esp/finalsmallfeat.npy').astype('float32')
+        img2 = np.load('/data/lisatmp/goodfeli/esp/finalfeat.npy').astype('float32')
+        img = np.maximum(img, img2)
+        img2 = np.load('/data/lisatmp/goodfeli/esp/finaltinyfeat.npy').astype('float32')
+        img = np.maximum(img, img2)
+        word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        word = word.X.astype('float32')
+
+        super(FinalMaxIm2Word, self).__init__(X = img, y=word)
+
+
 
 class NegF1(Cost):
 
