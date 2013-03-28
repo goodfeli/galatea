@@ -1,0 +1,47 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                which_set : 'train',
+                gcn: 55.
+                        },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 10,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
+                rows: 32,
+                cols: 32,
+                channels: 3,
+                init_beta: 1.,
+                init_mu: 0.
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                        output_channels: 256,
+                        border_mode: 'valid',
+                        kernel_rows: 6,
+                        kernel_cols: 6,
+                        pool_rows: 3,
+                        pool_cols: 3,
+                        irange: .01,
+                        layer_name: 'h0',
+                        init_bias: -1.
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate : 5e-2,
+               batches_per_iter : 1000,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               cost : !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.5,
+                        balance: 0,
+                        sync_channels: 1
+                }
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_NAME}.pkl",
+    save_freq : 1
+}
+

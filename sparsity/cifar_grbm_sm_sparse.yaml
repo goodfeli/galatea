@@ -1,0 +1,49 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset: &train !obj:pylearn2.datasets.dense_design_matrix.dataset_range {
+        dataset: &dataset !pkl: "${CIFAR10_PATCHES_6x6}",
+        start: 0,
+        stop: 200000
+    },
+    model: !obj:pylearn2.models.rbm.GaussianBinaryRBM {
+        "nvis" : 108,
+        "nhid" : 400,
+        "irange" : 0.05,
+        "energy_function_class" : !obj:pylearn2.energy_functions.rbm_energy.grbm_type_1 {},
+        "learn_sigma" : True,
+        "init_sigma" : .4,
+        "init_bias_hid" : -2.,
+        "mean_vis" : False,
+        "sigma_lr_scale" : 1e-3
+
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+        line_search_mode: 'exhaustive',
+        hacky_conjugacy: 1,
+        reset_conjugate: 0,
+        reset_alpha: 0,
+        updates_per_batch: 3,
+        batch_size: 5000,
+        monitoring_dataset : {
+                                train_patches : *train,
+                                other_patches : !obj:pylearn2.datasets.dense_design_matrix.dataset_range {
+                                                dataset: *dataset,
+                                                start: 200000,
+                                                stop:  210000
+                                            },
+                             },
+        cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs : [!obj:pylearn2.costs.ebm_estimation.SM {
+                         },
+                       !obj:pylearn2.models.rbm.L1_ActivationCost {
+                                target: 0.06,
+                                eps: 0.04,
+                                coeff: 200.
+                       }
+                     ]
+       }
+    },
+    #Finally, request that the model be saved after each epoch
+    "save_freq" : 1
+}
+
+

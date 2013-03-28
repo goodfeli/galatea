@@ -1,0 +1,276 @@
+I. Fisher Kernel for CIFAR/STL classification
+	make a global generative model (rather than patch based). this could
+	be convolutional S3C with probabilistic pooling, or it could be the
+	jellyfish
+	then use Fisher Kernel for classification, like in Rajat's ICML 07
+	paper
+II. analysis of various models
+	GRBM: prove that >2 collinear equiprobable modes are impossible
+	GRBM: prove that not a universal approximator on R^n
+	prove that linear factorial models are not universal approximators
+	(should include S3C)
+III. estimation algorithms
+	1. KL theory
+		on binary data
+			checkpoint = my e-mail w/subject "Binary KL guides features, not pmfs!"
+			see how much any of this generalizes
+			another idea: with multilayer models, deep
+			reconstruction (like my first project with Andrew)
+			might be a particularly bad idea b/c it
+			under-constrains the pdf, ie, going to deep models
+			might be an easy way to find a class where there is so
+			much capacity that KL only chooses parameters, not
+			pmfs
+		on continous data
+			still possible we might be able to derive KL from
+			score matching on continuous inputs
+
+	status of currently existing estimators:
+		smd: implemented and confident it works. see
+		exploring_estimation_criteria/cifar_grbm_smd.yaml
+
+		lnce: implemented and confident it works. not implemented as a
+		pylearn2 cost.
+
+		sm: implemented but slow (must use scan to compute each row
+		of the hessian and then index out the diagonals of the
+		hessian-- no good way of computing vector of second
+		derivatives). could use optimization based on
+		kevin swersky's paper to make it fast for models that can be
+		converted to autoencoders.
+		don't remember whether I was confident it works or not, could
+		definitely use more testing
+
+		nce: implemented and reasonably confident it works, could use
+		some more testing.
+			I was trying to do NCE of Coates/Lee preprocessed
+			CIFAR patches against a full covariance gaussian
+			distribution. This doesn't seem to work at all.
+			The experiments in the NCE paper preprocessed by
+			subtracting the mean and dividing by the variance,
+			and using a uniform distribution on the unit sphere
+			for the noise. I implemented this but haven't
+			experimented with it enough to know if it works.
+
+		ratio matching: have not implemented.
+				probably want to consider a version based on
+				the Bregman divergence paper that samples
+				which bits to flip
+
+	adding consistent estimators:
+		try for example score matching + noise contrastive.
+
+	LNCE:
+		Is LNCE really consistent? I think not, the version of
+		consistency we were using when we wrote that proof was weaker
+		than Hyvarinen's definitions (need to check this). Also, I think the
+		Bregman divergence paper's derivation of ratio matching lets
+		us do a fixed version LNCE for the binary case (by sampling B
+		matrices other than single bit flips). Comparing
+		these may be helpful for deciding whether LNCE is consistent.
+IV. CAE
+	If model is gaussian RBM, then score matching is extremely similar to
+	CAE. However, large singular vectors of CAE do not correspond to the
+	manifold. I sent Yoshua and Salah the formula for the non-varying
+	subspace of directions. Can this be used to improve visualization or
+	manifold-based classification?
+V. General theory of mutual information between v and h being useful for
+classification
+	It seems like many algorithms that work well for classification are
+	loosely based on generative pretraining but are modified in some way
+	to be biased toward having more mutual information between the visible
+	units and the hidden units.
+		-CAE: the CAE is essentially an RBM with two modifications:
+			1. The contractive penalty is REDUCED. In score
+			matching, the contractive penalty scales like
+			h(1-h) while in the CAE it scales like (h(1-h))^2,
+			which is strictly lesser. Also, in the CAE this term
+			has a cross-validated coefficient, which Yann observes
+			to usually come out at around .1, in other words, much
+			smaller than the coefficient of 1 imposed by score
+			matching.
+			2. The use of binary cross entropy as a reconstruction
+			penalty rather than mean squared error
+		-autoencoders: autoencoders with binary cross entropy loss are
+			often found to be very effective for classification,
+			even though binary cross entropy is not a criterion
+			based on a binary pmf. Rather it is a criterion that 
+			encourages mean field passes in both directions to
+			preserve information.
+		-sparse coding beats rbms for a lot of classification tasks,
+		even though sparse coding is a very poor generative model. It
+		is however a model that seems designed to have a lot of mutual
+		information between v and h, especially relative to rbms,
+		especially when applied to real valued data.
+		-(not mentioned to Yoshua yet) For GRBMs, the maximum
+		information can be increased without bound by adding more
+		hidden units. I'm not sure if the likelihood would or not,
+		though improving likelihood and MI at the same time is still
+		beneficial. 
+
+	see e-mail to Yoshua, "idea regarding feature learning", for two ideas
+	about how to test this
+bilinear rbm
+	figure out conditions needed for learning to do anything useful
+	Aaron's approach with noise variables in the middle
+	use slowness
+	try a PSD version
+SFA
+	run Wiskott lab's code, see if their results are reproducible
+	did Wiskott lab ever re-run their own code after fixing the bug I
+	found?
+	revisit ICML 11 code, try to get MLPs working better maybe using
+	mu-ssRBM or score matching training
+Contractive Sparse Coding
+	Differentiable sparse coding is written up but slow. Haven't added the
+	contractive terms.
+	May want to put contraction penalty on LCC as well as SC
+Turn PSD into an EBM and sample from it
+PMIL
+	Rejected from UAI.
+	Redo with flashier experiments, such as running it on video.
+		Quoc's paper is out. Check that this is still
+		state-of-the-art, but we could probably easily extend it to
+		use PMIL and get some increase in performance. "Learning
+		hierarchical invariant spatio-temporal features for action
+		recognition with independent subspace analysis"
+	New competition: look at Hugo's UAI 2011 paper on discriminative RBMs.
+	Part of it is about MIL with dRBMs.
+Making hidden units do more work
+	Aaron has an idea for showing that Canonical Ridge Analysis
+	gives rise to Partial Least Squares at one end of a spectrum
+	and Canonical Correlation Analysis at another. The idea is that
+	CRA does more generative modeling work with the covariance matrices
+	on the visible units, and PLS does more modeling work with the
+	hidden units. (Clarifification: it is already known that CCA and PLS
+	are two ends of the same spectrum, but only CCA has a probabilistic
+	model interpretation. So we should try to find a probabilistic model
+	for PLS and show that there is a spectrum of models as well as a
+	spectrum of algorithms)
+	Aaron told me about this b/c I said I was interested in regularizers
+	that make RBM's do more of the modeling work with the hidden units
+	(i.e., make a GRBM or ssRBM try not to rely too much on the visible
+	unit variance parameter)
+	Aaron is also interested in taking Francis Bach's probabilistic model
+	for CCA and making a spike-and-slab version
+Activation function idea
+	Based on the success of OMP-10, would it be possible to make an
+	activation function that generalizes softmax to a distribution
+	where k units are always on instead of just 1?
+	It's possible this would make a better prior on S3C than the current
+	factorial bernoulli distribution does
+Learning Transformations for Transformation Equivariant Models
+	see "Transformation Equivariant Boltzmann Machines" ICANN 2011
+	this is somewhat similar to James' "One Gabor To Rule Them All" paper
+	both are equivariant to translation and rotation
+	I propose learning a model that is equivariant to learned
+	transformations
+	the idea is that each weight vector should be generated by applying
+	a sequence of transformations to one of a set of underlying templates.
+	
+	two possible sources of statistical strength:
+		tie transform weights across templates (ie, same transform
+		must be useful for each template)
+		different degrees of transform are formed by composing one
+		incremental transform. ie, if r(x) is rotate 10 degrees, then
+		r(r(x)) is rotate 10 degrees.
+
+	further ideas:
+		each form of tying gives info about pooling structures that
+		might work well. for example, pooling over all transforms of
+		one template, or say we have r (rotate) and t (translate).
+		we could make a grid of repeated applications of r and t,
+		then pool down to one softmax unit giving best number of
+		compositions of r and another giving best number of
+		compositions of t
+
+		could have more than one copy of all transforms for each
+		template, put them in a directed model so they compete, and
+		then each copy will hopefully explain a different instance
+		of the feature described by the template
+Work on PASCAL VOC to get street cred with the hacky vision crowd?
+Stuff Aaron is interested in:
+	S3C on S3C
+	linear CG with R op for inference of s variables in S3C
+	S3C with binary or multinomial units
+Stuff I don't mind farming out:
+	temporal S3C
+	convolutional S3C
+	some of the stuff Aaron is interested in
+	
+Forward looking stuff:
+	General strategies for learning to learn:
+		should be able to learn that if a weight vector w_i is useful,
+		then f(w_i) is too    (i.e., discover that some layer of the
+		representation  should be equivariant to in-plane transformations)
+
+		if two features vectors are related by some transformation,
+		then share statistical power between them. ie, the bias or the
+		mean/precision term on a hidden unit is a function of both the
+		identity of the feature and of its transformation coordinates
+
+		should be able to learn that h_i and h_j are synonymous for
+		the purpose of classification (even if not for generation).
+		could probably do this with a pooling layer-- remember
+		Yoshua's idea for learning the pooling from 2011?
+
+		should be able to learn that if h_i and h_j are synonyms
+		and h_k = f(h_i) and h_l = f(h_j) then h_k and h_l are
+		synonyms
+
+
+
+
+	More advanced tasks to consider:
+		highlight an object, ie per pixel labeling. this shows how
+		much the model really understands
+			also, should be able to do this without the full
+			pixel labeling. ie, learn to label objects per-pixel
+			after just being given centroid labels of the objects.
+			to do this model will need to figure out which things
+			it can explain with existing things it knows about
+			and which are part of the new object
+
+		one shot learning
+
+		recognize formations of objects (ie, a square of 7s and a
+		square of cars are both squares, and can be discriminated
+		from a triangle of 6s, etc.)
+
+		object counting (especially for overlapping objects, where
+		you need to figure out which eye belongs to which person,
+		etc)
+
+		dealing with extreme occlusion, ie Guillaume's bubbling idea
+
+
+
+Dead ends:
+	Reconstruction SRBM:
+		The Reconstruction SRBM turns out to be just doing a directed
+		model, generally equivalent to sparse coding (though sparse
+		coding doesn't estimate the model with true maximum
+		likelihood).
+
+	Contractive coding:
+		All ways that I tried to pose the problem ended up being
+		differential equations that only had numerical solutions,
+		even for extremely simple versions with only one hidden unit,
+		etc.
+
+	Deriving binary cross-entropy between data and autoencoder reconstruction
+	as being some kind of consistent estimator:
+		This is a dead end specifically for the case of binary input
+		data. Autoencoder reconstruction is a function only of the
+		model's score, and the pmf conveys no information about the
+		score. Thus estimators based on the consistency of the
+		recovered pmf are not able to influence the autoencoder
+		reconstruction.
+
+		This is not yet proven to be a dead end for the case of
+		continous inputs.
+
+
+Completed missions:
+1. S3C
+

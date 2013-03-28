@@ -1,0 +1,8 @@
+!obj:galatea.maxout.shuffle {
+        dataset: !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
+        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
+        start: 0,
+        stop: 40000,
+        axes: ['c', 0, 1, 'b']
+    }}

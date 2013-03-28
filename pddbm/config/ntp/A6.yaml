@@ -1,0 +1,77 @@
+#like D4 but added penalty on h
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: &src "/u/goodfeli/galatea/datasets/norb_tiny_preprocessed_train.pkl",
+    "model": !obj:galatea.pddbm.pddbm.PDDBM {
+        "learning_rate" : .0001,
+        "dbm": !obj:pylearn2.models.dbm.DBM {
+                "negative_chains" : 100,
+                "monitor_params" : 1,
+                "rbms" : [ !obj:pylearn2.models.rbm.RBM {
+                                                  "nvis" : 2250,
+                                                  "nhid" : 2250,
+                                                  "irange" : .05,
+                                                  "init_bias_vis" : 0.,
+                                                  "init_bias_hid" : -1.
+                                                }
+                         ]
+        },
+        "s3c": !obj:galatea.s3c.s3c.S3C {
+               "nvis" : 400,
+               "nhid" : 2250,
+               "init_bias_hid" : 0.,
+               "max_bias_hid" : 0.,
+               "min_bias_hid" : -8.,
+               "irange"  : .02,
+               "constrain_W_norm" : 1,
+               "init_B"  : 3.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  0,
+               "init_alpha" : 1.,
+               "min_alpha" : 1e-3,
+               "max_alpha" : 1e6,
+               "init_mu" : 0.,
+               "local_rf_src" : *src,
+               "local_rf_shape" : [6,6],
+               "local_rf_stride" : [1,1],
+               #"random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
+               "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
+                        #"B_learning_rate_scale" : 0.01,
+                        "W_learning_rate_scale" : 10.,
+                        #note: I think all this stuff is currently ignored by the actual learning algo
+                        "B_penalty" : 1.,
+                        "alpha_penalty" : 1.
+               },
+        },
+       "inference_procedure" : !obj:galatea.pddbm.pddbm.InferenceProcedure {
+                "schedule" : [ ['s',1.],   ['h',1.],   ['g',0],   ['h', 0.4], ['s',0.4],
+                             ['h',0.4], ['g',0],   ['h',0.4], ['s',0.4],  ['h',0.4],
+                             ['g',0],   ['h',0.4], ['s',0.4], ['h', 0.4], ['g',0],
+                             ['h',0.4], ['g',0],   ['h',0.4], ['s', 0.4], ['h',0.4] ],
+                "monitor_kl" : 0,
+                "clip_reflections" : 1,
+                "rho" : 0.5
+       },
+       "print_interval" :  100000,
+       #"h_penalty" : 1.,
+       #"h_target"  : .1,
+       #"g_penalties" : [200.],
+       #"g_targets" : [.1],
+       #"dbm_weight_decay" : [10],
+    },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : *src,
+                        "num_examples" : 100
+                }
+        },
+    "save_path": "${PYLEARN2_TRAIN_FILE_NAME}.pkl"
+}
+

@@ -1,0 +1,57 @@
+!obj:pylearn2.train.Train {
+    dataset: &data !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        one_hot: 1,
+        binarize: 1
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
+                super_dbm: !pkl: "${G}/dbm/inpaint/expdir/mnist_sup_inpaint_Prr_best.pkl", 
+                niter: 11 # Russ's for loop does 10 iterations after the initial double weights pass,
+                  # my algorithm counts the double weights pass as the first iteration
+                },
+        name: 'monitor_inpaint'
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate: 1e-3,
+               init_momentum: .5,
+               monitoring_batches: 10,
+               monitoring_dataset : *data,
+               cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs: [ !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
+                        supervised: 1,
+                        # use a lot of chains to compensate for lack of rao-blackwell
+                        num_chains: 100,
+                        num_gibbs_steps: 5,
+                        toronto_neg: 1
+                        },
+                        !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                          coeffs: [ .0001, .0001, .0001 ]
+                        },
+                       # !obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost {
+                       #   supervised: 1,
+                       #  coeffs: [ .0001, .0001 ],
+                       #   targets: [ .2, .1 ],
+                       #   eps: [.05, .05]
+                       # }
+                       ],
+           },
+           termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter { max_epochs: 300 },
+           update_callbacks: [
+                !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+                        decay_factor: 1.000015,
+                        min_lr:       0.0001
+                }
+           ]
+        },
+    extensions: [
+            !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                final_momentum: .9,
+                start: 5,
+                saturate: 6
+            },
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

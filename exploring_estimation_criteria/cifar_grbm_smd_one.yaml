@@ -1,0 +1,34 @@
+
+!obj:pylearn2.scripts.train.Train {
+    "dataset": &data !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                "dataset" : !pkl: "/data/lisatmp/goodfeli/cifar10_preprocessed_train_2M.pkl",
+                 "num_examples" : 1
+                },
+    "model": !obj:pylearn2.models.rbm.GaussianBinaryRBM {
+                     "nvis" : 192,
+                     "nhid" : 400,
+                     "irange" : 0.05,
+                     "energy_function_class" : !obj:pylearn2.energy_functions.rbm_energy.grbm_type_1 {},
+                     "learn_sigma" : False,
+                     "init_sigma" : .1,
+                     "mean_vis" : False,
+                     "sigma_lr_scale" : 1e-3
+
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.sgd.SGD {
+               "learning_rate" : 1e-3,
+               "batch_size" : 1,
+               "batches_per_iter" : 10000,
+               "monitoring_batches" : 1000,
+               "monitoring_dataset" : *data,
+               "cost" : !obj:pylearn2.costs.ebm_estimation.SMD {
+                        "corruptor": !obj:pylearn2.corruption.GaussianCorruptor {
+                                "stdev": .1
+                        }
+               }
+        },
+    "save_path": "cifar_grbm_smd_one.pkl",
+    "callbacks": [!obj:fuck_you.FuckYouCallback {}]
+}
+
+

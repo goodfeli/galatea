@@ -1,0 +1,548 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+Suppose we represent images, videos, etc.
+ as a structure with two indices, 
+\begin_inset Formula $t$
+\end_inset
+
+ and 
+\begin_inset Formula $c$
+\end_inset
+
+, so that elements of the image can be identified as 
+\begin_inset Formula $x_{tc}$
+\end_inset
+
+.
+ 
+\begin_inset Formula $t$
+\end_inset
+
+ is a 
+\begin_inset Formula $D-$
+\end_inset
+
+dimensional index identifying the location along the axes that have a topology,
+ and 
+\begin_inset Formula $c$
+\end_inset
+
+ is an index into 
+\begin_inset Formula $C$
+\end_inset
+
+ different channels.
+ Both of these use integer coordinates.
+\end_layout
+
+\begin_layout Standard
+To do ZCA with a generic linear operator, we want to find a set of coefficients
+ 
+\begin_inset Formula $W$
+\end_inset
+
+ defining
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+y_{ud}=\sum_{tc}W_{udtc}x_{tc}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+such that
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mathbb{E}[y_{ud}^{2}]=1
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mathbb{E}[y_{ud}y_{tc}]=0\forall ud\neq tc
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+W_{udtc}=W_{tcud}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that ZCA assumes that 
+\begin_inset Formula $x_{tc}$
+\end_inset
+
+has zero mean for all 
+\begin_inset Formula $t,c$
+\end_inset
+
+ so that the above expressions refer to the variance and covariance.
+\end_layout
+
+\begin_layout Standard
+We make two assumptions (beyond what ZCA makes) about the distribution generatin
+g the images.
+ First, the distribution is shift invariant, i.e.:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+p(x_{tc},x_{ud})=p(x_{t+o,c},x_{u+p,d})\forall t,c,u,d,o,p
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Second, pixels at great distance are independent:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\Vert o\Vert_{\infty}>k\Rightarrow p(x_{tc},x_{t+o,d})=p(x_{tc})p(x_{t+o,d})\forall t,c,o,d
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+What convolutions satisify the constraint on 
+\begin_inset Formula $W$
+\end_inset
+
+?
+\end_layout
+
+\begin_layout Standard
+A convolution is a transformation such that 
+\begin_inset Formula $W_{udtc}=W_{0,d,t-u,c}=K_{d,t-u,c}$
+\end_inset
+
+and 
+\begin_inset Formula $W_{udtc}=0$
+\end_inset
+
+ when 
+\begin_inset Formula $\Vert t-u\Vert_{\infty}>h$
+\end_inset
+
+ (
+\begin_inset Quotes eld
+\end_inset
+
+h
+\begin_inset Quotes erd
+\end_inset
+
+ is short for 
+\begin_inset Quotes eld
+\end_inset
+
+half
+\begin_inset Quotes erd
+\end_inset
+
+, since 
+\begin_inset Formula $h$
+\end_inset
+
+ is the floor of half the kernel width.
+ Note that the way I've parameterized this the kernel always has odd width).
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $W_{udtc}=W_{0,d,t-u,c}=K_{d,t-u,c}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $W_{tcud}=W_{0,c,u-t,d}=K_{c,u-t,d}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So convolutions do satisfy the constraint, provided that they are symmetric,
+ where symmetry is in the matrix sense when looking at the channel indices
+ and in the geometric sense when looking at the topological indices:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+K_{c,t,d}=K_{d,-t,c}.
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This means we really only need to learn 
+\begin_inset Formula $Q$
+\end_inset
+
+, a triangular stack of kernel hyperquadrants, i.e., 
+\begin_inset Formula $Q_{c,t,d}$
+\end_inset
+
+is defined iff 
+\begin_inset Formula $d\geq c$
+\end_inset
+
+ and 
+\begin_inset Formula $\min_{i}t_{i}\geq0$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Reduction to finite problem
+\end_layout
+
+\begin_layout Standard
+Idea: I think we can show that if a convolution kernel solves these contraints
+ on a small patch of 
+\begin_inset Formula $y$
+\end_inset
+
+, then it solves them everwhere.
+\end_layout
+
+\begin_layout Standard
+Suppose that all constraints involving only 
+\begin_inset Formula $S=\left\{ y_{ud}:\Vert u\Vert_{\infty}<m\right\} $
+\end_inset
+
+ are satisfied.
+ I think for 
+\begin_inset Formula $m$
+\end_inset
+
+ big enough, this implies the constraints are satisfied everywhere.
+ But I'm not sure what 
+\begin_inset Formula $m$
+\end_inset
+
+ should be.
+\end_layout
+
+\begin_layout Subsection
+Variance constraint
+\end_layout
+
+\begin_layout Standard
+If we simplify the expression for the variance, we find that it does not
+ depend on the location:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mathbb{E}[y_{tc}^{2}]=\mathbb{E}[(\sum_{ud}W_{tcud}x_{ud})^{2}]=\mathbb{E}[\sum_{ud}\sum_{ve}W_{tcud}W_{tcve}x_{ud}x_{ve}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{ud}W_{tcud}^{2}\mathbb{E}[x_{ud}^{2}]+W_{tcud}\sum_{ve\neq ud}W_{tcve}\mathbb{E}[x_{ud}x_{ve}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{ud}K_{c,u-t,d}^{2}\mathbb{E}[x_{ud}^{2}]+\mbox{K}_{c,u-t,d}\sum_{v}K_{c,v-t,e}\mathbb{E}[x_{ud}x_{ve}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{ud}K_{c,u-t,d}^{2}\mathbb{E}[x_{0d}^{2}]+K_{c,u-t,d}\sum_{v}K_{c,v-t,e}\mathbb{E}[x_{0d}x_{(v-u)e}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+i.e., we satisfying the variance constraint at topological location 0 satisfies
+ it everywhere.
+ Thus our infinitely many constraints on the variance of the 
+\begin_inset Formula $y$
+\end_inset
+
+ variables can be expressed as 
+\begin_inset Formula $C$
+\end_inset
+
+ different constraints on the variance at spatial location 0.
+\end_layout
+
+\begin_layout Subsection
+Covariance constraint
+\end_layout
+
+\begin_layout Standard
+If we simplify the expression for the covariance, we find that it only depends
+ on the offset between the two 
+\begin_inset Formula $y$
+\end_inset
+
+ variables
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mathbb{E}[y_{tc}y_{ud}]=\mathbb{E}[(\sum_{ve}W_{tcve}x_{ve})(\sum_{ve}W_{udve}x_{ve})]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{ve}\sum_{wf}W_{tcve}W_{udwf}\mathbb{E}[x_{ve}x_{wf}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{ve}W_{tcve}^{2}\mathbb{E}[x_{ve}^{2}]+W_{tcve}\sum_{wf\neq ve}W_{udwf}\mathbb{E}[x_{ve}x_{wf}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{ve}K_{c,v-t,e}^{2}\mathbb{E}[x_{ve}^{2}]+K_{c,v-t,e}\sum_{wf\neq ve}K_{d,w-u,f}\mathbb{E}[x_{ve}x_{wf}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{ve}K_{c,v-t,e}^{2}\mathbb{E}[x_{0e}^{2}]+K_{c,v-t,e}\sum_{wf\neq ve}K_{d,w-u,f}\mathbb{E}[x_{0e}x_{w-v,f}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{o}K_{c,o,e}^{2}\mathbb{E}[x_{0e}^{2}]+K_{c,o,e}\sum_{wf\neq o+t,e}K_{d,w-u,f}\mathbb{E}[x_{0e}x_{w-t-o,f}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{o}K_{c,o,e}^{2}\mathbb{E}[x_{0e}^{2}]+K_{c,o,e}\sum_{wf\neq o+t,e}K_{d,w-u,f}\mathbb{E}[x_{0e}x_{w-t-o,f}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{o}K_{c,o,e}^{2}\mathbb{E}[x_{0e}^{2}]+K_{c,o,e}\sum_{p,f\neq o+t-u,e}K_{d,p,f}\mathbb{E}[x_{0e}x_{p-o+u-t,f}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This depends only on the difference between 
+\begin_inset Formula $t$
+\end_inset
+
+ and 
+\begin_inset Formula $u$
+\end_inset
+
+.
+ This means that we need to include the covariance constraints only for
+ each possible offset in output space, not for each possible pair of locations
+ in output space.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{o}K_{c,o,e}^{2}\mathbb{E}[x_{0e}^{2}]+K_{c,o,e}\sum_{q+o-u+t,f\neq o+t-u,e}K_{d,q+o-u+t,f}\mathbb{E}[x_{0e}x_{q,f}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{o}K_{c,o,e}^{2}\mathbb{E}[x_{0e}^{2}]+K_{c,o,e}\sum_{q,f\neq0,e}K_{d,q+o-u+t,f}\mathbb{E}[x_{0e}x_{q,f}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Recall that we assumed widely separated pixels are independent.
+ This means the covariance of widely separated input pixels is 0.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{o}K_{c,o,e}^{2}\mathbb{E}[x_{0e}^{2}]+K_{c,o,e}\sum_{q,f\neq0,e,\Vert q\Vert_{\infty}\leq k}K_{d,q+o+t-u,f}\mathbb{E}[x_{0e}x_{q,f}]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

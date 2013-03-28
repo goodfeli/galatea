@@ -1,0 +1,35 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset:  !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        binarize: 1,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.AugmentedDBM {
+          # this pulls in batch size (which we override below) and niter from previous job
+          super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/mnist_T6.pkl",
+          extra_layer: !obj:galatea.dbm.inpaint.super_dbm.Softmax
+                      {
+                        irange: 0.05,
+                        n_classes: 10,
+                        layer_name: 'class_layer',
+                       }
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               batch_size: 5000,
+               set_batch_size: 1,
+               monitoring_dataset :   !obj:pylearn2.datasets.mnist.MNIST {
+                        which_set: "train",
+                        binarize: 1,
+                        one_hot: 1,
+                        start: 50000,
+                        stop:  60000
+                },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               },
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

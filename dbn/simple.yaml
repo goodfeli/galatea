@@ -1,0 +1,51 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarizer.Binarizer {
+      raw: &raw_train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 0,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    }},
+    model: !obj:galatea.dbn.simple.SimpleDBN {
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 100,
+        set_batch_size: 1,
+        learning_rate: .1,
+        init_momentum: .9,
+        monitoring_dataset : {
+                        'train': *train,
+                        'valid': !obj:pylearn2.datasets.binarizer.Binarizer { raw: !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 0,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            }},
+               },
+               cost: !obj:pylearn2.costs.cost.MethodCost {
+                   method: 'get_cost',
+                   supervised: 1
+               },
+               #termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               #{
+               #         channel_name: "valid_objective",
+               #         N: 15,
+               #         prop_decrease: 0.
+               #}
+        },
+    extensions: [
+        !obj:pylearn2.training_algorithms.sgd.OneOverEpoch {
+            start: 30,
+            half_life: 30
+        },
+    #            !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+    #                    channel_name: "valid_err",
+    #                    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+    #            }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

@@ -1,0 +1,2 @@
+This doesn't actually do denoising, it does inpainting. Changed to 'inpaint' directory.
+This directory is just sitting here so the old pkl files will still open.

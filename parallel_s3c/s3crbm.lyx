@@ -1,0 +1,261 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+The S3C-RBM model
+\end_layout
+
+\begin_layout Standard
+The S3C-RBM is an S3C model constrained to have 
+\begin_inset Formula $W^{T}\beta W$
+\end_inset
+
+ be zero on the off-diagonal entries, rendering the model equivalent to
+ an RBM.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $p(h_{i}=1)=\sigma(b_{i})$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $p(s_{i}\mid h_{i})=\mathcal{N}(s_{i}\mid\mu_{i}h_{i},\alpha_{i}^{-1})$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $p(v_{i}\mid h,s)=\mathcal{N}(v_{i}\mid W(h\circ s),\beta^{-1})$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This corresponds to the energy function
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s)=\frac{1}{2}(v-W(h\circ s))^{T}\beta(v-W(h\circ s))+\frac{1}{2}(s-h\circ\mu)^{T}\alpha(s-h\circ\mu)-h^{T}b
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+RBM inference
+\end_layout
+
+\begin_layout Standard
+In the RBM approach to inference, we assume that the constraint holds exactly.
+ In this case we can simplify the energy function further.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s)=\frac{1}{2}v^{T}\beta v-v^{T}W(h\circ s)+\frac{1}{2}(s\circ h)W^{T}\beta W(h\circ s)+\frac{1}{2}(s-h\circ\mu)^{T}\alpha(s-h\circ\mu)-h^{T}b
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{2}v^{T}\beta v-v^{T}W(h\circ s)+\frac{1}{2}(s\circ h)w(h\circ s)+\frac{1}{2}(s-h\circ\mu)^{T}\alpha(s-h\circ\mu)-h^{T}b
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $w$
+\end_inset
+
+ is a diagonal matrix with 
+\begin_inset Formula $w_{ii}=W_{:i}^{T}\beta W_{:i}$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+With this simplification, there are no longer any interaction terms, so
+ we can just compute the posterior in closed form:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P(h,s\mid v)\propto\exp(-\frac{1}{2}v^{T}\beta v+v^{T}W(h\circ s)-\frac{1}{2}(s\circ h)w(h\circ s)-\frac{1}{2}(s-h\circ\mu)^{T}\alpha(s-h\circ\mu)+h^{T}b)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\propto\exp(v^{T}W(h\circ s)-\frac{1}{2}(s\circ h)w(h\circ s)-\frac{1}{2}(s-h\circ\mu)^{T}\alpha(s-h\circ\mu)+h^{T}b)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\exp\left(\sum_{i}\left[(v^{T}W)_{i}h_{i}s_{i}-\frac{1}{2}w_{i}h_{i}s_{i}^{2}-\frac{1}{2}\alpha_{i}(s_{i}-h_{i}\mu_{i})^{2}+b_{i}h_{i}\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\Pi_{i}\exp\left((v^{T}W)_{i}h_{i}s_{i}-\frac{1}{2}w_{i}h_{i}s_{i}^{2}-\frac{1}{2}\alpha_{i}(s_{i}-h_{i}\mu_{i})^{2}+b_{i}h_{i}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So it a factorial posterior with
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{equation}
+P(h_{i},s_{i}\mid v)\propto\exp\left((v^{T}W)_{i}h_{i}s_{i}-\frac{1}{2}w_{i}h_{i}s_{i}^{2}-\frac{1}{2}\alpha_{i}(s_{i}-h_{i}\mu_{i})^{2}+b_{i}h_{i}\right)\label{eq:rbm_joint_posterior}
+\end{equation}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+The posterior over 
+\begin_inset Formula $h$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+From eqn.
+ 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "eq:rbm_joint_posterior"
+
+\end_inset
+
+, we can conclude
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P(h_{i}\mid v)=\int_{s_{i}}P(h_{i},s_{i}\mid v)ds\propto\int_{s_{i}}\exp\left((v^{T}W)_{i}h_{i}s_{i}-\frac{1}{2}w_{i}h_{i}s_{i}^{2}-\frac{1}{2}\alpha_{i}(s_{i}-h_{i}\mu_{i})^{2}+b_{i}h_{i}\right)ds_{i}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\int_{s_{i}}\exp\left((v^{T}W)_{i}h_{i}s_{i}-\frac{1}{2}w_{i}h_{i}s_{i}^{2}-\frac{1}{2}\alpha_{i}s_{i}^{2}+\alpha_{i}h_{i}\mu_{i}-\frac{1}{2}\alpha_{i}h_{i}\mu_{i}^{2}+b_{i}h_{i}\right)ds_{i}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

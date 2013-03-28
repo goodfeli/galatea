@@ -1,0 +1,24 @@
+!obj:pylearn2.scripts.train.Train {
+    "dataset": &src !obj:galatea.s3c.s3c_dataset.S3C_Dataset {
+        "raw" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl",
+        "transformer" : !pkl: "/u/goodfeli/galatea/pddbm/config/stl/6x6/layer_1_A.pkl"
+    },
+    "model": !obj:pylearn2.models.rbm.RBM {
+               "nvis" : 400,
+               "nhid" : 400,
+               "init_bias_hid" : 0.,
+               "irange"  : .5,
+               "base_lr" : .1
+    },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 100,
+               "batches_per_iter" : 1000,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : *src,
+                        "num_examples" : 100
+                }
+        },
+    "save_path": "${PYLEARN2_TRAIN_FILE_NAME}.pkl"
+}
+

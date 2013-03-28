@@ -1,0 +1,8 @@
+!obj:galatea.s3c.extract_features_rand_pool_python_loop_omp.FeatureExtractor {
+        "chunk_size" : 10000,
+        "batch_size" : 1,
+        "save_path" :  "${FEATURE_EXTRACTOR_YAML_PATH}.npy" , 
+        "alpha" : 0.1, 
+        "dataset_family" : galatea.s3c.extract_features.cifar100,
+        "which_set" : "train"
+}       

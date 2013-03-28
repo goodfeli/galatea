@@ -1,0 +1,10 @@
+!obj:galatea.s3c.extract_features_rand_pool_python_loop.FeatureExtractor {
+        "batch_size" : 1,
+        "model_path" : "/RQexec/goodfell/B1.pkl",
+        "save_path" :  "/RQexec/goodfell/B1_max_B.npy" ,
+        "feature_type" : "exp_h",
+        "pool_mode" : "max",
+        "dataset_family" : galatea.s3c.extract_features.cifar100,
+        "restrict" : [ 5000,  10000 ],
+        "which_set" : "train"
+}

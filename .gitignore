@@ -33,3 +33,10 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+*.pyc
+*.py~
+.*.swp
+*.mat
+*.pkl
+*.dat
+*.o

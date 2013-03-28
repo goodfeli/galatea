@@ -1,0 +1,4 @@
+!obj:galatea.darpa_imagenet.dataset.DARPA_ImageNet {
+        "path" : "/data/lisatmp/glorotxa/train",
+        "image_shape" : [ 32, 32 ]
+}

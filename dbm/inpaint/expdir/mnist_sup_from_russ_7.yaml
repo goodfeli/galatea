@@ -1,0 +1,32 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        binarize: 1,
+        one_hot: 1,
+    },
+        model: !obj:galatea.dbm.inpaint.super_dbm.zero_last_weights {
+                super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/russ/after_joint_train.pkl",
+                niter: 6
+        },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               batch_size: 5000,
+               set_batch_size: 1,
+               updates_per_batch: 3,
+               reset_alpha: 0,
+               hacky_conjugacy: 1,
+               reset_conjugate: 0,
+               monitoring_dataset: {
+                                'train' : *train,
+                                'test' : !obj:pylearn2.datasets.mnist.MNIST {
+                                        which_set: "test",
+                                        binarize: 1,
+                                        one_hot: 1,
+                                        }
+               },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

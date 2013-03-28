@@ -1,0 +1,214 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+Ideas for fix: figure out what it means to evalute 
+\begin_inset Formula $p(v,h;d)$
+\end_inset
+
+ (querying the probability of all of 
+\begin_inset Formula $h$
+\end_inset
+
+ when 
+\begin_inset Formula $d$
+\end_inset
+
+ restricts the model to only a subset).
+ Maybe you can argue that the weight-divided model is based on the geometric
+ mean of the probabilities of all joint states.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\sqrt[2^{N}]{\Pi_{d}p(v;d)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\sqrt[2^{N}]{\Pi_{d}\sum_{h\in S(d)}p(v,h;d)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula 
+\[
+S(d)=\left\{ h\mid h=h\circ d\right\} 
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}\sum_{h\in S(d)}\exp\left(-E(-v,h\circ d)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sqrt[2^{N}]{\Pi_{d}\frac{1}{Z_{d}}}\sqrt[2^{N}]{\Pi_{d}\sum_{h\in S(d)}\exp\left(-E(-v,h\circ d)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\sqrt[2^{N}]{\Pi_{d}\exp\left(-E(-v,h\circ d)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\sqrt[2^{N}]{\exp\left(-\sum_{d}E(-v,h\circ d)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\sqrt[2^{N}]{\exp\left(-\sum_{d}E(-v,h\circ d)\right)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\exp\left(-\frac{1}{2^{N}}\sum_{d}E(-v,h\circ d)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\exp\left(-\frac{1}{2^{N}}\sum_{d}\left[-v^{T}b_{v}+v^{T}W^{(1)}(h\circ d)^{(1)}+\sum_{l=1}^{L-1}(h\circ d)^{(l)T}W^{(l+1)}(h\circ d)^{(l+1)}+\sum_{l=1}^{L}(h\circ d)^{(l)T}b^{(l)}\right]\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\exp\left(-\left(-v^{T}b_{v}+\frac{1}{2}\sum_{l=1}^{L}h^{(l)T}b^{(l)}+\frac{1}{2}v^{T}W^{(1)}h^{(1)}+\frac{1}{4}\sum_{l=1}^{L-1}h^{(l)T}W^{(l+1)}h^{(l+1)}\right)\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{Z}\exp\left(-E(v;b_{v},b_{h}/2,W^{(1)}/2,W^{(2:L)}/4\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

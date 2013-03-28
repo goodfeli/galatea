@@ -1,0 +1,29 @@
+The goal of experiment 1 is to see if inpainting is a good pretrainer for recurrent nets.
+
+It consists of two stages:
+1. Pretrain a bunch of nets with inpainting
+2. Train them to do classification
+
+Stage 1:
+-This stage is basically just running "inpaint_job_template.yaml" but parallelized to 
+ do a hyperparameter search.
+ See inpaint_hyperparam_planning for details.
+
+
+Considerations regarding the inpainting stage:
+-Might want to try training to inpaint the labels as well
+-My convergence criterion is maybe a little loose. It's mostly chosen in hopes of
+not having half the jobs get killed for exceeding their time limit.
+-I currently do not train on the validation set at all. It might be a good idea to
+ give this stage a second substage where I train on all the data until the
+ validation set error has reached the value of the train set error from the
+ previous epoch.
+-It might be a good idea to verify my assumption that batch approximate NCG is better
+ than just doing SGD with momentum / Polyak averaging
+-might want to try sparse intialization of the weights at some point
+
+
+Consideringations regarding the clasification step:
+-Might want an initial extra stage where I train the hidden->class layer before doing
+the joint training
+-Might want to try SGD

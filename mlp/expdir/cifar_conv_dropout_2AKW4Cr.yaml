@@ -1,0 +1,131 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        toronto_prepro: 1,
+        which_set: 'train',
+        one_hot: 1,
+        axes: ['c', 0, 1, 'b'],
+        start: 0,
+        stop: 40000
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size: 128,
+        layers: [
+                 !obj:galatea.mlp.ConvLinearC01B {
+                     layer_name: 'h0',
+                     pad: 4,
+                     tied_b: 1,
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
+                     detector_channels: 96,
+                     channel_pool_size: 2,
+                     kernel_shape: [8, 8],
+                     pool_shape: [4, 4],
+                     pool_stride: [2, 2],
+                     irange: .005,
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     max_kernel_norm: .9,
+                 },
+                 !obj:galatea.mlp.ConvLinearC01B {
+                     layer_name: 'h1',
+                     pad: 3,
+                     tied_b: 1,
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
+                     detector_channels: 256,
+                     channel_pool_size: 2,
+                     kernel_shape: [8, 8],
+                     pool_shape: [4, 4],
+                     pool_stride: [2, 2],
+                     # 2AKH: Tried bumping irange up to .05, hurt a medium amount
+                     irange: .005,
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     max_kernel_norm: 1.9365,
+                 },
+                 !obj:galatea.mlp.ConvLinearC01B {
+                     pad: 3,
+                     layer_name: 'h2',
+                     tied_b: 1,
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
+                     # 2AKD: Tried 512 detector channels, hurt slightly
+                     detector_channels: 256,
+                     channel_pool_size: 2,
+                     kernel_shape: [5, 5],
+                     pool_shape: [2, 2],
+                     pool_stride: [2, 2],
+                     irange: .005,
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     max_kernel_norm: 1.9365,
+                 },
+                 !obj:pylearn2.models.mlp.Softmax {
+                     # 2AKB: tried doubling all norm constraints, hurt slightly
+                     max_col_norm: 1.9365,
+                     layer_name: 'y',
+                     n_classes: 10,
+                     irange: .005
+                 }
+                ],
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [32, 32],
+            num_channels: 3,
+            axes: ['c', 0, 1, 'b'],
+        },
+        # 2AKE: tried setting first layer include prob to 1, hurt
+        # performance significantly
+        dropout_include_probs: [ .5, .5, .5, 1 ],
+        dropout_input_include_prob: .8,
+        dropout_input_scale: 1.,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: .5,
+        # 2AK4: tried decreasing init_momentum to 0., hurt moderately
+        # 2Ak5: tried decreasing init_momentum to 0.25
+        #           killed after 24h, about 0.5 behind 2AK.
+        init_momentum: .5,
+        monitoring_dataset:
+            {
+                #'train' : *train,
+                'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                              toronto_prepro: 1,
+                              axes: ['c', 0, 1, 'b'],
+                              which_set: 'train',
+                              one_hot: 1,
+                              start: 40000,
+                              stop:  50000
+                          },
+                #'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                #              which_set: 'test',
+                #              gcn: 55.,
+                #              one_hot: 1,
+                #          }
+            },
+        cost: !obj:pylearn2.costs.cost.MethodCost {
+                method: 'cost_from_X',
+                supervised: 1
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
+            channel_name: "valid_y_misclass",
+            prop_decrease: 0.,
+            N: 100
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_y_misclass',
+             save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+            start: 1,
+            saturate: 250,
+            # 2AK8: Tried reducing final momentum to 0.6, hurt slightly
+            final_momentum: .6
+        },
+        !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+            start: 1,
+            saturate: 250,
+            decay_factor: .01
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}

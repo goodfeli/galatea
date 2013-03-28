@@ -1,0 +1,13 @@
+compare speed to NIPS paper. basically make a Quoc plot arguing for importance of parallel updates on GPU, but present it more graciously than Quoc would
+
+figure out what to do for the experiment to verify that our inference works (ie, the comparison to SGD)
+
+do experiment to show heuristic works better.
+
+finish experiment comparing our speed to SPAMS
+
+
+some files, at least for gradient descent, show alpha increasing forever, and since the other parameters seem converged, this seems to be the only thing making the likelihood go down. should we do something about this?
+
+why does fixing mu to 0 make the first step of mean field stay flat throughout learning? I understand this means the mean of s is always 0 but there is still variance on s even in the mean field distribution and the weights should be able to affect the likelihood of the input by steering that variance
+

@@ -1,0 +1,41 @@
+
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/train.pkl",
+        preprocessor: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
+        start: 0,
+        stop: 25
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.AugmentedDBM {
+        super_dbm: !obj:galatea.dbm.inpaint.super_dbm.ditch_mu {
+                 # Note: this will pull in batch_size, and niter from the pre-existing model
+          model: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/cifar10_N3_interm.pkl",
+              
+              },
+          extra_layer: !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                        irange: 0.05,
+                        n_classes: 10,
+                        layer_name: 'class_layer',
+                    },
+          freeze_lower: 1
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate: 1e-1,
+               init_momentum: .5,
+               batch_size: 25,
+               set_batch_size: 1,
+               termination_criterion: !obj:pylearn2.training_algorithms.sgd.EpochCounter { max_epochs: 5 },
+               monitoring_dataset : *data,
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               },
+        },
+    callbacks: [ !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                        start: 0,
+                        saturate: 10,
+                        final_momentum: .9
+                  }
+                ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

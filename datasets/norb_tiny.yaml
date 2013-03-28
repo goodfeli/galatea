@@ -1,0 +1,3 @@
+!obj:galatea.datasets.norb_tiny.NORB_Tiny {
+        "which_set" : "train"
+}

@@ -1,0 +1,472 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Sources
+\end_layout
+
+\begin_layout Standard
+This talk is based on
+\end_layout
+
+\begin_layout Itemize
+lecture notes by Andrew Ng at Stanford
+\end_layout
+
+\begin_layout Itemize
+tutorial slides by Andrew Moore at CMU
+\end_layout
+
+\begin_layout Itemize
+Sontag paper “VC Dimension of Neural Networks”
+\end_layout
+
+\begin_layout Itemize
+lots of wikipedia
+\end_layout
+
+\begin_layout Section
+PAC learning
+\end_layout
+
+\begin_layout Itemize
+PAC learning IID assumptions
+\end_layout
+
+\begin_layout Itemize
+Idea of “Probably Approximately Correct”
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+\begin_inset Formula $\epsilon-\hat{\epsilon}<\gamma$
+\end_inset
+
+ with probability at least 
+\begin_inset Formula $1-\delta$
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+PAC was proposed by Leslie Valiant (who also introduced the idea of #P completen
+ess, which is the complexity class of inference in graphical models).
+\end_layout
+
+\begin_layout Section
+Chebyshev's inequality
+\end_layout
+
+\begin_layout Standard
+The main tool used for PAC learning results is Chebyshev’s inequality (aka
+ Markov’s inequality in probability literature; Markov was Chebyshev’s grad
+ student)
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $X$
+\end_inset
+
+ be a real-valued scalar random variable, 
+\begin_inset Formula $f$
+\end_inset
+
+ be a nonnegative-valued scalar function.
+ 
+\emph on
+For any probability distribution whatsoever
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+P(f(X)\geq a)\leq E[f(X)]/a
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Proof:
+\end_layout
+
+\begin_layout Standard
+For all 
+\begin_inset Formula $x\in X$
+\end_inset
+
+, 
+\begin_inset Formula $aI_{f(x)\geq a}(x)\leq f(x)$
+\end_inset
+
+.
+ We can see this by considering the case where the indicator is on and the
+ case where the indicator is off.
+ Therefore
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\mathbb{E}_{X\sim P(X)}[aI_{f(X)\geq a}(x)]\leq\mathbb{E}_{X\sim P(X)}[f(X)]$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+Now use linearity of expectations to change the left side:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $\mathbb{E}[aI_{f(X)\geq a}(x)]=a\mathbb{E}[I_{f(X)\geq a}(x)]=aP(f(X)>=a)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A common variant of Chebyshev’s inequality: using 
+\begin_inset Formula $f(X)=(X-\mathbb{E}[X])^{2}$
+\end_inset
+
+ gives: no more than 1/k^2 of a distributions values can be more than k
+ standard deviations away from the mean.
+ Again, this is for an 
+\emph on
+arbitrary distribution
+\end_layout
+
+\begin_layout Section
+Bernstein inequalities
+\end_layout
+
+\begin_layout Itemize
+Now we’re going to use Chebyshev’s inequality to prove a very simple PAC-like
+ result, that we can probably estimate the mean of a distribution approximately
+ correctly.
+\end_layout
+
+\begin_layout Itemize
+One of the Bernstein inequalities aka Hoeffding bound aka Chernoff bound
+ aka Azuma’s inequality (many flavors of each exist, Bernstein was first)
+\end_layout
+
+\begin_layout Itemize
+Suppose we have IID 
+\begin_inset Formula $X_{i}$
+\end_inset
+
+, where each is binary, and 1 with probability 
+\begin_inset Formula $\phi$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Let 
+\begin_inset Formula $\hat{\phi}=\text{mean(}X)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Our inequality says: 
+\begin_inset Formula $P(|\phi-\hat{\phi}|>\gamma)\leq2\exp(-2\gamma^{2}m)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+TODO-- prove Hoeffding inequality? proof is based on applying Markov’s inequalit
+y proof most fully sketched out here: http://en.wikipedia.org/wiki/Chernoff_bound
+\end_layout
+
+\begin_layout Itemize
+How tight is this bound? Well, let's rewrite it to give 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ in terms of 
+\begin_inset Formula $m$
+\end_inset
+
+ and 
+\begin_inset Formula $\delta$
+\end_inset
+
+:
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Formula $\delta=2\exp(-2\gamma^{2}m)\rightarrow\log\frac{\delta}{2}=-2\gamma^{2}m\rightarrow\gamma=\sqrt{-\frac{1}{2m}\log\frac{\delta}{2}}$
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+For 
+\begin_inset Formula $m=50000$
+\end_inset
+
+ and 
+\begin_inset Formula $\delta=.05$
+\end_inset
+
+ this gives 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ of .006.
+ How well does this hold up empirically?
+\begin_inset Newline newline
+\end_inset
+
+Using 1,000 resamplings of 
+\begin_inset Formula $X$
+\end_inset
+
+ here is the 50th worst error for each value of 
+\begin_inset Formula $\phi$
+\end_inset
+
+:
+\begin_inset Newline newline
+\end_inset
+
+
+\begin_inset Graphics
+	filename emp_gamma.png
+	lyxscale 50
+	scale 50
+
+\end_inset
+
+
+\begin_inset Newline newline
+\end_inset
+
+This shows that the bound is reasonably tight around 
+\begin_inset Formula $\phi=0.5$
+\end_inset
+
+ so this is a pretty good proof tool.
+ But keep in mind you don't know what your 
+\begin_inset Formula $\phi$
+\end_inset
+
+ is so for different values you might do considerably better.
+\end_layout
+
+\begin_layout Section
+Empirical Risk Minimization
+\end_layout
+
+\begin_layout Itemize
+Now we’re going to prove a real PAC result.
+ This will be for binary classification, but you can prove similar results
+ for multiclass problems, regression problems, and other kinds of learning.
+\end_layout
+
+\begin_layout Itemize
+Empirical Risk Minimization = just minimize training set error, simplest
+ learning algorithm.
+ Here error is defined in terms of the loss you really care about, such
+ as 0/1 loss, not a proxy for it like log likelihood.
+\end_layout
+
+\begin_layout Itemize
+hypotheses and hypothesis classes, abstracting out parameters
+\end_layout
+
+\begin_layout Itemize
+one tool we’ll need is the union bound (part of the measure-theoretic definition
+ of a probability measure): 
+\begin_inset Formula $P(U_{i=1}^{k}A_{i})\leq\sum_{i=1}^{K}P(A_{i})$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+TODO uniform convergence proof for any hypothesis, its training error is
+ within epsilon of its test error with probability >= 1 - 2k exp(-2 gamma^2
+ m) with prob >= 1-delta test error <= train error + sqrt( log (k/delta)
+ / 2m )
+\end_layout
+
+\begin_layout Itemize
+one big problem should jump out at you.
+ if k is infinite, this bound is useless, and pretty much any function family
+ we use has infinite cardinality.
+ so we need a different strategy.
+ what to use instead of cardinality?
+\end_layout
+
+\begin_layout Section
+VC Dimension
+\end_layout
+
+\begin_layout Itemize
+vc dim = largest set of points that a classifier can shatter
+\end_layout
+
+\begin_layout Itemize
+walk through some VC dim examples-- TODO see ps3_solution.pdf
+\end_layout
+
+\begin_layout Itemize
+VC dim of linear classifier is 
+\begin_inset Formula $N_{V}+1$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+Single hidden layer perceptron -> VC dim is 
+\begin_inset Formula $\leq N_{H}+1$
+\end_inset
+
+.
+ Choice of activation function can determine whether this is strict for
+ more general neural nets, VC can get very big, ie number of weights!
+\end_layout
+
+\begin_layout Itemize
+Now that we have an alternative way of characterizing the complexity of
+ a hypothesis set, we can make a more broadly applicable generalization
+ bound, which I state without proof
+\end_layout
+
+\begin_layout Itemize
+Theorem by Vapnik and Chervonenkis: with probability 
+\begin_inset Formula $1-\delta$
+\end_inset
+
+, test error 
+\begin_inset Formula $\leq$
+\end_inset
+
+ training error + 
+\begin_inset Formula $\sqrt{\frac{d(\log(2m/d)+1)-\log(\delta/4)}{m}}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Itemize
+tighter, more complicated bounds exist, but this is the famous one
+\end_layout
+
+\begin_layout Itemize
+latter term is called vc confidence VC confidence term is very conservative.
+ In practice, it is usually over 100X greater than the actual effect of
+ overfitting.
+\end_layout
+
+\begin_layout Section
+Model selection schemes
+\end_layout
+
+\begin_layout Standard
+Contrast idea of model selection against regularization or Bayesian inference
+\end_layout
+
+\begin_layout Itemize
+cross validation: best in practice.
+ TODO-- see ps3_solution.pdf, use it to prove generalization bound on cv
+\end_layout
+
+\begin_layout Itemize
+structural risk minimization: pick the model with the best PAC bound on
+ generalization error.
+ Very conservative in practice.
+\end_layout
+
+\begin_layout Itemize
+aic (Akaike Information Criterion): LL(data|MLE params)-# parameters.
+ Under several conditions, is guaranteed to select model with best test
+ set likelihood.
+ Asymptotically the same as LOOCV.
+\end_layout
+
+\begin_layout Itemize
+bic: LL(data|MLE params)- (1/2) # params log m.
+ Under several conditions, is guaranteed to pick the model that generated
+ the data.
+ Overly conservative--better for structure learning than getting best prediction.
+\end_layout
+
+\begin_layout Itemize
+Several other approaches exist.
+\end_layout
+
+\end_body
+\end_document

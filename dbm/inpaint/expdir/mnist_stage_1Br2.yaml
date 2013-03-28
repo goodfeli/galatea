@@ -1,0 +1,66 @@
+# ran this with galatea at 12a0a1c15412a7b7995483b104e3813a7f56aa36
+!obj:pylearn2.scripts.train.Train {
+    dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 1,
+        binarize: 1,
+        start: 0,
+        stop: 50000
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 2500,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 784,
+                bias_from_marginals: *train,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        irange: 0.05,
+                        layer_name: 'h0',
+                        init_bias: 0.
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        irange: 0.05,
+                        layer_name: 'h1',
+                        init_bias: 0.
+               }
+              ]
+    },
+    algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               batches_per_iter : 10,
+               monitoring_dataset : {
+                        'train': *train,
+                        'valid': !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 1,
+                                binarize: 1,
+                                start: 50000,
+                                stop: 60000
+                            },
+               },
+               init_alpha : [0.0256, .128, .256, 1.28, 2.56],
+               reset_alpha: 0,
+               hacky_conjugacy: 1,
+               max_iter: 5,
+               cost : !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                both_directions : 1,
+                l1_act_targets: [ [.1, .02], [.1, .02]  ],
+                l1_act_coeffs: [ [.05, .05], [.05, .05]  ],
+                noise : 1
+               },
+               mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.5,
+                        balance: 0,
+                        sync_channels: 0
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

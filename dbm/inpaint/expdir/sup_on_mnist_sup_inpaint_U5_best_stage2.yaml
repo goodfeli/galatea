@@ -1,0 +1,45 @@
+!obj:pylearn2.train.Train {
+    dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        #binarize: 1,
+        one_hot: 1,
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "${G}/dbm/inpaint/expdir/sup_on_mnist_sup_inpaint_U5_best_best.pkl",
+        name: "monitor_stage1"
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               line_search_mode: 'exhaustive',
+               batch_size: 100,
+               set_batch_size: 1,
+               updates_per_batch: 3,
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               monitoring_dataset: {
+                                'train' : *train,
+                                'valid' : !obj:pylearn2.datasets.mnist.MNIST {
+                                        which_set: "train",
+                                        #binarize: 1,
+                                        one_hot: 1,
+                                        start: 50000,
+                                        stop:  60000
+                                        },
+                                'test' : !obj:pylearn2.datasets.mnist.MNIST {
+                                        which_set: "test",
+                                        #binarize: 1,
+                                        one_hot: 1,
+                                        }
+               },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MatchChannel
+               {
+                        channel_name: "valid_objective",
+                        prev_channel_name: "train_objective",
+                        prev_monitor_name: "monitor_stage1"
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}

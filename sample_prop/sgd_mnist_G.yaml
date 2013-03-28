@@ -1,0 +1,51 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset:  &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        binarize: 1,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    },
+    model: !obj:galatea.sample_prop.basic.SimpleModel2 {
+        nvis: 784,
+        num_hid: 500,
+        num_hid_2: 500,
+        num_class: 10
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               batch_size: 1000,
+               set_batch_size: 1,
+               learning_rate: 1e-1,
+               init_momentum: .5,
+               monitoring_dataset:
+                                {
+                                'train' : *train,
+                                'valid' : !obj:pylearn2.datasets.mnist.MNIST {
+                                        which_set: "train",
+                                        binarize: 1,
+                                        one_hot: 1,
+                                        start: 50000,
+                                        stop:  60000
+                                        }
+               },
+               cost : !obj:galatea.sample_prop.basic.SamplingCost3 {
+               },
+        },
+    callbacks: [ !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+        start: 0,
+        saturate: 200,
+        final_momentum: .99
+    },
+    !obj:pylearn2.training_algorithms.sgd.OneOverEpoch {
+        start: 100,
+        half_life: 5
+    },
+    !obj:pylearn2.training_algorithms.sgd.PolyakAveraging
+    {
+        start: 100
+    }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 100
+}
+

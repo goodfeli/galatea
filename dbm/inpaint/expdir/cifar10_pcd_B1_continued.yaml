@@ -1,0 +1,29 @@
+!obj:pylearn2.train.Train {
+    dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "${PYLEARN2_GCN_WHITENED}/train.pkl",
+        preprocessor: !pkl: "${PYLEARN2_GCN_WHITENED}/preprocessor.pkl"
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "${G}/dbm/inpaint/expdir/cifar10_pcd_B1_continued.pkl",
+        name: "monitor_first",
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               check_for_nan: 1,
+               learning_rate: 1e-3,
+               batches_per_iter : 100,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs: [
+                        !obj:pylearn2.costs.dbm.VariationalPCD {
+                                supervised: 1,
+                                num_gibbs_steps: 5,
+                                num_chains: 100
+                        }
+                       ]
+               },
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

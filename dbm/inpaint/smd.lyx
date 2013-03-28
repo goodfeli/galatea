@@ -1,0 +1,384 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+Gradient of free energy
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{1}{\int\exp(-F(x))dx}\exp(-F(x))=p(x)=\frac{1}{\int\sum_{h}\exp(-E(x,h))dx}\sum_{h}\exp(-E(x,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-F(x)-\log Z=\log\sum_{h}\exp(-E(x,h))-\log Z
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+F(x)=-\log\sum_{h}\exp(-E(x,h))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{d}{dx}F(x)=\frac{\sum_{h}\exp(-E(x,h))}{\sum_{h}\exp(-E(x,h))}\frac{d}{dx}E(x,h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{d}{dx}F(x)=\mathbb{E}_{h\sim x}\frac{d}{dx}E(x,h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Suppose 
+\begin_inset Formula 
+\[
+E(x,h)=\frac{1}{2}x^{T}\beta x-x^{T}\beta Wh^{(1)}+f(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Then
+\begin_inset Formula 
+\[
+\frac{d}{dx}F(x)=\beta x-\beta W\hat{h}^{(1)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where the hat indicates expectation in the posterior.
+\end_layout
+
+\begin_layout Section
+Denoising score matching
+\end_layout
+
+\begin_layout Standard
+Denoising score matching draws a 
+\begin_inset Formula $v'$
+\end_inset
+
+ from the training set, then a 
+\begin_inset Formula $v$
+\end_inset
+
+ from a gaussian centered at 
+\begin_inset Formula $v'$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The objective is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+||\psi(q(v\mid v'))-\psi(p(v))||^{2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=||-\frac{1}{2}\nabla_{v}(v-v')^{T}\gamma(v-v')+\nabla_{v}F(v)||^{2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=||\gamma(v'-v)+\beta v-\beta W\hat{h}||^{2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=||\beta(v-W\hat{h})-\gamma(v-v')||^{2}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+One thing that bodes ill for a variational bound strategy is that the cost
+ depends on the posterior only via the individual marginals.
+ ie, assuming a factorial distribution doesn't get you anything.
+ You still need to compute the correct marginals somehow if you want the
+ bound to be tight.
+\end_layout
+
+\begin_layout Standard
+By the way, if I fully expand the cost into terms it looks like this:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=(v-W\hat{h})^{T}\beta\beta(v-W\hat{h})-2(v-W\hat{h})^{T}\beta\gamma(v-v')+\text{const}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-2v^{T}\beta\beta W\hat{h}+\hat{h}^{T}W^{T}\beta\beta W\hat{h}+2(v-v')^{T}\gamma\beta W\hat{h}+\text{const}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Regular score matching
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\sum_{i}\frac{1}{2}(\frac{d}{dv_{i}}F(v))^{2}-\frac{d^{2}}{dv_{i}^{2}}F(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{2}(v-W\hat{h}^{(1)})^{T}\beta\beta(v-W\hat{h}^{(1)})-\sum_{i}\beta_{ii}+\sum_{i}\frac{d}{dv_{i}}\beta_{ii}W_{i:}\hat{h}^{(1)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\frac{1}{2}(v-W\hat{h}^{(1)})^{T}\beta\beta(v-W\hat{h}^{(1)})-\sum_{i}\beta_{ii}+\sum_{i}\beta_{ii}W_{i:}\frac{d}{dv_{i}}\hat{h}^{(1)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Misc
+\end_layout
+
+\begin_layout Standard
+From the variational bound we know:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-F(v)-\log Z\geq-\mathbb{E}_{q}E(v,h)-\log Z-\sum_{h}q(h)\log q(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-F(v)\geq-\mathbb{E}_{q}E(v,h)-\sum_{h}q(h)\log q(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-F(v)\geq-\frac{1}{2}v^{T}\beta v+v^{T}\beta W\hat{h}^{(1)}-<f(h)>-\sum_{h}q(h)\log q(h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+When the bound is tight, this implies 
+\begin_inset Formula $\nabla_{v}[<f(h)>+H(h)]=0$
+\end_inset
+
+.
+ Is that interesting? If the bound is tight because 
+\begin_inset Formula $p$
+\end_inset
+
+ is simple, then no, but if the bound is tight becaus 
+\begin_inset Formula $q$
+\end_inset
+
+ is complicated, maybe.
+\end_layout
+
+\begin_layout Standard
+For an RBM, this is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-b^{T}\hat{h}-\hat{h}^{T}\log\hat{h}-(1-\hat{h})^{T}\log(1-\hat{h})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-b^{T}\hat{h}-\sigma(z)^{T}\log\sigma(z)-\sigma(-z){}^{T}\log\sigma(-z)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-b^{T}\sigma(z)+\sigma(z)^{T}s(-z)-\sigma(-z)^{T}s(z)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

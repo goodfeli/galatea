@@ -1,0 +1,10 @@
+!obj:galatea.s3c.extract_features.FeatureExtractor {
+        "batch_size" : 1,
+        "model_path" : "/RQexec/goodfell/D.pkl",
+        "save_paths" : [ "/RQexec/goodfell/D_briaree_3_A.npy" ] ,
+        "pooling_region_counts" : [ 3],
+        "feature_type" : "exp_h",
+        "dataset_family" : galatea.s3c.extract_features.cifar100,
+        "restrict" : [ 0,  10000 ],
+        "which_set" : "train"
+}

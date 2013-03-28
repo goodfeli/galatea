@@ -1,0 +1,7 @@
+!obj:galatea.s3c.extract_features_dense.FeatureExtractor {
+        "batch_size" : 1,
+        "model_path" : "${GALATEA_PATH}/pddbm/config/stl/full/layer_1_C1.pkl",        
+        "save_path" :  "${FEATURE_EXTRACTOR_YAML_PATH}.npy", 
+        "feature_type" : "exp_h", 
+        "dataset" : !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_32x32_whitened/train.pkl"
+}       

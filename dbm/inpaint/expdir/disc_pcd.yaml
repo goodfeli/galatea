@@ -1,0 +1,58 @@
+!obj:pylearn2.train.Train {
+    dataset: &data !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        one_hot: 1,
+        binarize: 1
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "${G}/dbm/inpaint/expdir/mnist_pcd_from_russ_layerwise_2.pkl", 
+        name: 'monitor_generative_pcd'
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate: .0005,
+               init_momentum: .5,
+               monitoring_batches: 10,
+               monitoring_dataset : *data,
+               cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs: [
+                        [ 1., !obj:pylearn2.costs.dbm.PCD {
+                        supervised: 1,
+                        num_chains: 100,
+                        num_gibbs_steps: 10,
+                        toronto_neg: 0
+                        }],
+                        [ -1., !obj:pylearn2.costs.dbm.PCD {
+                        supervised: 0,
+                        num_chains: 100,
+                        num_gibbs_steps: 10,
+                        toronto_neg: 0
+                        }],
+                        !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                          coeffs: [ .0001, .0001, .0001 ]
+                        },
+                        !obj:pylearn2.costs.dbm.TorontoSparsity {
+                          supervised: 1,
+                         targets: [ .2, .1, -1. ],
+                         coeffs: [ .001, .001, 0. ],
+                        }
+                       ],
+           },
+           termination_criterion: !obj:pylearn2.termination_criteria.EpochCounter { max_epochs: 300 },
+           update_callbacks: [
+                !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+                        decay_factor: 1.000015,
+                        min_lr:       0.0001
+                }
+           ]
+        },
+    extensions: [
+            !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                final_momentum: .9,
+                start: 5,
+                saturate: 6
+            },
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

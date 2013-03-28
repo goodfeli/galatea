@@ -1,0 +1,7 @@
+!obj:pylearn2.datasets.cifar10.CIFAR10 {
+    which_set: 'train',
+    preprocessor: !obj:pylearn2.datasets.preprocessing.CentralWindow {
+        window_shape: [24, 24]
+    },
+    axes: ['c', 0, 1, 'b']
+}

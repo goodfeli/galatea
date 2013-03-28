@@ -1,0 +1,769 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+PD-DBM energy function
+\end_layout
+
+\begin_layout Standard
+The partially directed deep Boltzmann machine (PD-DBM) is a DBM containing
+ some directed layers.
+ In this document we will describe one that is a combination of a DBM with
+ binary units and an S3C model.
+ Unlike Rus's application of the DBM to NORB data, S3C is not just a preprocesso
+r; the two are combined in a joint model.
+\end_layout
+
+\begin_layout Standard
+Let 
+\begin_inset Formula $v\in\mathbb{R}^{V}$
+\end_inset
+
+ be the visible units, 
+\begin_inset Formula $s\in\mathbb{R}^{H}$
+\end_inset
+
+ be the slab variables of the S3C model, and 
+\begin_inset Formula $h\in\left\{ 0,1\right\} ^{H}$
+\end_inset
+
+be the spike variables of the S3C model, as well as the inputs to the DBM.
+ Let 
+\begin_inset Formula $g^{(i)}\in\left\{ 0,1\right\} ^{G_{i}}$
+\end_inset
+
+for 
+\begin_inset Formula $i\in\left\{ 1,\dots,L\right\} $
+\end_inset
+
+be the hidden layers of the DBM, where 
+\begin_inset Formula $g^{(1)}$
+\end_inset
+
+ is connected to 
+\begin_inset Formula $h$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+The energy function is then:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,s,h,g)=-\sum_{i=1}^{L}b^{(i)T}g^{(i)}-\sum_{i=1}^{L-1}g^{(i)T}W^{(i+1)}g^{(i+1)}-h^{T}W^{(1)}g^{(1)}-c^{T}h+\frac{1}{2}(s-\mu\circ h)^{T}\alpha(s-\mu\circ h)+\frac{1}{2}(v-W^{(0)}h\circ s)\beta(v-W^{(0)}h\circ s)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Sometimes we may refer to h as 
+\begin_inset Formula $g^{(0)}$
+\end_inset
+
+ when this is more convenient.
+\end_layout
+
+\begin_layout Section
+Variational inference
+\end_layout
+
+\begin_layout Subsection
+Variational family
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(s,h,g)=\left(\Pi_{i=1}^{L}\Pi_{j=1}^{G_{i}}Q(g_{j}^{(i)})\right)\Pi_{i=1}^{H}Q(h_{i},s_{i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+KL divergence
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+D_{KL}(Q(s,h,g)\Vert P(s,h,g\mid v))=\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log\frac{Q(s,h,g)}{P(s,h,g\mid v)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log Q(s,h,g)-\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log P(s,h,g\mid v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The left term here is called the entropy term, and the right the energy
+ term.
+ Let's evaluate them separately to keep our lines narrower.
+\end_layout
+
+\begin_layout Subsubsection
+Entropy term
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log Q(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log Q(g)Q(h)Q(s\mid h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log Q(g)Q(h)Q(s\mid h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log Q(g)+\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log Q(h)\log Q(s\mid h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g}Q(g)\log Q(g)+\sum_{h}\int_{s}Q(s,h)\log Q(h)\log Q(s\mid h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-H(g)-H(h,s)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These are simple to compute; the S3C code already has an implementation
+ of H(h,s) and it can be used to implement H(g)
+\end_layout
+
+\begin_layout Subsubsection
+Energy term
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log P(s,h,g\mid v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log P(s,h,g,v)+\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log P(s,h,g,v)+\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\log\frac{1}{Z}\exp(-E(s,h,g,v))+\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g}\sum_{h}\int_{s}Q(s,h,g)E(s,h,g,v)+\log Z+\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g}\sum_{h}\int_{s}Q(s,h,g)\left[-\sum_{i=1}^{L}b^{(i)T}g^{(i)}-\sum_{i=1}^{L-1}g^{(i)T}W^{(i+1)}g^{(i+1)}-h^{T}W^{(1)}g^{(1)}-c^{T}h+\frac{1}{2}(s-\mu\circ h)^{T}\alpha(s-\mu\circ h)+\frac{1}{2}(v-W^{(0)}h\circ s)\beta(v-W^{(0)}h\circ s)\right]+\log Z+\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{i=1}^{L}b^{(i)T}g^{(i)}-\sum_{i=1}^{L-1}g^{(i)T}W^{(i+1)}g^{(i+1)}-\hat{h}^{T}W^{(1)}\hat{g}^{(1)}+S3CEE(Q(h,s),v)+\log Z+\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where S3CEE is the expected energy under the S3C model.
+ I write it in this way to make it clear how to efficiently implement this
+ using the existing S3C code.
+\end_layout
+
+\begin_layout Subsubsection
+Total
+\end_layout
+
+\begin_layout Standard
+We conclude that 
+\begin_inset Formula 
+\[
+D_{KL}(Q(s,h,g)\Vert P(s,h,g\mid v))=-H(g)-H(s,h)-\sum_{i=1}^{L}b^{(i)T}g^{(i)}-\sum_{i=1}^{L-1}g^{(i)T}W^{(i+1)}g^{(i+1)}-\hat{h}^{T}W^{(1)}\hat{g}^{(1)}+S3CEE(Q(h,s),v)+\log Z+\log P(v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is intractable, but minimizing this with respect to the variational
+ parameters corresponds to minimzing what I call the 
+\emph on
+truncated KL divergence:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+T_{KL}(Q(s,h,g)\Vert P(s,h,g\mid v))=-H(g)-H(s,h)-\sum_{i=1}^{L}b^{(i)T}g^{(i)}-\sum_{i=1}^{L-1}g^{(i)T}W^{(i+1)}g^{(i+1)}-\hat{h}^{T}W^{(1)}\hat{g}^{(1)}+S3CEE(Q(h,s),v)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+T_{KL}(Q(s,h,g)\Vert P(s,h,g\mid v))=S3CT_{KL}(Q(h,s)\Vert P_{S3C}(s,h\mid v))-H(g)-\sum_{i=1}^{L}b^{(i)T}g^{(i)}-\sum_{i=1}^{L-1}g^{(i)T}W^{(i+1)}g^{(i+1)}-\hat{h}^{T}W^{(1)}\hat{g}^{(1)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Note that this is not just the sum of the divergence for both models; that
+ would double count the entropy on 
+\begin_inset Formula $h$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Variational inference for 
+\begin_inset Formula $g^{(L)}$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This is the case where there is only input from below.
+ We can update 
+\begin_inset Formula $g$
+\end_inset
+
+ according to the standard solution to the Euler-Lagrange equations for
+ minimizing the KL divergence:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(g_{i}^{(L)})\propto\exp(\mathbb{E}_{g_{-Li},h,s\sim Q}E(v,s,h,g))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Any terms not involving 
+\begin_inset Formula $g_{i}^{(L)}$
+\end_inset
+
+ simply get eaten by the partition function:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q(g_{i}^{(L)})\propto\exp(-b_{i}^{(L)}g_{i}-\hat{g}^{(L-1)T}W_{i}^{(L)}\hat{g}_{i}^{(L)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Normalizing we get:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\hat{g}_{i}^{(L)}=\sigma(b_{i}^{(L)}+\hat{g}^{(L-1)T}W_{i}^{(L)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Variational inference for 
+\begin_inset Formula $g^{(i)},i<L$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+From the previous section it's pretty obvious that
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\hat{g}_{j}^{(i)}=\sigma(b_{j}^{(i)}+\hat{g}^{(i-1)T}W_{j}^{(i)}+W_{j:}^{(i+1)}\hat{g}^{(i)})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Variational inference for 
+\begin_inset Formula $h$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Following the S3C inference scheme, we will update 
+\begin_inset Formula $\hat{h}$
+\end_inset
+
+ separate from 
+\begin_inset Formula $\hat{s}$
+\end_inset
+
+ even though the two are part of the same variational factor.
+ Therefore the Euler-Langrange solutions can only give us a general solution
+ family and we must solve for 
+\begin_inset Formula $\hat{h}$
+\end_inset
+
+ directly.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial\hat{h}_{i}}T_{KL}(Q\Vert P)=0
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial\hat{h}_{i}}\left[S3CT_{KL}(Q(h,s)\Vert P_{S3C}(s,h\mid v))-H(g)-\sum_{i=1}^{L}b^{(i)T}g^{(i)}-\sum_{i=1}^{L-1}g^{(i)T}W^{(i+1)}g^{(i+1)}-\hat{h}^{T}W^{(1)}\hat{g}^{(1)}\right]=0
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial\hat{h}_{i}}\left[S3CT_{KL}(Q(h,s)\Vert P_{S3C}(s,h\mid v))-\hat{h}_{i}W_{:i}^{(1)}\hat{g}^{(1)}\right]=0
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial\hat{h}_{i}}\left[S3CT_{KL}(Q(h,s)\Vert P_{S3C}(s,h\mid v))\right]-W_{:i}^{(1)}\hat{g}^{(1)}=0
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We refer to scratch6.lyx from articles/2011/reconstruction_srbm to get the
+ left term, so relative to S3C, all we do is add 
+\begin_inset Formula $W_{:i}^{(1)}\hat{g}^{(1)}$
+\end_inset
+
+ to the pre-sigmoid input.
+\end_layout
+
+\begin_layout Subsection
+Variational inference for 
+\begin_inset Formula $s$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Variational inference for 
+\begin_inset Formula $s$
+\end_inset
+
+ is exactly the same as in 
+\begin_inset Formula $S3C$
+\end_inset
+
+.
+ One can see this by observing that variational parameters governing 
+\begin_inset Formula $s$
+\end_inset
+
+ only appear in terms of 
+\begin_inset Formula $T_{KL}$
+\end_inset
+
+ that already existed for 
+\begin_inset Formula $S3C$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Variational learning
+\end_layout
+
+\begin_layout Standard
+We use a variational learning scheme in which we maximize a lower bound
+ on the likelihood:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\log P(v)\geq\log P(v)-D_{KL}(Q(s,h,g)\Vert P(s,h,g\mid v))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g,h}\int_{s}Q(s,h,g)\log P(v,s,h,g)+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g,h}\int_{s}Q(s,h,g)\log P(v,s,h,g)+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{g,h}\int_{s}Q(s,h,g)\log P(v\mid s,h)P(s\mid h)P(h,g)+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\mathbb{E}_{s,h,g\sim Q}[\log P(v\mid s,h)+\log P(s\mid h)+\log P(h,g)]+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Well, all of these are things we already have code to compute, except for
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mathbb{E}_{s,h,g\sim Q}[\log P(h,g)]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\log Z_{dbm}-\mathbb{E}_{s,h,g\sim Q}E(h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Tractable terms of the objective
+\end_layout
+
+\begin_layout Standard
+Part of our learning update is thus to follow the gradient of:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\mathbb{E}_{s,h,g\sim Q}[\log P(v\mid s,h)+\log P(s\mid h)-E_{dbm}(h,g)]+\mathcal{H}_{Q}(s,h,g)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Remember to regard 
+\begin_inset Formula $Q$
+\end_inset
+
+ as constant while taking the gradient, ie, ignore the effects of the model
+ parameters on 
+\begin_inset Formula $Q$
+\end_inset
+
+.
+ This means we can disregard the final term, which is only a function of
+ 
+\begin_inset Formula $Q$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Stochastic approximation to the DBM partition function
+\end_layout
+
+\begin_layout Standard
+The other part of our objective is intractable, but we can make a stochastic
+ approximation to its gradient:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{\partial}{\partial\theta}-\log Z=-\frac{\frac{\partial}{\partial\theta}Z}{Z}=-\frac{\frac{\partial}{\partial\theta}\sum_{g,h}\exp(-E(g,h))}{Z}=\frac{\sum_{g,h}\exp(-E(g,h))\frac{\partial}{\partial\theta}E(g,h)}{Z}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\mathbb{E}_{g,h\sim P_{dbm}}\frac{\partial}{\partial\theta}E(g,h)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+As an initial naive version we can just sample 
+\begin_inset Formula $g$
+\end_inset
+
+ and 
+\begin_inset Formula $h$
+\end_inset
+
+ but later: TODO work out analytical expectation for not using the samples
+ on the topmost layer (or maybe even topmost and bottom-most layer)
+\end_layout
+
+\end_body
+\end_document

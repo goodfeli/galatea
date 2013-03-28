@@ -1,0 +1,57 @@
+# V_A was having trouble with mean field not converging, so here
+# I bump up the number of iterations
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        one_hot: 1,
+        shuffle: 1,
+        binarize: 1
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.add_layers {
+        set_niter: 50,
+        push_monitor: 'monitor_layer_0',
+        # note: this only had 400 HU, might want to redo with 500
+        super_dbm: !pkl: "/u/goodfeli/galatea/dbm/inpaint/expdir/mnist_V_polyak.pkl",
+        new_layers:  [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        irange: 0.01,
+                        layer_name: 'h1',
+                        init_bias: -3.
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                        n_classes: 10,
+                        irange: 0.01,
+                        layer_name: 'c',
+               }
+              ],
+        freeze_old: 1
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate: 1e-3,
+               init_momentum: .5,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               cost : !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
+                        supervised: 1,
+                        num_chains: 100,
+                        num_gibbs_steps: 5
+               },
+        },
+    callbacks: [
+            !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                final_momentum: .9,
+                start: 0,
+                saturate: 50
+            },
+            !obj:pylearn2.training_algorithms.sgd.PolyakAveraging {
+                start: 100,
+                save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_polyak.pkl",
+                save_freq: 1
+            }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

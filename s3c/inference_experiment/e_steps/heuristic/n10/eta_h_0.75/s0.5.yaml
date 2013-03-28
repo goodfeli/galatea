@@ -1,0 +1,6 @@
+!obj:galatea.s3c.s3c.E_Step_Scan {
+                        "h_new_coeff_schedule" : [0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75, 0.75],
+                        "s_new_coeff_schedule" : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+                        "clip_reflections" : 1,
+               }
+               

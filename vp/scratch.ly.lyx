@@ -1,0 +1,264 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Section
+The distributions and shared variational parameters
+\end_layout
+
+\begin_layout Standard
+Define a set of distributions:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q^{i}(v_{i},h)=Q^{i}(v_{i})\Pi_{j}Q^{i}(h_{j})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q^{i}(v_{i})=\hat{v}_{i}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+Q^{i}(h_{j})=\hat{h}_{j}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+ie, there is a single vector 
+\begin_inset Formula $\hat{v}$
+\end_inset
+
+ and a single vector 
+\begin_inset Formula $\hat{h}$
+\end_inset
+
+ shared between every distribution in the set
+\end_layout
+
+\begin_layout Section
+Min KL with Q on left
+\end_layout
+
+\begin_layout Standard
+For the RBM we don't really care whether 
+\begin_inset Formula $Q$
+\end_inset
+
+ or 
+\begin_inset Formula $P$
+\end_inset
+
+ is on the left; we can do inference in both.
+ But for this to work for a DBM we'll need 
+\begin_inset Formula $Q$
+\end_inset
+
+ on the left so let's develop it that way.
+\end_layout
+
+\begin_layout Standard
+Suppose we want to simultaneously minimize several KL divergences:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\sum_{i}D_{KL}(Q^{i}(v_{i},h)\Vert P(v_{i},h\mid v_{-i}))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{i}\sum_{v_{i}}\sum_{h}\left[Q^{i}(v_{i},h)\log Q^{i}(v_{i},h)-Q^{i}(v_{i},h)\log P(v_{i},h\mid v_{-i})\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{i}H_{Q}(v_{i},h)+\sum_{v_{i}}\sum_{h}Q^{i}(v_{i},h)\log P(v_{i},h\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{i}H_{Q}(v_{i},h)+\sum_{v_{i}}\sum_{h}Q^{i}(v_{i},h)\log P(h\mid v)P(v_{i}\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{i}H_{Q}(v_{i},h)+\sum_{v_{i}}\sum_{h}Q^{i}(v_{i},h)\log P(h\mid v)+\sum_{v_{i}}\sum_{h}Q^{i}(v_{i},h)\log P(v_{i}\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=-\sum_{i}H_{Q}(v_{i},h)+\sum_{v_{i}}\sum_{h}Q^{i}(v_{i},h)\log P(h\mid v)+\sum_{v_{i}}Q^{i}(v_{i})\log P(v_{i}\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Solution for v
+\end_layout
+
+\begin_layout Standard
+For now let's suppose we're minimizing with respect to 
+\begin_inset Formula $\hat{v}_{i}$
+\end_inset
+
+.
+ We can drop all terms that don't depend on this variational parameter and
+ get:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-H_{Q}(v_{i})+\sum_{v_{i}}\sum_{h}Q^{i}(v_{i},h)\log P(h\mid v)+\sum_{v_{i}}Q^{i}(v_{i})\log P(v_{i}\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\hat{v}_{i}\log\hat{v}_{i}+(1-\hat{v}_{i})\log(1-\hat{v}_{i})+\sum_{v_{i}}Q^{i}(v_{i})\sum_{h}Q(h)\log P(h\mid v)+\sum_{v_{i}}Q^{i}(v_{i})\log P(v_{i}\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+=\hat{v}_{i}\log\hat{v}_{i}+(1-\hat{v}_{i})\log(1-\hat{v}_{i})+\hat{v}_{i}\sum_{h}Q(h)\log P(h\mid v_{-i},v_{i}=1)+(1-\hat{v}_{i})\sum_{h}Q(h)\log P(h\mid v_{-i},v_{i}=0)+\sum_{v_{i}}Q^{i}(v_{i})\log P(v_{i}\mid v_{-i})
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+I feel like I must have done something wrong here.
+ Shouldn't this be like doing inference in a DBM where the second layer
+ only has one unit?
+\end_layout
+
+\end_body
+\end_document

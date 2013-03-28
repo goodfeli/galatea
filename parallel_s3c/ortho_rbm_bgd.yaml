@@ -1,0 +1,46 @@
+!obj:pylearn2.train.Train {
+    dataset: &data !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        which_set : 'train',
+        gcn: 55.
+    },
+    #dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
+    #    preprocessed_dataset: !pkl: "${PYLEARN2_GCN_WHITENED}/train.pkl",
+    #    preprocessor: !pkl: "${PYLEARN2_GCN_WHITENED}/preprocessor.pkl"
+    #},
+    model: !obj:galatea.parallel_s3c.ortho_rbm.OrthoRBM {
+        fixed_point_orthogonalize: 0,
+        init_scale: .05,
+        init_bias_hid: -1,
+        init_beta: 3.8,
+        min_beta: 1.,
+        nvis: 3072,
+        nhid: 100
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+        line_search_mode: 'exhaustive',
+        updates_per_batch: 1,
+        batch_size: 100,
+        batches_per_iter : 100,
+        monitoring_batches : 10,
+        monitoring_dataset : *data,
+        cost : !obj:pylearn2.costs.cost.SumOfCosts {
+                costs: [
+                        !obj:galatea.parallel_s3c.ortho_rbm.OrthoRBM_NLL {
+                                constraint_coeff: 1000.,
+                        },
+                       ]
+               },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                channel_name: 'objective',
+                save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl",
+        },
+        #!obj:galatea.parallel_s3c.ortho_rbm.BetaOrthogonalize {
+        #        run_freq: 150
+        #}
+     ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 10
+}
+

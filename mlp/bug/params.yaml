@@ -1,0 +1,260 @@
+[
+    {
+        name: 'h0_pad',
+        type: 'int',
+        min:  0,
+        max:  10,
+    },
+    {
+        name: 'h1_pad',
+        type: 'int',
+        min:  0,
+        max:  10,
+    },
+    {
+        name: 'h2_pad',
+        type: 'int',
+        min:  0,
+        max:  10,
+    },
+    {
+        name: 'h0_detector_channels',
+        type: 'int',
+        min: 16,
+        max: 768,
+        postprocess: !obj:galatea.dbm.inpaint.post.MultipleOf {
+                n: 16
+        }
+    },
+    {
+        name: 'h1_detector_channels',
+        type: 'int',
+        min: 16,
+        max: 768,
+        postprocess: !obj:galatea.dbm.inpaint.post.MultipleOf {
+                n: 16
+        }
+    },
+    {
+        name: 'h2_detector_channels',
+        type: 'int',
+        min: 16,
+        max: 768,
+        postprocess: !obj:galatea.dbm.inpaint.post.MultipleOf {
+                n: 16
+        }
+    },
+    {
+        name: 'h0_channel_pool_size',
+        type: 'int',
+        min: 1,
+        max: 10,
+        joint_postprocess: !obj:galatea.dbm.inpaint.post.FactorOfVar {
+            var: 'h0_detector_channels'
+        }
+    },
+    {
+        name: 'h1_channel_pool_size',
+        type: 'int',
+        min: 1,
+        max: 10,
+        joint_postprocess: !obj:galatea.dbm.inpaint.post.FactorOfVar {
+            var: 'h1_detector_channels'
+        }
+    },
+    {
+        name: 'h2_channel_pool_size',
+        type: 'int',
+        min: 1,
+        max: 10,
+        joint_postprocess: !obj:galatea.dbm.inpaint.post.FactorOfVar {
+            var: 'h2_detector_channels'
+        }
+    },
+    {
+        name: 'h0_kwidth',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h1_kwidth',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h2_kwidth',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h0_pwidth',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h1_pwidth',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h2_pwidth',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h0_pstride',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h1_pstride',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h2_pstride',
+        type: 'int',
+        min: 1,
+        max: 10
+    },
+    {
+        name: 'h0_irange',
+        type: 'float',
+        min: .001,
+        max: 1.,
+        transform: !obj:galatea.mlp.transform.pow10 {}
+    },
+    {
+        name: 'h1_irange',
+        type: 'float',
+        min: .001,
+        max: 1.,
+        transform: !obj:galatea.mlp.transform.pow10 {}
+    },
+    {
+        name: 'h2_irange',
+        type: 'float',
+        min: .001,
+        max: 1.,
+        transform: !obj:galatea.mlp.transform.pow10 {}
+    },
+    {
+        name: 'y_irange',
+        type: 'float',
+        min: .00001,
+        max: 1.,
+        transform: !obj:galatea.mlp.transform.pow10 {}
+    },
+    {
+        name: 'h0_norm',
+        type: 'float',
+        min: .1,
+        max: 10.
+    },
+    {
+        name: 'h1_norm',
+        type: 'float',
+        min: .1,
+        max: 10.
+    },
+    {
+        name: 'h2_norm',
+        type: 'float',
+        min: .1,
+        max: 10.
+    },
+    {
+        name: 'y_norm',
+        type: 'float',
+        min: .1,
+        max: 10.
+    },
+    {
+        name: 'dinc0',
+        type: 'float',
+        min: .01,
+        max: .99
+    },
+    {
+        name: 'dinc1',
+        type: 'float',
+        min: .01,
+        max: .99
+    },
+    {
+        name: 'dinc2',
+        type: 'float',
+        min: .01,
+        max: .99
+    },
+    {
+        name: 'dropout_include_prob',
+        type: 'float',
+        min: .01,
+        max: .99
+    },
+    {
+        name: 'dscale0',
+        type: 'float',
+        min: 1.,
+        max: 100.
+    },
+    {
+        name: 'dscale1',
+        type: 'float',
+        min: 1.,
+        max: 100.
+    },
+    {
+        name: 'dscale2',
+        type: 'float',
+        min: 1.,
+        max: 100.
+    },
+    {
+        name: 'dropout_input_scale',
+        type: 'float',
+        min: 1.,
+        max: 100.
+    },
+    {
+        name: 'learning_rate',
+        type: 'float',
+        transform: !obj:galatea.mlp.transform.pow10 {},
+        min: .00001,
+        max: 10.
+    },
+    {
+        name: 'init_momentum',
+        type: 'float',
+        min: 0.,
+        max: .99
+    },
+    {
+        name: 'final_momentum',
+        type: 'float',
+        min: 0.,
+        max: .99
+    },
+    {
+        name: 'decay_factor',
+        type: 'float',
+        transform: !obj:galatea.mlp.transform.pow10 { offset: .999 },
+        min: 1.,
+        max: 1.01
+    },
+    {
+        name: 'saturate',
+        type: 'int',
+        min: 2,
+        max: 500
+    },
+]

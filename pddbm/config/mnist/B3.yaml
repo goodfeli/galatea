@@ -1,0 +1,86 @@
+!obj:pylearn2.scripts.train.Train {
+    "save_path": "${EXPDIR}/pddbm_mnist/${PYLEARN2_TRAIN_FILE_STEM}.pkl",
+    "dataset": &src !obj:pylearn2.datasets.mnist.MNIST {
+                        "which_set" : "train",
+                        "center" : 0
+                     },
+    "model": !obj:galatea.pddbm.pddbm.PDDBM {
+        learning_rate : .001,
+        dbm: !obj:pylearn2.models.dbm.DBM {
+                negative_chains : 100,
+                rbms : [ !obj:pylearn2.models.rbm.RBM {
+                                nvis: 1058,
+                                nhid: 1058,
+                                irange: .005,
+                                init_bias_hid: -1.5
+                } ],
+        },
+        s3c: !obj:pylearn2.models.s3c.S3C {
+               nvis : 784,
+               nhid : 1058,
+               "init_bias_hid" : 0.,
+               "max_bias_hid" : 1e6,
+               "min_bias_hid" : -8.,
+               "irange"  : .02,
+               "constrain_W_norm" : 1,
+               "init_B"  : 3.,
+               "min_B"   : .1,
+               "max_B"   : 1e6,
+               "tied_B" :  0,
+               "init_alpha" : 5.,
+               "min_alpha" : 2.,
+               "max_alpha" : 1e6,
+               "init_mu" : 1.,
+               "local_rf_src" : *src,
+               "local_rf_stride" : [ 1, 1],
+               "local_rf_shape" : [ 6, 6],
+               #"random_patches_src" : *src,
+               #"min_mu"  : 1.,
+               #"max_mu"  : 1.,
+               "monitor_params" : [ 'B', 'p', 'alpha', 'mu', 'W' ],
+               "monitor_functional" : 1,
+               #"monitor_stats" : [ 'mean_h', 'mean_hs', 'mean_sq_s', 'mean_sq_hs' ],
+               "m_step"     : !obj:galatea.s3c.s3c.Grad_M_Step {
+                        "B_learning_rate_scale" : 1.0,
+                        #note: I think all this stuff is currently ignored by the actual learning algo
+                        "W_learning_rate_scale" : 10.,
+                        "B_penalty" : 1.
+               },
+        },
+        inference_procedure : !obj:galatea.pddbm.pddbm.InferenceProcedure {
+               schedule : [ ['s', .7], ['h', .1], ['g',0],
+                            ['h', .1], ['s', .1],
+                            ['h', .1], ['g',0], ['s', .1],
+                            ['h', .1], ['g',0], ['s', .1],
+                            ['h', .1], ['g',0], ['s', .1],
+                            ['h', .1], ['g',0], ['s', .1],
+                            ['h', .1], ['g',0], ['s', .1],
+                            ['h', .1], ['g',0], ['s', .1],
+                            ['h', .2], ['g',0], ['s', .1],
+                            ['h', .2], ['g',0], ['s', .1],
+                            ['h', .2], ['g',0], ['s', .1],
+                            ['h', .3], ['g',0], ['s', .1],
+                            ['h', .3], ['g',0], ['s', .1],
+                            ['h', .3], ['g',0], ['s', .1],
+                            ['h', .4], ['g',0], ['s', .1],
+                            ['h', .4], ['g',0], ['s', .1],
+                            ['h', .4], ['g',0], ['s', .1],
+                            ['h', .4], ['g',0], ['s', .1],
+                            ['h', .4], ['g',0], ['s', .1]
+                            ],
+                clip_reflections : 1,
+                rho : .5
+        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               batch_size : 100,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 1,
+               "monitoring_dataset" : !obj:pylearn2.datasets.dense_design_matrix.from_dataset {
+                        "dataset" : *src,
+                        "num_examples" : 100
+                }
+        },
+    save_freq: 1
+}
+

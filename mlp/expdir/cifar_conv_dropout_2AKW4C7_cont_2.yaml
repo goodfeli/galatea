@@ -1,0 +1,74 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.cifar10.CIFAR10 {
+        toronto_prepro: 1,
+        which_set: 'train',
+        one_hot: 1,
+        axes: ['c', 0, 1, 'b'],
+        start: 0,
+        stop: 50000
+    },
+    model: &model !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "expdir/cifar_conv_dropout_2AKW4C7_best.pkl",
+        name: "monitor_first"
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: 0.075,
+        # 2AK4: tried decreasing init_momentum to 0., hurt moderately
+        # 2Ak5: tried decreasing init_momentum to 0.25
+        #           killed after 24h, about 0.5 behind 2AK.
+        init_momentum: .5,
+        monitoring_dataset:
+            {
+                #'train' : *train,
+                'valid' : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                              toronto_prepro: 1,
+                              axes: ['c', 0, 1, 'b'],
+                              which_set: 'train',
+                              one_hot: 1,
+                              start: 40000,
+                              stop:  50000
+                          },
+                #'test'  : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                #              which_set: 'test',
+                #              gcn: 55.,
+                #              one_hot: 1,
+                #          }
+            },
+        cost: &cost !obj:pylearn2.costs.cost.MethodCost {
+                method: 'cost_from_X',
+                supervised: 1
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.ChannelTarget {
+            target: !obj:galatea.mlp.get_channel {
+                batch_size: 100,
+                cost: *cost,
+                dataset : !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                              toronto_prepro: 1,
+                              axes: ['c', 0, 1, 'b'],
+                              which_set: 'train',
+                              one_hot: 1,
+                              start: 0,
+                              stop:  40000
+                          },
+                model: *model,
+                channel: 'y_nll'
+            },
+            channel_name: "valid_y_nll",
+        },
+    },
+    extensions: [
+        !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+            start: 1,
+            saturate: 250,
+            # 2AK8: Tried reducing final momentum to 0.6, hurt slightly
+            final_momentum: .6
+        },
+        !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+            start: 1,
+            saturate: 250,
+            decay_factor: .1
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}

@@ -1,0 +1,164 @@
+[
+    {
+        name: 'inpaint_batch_size',
+        type: 'int',
+        min:  10,
+        max:  5000,
+        postprocess: !obj:galatea.dbm.inpaint.post.FactorOf {
+                n: 10000
+        },
+    },
+    {
+        name: 'inpaint_mf_iter',
+        type: 'int',
+        min: 2,
+        max: 11
+    },
+    {
+        name: 'h0_dim',
+        type: 'int',
+        min: 200,
+        max: 2000
+    },
+    {
+        name: 'h0_sparse_init',
+        type: 'int',
+        min: 1,
+        max: 50
+    },
+    {
+        name: 'h0_init_bias',
+        type: 'float',
+        min: -8.,
+        max: 8.
+    },
+    {
+        name: 'h1_dim',
+        type: 'int',
+        min: 200,
+        max: 2000
+    },
+    {
+        name: 'h1_sparse_init',
+        type: 'int',
+        min: 1,
+        max: 50
+    },
+    {
+        name: 'h1_init_bias',
+        type: 'float',
+        min: -8.,
+        max: 8.
+    },
+    {
+        name: 'c_sparse_init',
+        type: 'int',
+        min: 1,
+        max: 50
+    },
+    {
+       name: 'inpaint_scale_step',
+       type: 'float',
+       min: .01,
+       max: 1.
+    },
+    {
+      name: 'inpaint_updates_per_batch',
+      type: 'int',
+      min: 1,
+      max: 10
+    },
+    {
+        name: 'act_coeff_0',
+        type: 'float',
+        min: 0.,
+        max: 10.
+    },
+    {
+        name: 'targ_0',
+        type: 'float',
+        min: 0.,
+        max: 1.
+    },
+    {
+        name: 'eps_0',
+        type: 'float',
+        min: 0.,
+        max: 0.05
+    },
+    {
+        name: 'act_coeff_1',
+        type: 'float',
+        min: 0.,
+        max: 10.
+    },
+    {
+        name: 'targ_1',
+        type: 'float',
+        min: 0.,
+        max: 1.
+    },
+    {
+        name: 'eps_1',
+        type: 'float',
+        min: 0.,
+        max: 0.05
+    },
+    {
+        name: 'drop_prob',
+        type: 'float',
+        min: .001,
+        max: .999
+    },
+    {
+        name: 'wd0',
+        type: 'float',
+        min: 0.,
+        max: .01
+    },
+    {
+        name: 'wd1',
+        type: 'float',
+        min: 0.,
+        max: .01
+    },
+    {
+        name: 'wdc',
+        type: 'float',
+        min: 0.,
+        max: .01
+    },
+    {
+        name: 'decapitate',
+        type: 'int',
+        min: 0,
+        max: 1
+    },
+    {
+        name: 'classify_mf_iter',
+        type: 'int',
+        min: 2,
+        max: 11
+    },
+    {
+        name: 'classify_batch_size',
+        type: 'int',
+        min:  10,
+        max:  5000,
+        postprocess: !obj:galatea.dbm.inpaint.post.FactorOf {
+                n: 10000
+        },
+    },
+    {
+      name: 'classify_updates_per_batch',
+      type: 'int',
+      min: 1,
+      max: 10
+    },
+    {
+       name: 'classify_scale_step',
+       type: 'float',
+       min: .01,
+       max: 1.
+    },
+]

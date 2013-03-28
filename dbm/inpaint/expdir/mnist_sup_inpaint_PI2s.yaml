@@ -1,0 +1,99 @@
+# Batch grower learning with replicated softmax
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 0,
+        binarize: 1,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 500,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 784,
+                bias_from_marginals: *train,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        sparse_init: 15,
+                        layer_name: 'h0',
+                        init_bias: 0.
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        sparse_init: 15,
+                        layer_name: 'h1',
+                        init_bias: 0.
+               },
+               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                        copies: 2,
+                        W_lr_scale: .5,
+                        b_lr_scale: .5,
+                        sparse_init: 15,
+                        layer_name: 'c',
+                        n_classes: 10
+               }
+              ]
+    },
+    algorithm: !obj:galatea.dbm.inpaint.inpaint_alg.InpaintAlgorithm {
+               combine_batches : 2,
+               monitoring_dataset : {
+                        'train': *train,
+                        'valid': !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 0,
+                                binarize: 1,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            },
+               },
+               line_search_mode: 'exhaustive',
+               init_alpha : [0.0256, .128, .256, 1.28, 2.56],
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               max_iter: 5,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                       costs :[
+                               !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                                        both_directions : 0,
+                                        noise : 0,
+                                        supervised: 1,
+                                        l1_act_targets: [  .06, .07, 0. ],
+                                        l1_act_eps:     [  .04,  .05, 0. ],
+                                        l1_act_coeffs:  [ .01,  .000, 0.  ]
+                               },
+                               !obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
+                                        coeffs: [ .0000005, .0000005, .0000005 ]
+                               }
+                       ]
+               },
+               mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.1,
+                        balance: 0,
+                        sync_channels: 0
+               },
+               termination_criterion: &batch_grower !obj:galatea.dbm.inpaint.inpaint_alg.BatchGrower
+               {
+                        channel: "valid_objective",
+                        available_batches: 100
+               }
+        },
+    extensions: [
+                *batch_grower,
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_err",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

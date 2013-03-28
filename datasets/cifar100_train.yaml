@@ -1,0 +1,1 @@
+!obj:pylearn2.datasets.cifar100.CIFAR100 { "which_set" : "train", "center" : "True" }

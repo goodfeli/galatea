@@ -1,0 +1,67 @@
+src   = open('/data/lisatmp/goodfeli/esp/full_wordlist.txt','r')
+src = src.readlines()
+
+words = set([word[:-1] for word in src])
+words.add('eyeholes')
+words.add('pedaling')
+words.add('spraying')
+words.add('hovering')
+words.add('swollen')
+words.add('carbonated')
+words.add('fizzy')
+words.add('uclan')
+words.add('giftwrap')
+words.add('50s')
+words.add('indicate')
+words.add('orthographic')
+words.add('monastery')
+words.add('interlocking')
+words.add('duckface')
+words.add('zuckerberg')
+words.add('greased')
+words.add('slicked')
+words.add('moustaches')
+words.add('unfurl')
+words.add('equilateral')
+words.add('wielding')
+words.add('insulated')
+words.add('juwit')
+words.add('kristian')
+words.add('glau')
+words.add('weathervane')
+words.add('chopping')
+words.add('newsprint')
+words.add('smudged')
+words.add('multicolor')
+words.add('demotivational')
+words.add('nirrimi')
+words.add('capacitor')
+words.add('ore')
+words.add('indigo')
+words.add('bluff')
+words.add('backlit')
+words.add('multiracial')
+words.add('cinderblocks')
+words.add('foyer')
+words.add('prosperity')
+words.add('grilling')
+words.add('galloping')
+words.add('splashing')
+words.add('squish')
+words.add('trackpad')
+for i in xrange(10):
+    words.add(str(i))
+
+base = '/data/lisatmp/goodfeli/esp/word_labels'
+import os
+files = os.listdir(base)
+for f in files:
+    assert f.endswith('.txt')
+    g = open(base + '/' + f, 'r')
+    lines = g.readlines()
+    for line in lines:
+        word = line[:-1]
+        if word not in words:
+            print
+            print word
+            print base + '/' + f

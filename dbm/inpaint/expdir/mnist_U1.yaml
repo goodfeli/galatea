@@ -1,0 +1,43 @@
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 1,
+        binarize: 1
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : &batch_size 100,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 784,
+                bias_from_marginals: *data,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        irange: 0.1,
+                        layer_name: 'h0',
+                        init_bias: 0.
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate: 1e-3,
+               init_momentum: .5,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               cost : !obj:galatea.dbm.inpaint.super_dbm.DBM_PCD {
+                num_chains: *batch_size,
+                num_gibbs_steps: 5
+               },
+        },
+    callbacks: [ !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+        final_momentum: .9,
+        start: 0,
+        saturate: 50
+    }],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

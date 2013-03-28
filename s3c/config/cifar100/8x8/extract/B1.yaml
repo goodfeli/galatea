@@ -1,0 +1,10 @@
+!obj:galatea.s3c.extract_features.FeatureExtractor {
+        "batch_size" : 1,
+        "model_path" : "/RQusagers/goodfell/galatea/s3c/config/cifar100/8x8/B1.pkl",
+        "save_paths" : [ "/RQexec/goodfell/cifar100_8x8_B1_exp_h_3x3_train.npy" ] ,
+        "pooling_region_counts" : [ 3],
+        "feature_type" : "exp_hs_split",
+        "dataset_family" : galatea.s3c.extract_features.cifar100,
+        "chunk_size" : 10000,
+        "which_set" : "train"
+}

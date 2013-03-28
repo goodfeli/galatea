@@ -1,0 +1,47 @@
+# Like cifar10_sm_GAM but with beta and mu tied across locations (but not channels)
+!obj:pylearn2.scripts.train.Train {
+    dataset: &data !obj:pylearn2.datasets.cifar10.CIFAR10 {
+                which_set : 'train',
+                gcn: 55.
+    },
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 10,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
+                rows: 32,
+                cols: 32,
+                channels: 3,
+                init_beta: 1.,
+                init_mu: 0.,
+                tie_beta: "locations",
+                tie_mu: "locations",
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.ConvMaxPool {
+                        output_channels: 256,
+                        border_mode : 'full',
+                        kernel_rows: 7,
+                        kernel_cols: 7,
+                        pool_rows: 2,
+                        pool_cols: 2,
+                        irange: .05,
+                        layer_name: 'h0',
+                        init_bias: -3.
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+               learning_rate : 1e-2,  # beta not moving might be a sign that it's trying to move down, I think it's clipped at 1
+               batches_per_iter : 1000,
+               monitoring_batches : 10,
+               monitoring_dataset : *data,
+               cost : !obj:pylearn2.costs.cost.make_method_cost {
+                   method: 'score_matching',
+                   superclass: pylearn2.costs.cost.UnsupervisedCost
+               }
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+

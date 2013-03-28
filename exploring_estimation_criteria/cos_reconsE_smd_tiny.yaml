@@ -1,0 +1,33 @@
+
+!obj:pylearn2.scripts.train.Train {
+    "dataset": !pkl: "tiny_dataset.pkl",
+    "model": !obj:galatea.models.febm.FEBM {
+                "energy_function": !obj:galatea.energy_functions.scratch.recons_model_1 {
+                        "nvis" : 2,
+                        "nhid" : 400,
+                        "irange"  : 1.8,
+                        "init_bias_hid" : 0.,
+
+                        "init_vis_prec" : 1.,
+                        "vis_prec_lr_scale" : .001,
+                        "learn_vis_prec" : 1.,
+
+                        "init_delta" : 0.0
+                        }
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.sgd.SGD {
+               "learning_rate" : 1e-7,
+               "batch_size" : 5,
+               "batches_per_iter" : 100000,
+               "monitoring_batches" : 1000,
+               "monitoring_dataset" : !pkl: "tiny_dataset.pkl",
+               "cost" : !obj:pylearn2.costs.ebm_estimation.SMD {
+                        "corruptor": !obj:pylearn2.corruption.GaussianCorruptor {
+                                "stdev": 1.
+                        }
+               }
+        },
+    "save_path": "cos_reconsE_smd_tiny.pkl"
+}
+
+

@@ -1,0 +1,20 @@
+!obj:framework.scripts.train.Train {
+    "dataset": !pkl: "cifar10_preprocessed_train.pkl",
+    "model": !obj:galatea.contrastive_sparse_coding.contrastive_sparse_coding.ContrastiveSparseCoding {
+                "nvis" : 192,
+                "nhid" : 4000,
+                "init_lambda"    : 10.,
+                "init_p"   : .001,
+                "init_alpha" : .001,
+                "contract_coeff" : 1.,
+                "learning_rate" : 10.
+        },
+    "algorithm": !obj:pylearn2.training_algorithms.default.DefaultTrainingAlgorithm {
+               "batch_size" : 2,
+               "batches_per_iter" : 100,
+               "monitoring_batches" : 10,
+               "monitoring_dataset" : !pkl: "cifar10_preprocessed_train.pkl"
+    },
+    "save_path": "csc_4k_2.pkl"
+}
+
