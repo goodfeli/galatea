@@ -4,12 +4,16 @@ from pylearn2.costs.cost import Cost
 import numpy as np
 import theano.tensor as T
 from pylearn2.models.mlp import Sigmoid
+from pylearn2.models.mlp import Layer
+from pylearn2.space import VectorSpace
+from theano.printing import Print
 
 class Im2Word(DenseDesignMatrix):
 
     def __init__(self, start, stop):
         img = np.load('/data/lisatmp/goodfeli/esp/imgfeat.npy')
         word = serial.load("/data/lisatmp/goodfeli/esp_bow.pkl")
+        self.words = word.words
         word = word.X
 
         img = img[start:stop, :]
@@ -20,10 +24,13 @@ class Im2Word(DenseDesignMatrix):
 
 class FinalIm2Word(DenseDesignMatrix):
 
-    def __init__(self):
+    def __init__(self, start=0, stop=1000):
         img = np.load('/data/lisatmp/goodfeli/esp/finalfeat.npy').astype('float32')
         word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        self.words = word.words
         word = word.X.astype('float32')
+        img = img[start:stop,:]
+        word = word[start:stop,:]
 
         super(FinalIm2Word, self).__init__(X = img, y=word)
 
@@ -33,6 +40,7 @@ class FinalSmallIm2Word(DenseDesignMatrix):
     def __init__(self):
         img = np.load('/data/lisatmp/goodfeli/esp/finalsmallfeat.npy').astype('float32')
         word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        self.words = word.words
         word = word.X.astype('float32')
 
         super(FinalSmallIm2Word, self).__init__(X = img, y=word)
@@ -42,6 +50,7 @@ class FinalTinyIm2Word(DenseDesignMatrix):
     def __init__(self):
         img = np.load('/data/lisatmp/goodfeli/esp/finaltinyfeat.npy').astype('float32')
         word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        self.words = word.words
         word = word.X.astype('float32')
 
         super(FinalSmallIm2Word, self).__init__(X = img, y=word)
@@ -55,6 +64,7 @@ class FinalMaxIm2Word(DenseDesignMatrix):
         img2 = np.load('/data/lisatmp/goodfeli/esp/finaltinyfeat.npy').astype('float32')
         img = np.maximum(img, img2)
         word = serial.load("/data/lisatmp/goodfeli/final_bow.pkl")
+        self.words = word.words
         word = word.X.astype('float32')
 
         super(FinalMaxIm2Word, self).__init__(X = img, y=word)
@@ -131,3 +141,17 @@ class NegAveF1(Cost):
         rval.name = 'neg_f'
 
         return rval
+
+class GlobalMax(Layer):
+
+    def __init__(self, layer_name):
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        self.input_space = space
+        self.output_space = VectorSpace(space.num_channels)
+
+    def fprop(self, state_below):
+        return state_below.max(axis=2).max(axis=1).T

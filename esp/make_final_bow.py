@@ -1,6 +1,5 @@
 #Throwaway script added by Ian Goodfellow
 
-import os
 
 train = '/data/lisatmp/goodfeli/esp_bow.pkl'
 
@@ -10,7 +9,7 @@ train = serial.load(train)
 del train.X
 
 base = '/data/lisatmp/goodfeli/esp/final_labels/'
-paths = sorted(os.listdir(base))
+paths = [str(x) + '.png.desc' for x in range(1000)]
 assert len(paths)==1000
 
 ranked_words = train.words
