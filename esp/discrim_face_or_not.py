@@ -1,3 +1,6 @@
+too lazy to fix merge conflict, fix it if you need this later
+probably easier to just rewrite from scratch
+<<<<<<< HEAD
 import numpy as np
 
 x = raw_input('use esp game dataset?')
@@ -37,6 +40,12 @@ assert dataset.X.shape == (mask.sum(), num_feat)
 dataset.y = dataset.y[mask, :]
 assert dataset.y.shape == (mask.sum(), len(dataset.words))
 
+=======
+from galatea.esp import Im2Word
+
+dataset = Im2Word(start=99000, stop=100000
+                          )
+>>>>>>> 4cd43f0de3b75082a22881d3cefe26f82bf3d582
 
 from pylearn2.utils import serial
 
@@ -50,8 +59,13 @@ target = T.matrix()
 right_cost = model.layers[-1].kl(Y=target, Y_hat=state)
 wrong_cost = model.layers[-1].kl(Y=target[::-1,:], Y_hat=state)
 
+<<<<<<< HEAD
 #from theano.printing import Print
 #right_cost = Print('right_cost')(right_cost)
+=======
+from theano.printing import Print
+right_cost = Print('right_cost')(right_cost)
+>>>>>>> 4cd43f0de3b75082a22881d3cefe26f82bf3d582
 
 acc = (wrong_cost > right_cost).mean()
 

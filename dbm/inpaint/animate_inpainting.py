@@ -293,7 +293,7 @@ while True:
                 rval[0,:] = prod
                 return rval
             #Show true class
-            Y_vis = label_to_vis(Y[i,:])
+            Y_vis = np.clip(label_to_vis(Y[i,:]), -1., 1.)
             Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
             if Y_vis.ndim == 2:
                 Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
@@ -328,7 +328,7 @@ while True:
                     Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
                 if Y_vis.shape[-1] == 1:
                     Y_vis = np.concatenate([Y_vis]*3,axis=2)
-                pv.add_patch(Y_vis, rescale=False, activation=(0,0,1))
+                pv.add_patch(np.clip(Y_vis, -1., 1.), rescale=False, activation=(0,0,1))
 
 
     pv.show()
