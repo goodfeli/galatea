@@ -3432,6 +3432,8 @@ class BVMP_Gaussian(BinaryVectorMaxPool):
 
     beta is *not* considered a parameter of this layer, it's just an
     external factor influencing how this layer behaves.
+    Gradient can still flow to beta, but it will only be included in
+    the parameters list if some class other than this layer includes it.
     """
 
     def __init__(self,
@@ -3478,7 +3480,7 @@ class BVMP_Gaussian(BinaryVectorMaxPool):
         W = W.get_value()
         beta = self.input_layer.beta.get_value()
 
-        return (W.T * beta).beta
+        return (W.T * beta).T
 
     def set_weights(self, weights):
         raise NotImplementedError("beta would make get_weights for visualization not correspond to set_weights")
