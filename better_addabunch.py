@@ -8,6 +8,8 @@ def recurse_add(d):
     for f in files:
         if f.startswith('.'):
             continue
+        if f == 'LOGS':
+            continue
         full_path = d + '/' + f
         if os.path.isdir(full_path):
             recurse_add(full_path)
