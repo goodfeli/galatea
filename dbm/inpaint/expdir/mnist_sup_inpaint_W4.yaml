@@ -8,7 +8,7 @@
         stop: 50000
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-              batch_size : 1250,
+              batch_size : 100,
               niter: 5, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianVisLayer {
@@ -20,9 +20,9 @@
                         max_col_norm: 1.9,
                         detector_layer_dim: 500,
                         pool_size: 1,
-                        irange: .05,
+                        irange: .005,
                         layer_name: 'h0',
-                        init_bias: 0.
+                        init_bias: -2.
                },
                 !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
                         max_col_norm: 3.,

@@ -5,7 +5,8 @@
         shuffle: 0,
         one_hot: 1,
         start: 0,
-        stop: 50000
+        stop: 50000,
+        preprocessor: &zca !pkl: "/RQexec/goodfell/galatea/dbm/inpaint/mnist_zca.pkl" 
     },
     model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
               batch_size : 1250,
@@ -20,9 +21,9 @@
                         max_col_norm: 1.9,
                         detector_layer_dim: 500,
                         pool_size: 1,
-                        irange: .05,
+                        irange: .005,
                         layer_name: 'h0',
-                        init_bias: 0.
+                        init_bias: -2.
                },
                 !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
                         max_col_norm: 3.,
@@ -45,6 +46,7 @@
         monitoring_dataset : {
             'train': *train,
             'valid': !obj:pylearn2.datasets.mnist.MNIST {
+                preprocessor: *zca,
                 which_set: "train",
                 shuffle: 0,
                         one_hot: 1,
@@ -56,7 +58,7 @@
                reset_alpha: 0,
                conjugate: 1,
                reset_conjugate: 0,
-               updates_per_batch: 5,
+               updates_per_batch: 1,
                cost: !obj:pylearn2.costs.cost.SumOfCosts {
                        costs :[
                                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {

@@ -1,11 +1,13 @@
 !obj:pylearn2.train.Train {
-    dataset: &train !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset {
-        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
-        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
-        start: 0,
-        stop: 40000,
-        axes: ['c', 0, 1, 'b']
-    },
+    dataset: &train !obj:galatea.maxout.pad { 
+        amt: 8,
+        dataset: !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset {
+            preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
+            preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
+            start: 0,
+            stop: 40000,
+            axes: ['c', 0, 1, 'b']
+    }},
     model: !obj:pylearn2.models.mlp.MLP {
         batch_size: 128,
         layers: [
@@ -15,13 +17,14 @@
                      tied_b: 1,
                      W_lr_scale: .05,
                      b_lr_scale: .05,
-                     num_channels: 48,
+                     num_channels: 96,
                      num_pieces: 2,
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
                      pool_stride: [2, 2],
                      irange: .005,
                      max_kernel_norm: .9,
+                     partial_sum: 33,
                  },
                  !obj:pylearn2.models.maxout.MaxoutConvC01B {
                      layer_name: 'h1',
@@ -29,13 +32,14 @@
                      tied_b: 1,
                      W_lr_scale: .05,
                      b_lr_scale: .05,
-                     num_channels: 128,
+                     num_channels: 192,
                      num_pieces: 2,
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
                      pool_stride: [2, 2],
                      irange: .005,
                      max_kernel_norm: 1.9365,
+                     partial_sum: 15,
                  },
                  !obj:pylearn2.models.maxout.MaxoutConvC01B {
                      pad: 3,
@@ -43,7 +47,7 @@
                      tied_b: 1,
                      W_lr_scale: .05,
                      b_lr_scale: .05,
-                     num_channels: 128,
+                     num_channels: 192,
                      num_pieces: 2,
                      kernel_shape: [5, 5],
                      pool_shape: [2, 2],
@@ -54,9 +58,9 @@
                  !obj:pylearn2.models.maxout.Maxout {
                     layer_name: 'h3',
                     irange: .005,
-                    num_units: 400,
-                    num_pieces: 3,
-                    max_col_norm: 1.9
+                    num_units: 500,
+                    num_pieces: 5,
+                    max_col_norm: 3
                  },
                  !obj:pylearn2.models.mlp.Softmax {
                      max_col_norm: 1.9365,
@@ -66,7 +70,7 @@
                  }
                 ],
         input_space: !obj:pylearn2.space.Conv2DSpace {
-            shape: [32, 32],
+            shape: &window_shape [32, 32],
             num_channels: 3,
             axes: ['c', 0, 1, 'b'],
         },
@@ -75,26 +79,17 @@
         dropout_input_scale: 1.,
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        learning_rate: .1,
+        learning_rate: .17,
         init_momentum: .5,
         monitoring_dataset:
             {
-                'train_subset' : !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset
-                    {
-                        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
-                        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
-                        start: 0,
-                        stop: 1000,
-                        axes: ['c', 0, 1, 'b']
-                    },
-                'valid' : !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset
-                    {
-                        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
-                        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
-                        start: 40000,
-                        stop: 50000,
-                        axes: ['c', 0, 1, 'b']
-                    },
+                'valid' : &valid !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
+        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
+        start: 40000,
+        stop: 50000,
+        axes: ['c', 0, 1, 'b']
+                          },
             },
         cost: !obj:pylearn2.costs.cost.MethodCost {
                 method: 'cost_from_X',
@@ -118,8 +113,13 @@
         },
         !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
             start: 1,
-            saturate: 250,
+            saturate: 500,
             decay_factor: .01
+        },
+        !obj:pylearn2.train_extensions.window_flip.WindowAndFlipC01B {
+            window_shape: *window_shape,
+            randomize: [ *train],
+            center: [ *valid ]
         }
     ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",

@@ -6,16 +6,16 @@
         stop: 40000,
         axes: ['c', 0, 1, 'b']
     },
-    model: !obj:pylearn2.models.mlp.MLP {
+    model: !obj:galatea.mlp.TwoStage {
         batch_size: 128,
         layers: [
                  !obj:pylearn2.models.maxout.MaxoutConvC01B {
                      layer_name: 'h0',
                      pad: 4,
                      tied_b: 1,
-                     W_lr_scale: .05,
-                     b_lr_scale: .05,
-                     num_channels: 48,
+                     W_lr_scale: .15,
+                     b_lr_scale: .15,
+                     num_channels: 128,
                      num_pieces: 2,
                      kernel_shape: [8, 8],
                      pool_shape: [4, 4],
@@ -27,8 +27,8 @@
                      layer_name: 'h1',
                      pad: 3,
                      tied_b: 1,
-                     W_lr_scale: .05,
-                     b_lr_scale: .05,
+                     W_lr_scale: .15,
+                     b_lr_scale: .15,
                      num_channels: 128,
                      num_pieces: 2,
                      kernel_shape: [8, 8],
@@ -41,8 +41,8 @@
                      pad: 3,
                      layer_name: 'h2',
                      tied_b: 1,
-                     W_lr_scale: .05,
-                     b_lr_scale: .05,
+                     W_lr_scale: .15,
+                     b_lr_scale: .15,
                      num_channels: 128,
                      num_pieces: 2,
                      kernel_shape: [5, 5],
@@ -66,7 +66,7 @@
                  }
                 ],
         input_space: !obj:pylearn2.space.Conv2DSpace {
-            shape: [32, 32],
+            shape: [24, 24],
             num_channels: 3,
             axes: ['c', 0, 1, 'b'],
         },
@@ -77,28 +77,18 @@
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         learning_rate: .1,
         init_momentum: .5,
-        monitoring_dataset:
-            {
-                'train_subset' : !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset
-                    {
-                        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
-                        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
-                        start: 0,
-                        stop: 1000,
-                        axes: ['c', 0, 1, 'b']
-                    },
-                'valid' : !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset
-                    {
-                        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
-                        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
-                        start: 40000,
-                        stop: 50000,
-                        axes: ['c', 0, 1, 'b']
-                    },
+        monitoring_dataset: {
+            'valid' : &valid !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset {
+               preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
+               preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
+               start: 40000,
+               stop: 50000,
+               axes: ['c', 0, 1, 'b']
             },
+        },
         cost: !obj:pylearn2.costs.cost.MethodCost {
-                method: 'cost_from_X',
-                supervised: 1
+            method: 'cost_from_X',
+            supervised: 1
         },
         termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
             channel_name: "valid_y_misclass",
@@ -107,6 +97,10 @@
         },
     },
     extensions: [
+        !obj:pylearn2.train_extensions.window_flip.WindowAndFlipC01B {
+            window_shape: [24, 24],
+            other_datasets: [ *valid ]
+        },
         !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
              channel_name: 'valid_y_misclass',
              save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
