@@ -1,8 +1,12 @@
+from collections import OrderedDict
 import theano.tensor as T
 from pylearn2.costs.cost import Cost
 from theano.printing import Print
 from pylearn2.expr.nnet import softmax_ratio
+from pylearn2.models.mlp import MLP
 from pylearn2.utils import block_gradient
+from pylearn2.utils import safe_izip
+from pylearn2.utils import sharedX
 
 class BoostTry1(Cost):
     """
@@ -230,3 +234,228 @@ class PoE_SameMask(Cost):
 
         return -(log_prob_of + self.alpha * neg)
 
+class DropoutBoosting(Cost):
+    """
+    Like PoE_SameMask but with control over dropout probabilities and scaling
+    """
+
+    supervised = True
+
+    def __init__(self, default_input_include_prob=.5, input_include_probs=None,
+            default_input_scale=2., input_scales=None, alpha = 1.):
+        """
+        During training, each input to each layer is randomly included or excluded
+        for each example. The probability of inclusion is independent for each input
+        and each example. Each layer uses "default_input_include_prob" unless that
+        layer's name appears as a key in input_include_probs, in which case the input
+        inclusion probability is given by the corresponding value.
+
+        Each feature is also multiplied by a scale factor. The scale factor for each
+        layer's input scale is determined by the same scheme as the input probabilities.
+        """
+
+        if input_include_probs is None:
+            input_include_probs = {}
+
+        if input_scales is None:
+            input_scales = {}
+
+        self.__dict__.update(locals())
+        del self.self
+
+    def __call__(self, model, X, Y, ** kwargs):
+        Y_hat = model.dropout_fprop(X, default_input_include_prob=self.default_input_include_prob,
+                input_include_probs=self.input_include_probs, default_input_scale=self.default_input_scale,
+                input_scales=self.input_scales
+                )
+        Y_hat_e = model.fprop(X)
+
+        assert hasattr(Y_hat, 'owner')
+        owner = Y_hat.owner
+        assert owner is not None
+        op = owner.op
+        if isinstance(op, Print):
+            assert len(owner.inputs) == 1
+            Y_hat, = owner.inputs
+            owner = Y_hat.owner
+            op = owner.op
+        assert isinstance(op, T.nnet.Softmax)
+        z ,= owner.inputs
+        assert z.ndim == 2
+
+        z_weight = Y_hat - Y_hat_e
+        z_weight = block_gradient(z_weight)
+        neg = z_weight * z
+        neg = neg.sum(axis=1).mean()
+
+        z = z - z.max(axis=1).dimshuffle(0, 'x')
+        log_prob = z - T.log(T.exp(z).sum(axis=1).dimshuffle(0, 'x'))
+        # we use sum and not mean because this is really one variable per row
+        log_prob_of = (Y * log_prob).sum(axis=1)
+        assert log_prob_of.ndim == 1
+        log_prob_of = log_prob_of.mean()
+
+        return -(log_prob_of + self.alpha * neg)
+
+class PerLayerRescaler(MLP):
+
+    def __init__(self, mlp, max_scale = 10.):
+        self.__dict__.update(locals())
+        del self.self
+
+        self._params = []
+        for layer in mlp.layers:
+            self._params.append(sharedX(1.))
+        self.batch_size = mlp.batch_size
+        self.force_batch_size = mlp.force_batch_size
+
+    def get_input_space(self):
+        return self.mlp.get_input_space()
+
+    def get_params(self):
+        return list(self._params)
+
+    def censor_updates(self, updates):
+        for key in updates:
+            updates[key] = T.clip(updates[key], 0, self.max_scale)
+
+    def fprop(self, state_below):
+
+        for layer, scale in safe_izip(self.mlp.layers, self._params):
+            state_below = layer.fprop(state_below * scale)
+
+        return state_below
+
+    def get_monitoring_channels(self, X=None, Y=None):
+        """
+        Note: X and Y may both be None, in the case when this is
+              a layer of a bigger MLP.
+        """
+
+        state = X
+        rval = OrderedDict()
+
+        for layer, scale in safe_izip(self.mlp.layers, self._params):
+            state = state * scale
+            ch = layer.get_monitoring_channels()
+            for key in ch:
+                rval[layer.layer_name+'_'+key] = ch[key]
+            state = layer.fprop(state)
+            args = [state]
+            if layer is self.mlp.layers[-1]:
+                args.append(Y)
+            ch = layer.get_monitoring_channels_from_state(*args)
+            for key in ch:
+                rval[layer.layer_name+'_'+key]  = ch[key]
+
+        for i in xrange(len(self._params)):
+            rval['scale_input_to_' + self.mlp.layers[i].layer_name] = self._params[i]
+
+        return rval
+
+    def get_output_space(self):
+        return self.mlp.layers[-1].get_output_space()
+
+    def get_weights(self):
+        return self.mlp.get_weights()
+
+    def get_weights_format(self):
+        return self.mlp.get_weights_format()
+
+    def get_weights_topo(self):
+        return self.mlp.get_weights_topo()
+
+    def cost(self, Y, Y_hat):
+        return self.mlp.layers[-1].cost(Y, Y_hat)
+
+    def get_lr_scalers(self):
+        return {}
+
+
+class PerUnitRescaler(MLP):
+
+    def __init__(self, mlp, max_scale = 10.):
+        self.__dict__.update(locals())
+        del self.self
+
+        self._params = []
+        for layer in mlp.layers:
+            self._params.append(sharedX(layer.get_input_space().get_origin() + 1.))
+        self.batch_size = mlp.batch_size
+        self.force_batch_size = mlp.force_batch_size
+
+    def get_input_space(self):
+        return self.mlp.get_input_space()
+
+    def get_params(self):
+        return list(self._params)
+
+    def censor_updates(self, updates):
+        for key in updates:
+            updates[key] = T.clip(updates[key], 0, self.max_scale)
+
+    def fprop(self, state_below):
+
+        for layer, scale in safe_izip(self.mlp.layers, self._params):
+            state_below = layer.fprop(self.scale(state_below, layer, scale))
+
+        return state_below
+
+    def scale(self, state, layer, scale):
+
+        axes = range(state.ndim)
+        if state.ndim == 2:
+            axes = ('x', 0)
+        else:
+            assert tuple(layer.get_input_space().axes) == tuple(['c', 0, 1, 'b'])
+            axes = (0, 1, 2, 'x')
+        scaler = scale.dimshuffle(*axes)
+
+        return state * scaler
+
+    def get_monitoring_channels(self, X=None, Y=None):
+        """
+        Note: X and Y may both be None, in the case when this is
+              a layer of a bigger MLP.
+        """
+
+        state = X
+        rval = OrderedDict()
+
+        for layer, scale in safe_izip(self.mlp.layers, self._params):
+            state = self.scale(state, layer, scale)
+            ch = layer.get_monitoring_channels()
+            for key in ch:
+                rval[layer.layer_name+'_'+key] = ch[key]
+            state = layer.fprop(state)
+            args = [state]
+            if layer is self.mlp.layers[-1]:
+                args.append(Y)
+            ch = layer.get_monitoring_channels_from_state(*args)
+            for key in ch:
+                rval[layer.layer_name+'_'+key]  = ch[key]
+
+        for i in xrange(len(self._params)):
+            rval['scale_input_to_' + self.mlp.layers[i].layer_name + '_min'] = self._params[i].min()
+            rval['scale_input_to_' + self.mlp.layers[i].layer_name + '_min'] = self._params[i].mean()
+            rval['scale_input_to_' + self.mlp.layers[i].layer_name + '_min'] = self._params[i].max()
+
+        return rval
+
+    def get_output_space(self):
+        return self.mlp.layers[-1].get_output_space()
+
+    def get_weights(self):
+        return self.mlp.get_weights()
+
+    def get_weights_format(self):
+        return self.mlp.get_weights_format()
+
+    def get_weights_topo(self):
+        return self.mlp.get_weights_topo()
+
+    def cost(self, Y, Y_hat):
+        return self.mlp.layers[-1].cost(Y, Y_hat)
+
+    def get_lr_scalers(self):
+        return {}

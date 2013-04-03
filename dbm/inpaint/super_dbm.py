@@ -25,7 +25,7 @@ from pylearn2.utils import _ElemwiseNoGradient
 from pylearn2.utils import safe_union
 from theano import config
 io = None
-from pylearn2.train_extensions import TrainExtension
+from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from pylearn2.models.dbm import block
 from pylearn2.models.dbm import BinaryVectorMaxPool
 from pylearn2.models.dbm import DBM
@@ -36,6 +36,7 @@ from pylearn2.models.dbm import InferenceProcedure
 from pylearn2.models.dbm import Layer
 from pylearn2.models.dbm import WeightDoubling
 from pylearn2.models import dbm
+from pylearn2.train_extensions import TrainExtension
 from theano.gof.op import get_debug_values
 from theano import printing
 
@@ -287,6 +288,8 @@ class GaussianVisLayer(VisibleLayer):
 
         """
 
+        warnings.warn("GaussianVisLayer math very faith based, need to finish working through gaussian.lyx")
+
         self.__dict__.update(locals())
         del self.self
 
@@ -408,6 +411,7 @@ class GaussianVisLayer(VisibleLayer):
 
 
     def expected_energy_term(self, state, average, state_below = None, average_below = None):
+        raise NotImplementedError()
         assert state_below is None
         assert average_below is None
         self.space.validate(state)
@@ -480,7 +484,7 @@ class GaussianVisLayer(VisibleLayer):
             raise ValueError("total_state should have 4 dimensions, has "+str(total_state.ndim))
         assert total_state is not None
         V = total_state
-        upward_state = V * self.beta
+        upward_state = (V - self.mu) * self.beta
         return upward_state
 
     def make_state(self, num_examples, numpy_rng):
@@ -3420,6 +3424,265 @@ class Recons(Cost):
 
             return total_cost
 
+class BVMP_Gaussian(BinaryVectorMaxPool):
+    """
+    Like BinaryVectorMaxPool, but must have GaussianVisLayer
+    as its input. Uses its beta to bias the hidden units appropriately.
+    See gaussian.lyx
+
+    beta is *not* considered a parameter of this layer, it's just an
+    external factor influencing how this layer behaves.
+    Gradient can still flow to beta, but it will only be included in
+    the parameters list if some class other than this layer includes it.
+    """
+
+    def __init__(self,
+            input_layer,
+             detector_layer_dim,
+            pool_size,
+            layer_name,
+            irange = None,
+            sparse_init = None,
+            sparse_stdev = 1.,
+            include_prob = 1.0,
+            init_bias = 0.,
+            W_lr_scale = None,
+            b_lr_scale = None,
+            center = False,
+            mask_weights = None,
+            max_col_norm = None,
+            copies = 1):
+        """
+
+            include_prob: probability of including a weight element in the set
+                    of weights initialized to U(-irange, irange). If not included
+                    it is initialized to 0.
+
+        """
+
+        warnings.warn("BVMP_Gaussian math is very faith-based, need to complete gaussian.lyx")
+
+        args = locals()
+
+        del args['input_layer']
+        del args['self']
+        super(BVMP_Gaussian, self).__init__(**args)
+        self.input_layer = input_layer
+
+    def get_weights(self):
+        if self.requires_reformat:
+            # This is not really an unimplemented case.
+            # We actually don't know how to format the weights
+            # in design space. We got the data in topo space
+            # and we don't have access to the dataset
+            raise NotImplementedError()
+        W ,= self.transformer.get_params()
+        W = W.get_value()
+        beta = self.input_layer.beta.get_value()
+
+        return (W.T * beta).T
+
+    def set_weights(self, weights):
+        raise NotImplementedError("beta would make get_weights for visualization not correspond to set_weights")
+        W, = self.transformer.get_params()
+        W.set_value(weights)
+
+    def set_biases(self, biases, recenter = False):
+        self.b.set_value(biases)
+        if recenter:
+            assert self.center
+            if self.pool_size != 1:
+                raise NotImplementedError()
+            self.offset.set_value(sigmoid_numpy(self.b.get_value()))
+
+    def get_biases(self):
+        return self.b.get_value()
+
+
+    def sample(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+        raise NotImplementedError("need to account for beta")
+        if self.copies != 1:
+            raise NotImplementedError()
+
+        if theano_rng is None:
+            raise ValueError("theano_rng is required; it just defaults to None so that it may appear after layer_above / state_above in the list.")
+
+        if state_above is not None:
+            msg = layer_above.downward_message(state_above)
+        else:
+            msg = None
+
+        if self.requires_reformat:
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        z = self.transformer.lmul(state_below) + self.b
+        p, h, p_sample, h_sample = max_pool_channels(z,
+                self.pool_size, msg, theano_rng)
+
+        return p_sample, h_sample
+
+    def downward_message(self, downward_state):
+        rval = self.transformer.lmul_T(downward_state)
+
+        if self.requires_reformat:
+            rval = self.desired_space.format_as(rval, self.input_space)
+
+        return rval * self.copies
+
+    def init_mf_state(self):
+        # work around theano bug with broadcasted vectors
+        z = T.alloc(0., self.dbm.batch_size, self.detector_layer_dim).astype(self.b.dtype) + \
+                self.b.dimshuffle('x', 0) + self.beta_bias()
+        rval = max_pool_channels(z = z,
+                pool_size = self.pool_size)
+        return rval
+
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+        raise NotImplementedError("need to account for beta")
+
+        if not hasattr(self, 'copies'):
+            self.copies = 1
+
+        if self.copies != 1:
+            raise NotImplementedError()
+
+
+        empty_input = self.h_space.get_origin_batch(num_examples)
+        empty_output = self.output_space.get_origin_batch(num_examples)
+
+        h_state = sharedX(empty_input)
+        p_state = sharedX(empty_output)
+
+        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
+
+        default_z = T.zeros_like(h_state) + self.b
+
+        p_exp, h_exp, p_sample, h_sample = max_pool_channels(
+                z = default_z,
+                pool_size = self.pool_size,
+                theano_rng = theano_rng)
+
+        assert h_sample.dtype == default_z.dtype
+
+        f = function([], updates = [
+            (p_state , p_sample),
+            (h_state , h_sample)
+            ])
+
+        f()
+
+        p_state.name = 'p_sample_shared'
+        h_state.name = 'h_sample_shared'
+
+        return p_state, h_state
+
+    def expected_energy_term(self, state, average, state_below, average_below):
+        raise NotImplementedError("need to account for beta, and maybe some oether stuff")
+
+        # Don't need to do anything special for centering, upward_state / downward state
+        # make it all just work
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        downward_state = self.downward_state(state)
+        self.h_space.validate(downward_state)
+
+        # Energy function is linear so it doesn't matter if we're averaging or not
+        # Specifically, our terms are -u^T W d - b^T d where u is the upward state of layer below
+        # and d is the downward state of this layer
+
+        bias_term = T.dot(downward_state, self.b)
+        weights_term = (self.transformer.lmul(state_below) * downward_state).sum(axis=1)
+
+        rval = -bias_term - weights_term
+
+        assert rval.ndim == 1
+
+        return rval * self.copies
+
+    def linear_feed_forward_approximation(self, state_below):
+        """
+        Used to implement TorontoSparsity. Unclear exactly what properties of it are
+        important or how to implement it for other layers.
+
+        Properties it must have:
+            output is same kind of data structure (ie, tuple of theano 2-tensors)
+            as mf_update
+
+        Properties it probably should have for other layer types:
+            An infinitesimal change in state_below or the parameters should cause the same sign of change
+            in the output of linear_feed_forward_approximation and in mf_update
+
+            Should not have any non-linearities that cause the gradient to shrink
+
+            Should disregard top-down feedback
+        """
+        raise NotImplementedError("need to account for beta")
+
+        z = self.transformer.lmul(state_below) + self.b
+
+        if self.pool_size != 1:
+            # Should probably implement sum pooling for the non-pooled version,
+            # but in reality it's not totally clear what the right answer is
+            raise NotImplementedError()
+
+        return z, z
+
+    def beta_bias(self):
+        W, = self.transformer.get_params()
+        beta = self.input_layer.beta
+        assert beta.ndim == 1
+        return - 0.5 * T.dot(beta, T.sqr(W))
+
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        if iter_name is None:
+            iter_name = 'anon'
+
+        if state_above is not None:
+            assert layer_above is not None
+            msg = layer_above.downward_message(state_above)
+            msg.name = 'msg_from_'+layer_above.layer_name+'_to_'+self.layer_name+'['+iter_name+']'
+        else:
+            msg = None
+
+        if double_weights:
+            state_below = 2. * state_below
+            state_below.name = self.layer_name + '_'+iter_name + '_2state'
+        z = self.transformer.lmul(state_below) + self.b + self.beta_bias()
+        if self.layer_name is not None and iter_name is not None:
+            z.name = self.layer_name + '_' + iter_name + '_z'
+        p,h = max_pool_channels(z, self.pool_size, msg)
+
+        p.name = self.layer_name + '_p_' + iter_name
+        h.name = self.layer_name + '_h_' + iter_name
+
+        return p, h
 
 def freeze_layer_0(super_dbm):
     super_dbm.freeze(super_dbm.hidden_layers[0].get_params())

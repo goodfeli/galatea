@@ -1,0 +1,6 @@
+!obj:pylearn2.datasets.mnist.MNIST {
+    which_set: 'train',
+    preprocessor: !obj:pylearn2.datasets.preprocessing.ZCA
+    {
+    }
+}

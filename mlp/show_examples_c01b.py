@@ -56,7 +56,14 @@ if hasattr(obj,'get_batch_topo'):
     #obj is a Dataset
     dataset = obj
 
-    examples = dataset.get_batch_topo(rows*cols)
+    if dataset.y is not None:
+        examples, labels = dataset.get_batch_topo(rows*cols, include_labels=True)
+        import numpy as np
+        labels = np.argmax(labels, axis=1)
+        for i in xrange(labels.shape[0]):
+            print dataset.label_names[labels[i]]
+    else:
+        examples = dataset.get_batch_topo(rows*cols)
     examples = examples.transpose(3, 1, 2, 0)
 else:
     #obj is a Model
