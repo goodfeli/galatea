@@ -38,7 +38,7 @@ class ThingForRazvan(object):
         X = self.X
         Y = self.Y
 
-        return self.cost(self.dbm, X, Y, self.drop_mask, self.drop_mask_Y)
+        return self.cost(self.dbm, X, Y, drop_mask = self.drop_mask, drop_mask_Y = self.drop_mask_Y)
 
     def get_hiddens(self):
         """
@@ -50,9 +50,14 @@ class ThingForRazvan(object):
         X = self.X
         Y = self.Y
 
-        scratch = self.cost(self.dbm, X, Y, self.drop_mask, self.drop_mask_Y, return_locals=True)
+        for cost in self.cost.costs:
+            if 'paint' in str(type(cost)):
+                inpaint_cost = cost
 
-        hiddens = scratch['final_state']
+        scratch = inpaint_cost(self.dbm, X, Y, drop_mask = self.drop_mask,
+                drop_mask_Y = self.drop_mask_Y, return_locals=True)
+
+        hiddens = scratch['final_state']['H_hat']
 
         H1, H2, Y = hiddens
 
@@ -138,7 +143,12 @@ class ThingForRazvan(object):
         self.X = X
         self.Y = Y
 
-        self._on_load_batch = self.cost.get_fixed_var_descr(self.dbm, X, Y).on_load_batch[0]
+        descr = self.cost.get_fixed_var_descr(self.dbm, X, Y)
+
+        self._on_load_batch = descr.on_load_batch[0]
+
+        self.drop_mask = descr.fixed_vars['drop_mask']
+        self.drop_mask_Y = descr.fixed_vars['drop_mask_Y']
 
 
 if __name__ == '__main__':
@@ -147,3 +157,4 @@ if __name__ == '__main__':
     Y = TT.vector()
     obj = ThingForRazvan(X,Y)
     val = obj.get_cost()
+    obj.get_hiddens()
