@@ -1,0 +1,54 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
+        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
+        start: 0,
+        stop: 40000,
+        axes: ['c', 0, 1, 'b']
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "/u/wardefar/experiments/mar31/cifar10_4_best.pkl",
+        name: "old_monitor"
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate: 1.,
+        init_momentum: .5,
+        monitoring_dataset:
+            {
+                'valid' : !obj:pylearn2.datasets.zca_dataset.ZCA_Dataset {
+        preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
+        preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
+        start: 40000,
+        stop: 50000,
+        axes: ['c', 0, 1, 'b']
+                          },
+            },
+        cost: !obj:pylearn2.costs.cost.MethodCost {
+                method: 'cost_from_X',
+                supervised: 1
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
+            channel_name: "valid_y_misclass",
+            prop_decrease: 0.,
+            N: 100
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_y_misclass',
+             save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+            start: 1,
+            saturate: 250,
+            final_momentum: 0.70803613
+        },
+        !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+            start: 1,
+            saturate: 380,
+            decay_factor: .01
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}

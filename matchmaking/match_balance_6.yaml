@@ -1,0 +1,67 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.dense_design_matrix.DenseDesignMatrix {
+        X: !pkl: "/data/lisatmp2/yaoli/datasets/gro_kill/kill_ratio_620_labeled_split_70_15_15/train_x.npy",
+        y: !obj:galatea.matchmaking.matricize { y: !pkl: "/data/lisatmp2/yaoli/datasets/gro_kill/kill_ratio_620_labeled_split_70_15_15/train_y.npy" },
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        layers: [
+                 !obj:pylearn2.models.mlp.Tanh {
+                     layer_name: 'h0',
+                     dim: 600,
+                     irange: .005,
+                     max_col_norm: 1.9365,
+                 },
+                 !obj:pylearn2.models.mlp.Tanh {
+                     layer_name: 'h1',
+                     dim: 600,
+                     irange: .005,
+                     max_col_norm: 1.9365,
+                 },
+                 !obj:pylearn2.models.mlp.LinearGaussian {
+                     max_col_norm: 1.9365,
+                     layer_name: 'y',
+                     dim: 1,
+                     irange: .005,
+                     init_bias: !obj:pylearn2.models.mlp.mean_of_targets { dataset: *train },
+                     init_beta: !obj:pylearn2.models.mlp.beta_from_targets { dataset: *train },
+                     min_beta: .003,
+                     max_beta: 1000000.,
+                     beta_lr_scale: 1.
+                 }
+                ],
+        nvis: 620,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+        updates_per_batch: 3,
+        conjugate: 1,
+        reset_alpha: 0,
+        reset_conjugate: 0,
+        batch_size: 10000,
+        monitoring_batches: 1,
+        monitoring_dataset:
+            {
+                'train' : *train,
+                'valid':  !obj:pylearn2.datasets.dense_design_matrix.DenseDesignMatrix {
+                    X: !pkl: "/data/lisatmp2/yaoli/datasets/gro_kill/kill_ratio_620_labeled_split_70_15_15/valid_x.npy",
+                    y: !obj:galatea.matchmaking.matricize { y: !pkl: "/data/lisatmp2/yaoli/datasets/gro_kill/kill_ratio_620_labeled_split_70_15_15/valid_y.npy" },
+                },
+                'test':  !obj:pylearn2.datasets.dense_design_matrix.DenseDesignMatrix {
+                    X: !pkl: "/data/lisatmp2/yaoli/datasets/gro_kill/kill_ratio_620_labeled_split_70_15_15/test_x.npy",
+                    y: !obj:galatea.matchmaking.matricize { y: !pkl: "/data/lisatmp2/yaoli/datasets/gro_kill/kill_ratio_620_labeled_split_70_15_15/test_y.npy" },
+                },
+            },
+        termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
+            channel_name: "valid_y_mse",
+            prop_decrease: 0.,
+            N: 100
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_y_mse',
+             save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}

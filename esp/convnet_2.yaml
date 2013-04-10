@@ -1,0 +1,137 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:galatea.esp.hacky_dataset.HackyDataset {
+        stop_batch: 750,
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size: 128,
+        layers: [
+                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                     #partial_sum: 0,
+                     layer_name: 'h0',
+                     pad: 0,
+                     tied_b: 1,
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
+                     min_zero: 1,
+                     num_channels: 32,
+                     num_pieces: 1,
+                     kernel_shape: [5, 5],
+                     pool_shape: [4, 4],
+                     pool_stride: [3, 3],
+                     irange: .005,
+                     max_kernel_norm: .9,
+                 },
+                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                     #partial_sum: 0,
+                     layer_name: 'h1',
+                     pad: 0,
+                     tied_b: 1,
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
+                     min_zero: 1,
+                     num_channels: 32,
+                     num_pieces: 3,
+                     kernel_shape: [5, 5],
+                     pool_shape: [4, 4],
+                     pool_stride: [2, 2],
+                     irange: .005,
+                     max_kernel_norm: 1.9365,
+                 },
+                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                     #partial_sum: 0,
+                     pad: 0,
+                     layer_name: 'h2',
+                     tied_b: 1,
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
+                     num_channels: 64,
+                     num_pieces: 1,
+                     min_zero: 1,
+                     kernel_shape: [5, 5],
+                     pool_shape: [4, 4],
+                     pool_stride: [3, 3],
+                     irange: .005,
+                     max_kernel_norm: 1.9365,
+                 },
+                 !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                     #partial_sum: 0,
+                     pad: 0,
+                     layer_name: 'h3',
+                     tied_b: 1,
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
+                     num_channels: 128,
+                     num_pieces: 1,
+                     min_zero: 1,
+                     kernel_shape: [5, 5],
+                     pool_shape: [2, 2],
+                     pool_stride: [2, 2],
+                     irange: .005,
+                     max_kernel_norm: 1.9365,
+                 },
+                 !obj:galatea.esp.GlobalMax { layer_name: 'h4'},
+                 !obj:pylearn2.models.maxout.Maxout {
+                    layer_name: 'h5',
+                    irange: .005,
+                    num_units: 5000,
+                    num_pieces: 1,
+                    min_zero: 1,
+                    max_col_norm: 1.9
+                 },
+                 !obj:pylearn2.models.mlp.Sigmoid {
+                     init_bias: !obj:pylearn2.models.dbm.init_sigmoid_bias_from_marginals { dataset:  *train, use_y: 1},
+                     max_col_norm: 1.9365,
+                     layer_name: 'y',
+                     dim: 4000,
+                     irange: .005
+                 }
+                ],
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [200, 200],
+            num_channels: 3,
+            axes: ['c', 0, 1, 'b'],
+        },
+        dropout_include_probs: [ .5, .5, .5, .5, .5, .5, 1 ],
+        dropout_input_include_prob: .8,
+        dropout_input_scale: 1.,
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        train_iteration_mode: 'sequential',
+        learning_rate: .1,
+        init_momentum: .5,
+        monitoring_dataset:
+            {
+                'valid' : !obj:galatea.esp.hacky_dataset.HackyDataset {
+                    start_batch: 750
+                          },
+            },
+        cost: !obj:pylearn2.costs.cost.SumOfCosts {
+            costs: [
+                !obj:galatea.esp.NegF1 {},
+                !obj:pylearn2.costs.cost.MethodCost {
+                    supervised: 1,
+                    method: "cost_from_X"
+                }
+                ]
+        },
+    },
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_y_f1',
+             higher_is_better: 1,
+             save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+            start: 1,
+            saturate: 250,
+            final_momentum: .6
+        },
+        !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+            start: 1,
+            saturate: 250,
+            decay_factor: .01
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 1
+}
