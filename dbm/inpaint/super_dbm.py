@@ -3478,9 +3478,13 @@ class BVMP_Gaussian(BinaryVectorMaxPool):
             raise NotImplementedError()
         W ,= self.transformer.get_params()
         W = W.get_value()
-        beta = self.input_layer.beta.get_value()
 
-        return (W.T * beta).T
+        x = raw_input("multiply by beta?")
+        if x == 'y':
+            beta = self.input_layer.beta.get_value()
+            return (W.T * beta).T
+        assert x == 'n'
+        return W
 
     def set_weights(self, weights):
         raise NotImplementedError("beta would make get_weights for visualization not correspond to set_weights")
