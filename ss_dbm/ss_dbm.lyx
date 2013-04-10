@@ -1,0 +1,171 @@
+#LyX 2.0 created this file. For more info see http://www.lyx.org/
+\lyxformat 413
+\begin_document
+\begin_header
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_amsmath 1
+\use_esint 1
+\use_mhchem 1
+\use_mathdots 1
+\cite_engine basic
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\use_refstyle 1
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+Suppose we start with something intractable:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}(v-\mu^{(0)}-W^{(0)}h\circ s)^{T}\beta(v-\mu^{(0)}-W^{(0)}h\circ s)+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We could then subtract off the cross terms to make it tractable.
+ Should probably also have biases on 
+\begin_inset Formula $h$
+\end_inset
+
+,
+\begin_inset Formula $g$
+\end_inset
+
+ and 
+\begin_inset Formula $y$
+\end_inset
+
+.
+ Also, there is the question of what happens to 
+\begin_inset Formula $s$
+\end_inset
+
+ and 
+\begin_inset Formula $z$
+\end_inset
+
+ when 
+\begin_inset Formula $h$
+\end_inset
+
+ and 
+\begin_inset Formula $g$
+\end_inset
+
+ are off.
+ One other thought: this is basically saying to only make it likely to turn
+ an 
+\begin_inset Formula $h$
+\end_inset
+
+ on if doing so reduces our error in modeling 
+\begin_inset Formula $v$
+\end_inset
+
+ more than it increases our error in modeling 
+\begin_inset Formula $s$
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+So let's do this:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}(v-\mu^{(0)}-W^{(0)}h\circ s)^{T}\beta(v-\mu^{(0)}-W^{(0)}h\circ s)+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+and then subtract off the cross terms.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu^{(0)}-2v^{T}\beta W^{(0)}h\circ s+\mu^{T}\beta\mu+\mu^{T}Wh\circ s+s\circ h^{T}W^{T}\beta Wh\circ s\right]+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Drop the term that is constant wrt all random variables:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu^{(0)}-2v^{T}\beta W^{(0)}h\circ s+\mu^{T}Wh\circ s+s\circ h^{T}W^{T}\beta Wh\circ s\right]+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
