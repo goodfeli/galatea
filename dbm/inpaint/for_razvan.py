@@ -1,4 +1,7 @@
 from pylearn2.config import yaml_parse
+import numpy
+import theano
+import theano.tensor as TT
 
 class ThingForRazvan(object):
 
@@ -75,8 +78,7 @@ class ThingForRazvan(object):
               niter: 5, #note: since we have to backprop through the whole thing, this does
                          #increase the memory usage
               visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
-                nvis: 784,
-                bias_from_marginals: *raw_train,
+                nvis: 784
               },
               hidden_layers: [
                 !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
@@ -128,7 +130,7 @@ class ThingForRazvan(object):
                                #         coeffs: [ .0000005, .0000005, .0000005 ]
                                #}
                        ]
-               },
+               }
         """
 
         self.cost = yaml_parse.load(cost_string)
@@ -136,5 +138,12 @@ class ThingForRazvan(object):
         self.X = X
         self.Y = Y
 
-        self._on_load_batch = self.cost.get_fixed_var_descr().on_load_batch[0]
+        self._on_load_batch = self.cost.get_fixed_var_descr(self.dbm, X, Y).on_load_batch[0]
 
+
+if __name__ == '__main__':
+    # Test code
+    X = TT.matrix()
+    Y = TT.vector()
+    obj = ThingForRazvan(X,Y)
+    val = obj.get_cost()
