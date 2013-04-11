@@ -76,6 +76,8 @@ class ThingForIan(object):
     def __init__(self,
                  X,
                  Y,
+                 dbm,
+                 cost,
                  batchsize=200,
                  init_damp = 5.,
                  min_damp = .001,
@@ -103,69 +105,9 @@ class ThingForIan(object):
         self.adapt_rho = adapt_rho
         self.damp_ratio = damp_ratio
         self.min_damp = min_damp
-        # From U5I4T
-        dbm_string = """
-!obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
-              batch_size : 1250,
-              niter: 5, #note: since we have to backprop through the whole thing, this does
-                         #increase the memory usage
-              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
-                nvis: 784
-              },
-              hidden_layers: [
-                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        max_col_norm: 1.9,
-                        detector_layer_dim: 500,
-                        pool_size: 1,
-                        sparse_init: 15,
-                        layer_name: 'h0',
-                        init_bias: -2.
-               },
-                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
-                        max_col_norm: 3.,
-                        detector_layer_dim: 1000,
-                        pool_size: 1,
-                        sparse_init: 15,
-                        layer_name: 'h1',
-                        init_bias: -2.
-               },
-               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
-                        max_col_norm: 4.,
-                        sparse_init: 0,
-                        layer_name: 'c',
-                        n_classes: 10
-               }
-              ]
-    }
-        """
 
-        self.dbm = yaml_parse.load(dbm_string)
-
-        cost_string = """
-
-!obj:pylearn2.costs.cost.SumOfCosts {
-                       costs :[
-                               !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
-                                        both_directions : 0,
-                                        noise : 0,
-                                        supervised: 1,
-                                        l1_act_targets: [  .06, .07, 0. ],
-                                        l1_act_eps:     [  .04,  .05, 0. ],
-                                        l1_act_coeffs:  [ .01,  .0001, 0.  ],
-                                       mask_gen : !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
-                                                drop_prob: 0.5,
-                                                balance: 0,
-                                                sync_channels: 0
-                                       },
-                               },
-                               #!obj:galatea.dbm.inpaint.super_dbm.DBM_WeightDecay {
-                               #         coeffs: [ .0000005, .0000005, .0000005 ]
-                               #}
-                       ]
-               }
-        """
-
-        self.cost = yaml_parse.load(cost_string)
+        self.dbm = dbm
+        self.cost = cost
 
         self.X = X
         self.Y = Y
