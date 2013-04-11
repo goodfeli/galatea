@@ -144,7 +144,7 @@ and then subtract off the cross terms.
 \begin_layout Standard
 \begin_inset Formula 
 \[
-E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu^{(0)}-2v^{T}\beta W^{(0)}h\circ s+\mu^{T}\beta\mu+\mu^{T}Wh\circ s+s\circ h^{T}W^{T}\beta Wh\circ s\right]+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu^{(0)}-2v^{T}\beta W^{(0)}h\circ s+\mu^{T}\beta\mu+2\mu^{T}\beta Wh\circ s+s\circ h^{T}W^{T}\beta Wh\circ s\right]+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
 \]
 
 \end_inset
@@ -159,12 +159,109 @@ Drop the term that is constant wrt all random variables:
 \begin_layout Standard
 \begin_inset Formula 
 \[
-E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu^{(0)}-2v^{T}\beta W^{(0)}h\circ s+\mu^{T}Wh\circ s+s\circ h^{T}W^{T}\beta Wh\circ s\right]+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu^{(0)}-2v^{T}\beta W^{(0)}h\circ s+2\mu^{T}\beta Wh\circ s+s\circ h^{T}W^{T}\beta Wh\circ s\right]+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
 \]
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+s\circ h^{T}W^{T}\beta Wh\circ s\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Subtract off cross terms:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+\sum_{i}W_{:i}^{T}\beta W_{:i}h_{i}s_{i}^{2}\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}(z-\mu^{(2)}-C^{(2)}y)^{T}(g\circ\gamma)(z-\mu^{(2)}-C^{(2)}y)+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+\sum_{i}W_{:i}^{T}\beta W_{:i}h_{i}s_{i}^{2}\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}\left[z^{T}(g\circ\gamma)z-2z^{T}(g\circ\gamma)\mu^{(2)})-2z^{T}(g\circ\gamma)W^{(2)}y+\mu^{(2)T}(g\circ\gamma)\mu^{(2)}+2\mu^{(2)T}(g\circ\gamma)W^{(2)}y+y^{T}W^{(2)}(g\circ\gamma)W^{(2)}y\right]+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+\sum_{i}W_{:i}^{T}\beta W_{:i}h_{i}s_{i}^{2}\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}\left[z^{T}(g\circ\gamma)z+\mu^{(2)T}(g\circ\gamma)\mu^{(2)}+y^{T}W^{(2)}(g\circ\gamma)W^{(2)}y\right]-z^{T}(g\circ\gamma)\mu^{(2)}-(z+\mu^{(2)})^{T}(g\circ\gamma)W^{(2)}y+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+\sum_{i}W_{:i}^{T}\beta W_{:i}h_{i}s_{i}^{2}\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}(s-\mu^{(1)}-W^{(1)}g\circ z)^{T}(h\circ\alpha)(s-\mu^{(1)}-W^{(1)}g\circ z)+\frac{1}{2}\left[z^{T}(g\circ\gamma)z+\mu^{(2)T}(g\circ\gamma)\mu^{(2)}+\sum_{i}y_{i}W_{i}^{(2)T}(g\circ\gamma)W_{i}^{(2)}\right]-z^{T}(g\circ\gamma)\mu^{(2)}-(z+\mu^{(2)})^{T}(g\circ\gamma)W^{(2)}y+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+\sum_{i}W_{:i}^{T}\beta W_{:i}h_{i}s_{i}^{2}\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}\left[s^{T}(h\circ\alpha)s-2s^{T}(h\circ\alpha)\mu^{(1)}-2s^{T}(h\circ\alpha)W^{(1)}g\circ z+\mu^{(1)T}(h\circ\alpha)\mu^{(1)}+2\mu^{(1)T}(h\circ\alpha)W^{(1)}g\circ z+(g\circ z)^{T}W^{(1)T}(h\circ\alpha)W^{(1)T}g\circ z\right]+\frac{1}{2}\left[z^{T}(g\circ\gamma)z+\mu^{(2)T}(g\circ\gamma)\mu^{(2)}+\sum_{i}y_{i}W_{i}^{(2)T}(g\circ\gamma)W_{i}^{(2)}\right]-z^{T}(g\circ\gamma)\mu^{(2)}-(z+\mu^{(2)})^{T}(g\circ\gamma)W^{(2)}y+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+\sum_{i}W_{:i}^{T}\beta W_{:i}h_{i}s_{i}^{2}\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}\left[s^{T}(h\circ\alpha)s-2s^{T}(h\circ\alpha)\mu^{(1)}-2s^{T}(h\circ\alpha)W^{(1)}g\circ z+\mu^{(1)T}(h\circ\alpha)\mu^{(1)}+2\mu^{(1)T}(h\circ\alpha)W^{(1)}g\circ z+\sum_{i}g_{i}z_{i}^{2}W_{i}^{(1)T}(h\circ\alpha)W_{i}^{(1)}\right]+\frac{1}{2}\left[z^{T}(g\circ\gamma)z+\mu^{(2)T}(g\circ\gamma)\mu^{(2)}+\sum_{i}y_{i}W_{i}^{(2)T}(g\circ\gamma)W_{i}^{(2)}\right]-z^{T}(g\circ\gamma)\mu^{(2)}-(z+\mu^{(2)})^{T}(g\circ\gamma)W^{(2)}y+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h,s,g,z,y)=\frac{1}{2}\left[v^{T}\beta v+\sum_{i}W_{:i}^{T}\beta W_{:i}h_{i}s_{i}^{2}\right]-v^{T}\beta\mu^{(0)}-(v-\mu)^{T}\beta W^{(0)}h\circ s+\frac{1}{2}\left[s^{T}(h\circ\alpha)s+\mu^{(1)T}(h\circ\alpha)\mu^{(1)}+\sum_{i}g_{i}z_{i}^{2}W_{i}^{(1)T}(h\circ\alpha)W_{i}^{(1)}\right]-s^{T}(h\circ\alpha)\mu^{(1)}-(s-\mu^{(1)})^{T}(h\circ\alpha)W^{(1)}g\circ z+\frac{1}{2}\left[z^{T}(g\circ\gamma)z+\mu^{(2)T}(g\circ\gamma)\mu^{(2)}+\sum_{i}y_{i}W_{i}^{(2)T}(g\circ\gamma)W_{i}^{(2)}\right]-z^{T}(g\circ\gamma)\mu^{(2)}-(z+\mu^{(2)})^{T}(g\circ\gamma)W^{(2)}y+\frac{1}{2}s^{T}s+\frac{1}{2}z^{T}z-b^{(0)T}h-b^{(1)T}g-b^{(2)T}y
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+OK, so we have our energy function.
+ Now let's do something with it.
 \end_layout
 
 \end_body
