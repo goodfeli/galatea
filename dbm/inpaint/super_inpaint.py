@@ -129,7 +129,21 @@ class SuperInpaint(Cost):
             if err.dtype != Y_hat.dtype:
                 err = T.cast(err, Y_hat.dtype)
 
-            rval.update(OrderedDict([('err', err)]))
+            rval['err'] = err
+
+            if self.monitor_multi_inference:
+                Y_hat = model.inference_procedure.multi_infer(X)
+                Y = T.argmax(Y, axis=1)
+                Y = T.cast(Y, Y_hat.dtype)
+
+                argmax = T.argmax(Y_hat,axis=1)
+                if argmax.dtype != Y_hat.dtype:
+                    argmax = T.cast(argmax, Y_hat.dtype)
+                err = T.neq(Y , argmax).mean()
+                if err.dtype != Y_hat.dtype:
+                    err = T.cast(err, Y_hat.dtype)
+
+                rval['multi_err'] = err
 
         return rval
 

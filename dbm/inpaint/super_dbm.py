@@ -45,6 +45,7 @@ class SuperDBM(DBM):
 
     # Constructor is handled by DBM superclass
 
+
     def setup_inference_procedure(self):
         if not hasattr(self, 'inference_procedure') or \
                 self.inference_procedure is None:
