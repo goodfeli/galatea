@@ -23,6 +23,7 @@ in the max pooling into a unit test, etc.""")
 
 class SuperInpaint(Cost):
     def __init__(self,
+            monitor_multi_inference = False,
                     mask_gen = None,
                     noise = False,
                     both_directions = False,
@@ -133,8 +134,6 @@ class SuperInpaint(Cost):
 
             if self.monitor_multi_inference:
                 Y_hat = model.inference_procedure.multi_infer(X)
-                Y = T.argmax(Y, axis=1)
-                Y = T.cast(Y, Y_hat.dtype)
 
                 argmax = T.argmax(Y_hat,axis=1)
                 if argmax.dtype != Y_hat.dtype:
@@ -699,3 +698,27 @@ class SuperDenoise(Cost):
 
         return total_cost
 
+
+class MonitorHack(Cost):
+    supervised = True
+
+    def __call__(self,model,  X, Y = None, **kwargs):
+        return T.as_tensor_variable(0.)
+
+    def get_monitoring_channels(self, model, X, Y= None, **kwargs):
+            rval = OrderedDict()
+            Y = T.argmax(Y, axis=1)
+            Y = T.cast(Y, X.dtype)
+
+            Y_hat = model.inference_procedure.multi_infer(X)
+
+            argmax = T.argmax(Y_hat,axis=1)
+            if argmax.dtype != Y_hat.dtype:
+                argmax = T.cast(argmax, Y_hat.dtype)
+            err = T.neq(Y , argmax).mean()
+            if err.dtype != Y_hat.dtype:
+                err = T.cast(err, Y_hat.dtype)
+
+            rval['multi_err'] = err
+
+            return rval
