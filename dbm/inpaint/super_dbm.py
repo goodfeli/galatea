@@ -3813,3 +3813,33 @@ class BVMP_Gaussian(BinaryVectorMaxPool):
 def freeze_layer_0(super_dbm):
     super_dbm.freeze(super_dbm.hidden_layers[0].get_params())
     return super_dbm
+
+class SpeedMonitoringDBM(SuperDBM):
+
+    def __init__(self, ** kwargs):
+        SuperDBM.__init__(self, ** kwargs)
+        self.param_speed = sharedX(0.)
+
+    def censor_updates(self, updates):
+
+        SuperDBM.censor_updates(self, updates)
+
+        cur_param_speed = 0.
+
+        for param in self.get_params():
+            cur_param_speed += T.sqr(param - updates[param]).sum()
+
+        cur_param_speed = T.sqrt(cur_param_speed)
+
+        time_constant = .01
+
+        updates[self.param_speed]  = (1. - time_constant) * self.param_speed + time_constant * cur_param_speed
+
+
+    def get_monitoring_channels(self, X, Y=None, **kwargs):
+
+        rval = SuperDBM.get_monitoring_channels(self, X, Y, ** kwargs)
+
+        rval['param_speed'] = self.param_speed
+
+        return rval
