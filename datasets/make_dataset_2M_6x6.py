@@ -9,7 +9,7 @@ train = cifar10.CIFAR10(which_set="train")
 
 pipeline = preprocessing.Pipeline()
 pipeline.items.append(preprocessing.ExtractPatches(patch_shape=(6,6),num_patches=2000000))
-pipeline.items.append(preprocessing.GlobalContrastNormalization())
+pipeline.items.append(preprocessing.GlobalContrastNormalization(sqrt_bias=10., use_std=True))
 pipeline.items.append(preprocessing.ZCA())
 
 test = cifar10.CIFAR10(which_set="test")
