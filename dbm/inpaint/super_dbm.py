@@ -1877,7 +1877,7 @@ class MLP_Wrapper(Model):
     def __init__(self, super_dbm, decapitate = True, final_irange = None,
             initially_freeze_lower = False, decapitated_value = None,
             train_rnn_y = False, gibbs_features = False, top_down = False,
-            copy_constraints = False, modify_input=1):
+            copy_constraints = False, modify_input=0):
 
         # Note: this doesn't handle the 'copies' feature very well.
         # The best way to fit it is probably to write the mf method more generically
