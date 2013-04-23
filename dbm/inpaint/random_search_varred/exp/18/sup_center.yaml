@@ -1,0 +1,100 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarizer.Binarizer {
+      raw: &raw_train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 0,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    }},
+    model: !obj:galatea.dbm.inpaint.super_dbm.SpeedMonitoringDBM {
+              batch_size : 100,
+              niter: 12, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 784,
+                bias_from_marginals: *raw_train,
+                center: 1,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 1,
+                        max_col_norm: 3.604910,
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        irange: 0.0146060167559,
+                        layer_name: 'h0',
+                        init_bias: -0.788009
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 1,
+                        max_col_norm: 1.205794,
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        sparse_init: 17,
+                        layer_name: 'h1',
+                        init_bias: -0.098321
+               },
+               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                    center: 1,
+                        max_col_norm: 2.937492,
+                        sparse_init: 18,
+                        layer_name: 'c',
+                        n_classes: 10
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+            # 'train': *train,
+            raw_valid: !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 0,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            },
+               },
+         learning_rate: 0.000550,
+        init_momentum: .5,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                   costs :[  !obj:galatea.dbm.inpaint.super_dbm.MF_L1_ActCost {
+            targets: [  0.170206, 0.232247, 0. ],
+            eps:     [  0.077368,  0.059837, 0. ],
+            coeffs:  [ 0.009730, 0.000019, 0.  ],
+            supervised: 0
+        },
+                       !obj:galatea.costs.dbm.VariationalPCD_VarianceReduction {
+                           supervised: 1,
+                           num_chains: 100,
+                           num_gibbs_steps: 12,
+                       }
+                       ]
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               {
+                        channel_name: "raw_valid_misclass",
+                        N: 100,
+                        prop_decrease: 0.
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "raw_valid_misclass",
+                        save_path: "exp/18/sup_center_best.pkl"
+                },
+                !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                    start: 1,
+                    saturate: 2,
+                    final_momentum: 0.598572
+                },
+                !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+                    start: 1,
+                    saturate: 950,
+                    decay_factor: 0.048850
+                }
+        ],
+    save_path: "exp/18/sup_center.pkl",
+    save_freq : 1
+}
+    
