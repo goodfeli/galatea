@@ -1,0 +1,96 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarizer.Binarizer {
+      raw: &raw_train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 0,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    }},
+    model: !obj:galatea.dbm.inpaint.super_dbm.SpeedMonitoringDBM {
+              batch_size : 100,
+              niter: 7, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 784,
+                bias_from_marginals: *raw_train,
+                center: 1,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 1,
+                        max_col_norm: 2.076030,
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        irange: 0.0783759954471,
+                        layer_name: 'h0',
+                        init_bias: -0.294737
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 1,
+                        max_col_norm: 1.274112,
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        sparse_init: 16,
+                        layer_name: 'h1',
+                        init_bias: -1.279290
+               },
+               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                    center: 1,
+                        max_col_norm: 1.295070,
+                        sparse_init: 11,
+                        layer_name: 'c',
+                        n_classes: 10
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+            # 'train': *train,
+            raw_valid: !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 0,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            },
+               },
+         learning_rate: 0.186077,
+        init_momentum: .5,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                   costs :[  
+                       !obj:pylearn2.costs.dbm.VariationalPCD {
+                           supervised: 1,
+                           num_chains: 100,
+                           num_gibbs_steps: 6,
+                           toronto_neg: 1
+                       }
+                       ]
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               {
+                        channel_name: "raw_valid_misclass",
+                        N: 100,
+                        prop_decrease: 0.
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "raw_valid_misclass",
+                        save_path: "exp/17/sup_center_best.pkl"
+                },
+                !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                    start: 1,
+                    saturate: 723,
+                    final_momentum: 0.695658
+                },
+                !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+                    start: 1,
+                    saturate: 314,
+                    decay_factor: 0.004969
+                }
+        ],
+    save_path: "exp/17/sup_center.pkl",
+    save_freq : 1
+}
+    

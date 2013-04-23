@@ -1,0 +1,103 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarizer.Binarizer {
+      raw: &raw_train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 0,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    }},
+    model: !obj:galatea.dbm.inpaint.super_dbm.SpeedMonitoringDBM {
+              batch_size : 100,
+              niter: 6, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                nvis: 784,
+                bias_from_marginals: *raw_train,
+                center: 0,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 0,
+                        max_col_norm: 3.353659,
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        sparse_init: 11,
+                        layer_name: 'h0',
+                        init_bias: -2.782344
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 0,
+                        max_col_norm: 4.812461,
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        sparse_init: 10,
+                        layer_name: 'h1',
+                        init_bias: -2.990494
+               },
+               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                    center: 0,
+                        max_col_norm: 3.478801,
+                        irange: 0.00853964838982,
+                        layer_name: 'c',
+                        n_classes: 10
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+            # 'train': *train,
+            raw_valid: !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 0,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            },
+               },
+         learning_rate: 8.860975,
+        init_momentum: .5,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                   costs :[
+                      !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                          l1_act_targets: [  0.247433, 0.093479, 0. ],
+            l1_act_eps:     [  0.112987,  0.043318, 0. ],
+            l1_act_coeffs:  [ 0.001070, 0.000125, 0.  ],
+                          both_directions: 0,
+                          noise: 0,
+                           supervised: 1,
+                           mask_gen: !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                               drop_prob: 0.5,
+                               balance: 0,
+                               sync_channels: 0
+                            }
+                       }
+                       ]
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               {
+                        channel_name: "raw_valid_err",
+                        N: 100,
+                        prop_decrease: 0.
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "raw_valid_err",
+                        save_path: "exp/3/sup_inpaint_best.pkl"
+                },
+                !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                    start: 1,
+                    saturate: 797,
+                    final_momentum: 0.885231
+                },
+                !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+                    start: 1,
+                    saturate: 893,
+                    decay_factor: 0.008568
+                }
+        ],
+    save_path: "exp/3/sup_inpaint.pkl",
+    save_freq : 1
+}
+    
