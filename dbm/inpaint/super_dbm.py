@@ -1887,6 +1887,28 @@ class MLP_Wrapper(Model):
         assert train_rnn_y in [True, False, 0, 1]
         self.__dict__.update(locals())
 
+        model = super_dbm
+        if model.visible_layer.center:
+            self.v_ofs = model.visible_layer.offset
+        else:
+            self.v_ofs = 0
+
+        if model.hidden_layers[0].center:
+            self.h1_ofs = model.hidden_layers[0].offset
+        else:
+            self.h1_ofs = 0
+
+        if model.hidden_layers[1].center:
+            self.h2_ofs = model.hidden_layers[1].offset
+        else:
+            self.h2_ofs = 0
+
+        if model.hidden_layers[2].center:
+            self.y_ofs = model.hidden_layers[2].offset
+        else:
+            self.y_ofs = 0
+
+
         if decapitate:
             if decapitated_value is None:
                 decapitated_value = 0.
@@ -1951,7 +1973,8 @@ class MLP_Wrapper(Model):
                 c_copies = c.copies
             else:
                 c_copies = 1
-            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output', copies = c_copies)
+            self.c = Softmax(n_classes = 10, irange = 0., layer_name = 'final_output', copies = c_copies,
+                    center = model.hidden_layers[-1].center)
             self.c.dbm = l1.dbm
             self.c.set_input_space(l2.get_output_space())
             if self.orig_sup:
@@ -1999,6 +2022,28 @@ class MLP_Wrapper(Model):
             self.lr_scalers = lr_scalers
         else:
             self.lr_scalers = OrderedDict()
+
+
+    """
+    def get_monitoring_channels(self, X, Y = None, ** kwargs):
+
+        V = X
+
+        q = self.super_dbm.mf(V, ** kwargs)
+
+        Y_hat = q[-1]
+
+        y = T.argmax(Y, axis=1)
+        y_hat = T.argmax(Y_hat, axis=1)
+
+        misclass = T.neq(y, y_hat).mean()
+
+        rval = OrderedDict()
+
+        rval['raw_dbm_misclass'] = T.cast(misclass, 'float32')
+
+        return rval
+    """
 
     def censor_updates(self, updates):
 
@@ -2055,19 +2100,24 @@ class MLP_Wrapper(Model):
             q[1] = (q[1], q[1])
         if not hasattr(self, 'decapitate'):
             self.decapitate = True
+
         if self.decapitate or not self.orig_sup:
             _, H2 = q
         else:
             _, H2, y = q
+            assert y.ndim == 2
+
         _, H2 = H2
-        below = T.dot(V, self.vishid)
-        above = T.dot(H2, self.penhid)
+
+
+        below = T.dot((V - self.v_ofs), self.vishid)
+        above = T.dot((H2 - self.h2_ofs), self.penhid)
         H1 = T.nnet.sigmoid(below + above + self.hidbias)
         if self.top_down:
-            top_down = T.dot(y, self.labpen) * self.c.copies
+            top_down = T.dot((y - self.y_ofs), self.labpen) * self.c.copies
         else:
             top_down = 0.
-        H2 = T.nnet.sigmoid(T.dot(H1, self.hidpen) + top_down + self.penbias)
+        H2 = T.nnet.sigmoid(T.dot((H1 - self.h1_ofs), self.hidpen) + top_down + self.penbias)
         Y = self.c.mf_update(state_below = H2)
 
         return [ Y ]
