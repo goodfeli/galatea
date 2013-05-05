@@ -2122,6 +2122,54 @@ class MLP_Wrapper(Model):
 
         return [ Y ]
 
+
+    def mf_missing(self, V, missing_mask, return_history = False, ** kwargs):
+        assert not return_history
+        if not hasattr(self, 'gibbs_features'):
+            self.gibbs_features = False
+        if not hasattr(self, 'modify_input'):
+            self.modify_input = False
+        if not self.gibbs_features:
+            if self.modify_input:
+                raise NotImplementedError()
+            else:
+                history = self.super_dbm.inference_procedure.do_inpainting(V=V, drop_mask=missing_mask, return_history=True)
+                final_state = history[-1]
+                V = final_state['V_hat']
+                q = final_state['H_hat']
+        else:
+            raise NotImplementedError()
+
+        if not hasattr(self, 'decapitate'):
+            self.decapitate = True
+
+        if not hasattr(self, 'v_ofs'):
+            self.v_ofs = 0.
+            self.h1_ofs = 0.
+            self.h2_ofs = 0.
+            self.y_ofs = 0.
+
+        if self.decapitate or not self.orig_sup:
+            _, H2 = q
+        else:
+            _, H2, y = q
+            assert y.ndim == 2
+
+        _, H2 = H2
+
+
+        below = T.dot((V - self.v_ofs), self.vishid)
+        above = T.dot((H2 - self.h2_ofs), self.penhid)
+        H1 = T.nnet.sigmoid(below + above + self.hidbias)
+        if self.top_down:
+            top_down = T.dot((y - self.y_ofs), self.labpen) * self.c.copies
+        else:
+            top_down = 0.
+        H2 = T.nnet.sigmoid(T.dot((H1 - self.h1_ofs), self.hidpen) + top_down + self.penbias)
+        Y = self.c.mf_update(state_below = H2)
+
+        return [ Y ]
+
     def set_batch_size(self, batch_size):
         self.super_dbm.set_batch_size(batch_size)
         self.c.set_batch_size(batch_size)
