@@ -1,0 +1,78 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarizer.Binarizer {
+        raw: &raw_train !obj:pylearn2.datasets.mnist.MNIST {
+            which_set: "train",
+            shuffle: 0,
+            one_hot: 1,
+        }
+    },
+    model: &model !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "expdir/sup_inpaint_29_best.pkl",
+        name: "foo"
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+            'raw_test': !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "test",
+                                shuffle: 0,
+                                one_hot: 1,
+            },
+            'valid' : !obj:pylearn2.datasets.binarizer.Binarizer {
+                raw:  !obj:pylearn2.datasets.mnist.MNIST {
+                    which_set: "train",
+                    shuffle: 0,
+                    one_hot: 1,
+                    start: 50000,
+                    stop: 60000
+                }
+            } 
+        },
+        learning_rate: 8.58230304718, #15.146493,
+        init_momentum: 0.732715606689, #.5,
+        cost: &cost !obj:pylearn2.costs.cost.SumOfCosts {
+            costs: [
+                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {          
+                    both_directions: 0,
+                    noise: 0,
+                    supervised: 1,
+                    mask_gen: !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.5,
+                        balance: 0,
+                        sync_channels: 0
+                   }
+                }
+            ]
+        },
+        termination_criterion: !obj:pylearn2.termination_criteria.ChannelTarget {
+            channel_name: "valid_objective",
+            target: !obj:pylearn2.monitor.get_channel {
+                model: *model,
+                batch_size: 100,
+                dataset: !obj:pylearn2.datasets.binarizer.Binarizer {
+                   raw: !obj:pylearn2.datasets.mnist.MNIST {
+                   which_set: "train",
+                   shuffle: 0,
+                   one_hot: 1,
+                   start: 0,
+                   stop: 50000
+                }},   
+            cost: *cost,
+            channel: "objective"
+               }
+        },
+    },
+    extensions: [
+               # !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+               #     start: 1,
+               #     saturate: 2,
+               #     final_momentum: 0.732716
+               # },
+               # !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+               #     start: 1,
+               #     saturate: 868,
+               #     decay_factor: 0.020379
+               # }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+} 
