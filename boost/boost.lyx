@@ -416,5 +416,84 @@ Are these equivalent? If we take the derivative through the log, Yoshua's
 which I've already shown how to simplify above, so yes they are equivalent.
 \end_layout
 
+\begin_layout Section
+What about Yoshua's older thing?
+\end_layout
+
+\begin_layout Standard
+Yoshua's first e-mail on this subject said to maximize
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{1}{2^{D}}\sum_{d}\left[\log p(y\mid x,d)-KL\left(p_{\text{ensemble}}(y|x)\Vert p_{d}(y\mid x)\right)\right]
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+(where 
+\begin_inset Formula $p_{\text{ensemble}}$
+\end_inset
+
+ is considered constant)
+\end_layout
+
+\begin_layout Standard
+So what is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-\frac{d}{d\theta}KL\left(p_{\text{ensemble}}(y|x)\Vert p_{d}(y\mid x)\right)
+\]
+
+\end_inset
+
+?
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+-\frac{d}{d\theta}\sum_{y}(p_{e}(y\mid x)\log p_{e}(y\mid x)-p_{e}(y\mid x)\log p_{d}(y\mid x))
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\frac{d}{d\theta}\sum_{y}p_{e}(y\mid x)\log p_{d}(y\mid x)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\sum_{y}p_{e}(y\mid x)\frac{d}{d\theta}\log p_{d}(y\mid x)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So yes, Yoshua's first thing is the same as Yoshua's second thing.
+\end_layout
+
 \end_body
 \end_document
