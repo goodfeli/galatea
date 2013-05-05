@@ -1,9 +1,11 @@
 import numpy as np
 
 from theano import tensor as T
-
 from pylearn2.models.mlp import Layer
 from pylearn2.models.maxout import Maxout
+from pylearn2.space import Conv2DSpace
+from pylearn2.space import VectorSpace
+from pylearn2.utils import serial
 
 def shuffle(dataset, seed = None):
 
@@ -266,3 +268,56 @@ class Universal(Maxout):
                 axis=1)
 
         return p
+
+
+class GCN_C01B2(Layer):
+
+    def __init__(self, layer_name = 'gcn'):
+        """
+        """
+
+        self.layer_name = layer_name
+        self._params = []
+
+    def set_input_space(self, space):
+        assert tuple(space.axes) == ('c', 0, 1, 'b')
+        self.input_space = space
+        self.output_space = space
+
+    def fprop(self, state_below):
+        c01b = state_below
+        self.input_space.validate(c01b)
+
+        c01b = c01b - c01b.mean(axis=(0,1,2)).dimshuffle('x','x','x',0)
+
+        scale = T.sqrt(T.square(c01b).sum(axis=(0,1,2)))
+        eps = 1e-8
+        scale = (scale < eps) + (scale >= eps) * scale
+
+        c01b = c01b / scale.dimshuffle('x', 'x', 'x', 0)
+
+        return c01b * 55.
+
+class OnlineWhitener(Layer):
+
+    def __init__(self):
+        self.layer_name = 'online_whitener'
+        d = serial.load("${G}/maxout/online_whitener.pkl")
+        self.mean = d['mean']
+        self.P = d['P']
+        self._params = []
+
+    def set_input_space(self, space):
+        desired = Conv2DSpace([32, 32], 3, axes=('c', 0, 1, 'b'))
+        if not (space == desired):
+            print space
+            assert False
+        self.output_space = space
+
+    def fprop(self, state_below):
+        vector_space = VectorSpace(self.output_space.get_total_dimension())
+        X = self.output_space.format_as(state_below, vector_space)
+        rval = T.dot(X - self.mean, self.P)
+        rval = vector_space.format_as(rval, self.output_space)
+        return rval
+
