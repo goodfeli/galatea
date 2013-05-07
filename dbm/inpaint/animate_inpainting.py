@@ -1,15 +1,18 @@
 import numpy as np
 from pylearn2.utils import serial
 import sys
-from dbm_inpaint import DBM_Inpaint_Binary
-from dbm_inpaint import MaskGen
 import theano.tensor as T
 from theano import function
+
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
+from pylearn2.utils import sharedX
+
 from galatea.ui import get_choice
 from pylearn2.models.dbm import flatten
 from theano.sandbox.rng_mrg import MRG_RandomStreams
+
+from galatea.dbm.inpaint.super_inpaint import MaskGen
 
 ignore, model_path = sys.argv
 m = 10
@@ -67,23 +70,51 @@ except:
 
 space = model.get_input_space()
 X = space.make_theano_batch()
-if X.ndim == 4:
-    x = raw_input("mask half of image?")
-    if x == 'y':
+x = raw_input("mask half of image?")
+if x == 'y':
+    if X.ndim == 4:
+            class DummyMaskGen(object):
+                sync_channels = 0
+
+                def __call__(self, X, Y=None):
+                    left_mask = T.ones_like(X[:, :, 0:X.shape[2]/2, :])
+                    right_mask = T.zeros_like(X[:, :, X.shape[2]/2:, :])
+                    X_mask = T.concatenate((left_mask, right_mask), axis=2)
+                    Y_mask = T.zeros_like(Y[:,0])
+                    return X_mask, Y_mask
+    else:
+        assert X.ndim == 2
+        mask = dataset.get_batch_topo(m)
+        mask *= 0.
+        mask[:, :, 0:mask.shape[2] /2, :] = 1
+        if hasattr(dataset, 'raw'):
+            mask = dataset.raw.get_design_matrix(mask)
+        else:
+            mask = dataset.get_design_matrix(mask)
+        mask = sharedX(mask)
+
         class DummyMaskGen(object):
             sync_channels = 0
 
             def __call__(self, X, Y=None):
-                left_mask = T.ones_like(X[:, :, 0:X.shape[2]/2, :])
-                right_mask = T.zeros_like(X[:, :, X.shape[2]/2:, :])
-                X_mask = T.concatenate((left_mask, right_mask), axis=2)
-                Y_mask = T.zeros_like(Y[:,0])
-                return X_mask, Y_mask
-        mask_gen = DummyMaskGen()
+                if Y is None:
+                    return mask
 
-        cost.mask_gen = mask_gen
+                x = raw_input('mask out y?')
 
-        model.niter = 50
+                if x == 'y':
+                    return mask, T.ones_like(Y[:,0])
+                assert x == 'n'
+                return mask, T.zeros_like(Y[:,0])
+    mask_gen = DummyMaskGen()
+
+    cost.mask_gen = mask_gen
+
+    x = raw_input('override number mf iterations? (# or n) ')
+    if x != 'n':
+        model.niter = int(x)
+
+
 
 if cost.supervised:
     Y = T.matrix()
