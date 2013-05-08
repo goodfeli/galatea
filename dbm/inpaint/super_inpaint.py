@@ -164,11 +164,13 @@ class SuperInpaint(Cost):
 
         dbm = model
 
+        X_space = model.get_input_space()
+
         if drop_mask is None:
             if self.supervised:
-                drop_mask, drop_mask_Y = self.mask_gen(X, Y)
+                drop_mask, drop_mask_Y = self.mask_gen(X, Y, X_space=X_space)
             else:
-                drop_mask = self.mask_gen(X)
+                drop_mask = self.mask_gen(X, X_space=X_space)
 
         if drop_mask_Y is not None:
             assert drop_mask_Y.ndim == 1
@@ -251,6 +253,8 @@ class SuperInpaint(Cost):
         drop_mask_X = sharedX(model.get_input_space().get_origin_batch(batch_size))
         drop_mask_X.name = 'drop_mask'
 
+        X_space = model.get_input_space()
+
         updates = OrderedDict()
         rval = FixedVarDescr()
         inputs=[X, Y]
@@ -260,7 +264,7 @@ class SuperInpaint(Cost):
         else:
             drop_mask_Y = sharedX(np.ones(batch_size,))
             drop_mask_Y.name = 'drop_mask_Y'
-            update_X, update_Y = self.mask_gen(X, Y)
+            update_X, update_Y = self.mask_gen(X, Y, X_space)
             updates[drop_mask_Y] = update_Y
             rval.fixed_vars['drop_mask_Y'] =  drop_mask_Y
         if self.mask_gen.sync_channels:
@@ -496,7 +500,8 @@ class MaskGen:
         self.__dict__.update(locals())
         del self.self
 
-    def __call__(self, X, Y = None):
+    def __call__(self, X, Y = None, X_space=None):
+        assert X_space is not None
         self.called = True
         assert X.dtype == config.floatX
         theano_rng = RandomStreams(20120712)
@@ -511,17 +516,26 @@ class MaskGen:
         else:
             yp = self.drop_prob_y
 
+        batch_size = X_space.batch_size(X)
+
         if self.balance:
             flip = theano_rng.binomial(
-                    size = ( X.shape[0] ,),
+                    size = (batch_size,),
                     p = 0.5,
                     n = 1,
                     dtype = X.dtype)
 
             yp = flip * (1-p) + (1-flip) * p
 
-            dimshuffle_args = [ 0 ] + [ 'x' ] * (X.ndim -1 - self.sync_channels)
+            dimshuffle_args = ['x'] * X.ndim
 
+            if X.ndim == 2:
+                dimshuffle_args[0] = 0
+                assert not self.sync_channels
+            else:
+                dimshuffle_args[X_space.axes.index('b')] = 0
+                if self.sync_channels:
+                    del dimshuffle_args[X_space.axes.index('c')]
 
             flip = flip.dimshuffle(*dimshuffle_args)
 
@@ -531,7 +545,7 @@ class MaskGen:
         #theano random number generator will be angry
         size = tuple([ X.shape[i] for i in xrange(X.ndim) ])
         if self.sync_channels:
-            size = size[:-1]
+            del size[X_space.axes.index('c')]
 
         drop_mask = theano_rng.binomial(
                     size = size,
@@ -545,7 +559,7 @@ class MaskGen:
         if Y is not None:
             assert isinstance(yp, float) or yp.ndim < 2
             drop_mask_Y = theano_rng.binomial(
-                    size = (X.shape[0], ),
+                    size = (batch_size, ),
                     p = yp,
                     n = 1,
                     dtype = X.dtype)
