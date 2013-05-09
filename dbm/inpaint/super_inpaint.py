@@ -260,7 +260,7 @@ class SuperInpaint(Cost):
         inputs=[X, Y]
 
         if not self.supervised:
-            update_X = self.mask_gen(X)
+            update_X = self.mask_gen(X, X_space = X_space)
         else:
             drop_mask_Y = sharedX(np.ones(batch_size,))
             drop_mask_Y.name = 'drop_mask_Y'

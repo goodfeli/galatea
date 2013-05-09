@@ -76,7 +76,10 @@ if x == 'y':
             class DummyMaskGen(object):
                 sync_channels = 0
 
-                def __call__(self, X, Y=None):
+                def __call__(self, X, Y=None, X_space=None):
+                    if tuple(X_space.axes) != ('b', 0, 1, 'c'):
+                        print X_space.axes
+                        raise NotImplementedError()
                     left_mask = T.ones_like(X[:, :, 0:X.shape[2]/2, :])
                     right_mask = T.zeros_like(X[:, :, X.shape[2]/2:, :])
                     X_mask = T.concatenate((left_mask, right_mask), axis=2)

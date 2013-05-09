@@ -257,7 +257,6 @@ class SuperDBM(DBM):
     #end score matching
 
 
-
 class GaussianVisLayer(VisibleLayer):
     def __init__(self,
             rows = None,
@@ -328,7 +327,7 @@ class GaussianVisLayer(VisibleLayer):
         if tie_beta == 'locations':
             assert nvis is None
             beta_origin = np.zeros((self.space.num_channels,))
-        self.beta = sharedX( beta_origin + init_beta,name = 'beta')
+        self.beta = sharedX(beta_origin + init_beta,name = 'beta')
         assert self.beta.ndim == beta_origin.ndim
 
         mu_origin = origin.copy()
@@ -1168,14 +1167,17 @@ class ConvC01B_MaxPool(HiddenLayer):
         return rval
 
     def get_lr_scalers(self):
+
+        rval = OrderedDict()
+
         if self.scale_by_sharing:
             # scale each learning rate by 1 / # times param is reused
             h_rows, h_cols = self.h_space.shape
             num_h = float(h_rows * h_cols)
-            return OrderedDict([(self.transformer._filters, 1./num_h),
-                     (self.b, 1. / num_h)])
-        else:
-            return OrderedDict()
+            rval[self.transformer._filters] = 1. /num_h
+            rval[self.b] = 1. / num_h
+
+        return rval
 
     def upward_state(self, total_state):
         p,h = total_state
@@ -3050,7 +3052,9 @@ class SuperWeightDoubling(WeightDoubling):
 
         if Y is not None:
             Y_hat_unmasked = dbm.hidden_layers[-1].init_inpainting_state(Y, noise)
-            Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
+            dirty_term = drop_mask_Y * Y_hat_unmasked
+            clean_term = (1 - drop_mask_Y) * Y
+            Y_hat = dirty_term + clean_term
             H_hat[-1] = Y_hat
             if len(dbm.hidden_layers) > 1:
                 i = len(dbm.hidden_layers) - 2

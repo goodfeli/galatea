@@ -5,6 +5,16 @@ from pylearn2.config import yaml_parse
 import theano.tensor as T
 from theano import function
 import numpy as np
+from matplotlib.pyplot import figure, axes
+from matplotlib.pyplot import rcParams
+
+figure(figsize=(4.5, 2.0))
+axes([0.1, 0.2, 0.88, 0.6])
+#figure(figsize=(4.5, 3.))
+rcParams.update({'xtick.labelsize' : 8, 'ytick.labelsize' : 8})
+rcParams['ps.useafm'] = True
+rcParams['pdf.use14corefonts'] = True
+rcParams['text.usetex'] = True
 
 ignore, model_path = sys.argv
 
@@ -45,9 +55,9 @@ for i in xrange(0, min(batch_size * max_batches, X.shape[0]), batch_size):
     act.append(batch_act)
 act = np.concatenate(act, axis=0)
 
-pyplot.hist(act, bins=10000)
-pyplot.title('Distribution of maxout responses')
-pyplot.xlabel('Activation')
-pyplot.ylabel('# of occurrences')
+pyplot.hist(act, bins=10000, color='b', linewidth=0.)
+pyplot.title('Histogram of maxout responses', fontsize=11)
+pyplot.xlabel('Activation', fontsize=9)
+pyplot.ylabel('\# of occurrences', fontsize=9)
 print 'Showing...'
 pyplot.show()
