@@ -1,0 +1,4 @@
+!obj:pylearn2.datasets.norb_small.FoveatedNORB {
+    which_set: 'train',
+    scale: 1
+}
