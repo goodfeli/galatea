@@ -9,11 +9,11 @@ from theano import config
 from theano import function
 floatX = config.floatX
 
-from pylearn2.models.dbm import BinaryVector
-from pylearn2.models.dbm import BinaryVectorMaxPool
-from pylearn2.models.dbm import Softmax
+from galatea.dbm.inpaint.super_dbm import BinaryVector
+from galatea.dbm.inpaint.super_dbm import BinaryVectorMaxPool
+from galatea.dbm.inpaint.super_dbm import ByTheBook
+from galatea.dbm.inpaint.super_dbm import Softmax
 from pylearn2.utils import sharedX
-import warnings
 
 from galatea.dbm.inpaint.super_dbm import SuperDBM
 
@@ -22,14 +22,14 @@ def run_unit_tests():
 
 def test_mean_field_matches_inpainting():
 
-    warnings.warn("mean field and inpainting actually shouldn't match, because mf uses double weights for h2 "
-            " and inpainting uses top down info from Y")
-    return
-
-
     # Tests that running mean field to infer Y given X
     # gives the same result as running inpainting with
     # Y masked out and all of X observed
+
+    # Note that this doesn't make sense for most InferenceProcedures
+    # This test uses ByTheBook so it should be guaranteed to be true
+    # but for example WeightDoubling behaves differently on the first
+    # iteration so it can converge to a very different place.
 
     batch_size = 5
     niter = 3
@@ -61,6 +61,7 @@ def test_mean_field_matches_inpainting():
             irange=1., layer_name = 'y')
 
     dbm = SuperDBM(batch_size=batch_size,
+            inference_procedure = ByTheBook(),
             niter=niter,
             visible_layer=vis,
             hidden_layers=[h1, h2, y])
@@ -78,8 +79,10 @@ def test_mean_field_matches_inpainting():
 
     Y_hat_mf, Y_hat_inpaint = function([], [Y_hat_mf, Y_hat_inpaint])()
 
-    assert np.allclose(Y_hat_mf, Y_hat_inpaint)
-
+    if not np.allclose(Y_hat_mf, Y_hat_inpaint):
+        print Y_hat_mf
+        print Y_hat_inpaint
+        assert False
 
 if __name__ == '__main__':
     run_unit_tests()
