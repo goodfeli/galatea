@@ -1,4 +1,6 @@
 import numpy as np
+import warnings
+
 from pylearn2.utils import serial
 import sys
 import theano.tensor as T
@@ -6,6 +8,7 @@ from theano import function
 
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
+from pylearn2.space import Conv2DSpace
 from pylearn2.utils import sharedX
 
 from galatea.ui import get_choice
@@ -199,14 +202,19 @@ while True:
     X_sequence = outputs[1:end_X_outputs]
 
 
-    if X.ndim == 2:
+    if topo:
+        Xt = X
+
+    else:
         Xt, drop_mask = [ dataset.get_topological_view(mat)
             for mat in [X, drop_mask] ]
-    else:
-        Xt = X
 
     rows = m
     mapback = hasattr(dataset, 'mapback_for_viewer')
+
+    if mapback and model.get_input_space().axes != ('b', 0, 1, 'c'):
+        warnings.warn("Disabling mapback, not implemented for general axes yet")
+        mapback = False
 
     cols = 2+len(X_sequence)
     if mapback:
@@ -223,8 +231,17 @@ while True:
         print (M.min(), M.max())
         M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in design_X_sequence ]
     X = dataset.adjust_to_be_viewed_with(Xt,Xt,per_example=True)
+
     if X_sequence[0].ndim == 2:
         X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
+    else:
+        model_axes = model.get_input_space().axes
+        display_axes = ('b', 0, 1, 'c')
+
+        X = Conv2DSpace.convert_numpy(X, model_axes, display_axes)
+        Xt = Conv2DSpace.convert_numpy(Xt, model_axes, display_axes)
+        drop_mask = Conv2DSpace.convert_numpy(drop_mask, model_axes, display_axes)
+        X_sequence = [Conv2DSpace.convert_numpy(elem, model_axes, display_axes) for elem in X_sequence]
     X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt,per_example=True) for mat in X_sequence ]
 
     if cost.supervised:
@@ -242,6 +259,7 @@ while True:
         #add original patch
         patch = X[i,:,:,:]
         if patch.shape[-1] != 3:
+            assert patch.shape[-1] == 1, patch.shape
             patch = np.concatenate( (patch,patch,patch), axis=2)
         pv.add_patch(patch, rescale = False, activation = (1,0,0))
         orig_patch = patch
@@ -328,7 +346,9 @@ while True:
                 return rval
             #Show true class
             Y_vis = np.clip(label_to_vis(Y[i,:]), -1., 1.)
-            Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
+            Y_topo = dataset.get_topological_view(Y_vis)
+            Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
+            Y_vis = dataset.adjust_for_viewer(Y_topo)
             if Y_vis.ndim == 2:
                 Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
             if Y_vis.ndim == 4:
@@ -354,7 +374,9 @@ while True:
             for Y_hat in Y_sequence:
                 cur_Y_hat = Y_hat[i,:]
                 Y_vis = label_to_vis(cur_Y_hat)
-                Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
+                Y_topo = dataset.get_topological_view(Y_vis)
+                Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
+                Y_vis = dataset.adjust_for_viewer(Y_topo)
                 if Y_vis.ndim == 4:
                     assert Y_vis.shape[0] == 1
                     Y_vis = Y_vis[0,:,:,:]

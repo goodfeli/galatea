@@ -1296,12 +1296,7 @@ class ConvC01B_MaxPool(HiddenLayer):
         self.transformer.set_batch_size(batch_size)
 
     def get_weights_topo(self):
-        raise NotImplementedError("Need to update for C01B")
-        outp, inp, rows, cols = range(4)
-        raw = self.transformer._filters.get_value()
-
-        return np.transpose(raw,(outp,rows,cols,inp))
-
+        return self.transformer.get_weights_topo()
 
     def init_mf_state(self):
         default_z = self.broadcasted_bias()
