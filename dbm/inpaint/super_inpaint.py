@@ -41,7 +41,8 @@ class SuperInpaint(Cost):
                     reweighted_act_coeffs = None,
                     reweighted_act_targets = None,
                     toronto_act_targets = None,
-                    toronto_act_coeffs = None
+                    toronto_act_coeffs = None,
+                    monitor_each_step = False
                     ):
         self.__dict__.update(locals())
         del self.self
@@ -82,18 +83,19 @@ class SuperInpaint(Cost):
                 rval['total_inpaint_cost_term_'+str(ii)+'_'+name] = var
                 ii = ii + 1
 
-        for ii, packed in enumerate(safe_izip(history, new_history)):
-            state, new_state = packed
-            rval['all_inpaint_costs_after_' + str(ii)] = self.cost_from_states(state,
-                    new_state,
-                    model, X, Y, drop_mask, drop_mask_Y,
-                    new_drop_mask, new_drop_mask_Y)
+        if self.monitor_each_step:
+            for ii, packed in enumerate(safe_izip(history, new_history)):
+                state, new_state = packed
+                rval['all_inpaint_costs_after_' + str(ii)] = self.cost_from_states(state,
+                        new_state,
+                        model, X, Y, drop_mask, drop_mask_Y,
+                        new_drop_mask, new_drop_mask_Y)
 
-            if ii > 0:
-                prev_state = history[ii-1]
-                V_hat = state['V_hat']
-                prev_V_hat = prev_state['V_hat']
-                rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
+                if ii > 0:
+                    prev_state = history[ii-1]
+                    V_hat = state['V_hat']
+                    prev_V_hat = prev_state['V_hat']
+                    rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
 
         final_state = history[-1]
 
