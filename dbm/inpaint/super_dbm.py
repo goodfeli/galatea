@@ -2070,6 +2070,8 @@ class BinaryVisLayer(dbm.BinaryVector):
 
         return masked_cost.mean()
 
+BinaryVector = BinaryVisLayer
+
 
 
 
