@@ -3152,6 +3152,33 @@ class SuperWeightDoubling(WeightDoubling):
                 return V_hat, Y_hat
             return V_hat
 
+class ByTheBook(SuperWeightDoubling):
+
+    def mf(self, V, Y = None, return_history = False, niter = None, block_grad = None):
+
+        drop_mask = T.zeros_like(V)
+
+        if Y is not None:
+            drop_mask_Y = T.zeros_like(Y)
+        else:
+            drop_mask_Y = None
+
+        history =  self.do_inpainting(V=V,
+                Y=Y,
+                return_history=True,
+                drop_mask=drop_mask,
+                drop_mask_Y=drop_mask_Y,
+                noise=False,
+                niter=niter,
+                block_grad=block_grad)
+
+        if return_history:
+            return [elem['H_hat'] for elem in history]
+
+        return history[-1]['H_hat']
+
+
+
 class BiasInit(InferenceProcedure):
     """
     An InferenceProcedure that initializes the mean field parameters based on the
