@@ -331,6 +331,7 @@ class GaussianVisLayer(VisibleLayer):
             assert nvis is None
             beta_origin = np.zeros((self.space.num_channels,))
         self.beta = sharedX(beta_origin + init_beta,name = 'beta')
+        self.cost_beta = sharedX(self.beta.get_value(), name='cost_beta') # rm
         assert self.beta.ndim == beta_origin.ndim
 
         mu_origin = origin.copy()
