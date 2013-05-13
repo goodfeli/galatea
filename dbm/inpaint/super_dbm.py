@@ -342,6 +342,16 @@ class GaussianVisLayer(VisibleLayer):
         self.mu = sharedX( mu_origin + init_mu, name = 'mu')
         assert self.mu.ndim == mu_origin.ndim
 
+    def get_monitoring_channels(self):
+        rval = OrderedDict()
+
+        rval['beta_min'] = self.beta.min()
+        rval['beta_mean'] = self.beta.mean()
+        rval['beta_max'] = self.beta.max()
+
+        return rval
+
+
     def get_params(self):
         if self.mu is None:
             return [self.beta]
