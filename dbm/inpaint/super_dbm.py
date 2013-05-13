@@ -3087,11 +3087,11 @@ class SuperWeightDoubling(WeightDoubling):
 
         def update_history():
             assert V_hat_unmasked.ndim > 1
-            d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            d =  { 'V_hat' :  V_hat, 'H_hat' : list(H_hat), 'V_hat_unmasked' : V_hat_unmasked }
             if Y is not None:
                 d['Y_hat_unmasked'] = Y_hat_unmasked
                 d['Y_hat'] = H_hat[-1]
-            history.append( d )
+            history.append(d)
 
         if block_grad == 1:
             V_hat = block_gradient(V_hat)
