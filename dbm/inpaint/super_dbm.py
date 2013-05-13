@@ -359,32 +359,35 @@ class GaussianVisLayer(VisibleLayer):
 
     def get_lr_scalers(self):
         rval = OrderedDict()
-        warn = False
 
         if self.nvis is None:
             rows, cols = self.space.shape
             num_loc = float(rows * cols)
 
         assert self.tie_beta in [None, 'locations']
-        if self.tie_beta == 'locations':
-            warn = True
-            assert self.nvis is None
-            rval[self.beta] = 1./num_loc
+        if self.beta_lr_scale == 'by_sharing':
+            if self.tie_beta == 'locations':
+                assert self.nvis is None
+                rval[self.beta] = 1. / num_loc
+        elif self.beta_lr_scale == None:
+            pass
+        else:
+            rval[self.beta] = self.beta_lr_scale
 
         assert self.tie_mu in [None, 'locations']
         if self.tie_mu == 'locations':
             warn = True
             assert self.nvis is None
             rval[self.mu] = 1./num_loc
-
-        if warn:
-            warnings.warn("beta/mu lr_scalars hardcoded to 1/sharing")
+            warnings.warn("mu lr_scaler hardcoded to 1/sharing")
 
         return rval
 
     def censor_updates(self, updates):
         if self.beta in updates:
-            updates[self.beta] = T.clip(updates[self.beta],
+            updated_beta = updates[self.beta]
+            updated_beta = Print('updating beta',attrs=['min', 'max'])(updated_beta)
+            updates[self.beta] = T.clip(updated_beta,
                     self.min_beta,1e6)
 
     def broadcasted_mu(self):
