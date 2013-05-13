@@ -42,7 +42,8 @@ class SuperInpaint(Cost):
                     reweighted_act_targets = None,
                     toronto_act_targets = None,
                     toronto_act_coeffs = None,
-                    monitor_each_step = False
+                    monitor_each_step = False,
+                    use_sum = False
                     ):
         self.__dict__.update(locals())
         del self.self
@@ -380,10 +381,16 @@ class SuperInpaint(Cost):
         V_hat_unmasked = state['V_hat_unmasked']
         assert V_hat_unmasked.ndim == X.ndim
 
-        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask)
+        if not hasattr(self, 'use_sum'):
+            self.use_sum = False
+
+        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask, use_sum=self.use_sum)
 
         if self.supervised:
-            scale = 1. / float(dbm.get_input_space().get_total_dimension())
+            if self.use_sum:
+                scale = 1.
+            else:
+                scale = 1. / float(dbm.get_input_space().get_total_dimension())
             Y_hat_unmasked = state['Y_hat_unmasked']
             inpaint_cost = inpaint_cost + \
                     dbm.hidden_layers[-1].recons_cost(Y, Y_hat_unmasked, drop_mask_Y, scale)

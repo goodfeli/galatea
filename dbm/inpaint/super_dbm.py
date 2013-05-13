@@ -315,8 +315,7 @@ class GaussianVisLayer(VisibleLayer):
             assert rows is not None
             assert cols is not None
             assert channels is not None
-            self.space = Conv2DSpace(shape=[rows,cols], num_channels=channels,
-                    axes=axes)
+            self.space = Conv2DSpace(shape=[rows,cols], num_channels=channels, axes=axes)
         else:
             assert rows is None
             assert cols is None
@@ -386,9 +385,18 @@ class GaussianVisLayer(VisibleLayer):
     def censor_updates(self, updates):
         if self.beta in updates:
             updated_beta = updates[self.beta]
-            updated_beta = Print('updating beta',attrs=['min', 'max'])(updated_beta)
+            # updated_beta = Print('updating beta',attrs=['min', 'max'])(updated_beta)
             updates[self.beta] = T.clip(updated_beta,
                     self.min_beta,1e6)
+
+        # rm
+        if self.cost_beta in updates:
+            updated_beta = updates[self.cost_beta]
+            updated_beta = Print('updating cost beta',attrs=['min', 'max'])(updated_beta)
+            updates[self.cost_beta] = T.clip(updated_beta,
+                    self.min_beta,1e6)
+
+
 
     def broadcasted_mu(self):
         """
@@ -536,7 +544,7 @@ class GaussianVisLayer(VisibleLayer):
 
         return rval
 
-    def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None, use_sum=False):
 
         V_hat = V_hat_unmasked
 
@@ -549,6 +557,11 @@ class GaussianVisLayer(VisibleLayer):
             masked_cost = unmasked_cost
         else:
             masked_cost = drop_mask * unmasked_cost
+
+        if use_sum:
+            return masked_cost.mean(axis=0).sum()
+
+        return masked_cost.mean()
 
         return masked_cost.mean()
 
@@ -583,6 +596,60 @@ class GaussianVisLayer(VisibleLayer):
         rval = sharedX(sample, name = 'v_sample_shared')
 
         return rval
+
+
+
+class DebugGaussianLayer(GaussianVisLayer):
+
+    def get_params(self):
+        if self.mu is None:
+            return [self.cost_beta, self.beta]
+        return [self.cost_beta, self.beta, self.mu]
+
+    def broadcasted_cost_beta(self):
+        """
+        Returns beta, broadcasted to have the same shape as a batch of data
+        """
+
+        if self.tie_beta == 'locations':
+            def f(x):
+                if x == 'c':
+                    return 0
+                return 'x'
+            axes = [f(ax) for ax in self.axes]
+            rval = self.cost_beta.dimshuffle(*axes)
+        else:
+            assert self.tie_beta is None
+            if self.nvis is None:
+                axes = [0, 1, 2]
+                axes.insert(self.axes.index('b'), 'x')
+                rval = self.cost_beta.dimshuffle(*axes)
+            else:
+                rval = self.cost_beta.dimshuffle('x', 0)
+
+        self.input_space.validate(rval)
+
+        return rval
+
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None, use_sum=False):
+
+        V_hat = V_hat_unmasked
+
+        assert V.ndim == V_hat.ndim
+        beta = self.broadcasted_cost_beta()
+        unmasked_cost = 0.5 * beta * T.sqr(V-V_hat) - 0.5*T.log(beta / (2*np.pi))
+        assert unmasked_cost.ndim == V_hat.ndim
+
+        if drop_mask is None:
+            masked_cost = unmasked_cost
+        else:
+            masked_cost = drop_mask * unmasked_cost
+
+        if use_sum:
+            return masked_cost.mean(axis=0).sum()
+
+        return masked_cost.mean()
+
 
 # make old pickle files work
 GaussianConvolutionalVisLayer = GaussianVisLayer
