@@ -1,8 +1,13 @@
+import numpy as np
+
+import theano
+from theano import config
 from theano import gof
+from theano.printing import Print
+
 from pylearn2.models.model import Model
 from pylearn2 import utils
 from pylearn2.costs.cost import FixedVarDescr
-import theano
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
 from pylearn2.space import CompositeSpace
@@ -11,7 +16,6 @@ from pylearn2.linear.conv2d import make_random_conv2D
 from pylearn2.linear.conv2d import make_sparse_random_conv2D
 from pylearn2.linear.conv2d_c01b import setup_detector_layer_c01b
 import theano.tensor as T
-import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
 from pylearn2.expr.probabilistic_max_pooling import max_pool_c01b
@@ -26,7 +30,6 @@ from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
 from pylearn2.utils import _ElemwiseNoGradient
 from pylearn2.utils import safe_union
-from theano import config
 io = None
 from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from pylearn2.models.dbm import block
@@ -269,6 +272,7 @@ class GaussianVisLayer(VisibleLayer):
             tie_beta = None,
             tie_mu = None,
             bias_from_marginals = None,
+            beta_lr_scale = 'by_sharing',
             axes = ('b', 0, 1, 'c')):
         """
             Implements a visible layer that is conditionally gaussian with
@@ -2993,7 +2997,6 @@ class SuperWeightDoubling(WeightDoubling):
         if niter is None:
             niter = dbm.niter
 
-
         assert drop_mask is not None
         assert return_history in [True, False]
         assert noise in [True, False]
@@ -3008,8 +3011,8 @@ class SuperWeightDoubling(WeightDoubling):
             assert isinstance(dbm.hidden_layers[-1], Softmax)
             if drop_mask_Y.ndim != 1:
                 raise ValueError("do_inpainting assumes Y is a matrix of one-hot labels,"
-                        "so each example is only one variable. drop_mask_Y should "
-                        "therefore be a vector, but we got something with ndim " +
+    "so each example is only one variable. drop_mask_Y should "
+    "therefore be a vector, but we got something with ndim " +
                         str(drop_mask_Y.ndim))
             drop_mask_Y = drop_mask_Y.dimshuffle(0, 'x')
 
@@ -3036,7 +3039,7 @@ class SuperWeightDoubling(WeightDoubling):
                     double_weights = True,
                     state_below = dbm.hidden_layers[i-1].upward_state(H_hat[i-1]),
                     iter_name = '0'))
-        #last layer does not need its weights doubled, even on the first pass
+        # Last layer does not need its weights doubled, even on the first pass
         if len(dbm.hidden_layers) > 1:
             H_hat.append(dbm.hidden_layers[-1].mf_update(
                 state_above = None,
