@@ -71,6 +71,7 @@ class SuperInpaint(Cost):
         new_history = scratch['new_history']
         new_drop_mask = scratch['new_drop_mask']
         new_drop_mask_Y = None
+        drop_mask = scratch['drop_mask']
         if self.supervised:
             drop_mask_Y = scratch['drop_mask_Y']
             new_drop_mask_Y = scratch['new_drop_mask_Y']
@@ -98,6 +99,20 @@ class SuperInpaint(Cost):
                     rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
 
         final_state = history[-1]
+
+        V_hat = final_state['V_hat']
+        err = X - V_hat
+        masked_err = err * drop_mask
+        sum_sqr_err = T.sqr(masked_err).sum(axis=0)
+        recons_count = T.cast(drop_mask.sum(axis=0), 'float32')
+
+        empirical_beta = recons_count / sum_sqr_err
+        assert empirical_beta.ndim == 1
+
+
+        rval['empirical_beta_min'] = empirical_beta.min()
+        rval['empirical_beta_mean'] = empirical_beta.mean()
+        rval['empirical_beta_max'] = empirical_beta.max()
 
         layers = [ model.visible_layer ] + model.hidden_layers
         states = [ final_state['V_hat'] ] + final_state['H_hat']
@@ -622,6 +637,8 @@ class SuperDenoise(Cost):
                 rval['max_h0_diff[%d]' % ii] = abs(h0[0] - prev_h0[0]).max()
 
         final_state = history[-1]
+
+
 
         layers = [ model.visible_layer ] + model.hidden_layers
         states = [ final_state['V_hat'] ] + final_state['H_hat']
