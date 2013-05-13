@@ -3168,7 +3168,14 @@ class SuperWeightDoubling(WeightDoubling):
                 return V_hat, Y_hat
             return V_hat
 
-class ByTheBook(SuperWeightDoubling):
+class MoreConsistent(SuperWeightDoubling):
+    """
+    There's an oddity in SuperWeightDoubling where during the inpainting, we
+    initialize Y_hat to sigmoid(biases) if a clean Y is passed in and 2 * weights
+    otherwise. I believe but ought to check that mf always does weight doubling.
+    This class makes the two more consistent by just implementing mf as calling
+    inpainting with Y masked out.
+    """
 
     def mf(self, V, Y = None, return_history = False, niter = None, block_grad = None):
 
@@ -3177,16 +3184,22 @@ class ByTheBook(SuperWeightDoubling):
         if Y is not None:
             drop_mask_Y = T.zeros_like(Y)
         else:
-            drop_mask_Y = None
+            batch_size = V.shape[0]
+            num_classes = self.dbm.hidden_layers[-1].n_classes
+            assert isinstance(num_classes, int)
+            Y = T.alloc(1., V.shape[0], num_classes)
+            drop_mask_Y = T.alloc(1., V.shape[0])
 
-        history =  self.do_inpainting(V=V,
-                Y=Y,
-                return_history=True,
-                drop_mask=drop_mask,
-                drop_mask_Y=drop_mask_Y,
-                noise=False,
-                niter=niter,
-                block_grad=block_grad)
+        history = self.do_inpainting(V=V,
+            Y=Y,
+            return_history=True,
+            drop_mask=drop_mask,
+            drop_mask_Y=drop_mask_Y,
+            noise=False,
+            niter=niter,
+            block_grad=block_grad)
+
+        assert history[-1]['H_hat'][0] is not history[-2]['H_hat'][0] # rm
 
         if return_history:
             return [elem['H_hat'] for elem in history]
