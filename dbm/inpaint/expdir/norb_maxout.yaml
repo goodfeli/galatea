@@ -1,0 +1,97 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+        which_set: "train",
+        scale: 1,
+        start: 0,
+        stop: 20000,
+        one_hot: 1
+    },
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size : 100,
+        nvis: 8976,
+        layers: [
+            !obj:pylearn2.models.maxout.Maxout {
+                num_units: 250,
+                num_pieces: 5,
+                max_col_norm: 1.809978,
+                irange: .05,
+                layer_name: 'h0',
+                init_bias: 0.
+               },
+            !obj:pylearn2.models.maxout.Maxout {
+                num_units: 250,
+                num_pieces: 5,
+                max_col_norm: 1.809978,
+                irange: .05,
+                layer_name: 'h1',
+                init_bias: 0.
+               },
+            !obj:pylearn2.models.maxout.Maxout {
+                num_units: 250,
+                num_pieces: 5,
+                max_col_norm: 1.809978,
+                irange: .05,
+                layer_name: 'h2',
+                init_bias: 0.
+               },
+               !obj:pylearn2.models.mlp.Softmax {
+                        max_col_norm: 5.175683,
+                        sparse_init: 23,
+                        layer_name: 'y',
+                        n_classes: 5
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+           'valid': !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+                which_set: "train", 
+                scale: 1,
+                start: 20000,
+                stop: 24300,
+                one_hot: 1
+            },
+           'test': !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+                which_set: "test", 
+                scale: 1,
+                one_hot: 1
+            }
+
+        },
+        learning_rate: .01,
+        init_momentum: .5,
+        cost: !obj:pylearn2.costs.cost.SumOfCosts {
+           costs :[
+                      !obj:pylearn2.costs.mlp.Dropout {
+                          input_include_probs: { 'h0' : 0.8 },
+                          input_scales : {'h1': 1.25 }
+                       }
+                       ]
+               },
+     termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               {
+                        channel_name: "valid_y_misclass",
+                        N: 100,
+                        prop_decrease: 0.
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_y_misclass",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                },
+                !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                    start: 1,
+                    saturate: 2,
+                    final_momentum: 0.732716
+                },
+                !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+                    start: 1,
+                    saturate: 868,
+                    decay_factor: 0.020379
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+    

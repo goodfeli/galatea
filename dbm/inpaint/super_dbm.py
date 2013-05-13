@@ -1,18 +1,24 @@
+import numpy as np
+
+import theano
+from theano import config
 from theano import gof
+from theano.printing import Print
+
 from pylearn2.models.model import Model
 from pylearn2 import utils
 from pylearn2.costs.cost import FixedVarDescr
-import theano
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
 from pylearn2.space import CompositeSpace
 from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
 from pylearn2.linear.conv2d import make_sparse_random_conv2D
+from pylearn2.linear.conv2d_c01b import setup_detector_layer_c01b
 import theano.tensor as T
-import numpy as np
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
+from pylearn2.expr.probabilistic_max_pooling import max_pool_c01b
 from collections import OrderedDict
 from pylearn2.utils import block_gradient
 import warnings
@@ -24,7 +30,6 @@ from pylearn2.utils import safe_zip
 from pylearn2.utils import safe_izip
 from pylearn2.utils import _ElemwiseNoGradient
 from pylearn2.utils import safe_union
-from theano import config
 io = None
 from pylearn2.expr.probabilistic_max_pooling import max_pool_channels
 from pylearn2.models.dbm import block
@@ -255,7 +260,6 @@ class SuperDBM(DBM):
     #end score matching
 
 
-
 class GaussianVisLayer(VisibleLayer):
     def __init__(self,
             rows = None,
@@ -267,7 +271,9 @@ class GaussianVisLayer(VisibleLayer):
             init_mu = None,
             tie_beta = None,
             tie_mu = None,
-            bias_from_marginals = None):
+            bias_from_marginals = None,
+            beta_lr_scale = 'by_sharing',
+            axes = ('b', 0, 1, 'c')):
         """
             Implements a visible layer that is conditionally gaussian with
             diagonal variance. The layer lives in a Conv2DSpace.
@@ -309,7 +315,7 @@ class GaussianVisLayer(VisibleLayer):
             assert rows is not None
             assert cols is not None
             assert channels is not None
-            self.space = Conv2DSpace(shape = [rows,cols], num_channels = channels)
+            self.space = Conv2DSpace(shape=[rows,cols], num_channels=channels, axes=axes)
         else:
             assert rows is None
             assert cols is None
@@ -323,17 +329,28 @@ class GaussianVisLayer(VisibleLayer):
         assert tie_beta in [ None, 'locations']
         if tie_beta == 'locations':
             assert nvis is None
-            beta_origin = beta_origin[0,0,:]
-        self.beta = sharedX( beta_origin + init_beta,name = 'beta')
+            beta_origin = np.zeros((self.space.num_channels,))
+        self.beta = sharedX(beta_origin + init_beta,name = 'beta')
+        self.cost_beta = sharedX(self.beta.get_value(), name='cost_beta') # rm
         assert self.beta.ndim == beta_origin.ndim
 
         mu_origin = origin.copy()
         assert tie_mu in [None, 'locations']
         if tie_mu == 'locations':
             assert nvis is None
-            mu_origin = mu_origin[0,0,:]
+            mu_origin = np.zeros((self.space.num_channels,))
         self.mu = sharedX( mu_origin + init_mu, name = 'mu')
         assert self.mu.ndim == mu_origin.ndim
+
+    def get_monitoring_channels(self):
+        rval = OrderedDict()
+
+        rval['beta_min'] = self.beta.min()
+        rval['beta_mean'] = self.beta.mean()
+        rval['beta_max'] = self.beta.max()
+
+        return rval
+
 
     def get_params(self):
         if self.mu is None:
@@ -342,33 +359,95 @@ class GaussianVisLayer(VisibleLayer):
 
     def get_lr_scalers(self):
         rval = OrderedDict()
-        warn = False
 
         if self.nvis is None:
             rows, cols = self.space.shape
             num_loc = float(rows * cols)
 
         assert self.tie_beta in [None, 'locations']
-        if self.tie_beta == 'locations':
-            warn = True
-            assert self.nvis is None
-            rval[self.beta] = 1./num_loc
+        if self.beta_lr_scale == 'by_sharing':
+            if self.tie_beta == 'locations':
+                assert self.nvis is None
+                rval[self.beta] = 1. / num_loc
+        elif self.beta_lr_scale == None:
+            pass
+        else:
+            rval[self.beta] = self.beta_lr_scale
 
         assert self.tie_mu in [None, 'locations']
         if self.tie_mu == 'locations':
             warn = True
             assert self.nvis is None
             rval[self.mu] = 1./num_loc
-
-        if warn:
-            warnings.warn("beta/mu lr_scalars hardcoded to 1/sharing")
+            warnings.warn("mu lr_scaler hardcoded to 1/sharing")
 
         return rval
 
     def censor_updates(self, updates):
         if self.beta in updates:
-            updates[self.beta] = T.clip(updates[self.beta],
+            updated_beta = updates[self.beta]
+            # updated_beta = Print('updating beta',attrs=['min', 'max'])(updated_beta)
+            updates[self.beta] = T.clip(updated_beta,
                     self.min_beta,1e6)
+
+        # rm
+        if self.cost_beta in updates:
+            updated_beta = updates[self.cost_beta]
+            updated_beta = Print('updating cost beta',attrs=['min', 'max'])(updated_beta)
+            updates[self.cost_beta] = T.clip(updated_beta,
+                    self.min_beta,1e6)
+
+
+
+    def broadcasted_mu(self):
+        """
+        Returns mu, broadcasted to have the same shape as a batch of data
+        """
+
+        if self.tie_mu == 'locations':
+            def f(x):
+                if x == 'c':
+                    return 0
+                return 'x'
+            axes = [f(ax) for ax in self.axes]
+            rval = self.mu.dimshuffle(*axes)
+        else:
+            assert self.tie_mu is None
+            if self.nvis is None:
+                axes = [0, 1, 2]
+                axes.insert(self.axes.index('b'), 'x')
+                rval = self.mu.dimshuffle(*axes)
+            else:
+                rval = self.mu.dimshuffle('x', 0)
+
+        self.input_space.validate(rval)
+
+        return rval
+
+    def broadcasted_beta(self):
+        """
+        Returns beta, broadcasted to have the same shape as a batch of data
+        """
+
+        if self.tie_beta == 'locations':
+            def f(x):
+                if x == 'c':
+                    return 0
+                return 'x'
+            axes = [f(ax) for ax in self.axes]
+            rval = self.beta.dimshuffle(*axes)
+        else:
+            assert self.tie_beta is None
+            if self.nvis is None:
+                axes = [0, 1, 2]
+                axes.insert(self.axes.index('b'), 'x')
+                rval = self.beta.dimshuffle(*axes)
+            else:
+                rval = self.beta.dimshuffle('x', 0)
+
+        self.input_space.validate(rval)
+
+        return rval
 
     def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
 
@@ -382,14 +461,8 @@ class GaussianVisLayer(VisibleLayer):
                     assert False
         """
 
-        if self.tie_mu == 'locations':
-            unmasked = self.mu.dimshuffle('x', 'x', 'x', 0)
-        else:
-            assert self.tie_mu is None
-            if self.nvis is None:
-                unmasked = self.mu.dimshuffle('x', 0, 1, 2)
-            else:
-                unmasked = self.mu.dimshuffle('x', 0)
+        unmasked = self.broadcasted_mu()
+
         if drop_mask is None:
             assert not noise
             assert not return_unmasked
@@ -417,7 +490,8 @@ class GaussianVisLayer(VisibleLayer):
 
 
     def expected_energy_term(self, state, average, state_below = None, average_below = None):
-        raise NotImplementedError()
+        raise NotImplementedError("need to support axes")
+        raise NotImplementedError("wasn't implemeneted before axes either")
         assert state_below is None
         assert average_below is None
         self.space.validate(state)
@@ -437,7 +511,7 @@ class GaussianVisLayer(VisibleLayer):
                         return_unmasked = False):
 
         msg = layer_above.downward_message(state_above)
-        mu = self.mu
+        mu = self.broadcasted_mu()
 
         z = msg + mu
         z.name = 'inpainting_z_[unknown_iter]'
@@ -458,6 +532,7 @@ class GaussianVisLayer(VisibleLayer):
     def sample(self, state_below = None, state_above = None,
             layer_above = None,
             theano_rng = None):
+        raise NotImplementedError("need to support axes")
 
         assert state_below is None
         msg = layer_above.downward_message(state_above)
@@ -470,18 +545,24 @@ class GaussianVisLayer(VisibleLayer):
 
         return rval
 
-    def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None, use_sum=False):
 
         V_hat = V_hat_unmasked
 
         assert V.ndim == V_hat.ndim
-        unmasked_cost = 0.5 * self.beta * T.sqr(V-V_hat) - 0.5*T.log(self.beta / (2*np.pi))
+        beta = self.broadcasted_beta()
+        unmasked_cost = 0.5 * beta * T.sqr(V-V_hat) - 0.5*T.log(beta / (2*np.pi))
         assert unmasked_cost.ndim == V_hat.ndim
 
         if drop_mask is None:
             masked_cost = unmasked_cost
         else:
             masked_cost = drop_mask * unmasked_cost
+
+        if use_sum:
+            return masked_cost.mean(axis=0).sum()
+
+        return masked_cost.mean()
 
         return masked_cost.mean()
 
@@ -490,10 +571,12 @@ class GaussianVisLayer(VisibleLayer):
             raise ValueError("total_state should have 4 dimensions, has "+str(total_state.ndim))
         assert total_state is not None
         V = total_state
-        upward_state = (V - self.mu) * self.beta
+        self.input_space.validate(V)
+        upward_state = (V - self.broadcasted_mu()) * self.broadcasted_beta()
         return upward_state
 
     def make_state(self, num_examples, numpy_rng):
+        raise NotImplementedError("need to support axes")
 
         shape = [num_examples]
 
@@ -514,6 +597,60 @@ class GaussianVisLayer(VisibleLayer):
         rval = sharedX(sample, name = 'v_sample_shared')
 
         return rval
+
+
+
+class DebugGaussianLayer(GaussianVisLayer):
+
+    def get_params(self):
+        if self.mu is None:
+            return [self.cost_beta, self.beta]
+        return [self.cost_beta, self.beta, self.mu]
+
+    def broadcasted_cost_beta(self):
+        """
+        Returns beta, broadcasted to have the same shape as a batch of data
+        """
+
+        if self.tie_beta == 'locations':
+            def f(x):
+                if x == 'c':
+                    return 0
+                return 'x'
+            axes = [f(ax) for ax in self.axes]
+            rval = self.cost_beta.dimshuffle(*axes)
+        else:
+            assert self.tie_beta is None
+            if self.nvis is None:
+                axes = [0, 1, 2]
+                axes.insert(self.axes.index('b'), 'x')
+                rval = self.cost_beta.dimshuffle(*axes)
+            else:
+                rval = self.cost_beta.dimshuffle('x', 0)
+
+        self.input_space.validate(rval)
+
+        return rval
+
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None, use_sum=False):
+
+        V_hat = V_hat_unmasked
+
+        assert V.ndim == V_hat.ndim
+        beta = self.broadcasted_cost_beta()
+        unmasked_cost = 0.5 * beta * T.sqr(V-V_hat) - 0.5*T.log(beta / (2*np.pi))
+        assert unmasked_cost.ndim == V_hat.ndim
+
+        if drop_mask is None:
+            masked_cost = unmasked_cost
+        else:
+            masked_cost = drop_mask * unmasked_cost
+
+        if use_sum:
+            return masked_cost.mean(axis=0).sum()
+
+        return masked_cost.mean()
+
 
 # make old pickle files work
 GaussianConvolutionalVisLayer = GaussianVisLayer
@@ -934,6 +1071,403 @@ class ConvMaxPool(HiddenLayer):
 
         return rval
 
+class ConvC01B_MaxPool(HiddenLayer):
+    def __init__(self,
+             output_channels,
+            kernel_shape,
+            pool_rows,
+            pool_cols,
+            layer_name,
+            center = False,
+            irange = None,
+            sparse_init = None,
+            scale_by_sharing = True,
+            init_bias = 0.,
+            pad = 0,
+            partial_sum = 1):
+        """
+        Like ConvMaxPool but using cuda convnet for the backend.
+
+        kernel_shape: two-element list or tuple of ints specifying
+                    rows and columns of kernel
+                    currently the two must be the same
+        output_channels: the number of convolutional channels in the
+            output and pooling layer.
+        """
+        self.__dict__.update(locals())
+        del self.self
+
+        assert (irange is None) != (sparse_init is None)
+        self.output_axes = ('c', 0, 1, 'b')
+        self.detector_channels = output_channels
+        self.tied_b = 1
+
+    def broadcasted_bias(self):
+
+        if self.b.ndim != 1:
+            raise NotImplementedError()
+
+        shuffle = [ 'x' ] * 4
+        shuffle[self.output_axes.index('c')] = 0
+
+        return self.b.dimshuffle(*shuffle)
+
+
+    def get_total_state_space(self):
+        return CompositeSpace((self.h_space, self.output_space))
+
+    def set_input_space(self, space):
+        """ Note: this resets parameters!"""
+
+        setup_detector_layer_c01b(layer=self,
+                input_space=space, rng=self.dbm.rng,
+                irange=self.irange)
+
+        if not tuple(space.axes) == ('c', 0, 1, 'b'):
+            raise AssertionError("You're not using c01b inputs. Ian is enforcing c01b inputs while developing his pipeline to make sure it runs at maximal speed. If you really don't want to use c01b inputs, you can remove this check and things should work. If they don't work it's only because they're not tested.")
+        if self.dummy_channels != 0:
+            raise NotImplementedError(str(type(self))+" does not support adding dummy channels for cuda-convnet compatibility yet, you must implement that feature or use inputs with <=3 channels or a multiple of 4 channels")
+
+        self.input_rows = self.input_space.shape[0]
+        self.input_cols = self.input_space.shape[1]
+        self.h_rows = self.detector_space.shape[0]
+        self.h_cols = self.detector_space.shape[1]
+
+        if not(self.h_rows % self.pool_rows == 0):
+            raise ValueError(self.layer_name + ": h_rows = %d, pool_rows = %d. Should be divisible but remainder is %d" %
+                    (self.h_rows, self.pool_rows, self.h_rows % self.pool_rows))
+        assert self.h_cols % self.pool_cols == 0
+
+        self.h_space = Conv2DSpace(shape = (self.h_rows, self.h_cols), num_channels = self.output_channels,
+                axes = self.output_axes)
+        self.output_space = Conv2DSpace(shape = (self.h_rows / self.pool_rows,
+                                                self.h_cols / self.pool_cols),
+                                                num_channels = self.output_channels,
+                axes = self.output_axes)
+
+        print self.layer_name,': detector shape:',self.h_space.shape,'pool shape:',self.output_space.shape
+
+        assert tuple(self.output_axes) == ('c', 0, 1, 'b')
+        self.max_pool = max_pool_c01b
+
+        if self.center:
+            p_ofs, h_ofs = self.init_mf_state()
+            self.p_offset = sharedX(self.output_space.get_origin(), 'p_offset')
+            self.h_offset = sharedX(self.h_space.get_origin(), 'h_offset')
+            f = function([], updates={self.p_offset: p_ofs[:,:,:,0], self.h_offset: h_ofs[:,:,:,0]})
+            f()
+
+
+    def get_params(self):
+        assert self.b.name is not None
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+
+        return [ W, self.b]
+
+    def state_to_b01c(self, state):
+
+        if tuple(self.output_axes) == ('b',0,1,'c'):
+            return state
+        return [ Conv2DSpace.convert(elem, self.output_axes, ('b', 0, 1, 'c'))
+                for elem in state ]
+
+    def get_range_rewards(self, state, coeffs):
+        """
+        TODO: WRITEME
+        """
+        rval = 0.
+
+        if self.pool_rows == 1 and self.pool_cols == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            assert isinstance(coeffs, float)
+            _, state = state
+            state = [state]
+            coeffs = [coeffs]
+        else:
+            assert all([len(elem) == 2 for elem in [state, coeffs]])
+
+        for s, c in safe_zip(state, coeffs):
+            if c == 0.:
+                continue
+            # Range over everything but the channel index
+            # theano can only take gradient through max if the max is over 1 axis or all axes
+            # so I manually unroll the max for the case I use here
+            assert self.h_space.axes == ('b', 'c', 0, 1)
+            assert self.output_space.axes == ('b', 'c', 0, 1)
+            mx = s.max(axis=3).max(axis=2).max(axis=0)
+            assert hasattr(mx.owner.op, 'grad')
+            mn = s.min(axis=3).max(axis=2).max(axis=0)
+            assert hasattr(mn.owner.op, 'grad')
+            assert mx.ndim == 1
+            assert mn.ndim == 1
+            r = mx - mn
+            rval += (1. - r).mean() * c
+
+        return rval
+
+    def get_l1_act_cost(self, state, target, coeff, eps):
+        """
+
+            target: if pools contain more than one element, should be a list with
+                    two elements. the first element is for the pooling units and
+                    the second for the detector units.
+
+        """
+        rval = 0.
+
+
+        if self.pool_rows == 1 and self.pool_cols == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            assert isinstance(target, float)
+            assert isinstance(coeff, float)
+            _, state = state
+            state = [state]
+            target = [target]
+            coeff = [coeff]
+            if eps is None:
+                eps = 0.
+            eps = [eps]
+        else:
+            if eps is None:
+                eps = [0., 0.]
+            assert all([len(elem) == 2 for elem in [state, target, coeff]])
+            p_target, h_target = target
+            if h_target > p_target and (coeff[0] != 0. and coeff[1] != 0.):
+                # note that, within each group, E[p] is the sum of E[h]
+                warnings.warn("Do you really want to regularize the detector units to be more active than the pooling units?")
+
+        for s, t, c, e in safe_zip(state, target, coeff, eps):
+            if c == 0.:
+                continue
+            # Average over everything but the channel index
+            m = s.mean(axis= [ ax for ax in range(4) if self.output_axes[ax] != 'c' ])
+            assert m.ndim == 1
+            rval += T.maximum(abs(m-t)-e,0.).mean()*c
+
+        return rval
+
+    def get_lr_scalers(self):
+
+        rval = OrderedDict()
+
+        if self.scale_by_sharing:
+            # scale each learning rate by 1 / # times param is reused
+            h_rows, h_cols = self.h_space.shape
+            num_h = float(h_rows * h_cols)
+            rval[self.transformer._filters] = 1. /num_h
+            rval[self.b] = 1. / num_h
+
+        return rval
+
+    def upward_state(self, total_state):
+        p,h = total_state
+
+        if not hasattr(self, 'center'):
+            self.center = False
+
+        if self.center:
+            p -= self.p_offset
+            h -= self.h_offset
+
+        return p
+
+    def downward_state(self, total_state):
+        p,h = total_state
+
+        if not hasattr(self, 'center'):
+            self.center = False
+
+        if self.center:
+            p -= self.p_offset
+            h -= self.h_offset
+
+        return h
+
+    def get_monitoring_channels_from_state(self, state):
+
+        P, H = state
+
+        axes = tuple([i for i, ax in enumerate(self.output_axes) if ax != 'c'])
+        p_max = P.max(axis=(0,1,2))
+        p_min = P.min(axis=(0,1,2))
+        p_mean = P.mean(axis=(0,1,2))
+
+        p_range = p_max - p_min
+
+        rval = {
+                'p_max_max' : p_max.max(),
+                'p_max_mean' : p_max.mean(),
+                'p_max_min' : p_max.min(),
+                'p_min_max' : p_min.max(),
+                'p_min_mean' : p_min.mean(),
+                'p_min_max' : p_min.max(),
+                'p_range_max' : p_range.max(),
+                'p_range_mean' : p_range.mean(),
+                'p_range_min' : p_range.min(),
+                'p_mean_max' : p_mean.max(),
+                'p_mean_mean' : p_mean.mean(),
+                'p_mean_min' : p_mean.min()
+                }
+
+        return rval
+
+    def get_weight_decay(self, coeffs):
+        W , = self.transformer.get_params()
+        return coeffs * T.sqr(W).sum()
+
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+
+        self.input_space.validate(state_below)
+
+        if iter_name is None:
+            iter_name = 'anon'
+
+        if state_above is not None:
+            assert layer_above is not None
+            msg = layer_above.downward_message(state_above)
+            msg.name = 'msg_from_'+layer_above.layer_name+'_to_'+self.layer_name+'['+iter_name+']'
+        else:
+            msg = None
+
+        if not hasattr(state_below, 'ndim'):
+            raise TypeError("state_below should be a TensorType, got " +
+                    str(state_below) + " of type " + str(type(state_below)))
+        if state_below.ndim != 4:
+            raise ValueError("state_below should have ndim 4, has "+str(state_below.ndim))
+
+        if double_weights:
+            state_below = 2. * state_below
+            state_below.name = self.layer_name + '_'+iter_name + '_2state'
+        z = self.transformer.lmul(state_below) + self.broadcasted_bias()
+        if self.layer_name is not None and iter_name is not None:
+            z.name = self.layer_name + '_' + iter_name + '_z'
+        p,h = self.max_pool(z, (self.pool_rows, self.pool_cols), msg)
+
+        p.name = self.layer_name + '_p_' + iter_name
+        h.name = self.layer_name + '_h_' + iter_name
+
+        return p, h
+
+    def sample(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+        raise NotImplementedError("Need to update for C01B")
+
+        if state_above is not None:
+            msg = layer_above.downward_message(state_above)
+            try:
+                self.output_space.validate(msg)
+            except TypeError, e:
+                raise TypeError(str(type(layer_above))+".downward_message gave something that was not the right type: "+str(e))
+        else:
+            msg = None
+
+        z = self.transformer.lmul(state_below) + self.broadcasted_bias()
+        p, h, p_sample, h_sample = self.max_pool(z,
+                (self.pool_rows, self.pool_cols), msg, theano_rng)
+
+        return p_sample, h_sample
+
+    def downward_message(self, downward_state):
+        self.h_space.validate(downward_state)
+        return self.transformer.lmul_T(downward_state)
+
+    def set_batch_size(self, batch_size):
+        self.transformer.set_batch_size(batch_size)
+
+    def get_weights_topo(self):
+        return self.transformer.get_weights_topo()
+
+    def init_mf_state(self):
+        default_z = self.broadcasted_bias()
+        shape = {
+                'b': self.dbm.batch_size,
+                0: self.h_space.shape[0],
+                1: self.h_space.shape[1],
+                'c': self.h_space.num_channels
+                }
+        # work around theano bug with broadcasted stuff
+        default_z += T.alloc(*([0.]+[shape[elem] for elem in self.h_space.axes])).astype(default_z.dtype)
+        assert default_z.ndim == 4
+
+        p, h = self.max_pool(
+                z = default_z,
+                pool_shape = (self.pool_rows, self.pool_cols))
+
+        return p, h
+
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+        raise NotImplementedError("Need to update for C01B")
+
+        t1 = time.time()
+
+        empty_input = self.h_space.get_origin_batch(self.dbm.batch_size)
+        h_state = sharedX(empty_input)
+
+        default_z = T.zeros_like(h_state) + self.broadcasted_bias()
+
+        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
+
+        p_exp, h_exp, p_sample, h_sample = self.max_pool(
+                z = default_z,
+                pool_shape = (self.pool_rows, self.pool_cols),
+                theano_rng = theano_rng)
+
+        p_state = sharedX( self.output_space.get_origin_batch(
+            self.dbm.batch_size))
+
+
+        t2 = time.time()
+
+        f = function([], updates = [
+            (p_state, p_sample),
+            (h_state, h_sample)
+            ])
+
+        t3 = time.time()
+
+        f()
+
+        t4 = time.time()
+
+        print str(self)+'.make_state took',t4-t1
+        print '\tcompose time:',t2-t1
+        print '\tcompile time:',t3-t2
+        print '\texecute time:',t4-t3
+
+        p_state.name = 'p_sample_shared'
+        h_state.name = 'h_sample_shared'
+
+        return p_state, h_state
+
+    def expected_energy_term(self, state, average, state_below, average_below):
+
+        raise NotImplementedError("Need to update for C01B")
+        self.input_space.validate(state_below)
+
+        downward_state = self.downward_state(state)
+        self.h_space.validate(downward_state)
+
+        # Energy function is linear so it doesn't matter if we're averaging or not
+        # Specifically, our terms are -u^T W d - b^T d where u is the upward state of layer below
+        # and d is the downward state of this layer
+
+        bias_term = (downward_state * self.broadcasted_bias()).sum(axis=(1,2,3))
+        weights_term = (self.transformer.lmul(state_below) * downward_state).sum(axis=(1,2,3))
+
+        rval = -bias_term - weights_term
+
+        assert rval.ndim == 1
+
+        return rval
 
 DenseMaxPool = BinaryVectorMaxPool
 
@@ -1620,6 +2154,8 @@ class BinaryVisLayer(dbm.BinaryVector):
             masked_cost = drop_mask * unmasked_cost
 
         return masked_cost.mean()
+
+BinaryVector = BinaryVisLayer
 
 
 
@@ -2542,7 +3078,6 @@ class SuperWeightDoubling(WeightDoubling):
         if niter is None:
             niter = dbm.niter
 
-
         assert drop_mask is not None
         assert return_history in [True, False]
         assert noise in [True, False]
@@ -2557,8 +3092,8 @@ class SuperWeightDoubling(WeightDoubling):
             assert isinstance(dbm.hidden_layers[-1], Softmax)
             if drop_mask_Y.ndim != 1:
                 raise ValueError("do_inpainting assumes Y is a matrix of one-hot labels,"
-                        "so each example is only one variable. drop_mask_Y should "
-                        "therefore be a vector, but we got something with ndim " +
+    "so each example is only one variable. drop_mask_Y should "
+    "therefore be a vector, but we got something with ndim " +
                         str(drop_mask_Y.ndim))
             drop_mask_Y = drop_mask_Y.dimshuffle(0, 'x')
 
@@ -2585,7 +3120,7 @@ class SuperWeightDoubling(WeightDoubling):
                     double_weights = True,
                     state_below = dbm.hidden_layers[i-1].upward_state(H_hat[i-1]),
                     iter_name = '0'))
-        #last layer does not need its weights doubled, even on the first pass
+        # Last layer does not need its weights doubled, even on the first pass
         if len(dbm.hidden_layers) > 1:
             H_hat.append(dbm.hidden_layers[-1].mf_update(
                 state_above = None,
@@ -2598,7 +3133,9 @@ class SuperWeightDoubling(WeightDoubling):
 
         if Y is not None:
             Y_hat_unmasked = dbm.hidden_layers[-1].init_inpainting_state(Y, noise)
-            Y_hat = drop_mask_Y * Y_hat_unmasked + (1 - drop_mask_Y) * Y
+            dirty_term = drop_mask_Y * Y_hat_unmasked
+            clean_term = (1 - drop_mask_Y) * Y
+            Y_hat = dirty_term + clean_term
             H_hat[-1] = Y_hat
             if len(dbm.hidden_layers) > 1:
                 i = len(dbm.hidden_layers) - 2
@@ -2618,11 +3155,11 @@ class SuperWeightDoubling(WeightDoubling):
 
         def update_history():
             assert V_hat_unmasked.ndim > 1
-            d =  { 'V_hat' :  V_hat, 'H_hat' : H_hat, 'V_hat_unmasked' : V_hat_unmasked }
+            d =  { 'V_hat' :  V_hat, 'H_hat' : list(H_hat), 'V_hat_unmasked' : V_hat_unmasked }
             if Y is not None:
                 d['Y_hat_unmasked'] = Y_hat_unmasked
                 d['Y_hat'] = H_hat[-1]
-            history.append( d )
+            history.append(d)
 
         if block_grad == 1:
             V_hat = block_gradient(V_hat)
@@ -2698,6 +3235,46 @@ class SuperWeightDoubling(WeightDoubling):
             if Y is not None:
                 return V_hat, Y_hat
             return V_hat
+
+class MoreConsistent(SuperWeightDoubling):
+    """
+    There's an oddity in SuperWeightDoubling where during the inpainting, we
+    initialize Y_hat to sigmoid(biases) if a clean Y is passed in and 2 * weights
+    otherwise. I believe but ought to check that mf always does weight doubling.
+    This class makes the two more consistent by just implementing mf as calling
+    inpainting with Y masked out.
+    """
+
+    def mf(self, V, Y = None, return_history = False, niter = None, block_grad = None):
+
+        drop_mask = T.zeros_like(V)
+
+        if Y is not None:
+            drop_mask_Y = T.zeros_like(Y)
+        else:
+            batch_size = V.shape[0]
+            num_classes = self.dbm.hidden_layers[-1].n_classes
+            assert isinstance(num_classes, int)
+            Y = T.alloc(1., V.shape[0], num_classes)
+            drop_mask_Y = T.alloc(1., V.shape[0])
+
+        history = self.do_inpainting(V=V,
+            Y=Y,
+            return_history=True,
+            drop_mask=drop_mask,
+            drop_mask_Y=drop_mask_Y,
+            noise=False,
+            niter=niter,
+            block_grad=block_grad)
+
+        assert history[-1]['H_hat'][0] is not history[-2]['H_hat'][0] # rm
+
+        if return_history:
+            return [elem['H_hat'] for elem in history]
+
+        return history[-1]['H_hat']
+
+
 
 class BiasInit(InferenceProcedure):
     """

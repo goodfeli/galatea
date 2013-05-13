@@ -1,0 +1,113 @@
+!obj:pylearn2.train.Train {
+    dataset:  !obj:pylearn2.datasets.dense_design_matrix.set_axes {
+        axes: ['c', 0, 1, 'b'],
+        dataset: !obj:pylearn2.datasets.dense_design_matrix.convert_to_one_hot {
+        min_class: 1,
+        dataset: !obj:pylearn2.datasets.stl10.restrict {
+        dataset: !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_32x32_whitened/train.pkl",
+        fold: 0
+    }}},
+    model: !obj:galatea.dbm.inpaint.super_dbm.SuperDBM {
+              batch_size : 128,
+              niter: 6, 
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.GaussianConvolutionalVisLayer {
+                rows: 32,
+                cols: 32,
+                channels: 3,
+                init_beta: 3.7,
+                init_mu: 0.,
+                axes: ['c', 0, 1, 'b']
+              },
+              hidden_layers: [
+                    !obj:galatea.dbm.inpaint.super_dbm.ConvC01B_MaxPool {
+                            partial_sum: 1, # null,
+                            pad: 5,
+                            output_channels: 32,
+                            kernel_shape: [9, 9],
+                            pool_rows: 2,
+                            pool_cols: 2,
+                            irange: 0.05,
+                            layer_name: 'h0_conv',
+                            init_bias: -5.
+                   },
+                   !obj:galatea.dbm.inpaint.super_dbm.ConvC01B_MaxPool {
+                            partial_sum: 1, # null,
+                            pad: 4,
+                            output_channels: 64,
+                            kernel_shape: [5, 5],
+                            pool_rows: 3,
+                            pool_cols: 3,
+                            irange: 0.3,
+                            layer_name: 'h1_conv',
+                            init_bias: -4.5
+                   },
+                    !obj:galatea.dbm.inpaint.super_dbm.ConvC01B_MaxPool {
+                            partial_sum: 1, # null,
+                            pad: 2,
+                            output_channels: 64,
+                            kernel_shape: [4, 4],
+                            pool_rows: 2,
+                            pool_cols: 2,
+                            irange: 0.3,
+                            layer_name: 'h2_conv',
+                            init_bias: -4.
+                    },
+                   !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                            max_col_norm: 4.,
+                            sparse_init: 0,
+                            layer_name: 'c',
+                            n_classes: 10
+                   }
+                    ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+            'valid' : !obj:pylearn2.datasets.dense_design_matrix.set_axes {
+        axes: ['c', 0, 1, 'b'],
+        dataset: !obj:pylearn2.datasets.dense_design_matrix.convert_to_one_hot {
+                min_class: 1,
+                dataset: !pkl: "${PYLEARN2_DATA_PATH}/stl10/stl10_32x32_whitened/test.pkl"
+             }}
+            }, 
+        learning_rate: 15.146493,
+        init_momentum: .5,
+        cost: &cost !obj:pylearn2.costs.cost.SumOfCosts {
+            costs: [
+                !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {          
+                    both_directions: 0,
+                    noise: 0,
+                    supervised: 1,
+                    mask_gen: !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                        drop_prob: 0.5,
+                        balance: 0,
+                        sync_channels: 0
+                   }
+                }
+            ]
+        },
+       termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+       {
+                channel_name: "valid_err",
+                N: 100,
+                prop_decrease: 0.
+       },
+    },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_err",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                },
+                !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                    start: 1,
+                    saturate: 2,
+                    final_momentum: 0.732716
+                },
+                !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+                    start: 1,
+                    saturate: 868,
+                    decay_factor: 0.020379
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+} 

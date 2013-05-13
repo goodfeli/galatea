@@ -1,15 +1,21 @@
 import numpy as np
+import warnings
+
 from pylearn2.utils import serial
 import sys
-from dbm_inpaint import DBM_Inpaint_Binary
-from dbm_inpaint import MaskGen
 import theano.tensor as T
 from theano import function
+
 from pylearn2.config import yaml_parse
 from pylearn2.gui.patch_viewer import PatchViewer
+from pylearn2.space import Conv2DSpace
+from pylearn2.utils import sharedX
+
 from galatea.ui import get_choice
 from pylearn2.models.dbm import flatten
 from theano.sandbox.rng_mrg import MRG_RandomStreams
+
+from galatea.dbm.inpaint.super_inpaint import MaskGen
 
 ignore, model_path = sys.argv
 m = 10
@@ -67,23 +73,54 @@ except:
 
 space = model.get_input_space()
 X = space.make_theano_batch()
-if X.ndim == 4:
-    x = raw_input("mask half of image?")
-    if x == 'y':
+x = raw_input("mask half of image?")
+if x == 'y':
+    if X.ndim == 4:
+            class DummyMaskGen(object):
+                sync_channels = 0
+
+                def __call__(self, X, Y=None, X_space=None):
+                    if tuple(X_space.axes) != ('b', 0, 1, 'c'):
+                        print X_space.axes
+                        raise NotImplementedError()
+                    left_mask = T.ones_like(X[:, :, 0:X.shape[2]/2, :])
+                    right_mask = T.zeros_like(X[:, :, X.shape[2]/2:, :])
+                    X_mask = T.concatenate((left_mask, right_mask), axis=2)
+                    Y_mask = T.zeros_like(Y[:,0])
+                    return X_mask, Y_mask
+    else:
+        assert X.ndim == 2
+        mask = dataset.get_batch_topo(m)
+        mask *= 0.
+        mask[:, :, 0:mask.shape[2] /2, :] = 1
+        if hasattr(dataset, 'raw'):
+            mask = dataset.raw.get_design_matrix(mask)
+        else:
+            mask = dataset.get_design_matrix(mask)
+        mask = sharedX(mask)
+
         class DummyMaskGen(object):
             sync_channels = 0
 
             def __call__(self, X, Y=None):
-                left_mask = T.ones_like(X[:, :, 0:X.shape[2]/2, :])
-                right_mask = T.zeros_like(X[:, :, X.shape[2]/2:, :])
-                X_mask = T.concatenate((left_mask, right_mask), axis=2)
-                Y_mask = T.zeros_like(Y[:,0])
-                return X_mask, Y_mask
-        mask_gen = DummyMaskGen()
+                if Y is None:
+                    return mask
 
-        cost.mask_gen = mask_gen
+                x = raw_input('mask out y?')
 
-        model.niter = 50
+                if x == 'y':
+                    return mask, T.ones_like(Y[:,0])
+                assert x == 'n'
+                return mask, T.zeros_like(Y[:,0])
+    mask_gen = DummyMaskGen()
+
+    cost.mask_gen = mask_gen
+
+    x = raw_input('override number mf iterations? (# or n) ')
+    if x != 'n':
+        model.niter = int(x)
+
+
 
 if cost.supervised:
     Y = T.matrix()
@@ -165,14 +202,19 @@ while True:
     X_sequence = outputs[1:end_X_outputs]
 
 
-    if X.ndim == 2:
+    if topo:
+        Xt = X
+
+    else:
         Xt, drop_mask = [ dataset.get_topological_view(mat)
             for mat in [X, drop_mask] ]
-    else:
-        Xt = X
 
     rows = m
     mapback = hasattr(dataset, 'mapback_for_viewer')
+
+    if mapback and model.get_input_space().axes != ('b', 0, 1, 'c'):
+        warnings.warn("Disabling mapback, not implemented for general axes yet")
+        mapback = False
 
     cols = 2+len(X_sequence)
     if mapback:
@@ -189,8 +231,17 @@ while True:
         print (M.min(), M.max())
         M_sequence = [ dataset.get_topological_view(dataset.mapback_for_viewer(mat)) for mat in design_X_sequence ]
     X = dataset.adjust_to_be_viewed_with(Xt,Xt,per_example=True)
+
     if X_sequence[0].ndim == 2:
         X_sequence = [ dataset.get_topological_view(mat) for mat in X_sequence ]
+    else:
+        model_axes = model.get_input_space().axes
+        display_axes = ('b', 0, 1, 'c')
+
+        X = Conv2DSpace.convert_numpy(X, model_axes, display_axes)
+        Xt = Conv2DSpace.convert_numpy(Xt, model_axes, display_axes)
+        drop_mask = Conv2DSpace.convert_numpy(drop_mask, model_axes, display_axes)
+        X_sequence = [Conv2DSpace.convert_numpy(elem, model_axes, display_axes) for elem in X_sequence]
     X_sequence = [ dataset.adjust_to_be_viewed_with(mat,Xt,per_example=True) for mat in X_sequence ]
 
     if cost.supervised:
@@ -208,6 +259,7 @@ while True:
         #add original patch
         patch = X[i,:,:,:]
         if patch.shape[-1] != 3:
+            assert patch.shape[-1] == 1, patch.shape
             patch = np.concatenate( (patch,patch,patch), axis=2)
         pv.add_patch(patch, rescale = False, activation = (1,0,0))
         orig_patch = patch
@@ -294,7 +346,9 @@ while True:
                 return rval
             #Show true class
             Y_vis = np.clip(label_to_vis(Y[i,:]), -1., 1.)
-            Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
+            Y_topo = dataset.get_topological_view(Y_vis)
+            Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
+            Y_vis = dataset.adjust_for_viewer(Y_topo)
             if Y_vis.ndim == 2:
                 Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
             if Y_vis.ndim == 4:
@@ -320,7 +374,9 @@ while True:
             for Y_hat in Y_sequence:
                 cur_Y_hat = Y_hat[i,:]
                 Y_vis = label_to_vis(cur_Y_hat)
-                Y_vis = dataset.adjust_for_viewer(dataset.get_topological_view(Y_vis))
+                Y_topo = dataset.get_topological_view(Y_vis)
+                Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
+                Y_vis = dataset.adjust_for_viewer(Y_topo)
                 if Y_vis.ndim == 4:
                     assert Y_vis.shape[0] == 1
                     Y_vis = Y_vis[0,:,:,:]

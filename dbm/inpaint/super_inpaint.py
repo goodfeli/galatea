@@ -41,7 +41,9 @@ class SuperInpaint(Cost):
                     reweighted_act_coeffs = None,
                     reweighted_act_targets = None,
                     toronto_act_targets = None,
-                    toronto_act_coeffs = None
+                    toronto_act_coeffs = None,
+                    monitor_each_step = False,
+                    use_sum = False
                     ):
         self.__dict__.update(locals())
         del self.self
@@ -70,6 +72,7 @@ class SuperInpaint(Cost):
         new_history = scratch['new_history']
         new_drop_mask = scratch['new_drop_mask']
         new_drop_mask_Y = None
+        drop_mask = scratch['drop_mask']
         if self.supervised:
             drop_mask_Y = scratch['drop_mask_Y']
             new_drop_mask_Y = scratch['new_drop_mask_Y']
@@ -82,20 +85,35 @@ class SuperInpaint(Cost):
                 rval['total_inpaint_cost_term_'+str(ii)+'_'+name] = var
                 ii = ii + 1
 
-        for ii, packed in enumerate(safe_izip(history, new_history)):
-            state, new_state = packed
-            rval['all_inpaint_costs_after_' + str(ii)] = self.cost_from_states(state,
-                    new_state,
-                    model, X, Y, drop_mask, drop_mask_Y,
-                    new_drop_mask, new_drop_mask_Y)
+        if self.monitor_each_step:
+            for ii, packed in enumerate(safe_izip(history, new_history)):
+                state, new_state = packed
+                rval['all_inpaint_costs_after_' + str(ii)] = self.cost_from_states(state,
+                        new_state,
+                        model, X, Y, drop_mask, drop_mask_Y,
+                        new_drop_mask, new_drop_mask_Y)
 
-            if ii > 0:
-                prev_state = history[ii-1]
-                V_hat = state['V_hat']
-                prev_V_hat = prev_state['V_hat']
-                rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
+                if ii > 0:
+                    prev_state = history[ii-1]
+                    V_hat = state['V_hat']
+                    prev_V_hat = prev_state['V_hat']
+                    rval['max_pixel_diff[%d]'%ii] = abs(V_hat-prev_V_hat).max()
 
         final_state = history[-1]
+
+        V_hat = final_state['V_hat']
+        err = X - V_hat
+        masked_err = err * drop_mask
+        sum_sqr_err = T.sqr(masked_err).sum(axis=0)
+        recons_count = T.cast(drop_mask.sum(axis=0), 'float32')
+
+        empirical_beta = recons_count / sum_sqr_err
+        assert empirical_beta.ndim == 1
+
+
+        rval['empirical_beta_min'] = empirical_beta.min()
+        rval['empirical_beta_mean'] = empirical_beta.mean()
+        rval['empirical_beta_max'] = empirical_beta.max()
 
         layers = [ model.visible_layer ] + model.hidden_layers
         states = [ final_state['V_hat'] ] + final_state['H_hat']
@@ -164,11 +182,13 @@ class SuperInpaint(Cost):
 
         dbm = model
 
+        X_space = model.get_input_space()
+
         if drop_mask is None:
             if self.supervised:
-                drop_mask, drop_mask_Y = self.mask_gen(X, Y)
+                drop_mask, drop_mask_Y = self.mask_gen(X, Y, X_space=X_space)
             else:
-                drop_mask = self.mask_gen(X)
+                drop_mask = self.mask_gen(X, X_space=X_space)
 
         if drop_mask_Y is not None:
             assert drop_mask_Y.ndim == 1
@@ -251,16 +271,18 @@ class SuperInpaint(Cost):
         drop_mask_X = sharedX(model.get_input_space().get_origin_batch(batch_size))
         drop_mask_X.name = 'drop_mask'
 
+        X_space = model.get_input_space()
+
         updates = OrderedDict()
         rval = FixedVarDescr()
         inputs=[X, Y]
 
         if not self.supervised:
-            update_X = self.mask_gen(X)
+            update_X = self.mask_gen(X, X_space = X_space)
         else:
             drop_mask_Y = sharedX(np.ones(batch_size,))
             drop_mask_Y.name = 'drop_mask_Y'
-            update_X, update_Y = self.mask_gen(X, Y)
+            update_X, update_Y = self.mask_gen(X, Y, X_space)
             updates[drop_mask_Y] = update_Y
             rval.fixed_vars['drop_mask_Y'] =  drop_mask_Y
         if self.mask_gen.sync_channels:
@@ -359,10 +381,16 @@ class SuperInpaint(Cost):
         V_hat_unmasked = state['V_hat_unmasked']
         assert V_hat_unmasked.ndim == X.ndim
 
-        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask)
+        if not hasattr(self, 'use_sum'):
+            self.use_sum = False
+
+        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask, use_sum=self.use_sum)
 
         if self.supervised:
-            scale = 1. / float(dbm.get_input_space().get_total_dimension())
+            if self.use_sum:
+                scale = 1.
+            else:
+                scale = 1. / float(dbm.get_input_space().get_total_dimension())
             Y_hat_unmasked = state['Y_hat_unmasked']
             inpaint_cost = inpaint_cost + \
                     dbm.hidden_layers[-1].recons_cost(Y, Y_hat_unmasked, drop_mask_Y, scale)
@@ -497,10 +525,11 @@ class MaskGen:
         del self.self
 
 
-    def __call__(self, X, Y = None):
+    def __call__(self, X, Y = None, X_space=None):
         """
         Note that calling this repeatedly will yield the same random numbers each time.
         """
+        assert X_space is not None
         self.called = True
         assert X.dtype == config.floatX
         theano_rng = RandomStreams(self.seed)
@@ -515,17 +544,26 @@ class MaskGen:
         else:
             yp = self.drop_prob_y
 
+        batch_size = X_space.batch_size(X)
+
         if self.balance:
             flip = theano_rng.binomial(
-                    size = ( X.shape[0] ,),
+                    size = (batch_size,),
                     p = 0.5,
                     n = 1,
                     dtype = X.dtype)
 
             yp = flip * (1-p) + (1-flip) * p
 
-            dimshuffle_args = [ 0 ] + [ 'x' ] * (X.ndim -1 - self.sync_channels)
+            dimshuffle_args = ['x'] * X.ndim
 
+            if X.ndim == 2:
+                dimshuffle_args[0] = 0
+                assert not self.sync_channels
+            else:
+                dimshuffle_args[X_space.axes.index('b')] = 0
+                if self.sync_channels:
+                    del dimshuffle_args[X_space.axes.index('c')]
 
             flip = flip.dimshuffle(*dimshuffle_args)
 
@@ -535,7 +573,7 @@ class MaskGen:
         #theano random number generator will be angry
         size = tuple([ X.shape[i] for i in xrange(X.ndim) ])
         if self.sync_channels:
-            size = size[:-1]
+            del size[X_space.axes.index('c')]
 
         drop_mask = theano_rng.binomial(
                     size = size,
@@ -549,7 +587,7 @@ class MaskGen:
         if Y is not None:
             assert isinstance(yp, float) or yp.ndim < 2
             drop_mask_Y = theano_rng.binomial(
-                    size = (X.shape[0], ),
+                    size = (batch_size, ),
                     p = yp,
                     n = 1,
                     dtype = X.dtype)
@@ -610,6 +648,8 @@ class SuperDenoise(Cost):
                 rval['max_h0_diff[%d]' % ii] = abs(h0[0] - prev_h0[0]).max()
 
         final_state = history[-1]
+
+
 
         layers = [ model.visible_layer ] + model.hidden_layers
         states = [ final_state['V_hat'] ] + final_state['H_hat']

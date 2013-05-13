@@ -81,5 +81,35 @@ E(v,h)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu-2v^{T}Wh+2\mu^{T}\beta Wh+h^
 
 \end_layout
 
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E(v,h)=\frac{1}{2}\left[v^{T}\beta v-2v^{T}\beta\mu-2v^{T}Wh+2\mu^{T}\beta Wh+\sum_{i}h_{i}W_{i}^{T}\beta W_{i}\right]-b^{T}h
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+So from this it's pretty obvious that the mean field update for 
+\begin_inset Formula $h_{i}$
+\end_inset
+
+ is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\hat{h}_{i}=\sigma\left(b_{i}-\frac{1}{2}W_{i}^{T}\beta W_{i}+(v-\mu)^{T}\beta W\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
 \end_body
 \end_document
