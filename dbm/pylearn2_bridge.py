@@ -13,6 +13,7 @@ from galatea.dbm.inpaint.super_dbm import BiasInit
 from galatea.dbm.inpaint.super_dbm import BinaryVector
 from galatea.dbm.inpaint.super_dbm import BinaryVectorMaxPool
 from galatea.dbm.inpaint.super_dbm import MoreConsistent
+from galatea.dbm.inpaint.super_dbm import MoreConsistent2
 from galatea.dbm.inpaint.super_dbm import Softmax
 from pylearn2.utils import sharedX
 
@@ -21,6 +22,7 @@ from galatea.dbm.inpaint.super_dbm import SuperDBM
 def run_unit_tests():
     test_mean_field_matches_inpainting(BiasInit)
     test_mean_field_matches_inpainting(MoreConsistent)
+    test_mean_field_matches_inpainting(MoreConsistent2)
     print 'All passed'
 
 def test_mean_field_matches_inpainting(cls):
@@ -84,7 +86,7 @@ def test_mean_field_matches_inpainting(cls):
     if not np.allclose(Y_hat_mf, Y_hat_inpaint):
         print Y_hat_mf
         print Y_hat_inpaint
-        assert False
+        assert False, cls
 
 if __name__ == '__main__':
     run_unit_tests()
