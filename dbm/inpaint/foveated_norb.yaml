@@ -1,0 +1,1 @@
+!obj:pylearn2.datasets.norb_small.FoveatedNORB { which_set: train, preprocessor: !pkl: norb_prepro.pkl }
