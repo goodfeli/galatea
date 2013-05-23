@@ -52,6 +52,12 @@ class SuperDBM(DBM):
     # Constructor is handled by DBM superclass
 
 
+    def make_presynaptic_outputs(self, supervised):
+
+        self.presynaptic_outputs = OrderedDict()
+        self.visible_layer.install_presynaptic_outputs(self.presynaptic_outputs, self.batch_size)
+        self.hidden_layers[-1].install_presynaptic_outputs(self.presynaptic_outputs, self.batch_size)
+
     def setup_inference_procedure(self):
         if not hasattr(self, 'inference_procedure') or \
                 self.inference_procedure is None:
@@ -115,9 +121,6 @@ class SuperDBM(DBM):
         self.setup_inference_procedure()
         return self.inference_procedure.do_inpainting(*args, **kwargs)
 
-
-
-
     def rao_blackwellize(self, layer_to_state):
         """
         layer_to_state:
@@ -167,8 +170,6 @@ class SuperDBM(DBM):
         assert all([layer in layer_to_state for layer in layer_to_rao_blackwellized])
 
         return layer_to_rao_blackwellized
-
-
 
     def reconstruct(self, V):
 
@@ -428,6 +429,12 @@ class GaussianVisLayer(VisibleLayer):
         """
         Returns beta, broadcasted to have the same shape as a batch of data
         """
+        return self.broadcast_beta(self.beta)
+
+    def broadcast_beta(self, beta):
+        """
+        Returns beta, broadcasted to have the same shape as a batch of data
+        """
 
         if self.tie_beta == 'locations':
             def f(x):
@@ -435,15 +442,15 @@ class GaussianVisLayer(VisibleLayer):
                     return 0
                 return 'x'
             axes = [f(ax) for ax in self.axes]
-            rval = self.beta.dimshuffle(*axes)
+            rval = beta.dimshuffle(*axes)
         else:
             assert self.tie_beta is None
             if self.nvis is None:
                 axes = [0, 1, 2]
                 axes.insert(self.axes.index('b'), 'x')
-                rval = self.beta.dimshuffle(*axes)
+                rval = beta.dimshuffle(*axes)
             else:
-                rval = self.beta.dimshuffle('x', 0)
+                rval = beta.dimshuffle('x', 0)
 
         self.input_space.validate(rval)
 
@@ -547,6 +554,10 @@ class GaussianVisLayer(VisibleLayer):
 
     def recons_cost(self, V, V_hat_unmasked, drop_mask = None, use_sum=False):
 
+        return self._recons_cost(V=V, V_hat_unmasked=V_hat_unmasked, drop_mask=drop_mask, use_sum=use_sum, beta=self.beta)
+
+
+    def _recons_cost(self, V, V_hat_unmasked, beta, drop_mask=None, use_sum=False):
         V_hat = V_hat_unmasked
 
         assert V.ndim == V_hat.ndim
@@ -597,6 +608,37 @@ class GaussianVisLayer(VisibleLayer):
         rval = sharedX(sample, name = 'v_sample_shared')
 
         return rval
+
+    def install_presynaptic_outputs(self, outputs_dict, batch_size):
+
+        outputs_dict['output_V_weighted_pred_sum'] = self.space.make_shared_batch(batch_size)
+
+    def ensemble_prediction(self, symbolic, outputs_dict, ensemble):
+        """
+        Output a symbolic expression for V_hat_unmasked based on taking the
+        geometric mean over the ensemble and renormalizing.
+        n - 1 members of the ensemble have modified outputs_dict and the nth
+        gives its prediction in "symbolic". The parameters for the nth one
+        are currently loaded in the model.
+        """
+
+        weighted_pred_sum = outputs_dict['output_V_weighted_pred_sum'] \
+                + self.broadcasted_beta() * symbolic
+
+        beta_sum = sum(ensemble.get_ensemble_variants(self.beta))
+
+        unmasked_V_hat = weighted_pred_sum / self.broadcast_beta(beta_sum)
+
+        return unmasked_V_hat
+
+    def ensemble_recons_cost(self, V, V_hat_unmasked, drop_mask=None,
+            use_sum=False, ensemble=None):
+
+        beta = sum(ensemble.get_ensemble_variants(self.beta)) / ensemble.num_copies
+
+        return self._recons_cost(V=V, V_hat_unmasked=V_hat_unmasked, beta=beta, drop_mask=drop_mask,
+            use_sum=use_sum)
+
 
 
 
@@ -1538,11 +1580,28 @@ class Verify(theano.gof.Op):
 
 class Softmax(dbm.Softmax):
 
+    presynaptic_name = 'presynaptic_Y_hat'
+
     def init_inpainting_state(self, Y, noise):
         if noise:
             theano_rng = MRG_RandomStreams(2012+10+30)
             return T.nnet.softmax(theano_rng.normal(avg=0., size=Y.shape, std=1., dtype='float32'))
         return T.nnet.softmax(self.b)
+
+    def install_presynaptic_outputs(self, outputs_dict, batch_size):
+
+        assert self.presynaptic_name not in outputs_dict
+        outputs_dict[self.presynaptic_name] = self.output_space.make_shared_batch(batch_size, self.presynaptic_name)
+
+    def ensemble_prediction(self, symbolic, outputs_dict, ensemble):
+
+        Z = (outputs_dict[self.presynaptic_name] + symbolic) / ensemble.num_copies
+
+        return T.nnet.softmax(Z)
+
+    def ensemble_recons_cost(self, Y, Y_hat_unmasked, drop_mask_Y, scale, ensemble):
+        return self.recons_cost(Y, Y_hat_unmasked, drop_mask_Y, scale)
+
 
 
 
@@ -3273,6 +3332,209 @@ class MoreConsistent(SuperWeightDoubling):
             return [elem['H_hat'] for elem in history]
 
         return history[-1]['H_hat']
+
+class MoreConsistent2(WeightDoubling):
+
+    def do_inpainting(self, V, Y = None, drop_mask = None, drop_mask_Y = None,
+            return_history = False, noise = False, niter = None, block_grad = None):
+        """
+            Gives the mean field expression for units masked out by drop_mask.
+            Uses self.niter mean field updates.
+
+            Comes in two variants, unsupervised and supervised:
+                unsupervised:
+                    Y and drop_mask_Y are not passed to the method.
+                    The method produces V_hat, an inpainted version of V
+                supervised:
+                    Y and drop_mask_Y are passed to the method.
+                    The method produces V_hat and Y_hat
+
+            V: a theano batch in model.input_space
+            Y: a theano batch in model.output_space, ie, in the output
+                space of the last hidden layer
+                (it's not really a hidden layer anymore, but oh well.
+                it's convenient to code it this way because the labels
+                are sort of "on top" of everything else)
+                *** Y is always assumed to be a matrix of one-hot category
+                labels. ***
+            drop_mask: a theano batch in model.input_space
+                Should be all binary, with 1s indicating that the corresponding
+                element of X should be "dropped", ie, hidden from the algorithm
+                and filled in as part of the inpainting process
+            drop_mask_Y: a theano vector
+                Since we assume Y is a one-hot matrix, each row is a single
+                categorical variable. drop_mask_Y is a binary mask specifying
+                which *rows* to drop.
+        """
+
+        dbm = self.dbm
+
+        warnings.warn("""Should add unit test that calling this with a batch of
+                different inputs should yield the same output for each if noise
+                is False and drop_mask is all 1s""")
+
+        if niter is None:
+            niter = dbm.niter
+
+        assert drop_mask is not None
+        assert return_history in [True, False]
+        assert noise in [True, False]
+        if Y is None:
+            if drop_mask_Y is not None:
+                raise ValueError("do_inpainting got drop_mask_Y but not Y.")
+        else:
+            if drop_mask_Y is None:
+                raise ValueError("do_inpainting got Y but not drop_mask_Y.")
+
+        if Y is not None:
+            assert isinstance(dbm.hidden_layers[-1], Softmax)
+            if drop_mask_Y.ndim != 1:
+                raise ValueError("do_inpainting assumes Y is a matrix of one-hot labels,"
+    "so each example is only one variable. drop_mask_Y should "
+    "therefore be a vector, but we got something with ndim " +
+                        str(drop_mask_Y.ndim))
+            drop_mask_Y = drop_mask_Y.dimshuffle(0, 'x')
+
+        orig_V = V
+        orig_drop_mask = drop_mask
+
+        history = []
+
+        V_hat, V_hat_unmasked = dbm.visible_layer.init_inpainting_state(V,drop_mask,noise, return_unmasked = True)
+        assert V_hat_unmasked.ndim > 1
+
+        H_hat = []
+        for i in xrange(0,len(dbm.hidden_layers)-1):
+            #do double weights update for_layer_i
+            if i == 0:
+                H_hat.append(dbm.hidden_layers[i].mf_update(
+                    state_above = None,
+                    double_weights = True,
+                    state_below = dbm.visible_layer.upward_state(V_hat),
+                    iter_name = '0'))
+            else:
+                H_hat.append(dbm.hidden_layers[i].mf_update(
+                    state_above = None,
+                    double_weights = True,
+                    state_below = dbm.hidden_layers[i-1].upward_state(H_hat[i-1]),
+                    iter_name = '0'))
+        # Last layer does not need its weights doubled, even on the first pass
+        if len(dbm.hidden_layers) > 1:
+            H_hat.append(dbm.hidden_layers[-1].mf_update(
+                state_above = None,
+                #layer_above = None,
+                state_below = dbm.hidden_layers[-2].upward_state(H_hat[-1])))
+        else:
+            H_hat.append(dbm.hidden_layers[-1].mf_update(
+                state_above = None,
+                state_below = dbm.visible_layer.upward_state(V_hat)))
+
+        if Y is not None:
+            Y_hat_unmasked = H_hat[-1]
+            dirty_term = drop_mask_Y * Y_hat_unmasked
+            clean_term = (1 - drop_mask_Y) * Y
+            Y_hat = dirty_term + clean_term
+            H_hat[-1] = Y_hat
+            """
+            if len(dbm.hidden_layers) > 1:
+                i = len(dbm.hidden_layers) - 2
+                if i == 0:
+                    H_hat[i] = dbm.hidden_layers[i].mf_update(
+                        state_above = Y_hat,
+                        layer_above = dbm.hidden_layers[-1],
+                        state_below = dbm.visible_layer.upward_state(V_hat),
+                        iter_name = '0')
+                else:
+                    H_hat[i] = dbm.hidden_layers[i].mf_update(
+                        state_above = Y_hat,
+                        layer_above = dbm.hidden_layers[-1],
+                        state_below = dbm.hidden_layers[i-1].upward_state(H_hat[i-1]),
+                        iter_name = '0')
+            """
+
+
+        def update_history():
+            assert V_hat_unmasked.ndim > 1
+            d =  { 'V_hat' :  V_hat, 'H_hat' : list(H_hat), 'V_hat_unmasked' : V_hat_unmasked }
+            if Y is not None:
+                d['Y_hat_unmasked'] = Y_hat_unmasked
+                d['Y_hat'] = H_hat[-1]
+            history.append(d)
+
+        if block_grad == 1:
+            V_hat = block_gradient(V_hat)
+            V_hat_unmasked = block_gradient(V_hat_unmasked)
+            H_hat = block(H_hat)
+        update_history()
+
+        for i in xrange(niter-1):
+            for j in xrange(0, len(H_hat), 2):
+                if j == 0:
+                    state_below = dbm.visible_layer.upward_state(V_hat)
+                else:
+                    state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    layer_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                if Y is not None and j == len(dbm.hidden_layers) - 1:
+                    Y_hat_unmasked = H_hat[j]
+                    H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+
+            V_hat, V_hat_unmasked = dbm.visible_layer.inpaint_update(
+                    state_above = dbm.hidden_layers[0].downward_state(H_hat[0]),
+                    layer_above = dbm.hidden_layers[0],
+                    V = V,
+                    drop_mask = drop_mask, return_unmasked = True)
+            V_hat.name = 'V_hat[%d](V_hat = %s)' % (i, V_hat.name)
+
+            for j in xrange(1,len(H_hat),2):
+                state_below = dbm.hidden_layers[j-1].upward_state(H_hat[j-1])
+                if j == len(H_hat) - 1:
+                    state_above = None
+                    layer_above = None
+                else:
+                    state_above = dbm.hidden_layers[j+1].downward_state(H_hat[j+1])
+                    layer_above = dbm.hidden_layers[j+1]
+                #end if j
+                H_hat[j] = dbm.hidden_layers[j].mf_update(
+                        state_below = state_below,
+                        state_above = state_above,
+                        layer_above = layer_above)
+                if Y is not None and j == len(dbm.hidden_layers) - 1:
+                    Y_hat_unmasked = H_hat[j]
+                    H_hat[j] = drop_mask_Y * H_hat[j] + (1 - drop_mask_Y) * Y
+                #end if y
+            #end for j
+            if block_grad == i:
+                V_hat = block_gradient(V_hat)
+                V_hat_unmasked = block_gradient(V_hat_unmasked)
+                H_hat = block(H_hat)
+            update_history()
+        #end for i
+
+        # debugging, make sure V didn't get changed in this function
+        assert V is orig_V
+        assert drop_mask is orig_drop_mask
+
+        Y_hat = H_hat[-1]
+
+        assert V in theano.gof.graph.ancestors([V_hat])
+        if Y is not None:
+            assert V in theano.gof.graph.ancestors([Y_hat])
+
+        if return_history:
+            return history
+        else:
+            if Y is not None:
+                return V_hat, Y_hat
+            return V_hat
 
 
 

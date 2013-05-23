@@ -1,0 +1,65 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+        which_set: "train",
+        scale: 1,
+        start: 0,
+        stop: 20000,
+        one_hot: 1
+    },
+    model: !obj:pylearn2.monitor.push_monitor {
+        model: !pkl: "expdir/norb_8B_best.pkl",
+        name: "foo"
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+           'valid': !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+                which_set: "test", 
+                scale: 1,
+                one_hot: 1
+            }
+        },
+        learning_rate: 70.,
+        init_momentum: .5,
+        cost: !obj:pylearn2.costs.cost.SumOfCosts {
+           costs :[
+                      !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                          block_grad: 5,    
+                          both_directions: 0,
+                          noise: 0,
+                           supervised: 1,
+                           mask_gen: !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                               drop_prob: 0.1,
+                               drop_prob_y: 0.5,
+                               balance: 0,
+                               sync_channels: 0
+                            }
+                       }
+                       ]
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               {
+                        channel_name: "valid_err",
+                        N: 100,
+                        prop_decrease: 0.
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_err",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                },
+                !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                    start: 1,
+                    saturate: 2,
+                    final_momentum: 0.732716
+                },
+                !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+                    start: 1,
+                    saturate: 868,
+                    decay_factor: 0.020379
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+    

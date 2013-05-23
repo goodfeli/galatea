@@ -115,7 +115,7 @@ class SuperInpaint(Cost):
         rval['empirical_beta_mean'] = empirical_beta.mean()
         rval['empirical_beta_max'] = empirical_beta.max()
 
-        layers = [ model.visible_layer ] + model.hidden_layers
+        layers = model.get_all_layers()
         states = [ final_state['V_hat'] ] + final_state['H_hat']
 
         for layer, state in safe_izip(layers, states):
@@ -365,6 +365,21 @@ class SuperInpaint(Cost):
 
         return grads, OrderedDict()
 
+    def get_inpaint_cost(self, dbm, X, V_hat_unmasked, drop_mask, state, Y, drop_mask_Y):
+        rval = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask, use_sum=self.use_sum)
+
+        if self.supervised:
+            if self.use_sum:
+                scale = 1.
+            else:
+                scale = 1. / float(dbm.get_input_space().get_total_dimension())
+            Y_hat_unmasked = state['Y_hat_unmasked']
+            rval = rval + \
+                    dbm.hidden_layers[-1].recons_cost(Y, Y_hat_unmasked, drop_mask_Y, scale)
+
+        return rval
+
+
 
     def cost_from_states(self, state, new_state, dbm, X, Y, drop_mask, drop_mask_Y,
             new_drop_mask, new_drop_mask_Y, return_locals = False):
@@ -384,16 +399,7 @@ class SuperInpaint(Cost):
         if not hasattr(self, 'use_sum'):
             self.use_sum = False
 
-        inpaint_cost = dbm.visible_layer.recons_cost(X, V_hat_unmasked, drop_mask, use_sum=self.use_sum)
-
-        if self.supervised:
-            if self.use_sum:
-                scale = 1.
-            else:
-                scale = 1. / float(dbm.get_input_space().get_total_dimension())
-            Y_hat_unmasked = state['Y_hat_unmasked']
-            inpaint_cost = inpaint_cost + \
-                    dbm.hidden_layers[-1].recons_cost(Y, Y_hat_unmasked, drop_mask_Y, scale)
+        inpaint_cost = self.get_inpaint_cost(dbm, X, V_hat_unmasked, drop_mask, state, Y, drop_mask_Y)
 
         if not hasattr(self, 'both_directions'):
             self.both_directions = False
