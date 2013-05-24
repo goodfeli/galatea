@@ -171,18 +171,6 @@ class SuperDBM(DBM):
 
         return layer_to_rao_blackwellized
 
-    def reconstruct(self, V):
-
-        H = self.mf(V)[0]
-
-        downward_state = self.hidden_layers[0].downward_state(H)
-
-        recons = self.visible_layer.inpaint_update(
-                layer_above = self.hidden_layers[0],
-                state_above = downward_state,
-                drop_mask = None, V = None)
-
-        return recons
 
     def score_matching(self, X):
         """
