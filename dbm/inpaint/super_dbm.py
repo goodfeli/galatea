@@ -1580,13 +1580,20 @@ class Verify(theano.gof.Op):
 
 class Softmax(dbm.Softmax):
 
+    def __init__(self, learn_init_inpainting_state=True, **kwargs):
+        self.learn_init_inpainting_state=learn_init_inpainting_state
+        super(Softmax, self).__init__(**kwargs)
+
     presynaptic_name = 'presynaptic_Y_hat'
 
     def init_inpainting_state(self, Y, noise):
         if noise:
             theano_rng = MRG_RandomStreams(2012+10+30)
             return T.nnet.softmax(theano_rng.normal(avg=0., size=Y.shape, std=1., dtype='float32'))
-        return T.nnet.softmax(self.b)
+        rval =  T.nnet.softmax(self.b)
+        if not self.learn_init_inpainting_state:
+            rval = block_gradient(rval)
+        return rval
 
     def install_presynaptic_outputs(self, outputs_dict, batch_size):
 
@@ -2110,6 +2117,10 @@ class CompositeLayer(HiddenLayer):
 
 class BinaryVisLayer(dbm.BinaryVector):
 
+    def __init__(self, learn_init_inpainting_state=False, **kwargs):
+        self.learn_init_inpainting_state=learn_init_inpainting_state
+        super(BinaryVisLayer, self).__init__(**kwargs)
+
     def init_inpainting_state(self, V, drop_mask, noise = False, return_unmasked = False):
 
         assert drop_mask is None or drop_mask.ndim > 1
@@ -2123,7 +2134,8 @@ class BinaryVisLayer(dbm.BinaryVector):
             masked_mean = unmasked * drop_mask
         else:
             masked_mean = unmasked
-        masked_mean = block_gradient(masked_mean)
+        if not self.learn_init_inpainting_state:
+            masked_mean = block_gradient(masked_mean)
         masked_mean.name = 'masked_mean'
 
         if noise:
@@ -2134,7 +2146,6 @@ class BinaryVisLayer(dbm.BinaryVector):
                     dtype = masked_mean.dtype))
             masked_mean = unmasked * drop_mask
             masked_mean.name = 'masked_noise'
-
 
         if drop_mask is None:
             rval = masked_mean
@@ -2178,8 +2189,10 @@ class BinaryVisLayer(dbm.BinaryVector):
         return rval
 
 
-    def recons_cost(self, V, V_hat_unmasked, drop_mask = None):
+    def recons_cost(self, V, V_hat_unmasked, drop_mask = None, use_sum=False):
 
+        if use_sum:
+            raise NotImplementedError()
 
         V_hat = V_hat_unmasked
 
