@@ -1,0 +1,105 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.binarizer.Binarizer {
+      raw: &raw_train !obj:pylearn2.datasets.mnist.MNIST {
+        which_set: "train",
+        shuffle: 0,
+        one_hot: 1,
+        start: 0,
+        stop: 50000
+    }},
+    model: !obj:galatea.dbm.inpaint.super_dbm.SpeedMonitoringDBM {
+        inference_procedure: !obj:galatea.dbm.inpaint.super_dbm.MoreConsistent {},
+              batch_size : 100,
+              niter: 11, #note: since we have to backprop through the whole thing, this does
+                         #increase the memory usage
+              visible_layer: !obj:galatea.dbm.inpaint.super_dbm.BinaryVisLayer {
+                learn_init_inpainting_state: 1,
+                nvis: 784,
+                bias_from_marginals: *raw_train,
+                center: 0,
+              },
+              hidden_layers: [
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 0,
+                        max_col_norm: 2.725581,
+                        detector_layer_dim: 500,
+                        pool_size: 1,
+                        irange: 0.0930071999202,
+                        layer_name: 'h0',
+                        init_bias: -2.972918
+               },
+                !obj:galatea.dbm.inpaint.super_dbm.DenseMaxPool {
+                    center: 0,
+                        max_col_norm: 2.654821,
+                        detector_layer_dim: 1000,
+                        pool_size: 1,
+                        irange: 0.00810362261921,
+                        layer_name: 'h1',
+                        init_bias: -1.107330
+               },
+               !obj:galatea.dbm.inpaint.super_dbm.Softmax {
+                    center: 0,
+                        max_col_norm: 4.974235,
+                        sparse_init: 11,
+                        layer_name: 'c',
+                        n_classes: 10
+               }
+              ]
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        monitoring_dataset : {
+            # 'train': *train,
+            raw_valid: !obj:pylearn2.datasets.mnist.MNIST {
+                                which_set: "train",
+                                shuffle: 0,
+                                one_hot: 1,
+                                start: 50000,
+                                stop: 60000
+                            },
+               },
+         learning_rate: 32.824152,
+        init_momentum: .5,
+               cost: !obj:pylearn2.costs.cost.SumOfCosts {
+                   costs :[
+                      !obj:galatea.dbm.inpaint.super_inpaint.SuperInpaint {
+                          l1_act_targets: [  0.256337, 0.165341, 0. ],
+            l1_act_eps:     [  0.067292,  0.038595, 0. ],
+            l1_act_coeffs:  [ 0.003565, 0.000438, 0.  ],
+                          both_directions: 0,
+                          noise: 0,
+                           supervised: 1,
+                           mask_gen: !obj:galatea.dbm.inpaint.super_inpaint.MaskGen {
+                               drop_prob: 0.5,
+                               balance: 0,
+                               sync_channels: 0
+                            }
+                       }
+                       ]
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               {
+                        channel_name: "raw_valid_err",
+                        N: 100,
+                        prop_decrease: 0.
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "raw_valid_err",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                },
+                !obj:pylearn2.training_algorithms.sgd.MomentumAdjustor {
+                    start: 1,
+                    saturate: 388,
+                    final_momentum: 0.746060
+                },
+                !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+                    start: 1,
+                    saturate: 524,
+                    decay_factor: 0.001531
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
+    
