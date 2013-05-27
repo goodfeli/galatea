@@ -253,6 +253,7 @@ class GaussianVisLayer(VisibleLayer):
     def __init__(self,
             rows = None,
             cols = None,
+            learn_init_inpainting_state=True,
             channels = None,
             nvis = None,
             init_beta = 1.,
@@ -463,7 +464,8 @@ class GaussianVisLayer(VisibleLayer):
             assert not return_unmasked
             return unmasked
         masked_mu = unmasked * drop_mask
-        masked_mu = block_gradient(masked_mu)
+        if not self.learn_init_inpainting_state:
+            masked_mu = block_gradient(masked_mu)
         masked_mu.name = 'masked_mu'
 
         if noise:
@@ -1579,6 +1581,8 @@ class Softmax(dbm.Softmax):
             theano_rng = MRG_RandomStreams(2012+10+30)
             return T.nnet.softmax(theano_rng.normal(avg=0., size=Y.shape, std=1., dtype='float32'))
         rval =  T.nnet.softmax(self.b)
+        if not hasattr(self, 'learn_init_inpainting_state'):
+            self.learn_init_inpainting_state = 1
         if not self.learn_init_inpainting_state:
             rval = block_gradient(rval)
         return rval

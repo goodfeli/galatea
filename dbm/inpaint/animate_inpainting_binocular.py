@@ -102,7 +102,7 @@ if x == 'y':
         class DummyMaskGen(object):
             sync_channels = 0
 
-            def __call__(self, X, Y=None):
+            def __call__(self, X, Y=None, X_space=None):
                 if Y is None:
                     return mask
 
