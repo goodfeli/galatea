@@ -15,7 +15,10 @@ assert ('best' in path) or ('cont' in path) or ('retrain' in path)
 parent = path.split('/')[:-1]
 parent = '/'.join(parent)
 
-outpath = parent + '/' + 'sup_on_'+path.split('/')[-1]
+if parent != '':
+    parent = parent + '/'
+
+outpath = parent + 'sup_on_'+path.split('/')[-1]
 outpath = outpath.replace('.pkl','_' + decapitate + '_' + batch_size + '.yaml')
 print "THEANO_FLAGS='device=gpu' train.py",outpath
 if os.path.exists(outpath.replace('.yaml','.pkl')):
