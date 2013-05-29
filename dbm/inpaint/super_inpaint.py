@@ -101,19 +101,20 @@ class SuperInpaint(Cost):
 
         final_state = history[-1]
 
-        V_hat = final_state['V_hat']
-        err = X - V_hat
-        masked_err = err * drop_mask
-        sum_sqr_err = T.sqr(masked_err).sum(axis=0)
-        recons_count = T.cast(drop_mask.sum(axis=0), 'float32')
+        #empirical beta code--should be moved to gaussian visible layer, should support topo data
+        #V_hat = final_state['V_hat']
+        #err = X - V_hat
+        #masked_err = err * drop_mask
+        #sum_sqr_err = T.sqr(masked_err).sum(axis=0)
+        #recons_count = T.cast(drop_mask.sum(axis=0), 'float32')
 
-        empirical_beta = recons_count / sum_sqr_err
-        assert empirical_beta.ndim == 1
+        # empirical_beta = recons_count / sum_sqr_err
+        # assert empirical_beta.ndim == 1
 
 
-        rval['empirical_beta_min'] = empirical_beta.min()
-        rval['empirical_beta_mean'] = empirical_beta.mean()
-        rval['empirical_beta_max'] = empirical_beta.max()
+        #rval['empirical_beta_min'] = empirical_beta.min()
+        #rval['empirical_beta_mean'] = empirical_beta.mean()
+        #rval['empirical_beta_max'] = empirical_beta.max()
 
         layers = model.get_all_layers()
         states = [ final_state['V_hat'] ] + final_state['H_hat']
