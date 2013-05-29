@@ -15,6 +15,7 @@ from pylearn2.utils import sharedX
 from pylearn2.linear.conv2d import make_random_conv2D
 from pylearn2.linear.conv2d import make_sparse_random_conv2D
 from pylearn2.linear.conv2d_c01b import setup_detector_layer_c01b
+from pylearn2.linear.matrixmul import MatrixMul
 import theano.tensor as T
 from pylearn2.expr.probabilistic_max_pooling import max_pool
 from pylearn2.expr.probabilistic_max_pooling import max_pool_b01c
@@ -464,6 +465,8 @@ class GaussianVisLayer(VisibleLayer):
             assert not return_unmasked
             return unmasked
         masked_mu = unmasked * drop_mask
+        if not hasattr(self, 'learn_init_inpainting_state'):
+            self.learn_init_inpainting_state = True
         if not self.learn_init_inpainting_state:
             masked_mu = block_gradient(masked_mu)
         masked_mu.name = 'masked_mu'
@@ -2488,7 +2491,7 @@ class MLP_Wrapper(Model):
         self.__dict__.update(locals())
 
         model = super_dbm
-        if model.visible_layer.center:
+        if hasattr(model.visible_layer, 'center') and model.visible_layer.center:
             self.v_ofs = model.visible_layer.offset
         else:
             self.v_ofs = 0
@@ -2834,7 +2837,6 @@ class DeepMLP_Wrapper(Model):
         if hasattr(l2, 'mask'):
             self.h0_h1_mask = l2.mask
         else:
-            assert False # debugging, remove if surprising
             self.h0_h1_mask = None
 
         # Layer 3
@@ -2853,7 +2855,6 @@ class DeepMLP_Wrapper(Model):
         if hasattr(l3, 'mask'):
             self.h1_h2_mask = l3.mask
         else:
-            assert False # debugging, remove if surprising
             self.h1_h2_mask = None
 
         # Class layer
@@ -2889,6 +2890,8 @@ class DeepMLP_Wrapper(Model):
     def mf(self, V, return_history = False, ** kwargs):
         assert not return_history
         q = self.super_dbm.mf(V, ** kwargs)
+
+        V = self.super_dbm.visible_layer.upward_state(V)
 
         if self.decapitate:
             _, H1, H2 = q
@@ -4685,7 +4688,7 @@ class BVMP_Gaussian(BinaryVectorMaxPool):
             self.offset.set_value(sigmoid_numpy(self.b.get_value()))
 
     def get_biases(self):
-        return self.b.get_value()
+        return self.b.get_value() - self.beta_bias().eval()
 
 
     def sample(self, state_below = None, state_above = None,
@@ -4906,3 +4909,680 @@ class SpeedMonitoringDBM(SuperDBM):
         rval['param_speed'] = self.param_speed
 
         return rval
+
+
+class SoftplusMaxPool(HiddenLayer):
+    """
+        A hidden layer that does max-pooling on  a sum of infinitely many binary vectors.
+        See Nair and Hinton's paper on rectified linear RBMs. This can be approximated well
+        with softplus which is what we do here.
+        It has two sublayers, the detector layer and the pooling
+        layer. The detector layer is its downward state and the pooling
+        layer is its upward state.
+
+        TODO: this layer uses (pooled, detector) as its total state,
+              which can be confusing when listing all the states in
+              the network left to right. Change this and
+              pylearn2.expr.probabilistic_max_pooling to use
+              (detector, pooled)
+    """
+
+    def __init__(self,
+             detector_layer_dim,
+            pool_size,
+            layer_name,
+            max_act = None,
+            irange = None,
+            sparse_init = None,
+            sparse_stdev = 1.,
+            include_prob = 1.0,
+            init_bias = 0.,
+            W_lr_scale = None,
+            b_lr_scale = None,
+            center = False,
+            mask_weights = None,
+            max_col_norm = None,
+            beta_bias_layer = None,
+            copies = 1):
+        """
+
+            include_prob: probability of including a weight element in the set
+                    of weights initialized to U(-irange, irange). If not included
+                    it is initialized to 0.
+
+        """
+        self.__dict__.update(locals())
+        del self.self
+
+        self._b = sharedX( np.zeros((self.detector_layer_dim,)) + init_bias, name = layer_name + '_b')
+
+        if self.center:
+            if self.pool_size != 1:
+                raise NotImplementedError()
+            self.offset = sharedX(self.nonlinearity(self.bias()).eval())
+
+    def nonlinearity(self, x):
+        if self.max_act:
+            return T.nnet.softplus(x) - T.nnet.softplus(x-self.max_act)
+        return T.nnet.softplus(x)
+
+    def bias(self):
+
+        if self.beta_bias_layer:
+            W, = self.transformer.get_params()
+            beta = self.beta_bias_layer.beta
+            assert beta.ndim == 1
+            return self._b - 0.5 * T.dot(beta, T.sqr(W))
+        return self._b
+
+
+    def get_lr_scalers(self):
+
+        if not hasattr(self, 'W_lr_scale'):
+            self.W_lr_scale = None
+
+        if not hasattr(self, 'b_lr_scale'):
+            self.b_lr_scale = None
+
+        rval = OrderedDict()
+
+        if self.W_lr_scale is not None:
+            W, = self.transformer.get_params()
+            rval[W] = self.W_lr_scale
+
+        if self.b_lr_scale is not None:
+            rval[self._b] = self.b_lr_scale
+
+        return rval
+
+    def set_input_space(self, space):
+        """ Note: this resets parameters! """
+
+        self.input_space = space
+
+        if isinstance(space, VectorSpace):
+            self.requires_reformat = False
+            self.input_dim = space.dim
+        else:
+            self.requires_reformat = True
+            self.input_dim = space.get_total_dimension()
+            self.desired_space = VectorSpace(self.input_dim)
+
+
+        if not (self.detector_layer_dim % self.pool_size == 0):
+            raise ValueError("detector_layer_dim = %d, pool_size = %d. Should be divisible but remainder is %d" %
+                    (self.detector_layer_dim, self.pool_size, self.detector_layer_dim % self.pool_size))
+
+        self.h_space = VectorSpace(self.detector_layer_dim)
+        self.pool_layer_dim = self.detector_layer_dim / self.pool_size
+        self.output_space = VectorSpace(self.pool_layer_dim)
+
+        rng = self.dbm.rng
+        if self.irange is not None:
+            assert self.sparse_init is None
+            W = rng.uniform(-self.irange,
+                                 self.irange,
+                                 (self.input_dim, self.detector_layer_dim)) * \
+                    (rng.uniform(0.,1., (self.input_dim, self.detector_layer_dim))
+                     < self.include_prob)
+        else:
+            assert self.sparse_init is not None
+            W = np.zeros((self.input_dim, self.detector_layer_dim))
+            def mask_rejects(idx, i):
+                if self.mask_weights is None:
+                    return False
+                return self.mask_weights[idx, i] == 0.
+            for i in xrange(self.detector_layer_dim):
+                assert self.sparse_init <= self.input_dim
+                for j in xrange(self.sparse_init):
+                    idx = rng.randint(0, self.input_dim)
+                    while W[idx, i] != 0 or mask_rejects(idx, i):
+                        idx = rng.randint(0, self.input_dim)
+                    W[idx, i] = rng.randn()
+            W *= self.sparse_stdev
+
+        W = sharedX(W)
+        W.name = self.layer_name + '_W'
+
+        self.transformer = MatrixMul(W)
+
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+
+        if self.mask_weights is not None:
+            expected_shape =  (self.input_dim, self.detector_layer_dim)
+            if expected_shape != self.mask_weights.shape:
+                raise ValueError("Expected mask with shape "+str(expected_shape)+" but got "+str(self.mask_weights.shape))
+            self.mask = sharedX(self.mask_weights)
+
+    def censor_updates(self, updates):
+
+        # Patch old pickle files
+        if not hasattr(self, 'mask_weights'):
+            self.mask_weights = None
+        if not hasattr(self, 'max_col_norm'):
+            self.max_col_norm = None
+
+        if self.mask_weights is not None:
+            W ,= self.transformer.get_params()
+            if W in updates:
+                updates[W] = updates[W] * self.mask
+
+        if self.max_col_norm is not None:
+            W, = self.transformer.get_params()
+            if W in updates:
+                updated_W = updates[W]
+                col_norms = T.sqrt(T.sum(T.sqr(updated_W), axis=0))
+                desired_norms = T.clip(col_norms, 0, self.max_col_norm)
+                updates[W] = updated_W * (desired_norms / (1e-7 + col_norms))
+
+
+    def get_total_state_space(self):
+        return CompositeSpace((self.output_space, self.h_space))
+
+    def get_params(self):
+        assert self._b.name is not None
+        W ,= self.transformer.get_params()
+        assert W.name is not None
+        rval = self.transformer.get_params()
+        assert not isinstance(rval, set)
+        rval = list(rval)
+        assert self._b not in rval
+        rval.append(self._b)
+        return rval
+
+    def get_weight_decay(self, coeff):
+        if isinstance(coeff, str):
+            coeff = float(coeff)
+        assert isinstance(coeff, float) or hasattr(coeff, 'dtype')
+        W ,= self.transformer.get_params()
+        return coeff * T.sqr(W).sum()
+
+    def get_weights(self):
+        if self.requires_reformat:
+            # This is not really an unimplemented case.
+            # We actually don't know how to format the weights
+            # in design space. We got the data in topo space
+            # and we don't have access to the dataset
+            raise NotImplementedError()
+        W ,= self.transformer.get_params()
+        W = W.get_value()
+
+        if self.beta_bias_layer:
+            x = raw_input("multiply by beta?")
+            if x == 'y':
+                beta = self.beta_bias_layer.beta.get_value()
+                return (W.T * beta).T
+            assert x == 'n'
+        return W
+
+    def set_weights(self, weights):
+        W, = self.transformer.get_params()
+        W.set_value(weights)
+
+    def set_biases(self, biases, recenter = False):
+        self._b.set_value(biases)
+        if recenter:
+            assert self.center
+            if self.pool_size != 1:
+                raise NotImplementedError()
+            self.offset.set_value(sigmoid_numpy(self.b.get_value()))
+
+    def get_biases(self):
+        return self._b.get_value()
+
+    def get_weights_format(self):
+        return ('v', 'h')
+
+    def get_weights_view_shape(self):
+        total = self.detector_layer_dim
+        cols = self.pool_size
+        if cols == 1:
+            # Let the PatchViewer decidew how to arrange the units
+            # when they're not pooled
+            raise NotImplementedError()
+        # When they are pooled, make each pooling unit have one row
+        rows = total / cols
+        return rows, cols
+
+
+    def get_weights_topo(self):
+
+        if not isinstance(self.input_space, Conv2DSpace):
+            raise NotImplementedError()
+
+        W ,= self.transformer.get_params()
+
+        W = W.T
+
+        W = W.reshape((self.detector_layer_dim, self.input_space.shape[0],
+            self.input_space.shape[1], self.input_space.nchannels))
+
+        W = Conv2DSpace.convert(W, self.input_space.axes, ('b', 0, 1, 'c'))
+
+        return function([], W)()
+
+    def upward_state(self, total_state):
+        p,h = total_state
+        self.h_space.validate(h)
+        self.output_space.validate(p)
+
+        if not hasattr(self, 'center'):
+            self.center = False
+
+        if self.center:
+            return p - self.offset
+
+        if not hasattr(self, 'copies'):
+            self.copies = 1
+
+        return p * self.copies
+
+    def downward_state(self, total_state):
+        p,h = total_state
+
+        if not hasattr(self, 'center'):
+            self.center = False
+
+        if self.center:
+            return h - self.offset
+
+        return h * self.copies
+
+    def get_monitoring_channels(self):
+
+        W ,= self.transformer.get_params()
+
+        assert W.ndim == 2
+
+        sq_W = T.sqr(W)
+
+        row_norms = T.sqrt(sq_W.sum(axis=1))
+        col_norms = T.sqrt(sq_W.sum(axis=0))
+
+        return OrderedDict([
+              ('row_norms_min'  , row_norms.min()),
+              ('row_norms_mean' , row_norms.mean()),
+              ('row_norms_max'  , row_norms.max()),
+              ('col_norms_min'  , col_norms.min()),
+              ('col_norms_mean' , col_norms.mean()),
+              ('col_norms_max'  , col_norms.max()),
+            ])
+
+
+    def get_monitoring_channels_from_state(self, state):
+
+        P, H = state
+
+        rval = OrderedDict()
+
+        if self.pool_size == 1:
+            vars_and_prefixes = [ (P,'') ]
+        else:
+            vars_and_prefixes = [ (P, 'p_'), (H, 'h_') ]
+
+        for var, prefix in vars_and_prefixes:
+            v_max = var.max(axis=0)
+            v_min = var.min(axis=0)
+            v_mean = var.mean(axis=0)
+            v_range = v_max - v_min
+
+            # max_x.mean_u is "the mean over *u*nits of the max over e*x*amples"
+            # The x and u are included in the name because otherwise its hard
+            # to remember which axis is which when reading the monitor
+            # I use inner.outer rather than outer_of_inner or something like that
+            # because I want mean_x.* to appear next to each other in the alphabetical
+            # list, as these are commonly plotted together
+            for key, val in [
+                    ('max_x.max_u', v_max.max()),
+                    ('max_x.mean_u', v_max.mean()),
+                    ('max_x.min_u', v_max.min()),
+                    ('min_x.max_u', v_min.max()),
+                    ('min_x.mean_u', v_min.mean()),
+                    ('min_x.min_u', v_min.min()),
+                    ('range_x.max_u', v_range.max()),
+                    ('range_x.mean_u', v_range.mean()),
+                    ('range_x.min_u', v_range.min()),
+                    ('mean_x.max_u', v_mean.max()),
+                    ('mean_x.mean_u', v_mean.mean()),
+                    ('mean_x.min_u', v_mean.min())
+                    ]:
+                rval[prefix+key] = val
+
+        return rval
+
+    def get_stdev_rewards(self, state, coeffs):
+        rval = 0.
+
+        P, H = state
+        self.output_space.validate(P)
+        self.h_space.validate(H)
+
+
+        if self.pool_size == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            if isinstance(coeffs, str):
+                coeffs = float(coeffs)
+            assert isinstance(coeffs, float)
+            _, state = state
+            state = [state]
+            coeffs = [coeffs]
+        else:
+            assert all([len(elem) == 2 for elem in [state, coeffs]])
+
+        for s, c in safe_zip(state, coeffs):
+            assert all([isinstance(elem, float) for elem in [c]])
+            if c == 0.:
+                continue
+            mn = s.mean(axis=0)
+            dev = s - mn
+            stdev = T.sqrt(T.sqr(dev).mean(axis=0))
+            rval += (0.5 - stdev).mean()*c
+
+        return rval
+    def get_range_rewards(self, state, coeffs):
+        rval = 0.
+
+        P, H = state
+        self.output_space.validate(P)
+        self.h_space.validate(H)
+
+
+        if self.pool_size == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            if isinstance(coeffs, str):
+                coeffs = float(coeffs)
+            assert isinstance(coeffs, float)
+            _, state = state
+            state = [state]
+            coeffs = [coeffs]
+        else:
+            assert all([len(elem) == 2 for elem in [state, coeffs]])
+
+        for s, c in safe_zip(state, coeffs):
+            assert all([isinstance(elem, float) for elem in [c]])
+            if c == 0.:
+                continue
+            mx = s.max(axis=0)
+            assert hasattr(mx.owner.op, 'grad')
+            assert mx.ndim == 1
+            mn = s.min(axis=0)
+            assert hasattr(mn.owner.op, 'grad')
+            assert mn.ndim == 1
+            r = mx - mn
+            rval += (1 - r).mean()*c
+
+        return rval
+
+    def get_l1_act_cost(self, state, target, coeff, eps = None):
+        rval = 0.
+
+        P, H = state
+        self.output_space.validate(P)
+        self.h_space.validate(H)
+
+
+        if self.pool_size == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            if not isinstance(target, float):
+                raise TypeError("BinaryVectorMaxPool.get_l1_act_cost expected target of type float " + \
+                        " but an instance named "+self.layer_name + " got target "+str(target) + " of type "+str(type(target)))
+            assert isinstance(coeff, float) or hasattr(coeff, 'dtype')
+            _, state = state
+            state = [state]
+            target = [target]
+            coeff = [coeff]
+            if eps is None:
+                eps = [0.]
+            else:
+                eps = [eps]
+        else:
+            assert all([len(elem) == 2 for elem in [state, target, coeff]])
+            if eps is None:
+                eps = [0., 0.]
+            if target[1] > target[0]:
+                warnings.warn("Do you really want to regularize the detector units to be more active than the pooling units?")
+
+        for s, t, c, e in safe_zip(state, target, coeff, eps):
+            assert all([isinstance(elem, float) or hasattr(elem, 'dtype') for elem in [t, c, e]])
+            if c == 0.:
+                continue
+            m = s.mean(axis=0)
+            assert m.ndim == 1
+            rval += T.maximum(abs(m-t)-e,0.).mean()*c
+
+        return rval
+
+    def get_l2_act_cost(self, state, target, coeff):
+        rval = 0.
+
+        P, H = state
+        self.output_space.validate(P)
+        self.h_space.validate(H)
+
+
+        if self.pool_size == 1:
+            # If the pool size is 1 then pools = detectors
+            # and we should not penalize pools and detectors separately
+            assert len(state) == 2
+            if not isinstance(target, float):
+                raise TypeError("BinaryVectorMaxPool.get_l1_act_cost expected target of type float " + \
+                        " but an instance named "+self.layer_name + " got target "+str(target) + " of type "+str(type(target)))
+            assert isinstance(coeff, float) or hasattr(coeff, 'dtype')
+            _, state = state
+            state = [state]
+            target = [target]
+            coeff = [coeff]
+        else:
+            assert all([len(elem) == 2 for elem in [state, target, coeff]])
+            if target[1] > target[0]:
+                warnings.warn("Do you really want to regularize the detector units to be more active than the pooling units?")
+
+        for s, t, c in safe_zip(state, target, coeff):
+            assert all([isinstance(elem, float) or hasattr(elem, 'dtype') for elem in [t, c]])
+            if c == 0.:
+                continue
+            m = s.mean(axis=0)
+            assert m.ndim == 1
+            rval += T.square(m-t).mean()*c
+
+        return rval
+
+    def sample(self, state_below = None, state_above = None,
+            layer_above = None,
+            theano_rng = None):
+        raise NotImplementedError("Just copied from BVMP")
+        if self.copies != 1:
+            raise NotImplementedError()
+
+        if theano_rng is None:
+            raise ValueError("theano_rng is required; it just defaults to None so that it may appear after layer_above / state_above in the list.")
+
+        if state_above is not None:
+            msg = layer_above.downward_message(state_above)
+        else:
+            msg = None
+
+        if self.requires_reformat:
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        z = self.transformer.lmul(state_below) + self.b
+        p, h, p_sample, h_sample = max_pool_channels(z,
+                self.pool_size, msg, theano_rng)
+
+        return p_sample, h_sample
+
+    def downward_message(self, downward_state):
+        self.h_space.validate(downward_state)
+        rval = self.transformer.lmul_T(downward_state)
+
+        if self.requires_reformat:
+            rval = self.desired_space.format_as(rval, self.input_space)
+
+        return rval * self.copies
+
+    def init_mf_state(self):
+        # work around theano bug with broadcasted vectors
+        z = T.alloc(0., self.dbm.batch_size, self.detector_layer_dim).astype(self._b.dtype) + \
+                self.bias().dimshuffle('x', 0)
+        rval = self.max_pool_channels(z = z,
+                pool_size = self.pool_size)
+        return rval
+
+    def make_state(self, num_examples, numpy_rng):
+        """ Returns a shared variable containing an actual state
+           (not a mean field state) for this variable.
+        """
+        raise NotImplementedError("Just copied from BVMP")
+
+        if not hasattr(self, 'copies'):
+            self.copies = 1
+
+        if self.copies != 1:
+            raise NotImplementedError()
+
+
+        empty_input = self.h_space.get_origin_batch(num_examples)
+        empty_output = self.output_space.get_origin_batch(num_examples)
+
+        h_state = sharedX(empty_input)
+        p_state = sharedX(empty_output)
+
+        theano_rng = MRG_RandomStreams(numpy_rng.randint(2 ** 16))
+
+        default_z = T.zeros_like(h_state) + self.b
+
+        p_exp, h_exp, p_sample, h_sample = max_pool_channels(
+                z = default_z,
+                pool_size = self.pool_size,
+                theano_rng = theano_rng)
+
+        assert h_sample.dtype == default_z.dtype
+
+        f = function([], updates = [
+            (p_state , p_sample),
+            (h_state , h_sample)
+            ])
+
+        f()
+
+        p_state.name = 'p_sample_shared'
+        h_state.name = 'h_sample_shared'
+
+        return p_state, h_state
+
+    def expected_energy_term(self, state, average, state_below, average_below):
+        raise NotImplementedError("Just copied from BVMP")
+
+        # Don't need to do anything special for centering, upward_state / downward state
+        # make it all just work
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        downward_state = self.downward_state(state)
+        self.h_space.validate(downward_state)
+
+        # Energy function is linear so it doesn't matter if we're averaging or not
+        # Specifically, our terms are -u^T W d - b^T d where u is the upward state of layer below
+        # and d is the downward state of this layer
+
+        bias_term = T.dot(downward_state, self.b)
+        weights_term = (self.transformer.lmul(state_below) * downward_state).sum(axis=1)
+
+        rval = -bias_term - weights_term
+
+        assert rval.ndim == 1
+
+        return rval * self.copies
+
+    def linear_feed_forward_approximation(self, state_below):
+        raise NotImplementedError("Just copied from BVMP")
+        """
+        Used to implement TorontoSparsity. Unclear exactly what properties of it are
+        important or how to implement it for other layers.
+
+        Properties it must have:
+            output is same kind of data structure (ie, tuple of theano 2-tensors)
+            as mf_update
+
+        Properties it probably should have for other layer types:
+            An infinitesimal change in state_below or the parameters should cause the same sign of change
+            in the output of linear_feed_forward_approximation and in mf_update
+
+            Should not have any non-linearities that cause the gradient to shrink
+
+            Should disregard top-down feedback
+        """
+
+        z = self.transformer.lmul(state_below) + self.b
+
+        if self.pool_size != 1:
+            # Should probably implement sum pooling for the non-pooled version,
+            # but in reality it's not totally clear what the right answer is
+            raise NotImplementedError()
+
+        return z, z
+
+    def mf_update(self, state_below, state_above, layer_above = None, double_weights = False, iter_name = None):
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            if not isinstance(state_below, tuple):
+                for sb in get_debug_values(state_below):
+                    if sb.shape[0] != self.dbm.batch_size:
+                        raise ValueError("self.dbm.batch_size is %d but got shape of %d" % (self.dbm.batch_size, sb.shape[0]))
+                    assert reduce(lambda x,y: x * y, sb.shape[1:]) == self.input_dim
+
+            state_below = self.input_space.format_as(state_below, self.desired_space)
+
+        if iter_name is None:
+            iter_name = 'anon'
+
+        if state_above is not None:
+            assert layer_above is not None
+            msg = layer_above.downward_message(state_above)
+            msg.name = 'msg_from_'+layer_above.layer_name+'_to_'+self.layer_name+'['+iter_name+']'
+        else:
+            msg = None
+
+        if double_weights:
+            state_below = 2. * state_below
+            state_below.name = self.layer_name + '_'+iter_name + '_2state'
+        z = self.transformer.lmul(state_below) + self.bias()
+        if self.layer_name is not None and iter_name is not None:
+            z.name = self.layer_name + '_' + iter_name + '_z'
+        p,h = self.max_pool_channels(z, self.pool_size, msg)
+
+        p.name = self.layer_name + '_p_' + iter_name
+        h.name = self.layer_name + '_h_' + iter_name
+
+        return p, h
+
+    def max_pool_channels(self, z, pool_size, top_down = None):
+
+        if pool_size == 1:
+            if top_down is None:
+                top_down = 0.
+            total_input = z + top_down
+            p = self.nonlinearity(total_input)
+            h = p
+        else:
+            raise NotImplementedError()
+
+        return p, h
