@@ -4518,12 +4518,18 @@ def mask_weights(input_shape,
 
     mask = []
 
+    out_rows = 0
     for i in xrange(0, input_shape[0] - shape[0] + 1, stride[0]):
+        out_rows += 1
+        out_cols = 0
         for j in xrange(0, input_shape[1] - shape[1] + 1, stride[1]):
+            out_cols += 1
             cur_ipt = ipt.copy()
             cur_ipt[i:i+shape[0], j:j+shape[1], :] = 1.
             cur_mask = cur_ipt.reshape(dim, 1)
             mask.extend([ cur_mask ] * channels)
+
+    print 'masked hidden shape: ', (out_rows, out_cols)
 
     return np.concatenate(mask, axis=1)
 
