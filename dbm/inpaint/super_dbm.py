@@ -2491,7 +2491,7 @@ class MLP_Wrapper(Model):
         self.__dict__.update(locals())
 
         model = super_dbm
-        if model.visible_layer.center:
+        if hasattr(model.visible_layer, 'center') and model.visible_layer.center:
             self.v_ofs = model.visible_layer.offset
         else:
             self.v_ofs = 0
