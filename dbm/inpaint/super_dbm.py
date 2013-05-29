@@ -465,6 +465,8 @@ class GaussianVisLayer(VisibleLayer):
             assert not return_unmasked
             return unmasked
         masked_mu = unmasked * drop_mask
+        if not hasattr(self, 'learn_init_inpainting_state'):
+            self.learn_init_inpainting_state = True
         if not self.learn_init_inpainting_state:
             masked_mu = block_gradient(masked_mu)
         masked_mu.name = 'masked_mu'
@@ -2889,6 +2891,8 @@ class DeepMLP_Wrapper(Model):
         assert not return_history
         q = self.super_dbm.mf(V, ** kwargs)
 
+        V = self.super_dbm.visible_layer.upward_state(V)
+
         if self.decapitate:
             _, H1, H2 = q
         else:
@@ -4684,7 +4688,7 @@ class BVMP_Gaussian(BinaryVectorMaxPool):
             self.offset.set_value(sigmoid_numpy(self.b.get_value()))
 
     def get_biases(self):
-        return self.b.get_value()
+        return self.b.get_value() - self.beta_bias().eval()
 
 
     def sample(self, state_below = None, state_above = None,
