@@ -527,15 +527,19 @@ class SuperInpaint(Cost):
 
 
 class MaskGen:
-    def __init__(self, drop_prob, balance = False, sync_channels = True, drop_prob_y = None):
+    def __init__(self, drop_prob, balance = False, sync_channels = True, drop_prob_y = None, seed = 20120712):
         self.__dict__.update(locals())
         del self.self
 
+
     def __call__(self, X, Y = None, X_space=None):
+        """
+        Note that calling this repeatedly will yield the same random numbers each time.
+        """
         assert X_space is not None
         self.called = True
         assert X.dtype == config.floatX
-        theano_rng = RandomStreams(20120712)
+        theano_rng = RandomStreams(self.seed)
 
         if X.ndim == 2 and self.sync_channels:
             raise NotImplementedError()

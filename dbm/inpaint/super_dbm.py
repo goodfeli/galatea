@@ -3313,13 +3313,22 @@ class MoreConsistent(SuperWeightDoubling):
         drop_mask = T.zeros_like(V)
 
         if Y is not None:
+            # Y is observed, specify that it's fully observed
             drop_mask_Y = T.zeros_like(Y)
         else:
-            batch_size = self.dbm.get_input_space().batch_size(V)
-            num_classes = self.dbm.hidden_layers[-1].n_classes
-            assert isinstance(num_classes, int)
-            Y = T.alloc(1., batch_size, num_classes)
-            drop_mask_Y = T.alloc(1., batch_size)
+            # Y is not observed
+            last_layer = self.dbm.hidden_layers[-1]
+            if isinstance(last_layer, Softmax):
+                # Y is not observed, the model has a Y variable, fill in a dummy one
+                # and specify that no element of it is observed
+                batch_size = self.dbm.get_input_space().batch_size(V)
+                num_classes = self.dbm.hidden_layers[-1].n_classes
+                assert isinstance(num_classes, int)
+                Y = T.alloc(1., batch_size, num_classes)
+                drop_mask_Y = T.alloc(1., batch_size)
+            else:
+                # Y is not observed because the model has no Y variable
+                drop_mask_Y = None
 
         history = self.do_inpainting(V=V,
             Y=Y,
