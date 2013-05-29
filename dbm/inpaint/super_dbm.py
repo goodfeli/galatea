@@ -2835,7 +2835,6 @@ class DeepMLP_Wrapper(Model):
         if hasattr(l2, 'mask'):
             self.h0_h1_mask = l2.mask
         else:
-            assert False # debugging, remove if surprising
             self.h0_h1_mask = None
 
         # Layer 3
@@ -2854,7 +2853,6 @@ class DeepMLP_Wrapper(Model):
         if hasattr(l3, 'mask'):
             self.h1_h2_mask = l3.mask
         else:
-            assert False # debugging, remove if surprising
             self.h1_h2_mask = None
 
         # Class layer
