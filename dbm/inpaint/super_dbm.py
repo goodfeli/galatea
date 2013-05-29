@@ -3316,11 +3316,11 @@ class MoreConsistent(SuperWeightDoubling):
         if Y is not None:
             drop_mask_Y = T.zeros_like(Y)
         else:
-            batch_size = V.shape[0]
+            batch_size = self.dbm.get_input_space().batch_size(V)
             num_classes = self.dbm.hidden_layers[-1].n_classes
             assert isinstance(num_classes, int)
-            Y = T.alloc(1., V.shape[0], num_classes)
-            drop_mask_Y = T.alloc(1., V.shape[0])
+            Y = T.alloc(1., batch_size, num_classes)
+            drop_mask_Y = T.alloc(1., batch_size)
 
         history = self.do_inpainting(V=V,
             Y=Y,
