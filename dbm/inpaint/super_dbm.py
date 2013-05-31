@@ -5,6 +5,7 @@ from theano import config
 from theano import gof
 from theano.printing import Print
 
+from pylearn2.expr.nnet import arg_of_softmax
 from pylearn2.models.model import Model
 from pylearn2 import utils
 from pylearn2.costs.cost import FixedVarDescr
@@ -322,7 +323,6 @@ class GaussianVisLayer(VisibleLayer):
             assert nvis is None
             beta_origin = np.zeros((self.space.num_channels,))
         self.beta = sharedX(beta_origin + init_beta,name = 'beta')
-        self.cost_beta = sharedX(self.beta.get_value(), name='cost_beta') # rm
         assert self.beta.ndim == beta_origin.ndim
 
         mu_origin = origin.copy()
@@ -381,12 +381,6 @@ class GaussianVisLayer(VisibleLayer):
             updates[self.beta] = T.clip(updated_beta,
                     self.min_beta,1e6)
 
-        # rm
-        if self.cost_beta in updates:
-            updated_beta = updates[self.cost_beta]
-            updated_beta = Print('updating cost beta',attrs=['min', 'max'])(updated_beta)
-            updates[self.cost_beta] = T.clip(updated_beta,
-                    self.min_beta,1e6)
 
 
 
@@ -1754,10 +1748,7 @@ class SuperDBM_ConditionalNLL(Cost):
         assert Y.ndim == 2
 
         # Pull out the argument to the softmax
-        assert hasattr(Y_hat, 'owner')
-        assert Y_hat.owner is not None
-        assert isinstance(Y_hat.owner.op, T.nnet.Softmax)
-        arg ,= Y_hat.owner.inputs
+        arg = arg_of_softmax(Y_hat)
         arg.name = 'arg'
 
         arg = arg - arg.max(axis=1).dimshuffle(0,'x')
@@ -2129,6 +2120,8 @@ class BinaryVisLayer(dbm.BinaryVector):
             masked_mean = unmasked * drop_mask
         else:
             masked_mean = unmasked
+        if not hasattr(self, 'learn_init_inpainting_state'):
+            self.learn_init_inpainting_state = 0
         if not self.learn_init_inpainting_state:
             masked_mean = block_gradient(masked_mean)
         masked_mean.name = 'masked_mean'
