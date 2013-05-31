@@ -347,7 +347,8 @@ while True:
             #Show true class
             Y_vis = np.clip(label_to_vis(Y[i,:]), -1., 1.)
             Y_topo = dataset.get_topological_view(Y_vis)
-            Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
+            if 'model_axes' in locals():
+                Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
             Y_vis = dataset.adjust_for_viewer(Y_topo)
             if Y_vis.ndim == 2:
                 Y_vis = Y_vis.reshape(Y_vis.shape[0], Y_vis.shape[1], 1)
@@ -375,7 +376,8 @@ while True:
                 cur_Y_hat = Y_hat[i,:]
                 Y_vis = label_to_vis(cur_Y_hat)
                 Y_topo = dataset.get_topological_view(Y_vis)
-                Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
+                if 'model_axes' in locals():
+                    Y_topo = Conv2DSpace.convert_numpy(Y_topo, model_axes, display_axes)
                 Y_vis = dataset.adjust_for_viewer(Y_topo)
                 if Y_vis.ndim == 4:
                     assert Y_vis.shape[0] == 1
