@@ -1,0 +1,43 @@
+
+!obj:pylearn2.train.Train {
+    dataset:  &train  !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+        which_set: "train",
+        scale: 1,
+        one_hot: 1
+    },
+     model: !obj:galatea.dbm.inpaint.super_dbm.DeepMLP_Wrapper {
+         inference_type: 1,
+         decapitate: 0,
+                        super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
+                                super_dbm: !pkl: "expdir/norb_9D2_retrain_epochs.pkl",
+                                niter: 9
+                        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               line_search_mode: 'exhaustive',
+               batch_size: 2000,
+               set_batch_size: 1,
+               updates_per_batch: 3,
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               monitoring_dataset: {
+                                # 'train' : *train,
+                                'valid' :   !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+                                        which_set: "train",
+                                        scale: 1,
+                                        restrict_instances: [9],
+                                        one_hot: 1
+                                    },
+                                'test' :   !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+                                        which_set: "test",
+                                        scale: 1,
+                                        one_hot: 1
+                                    },
+               },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               },
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}

@@ -1,0 +1,55 @@
+
+!obj:pylearn2.train.Train {
+    dataset:  &train  !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+        which_set: "train",
+        scale: 1,
+        restrict_instances: [4, 6, 7, 8],
+        one_hot: 1
+    },
+     model: !obj:galatea.dbm.inpaint.super_dbm.DeepMLP_Wrapper {
+                        decapitate: 1,
+                        super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
+                                super_dbm: !pkl: "expdir/norb_P4_best.pkl",
+                                niter: 4
+                        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               line_search_mode: 'exhaustive',
+               batch_size: 2000,
+               set_batch_size: 1,
+               updates_per_batch: 3,
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               monitoring_dataset: {
+                                'train' : *train,
+                                'valid' :   !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+                                        which_set: "train",
+                                        scale: 1,
+                                        restrict_instances: [9],
+                                        one_hot: 1
+                                    },
+                                'test' :   !obj:pylearn2.datasets.norb_small.FoveatedNORB {
+                                        which_set: "test",
+                                        scale: 1,
+                                        one_hot: 1
+                                    },
+               },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               },
+               termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased
+               {
+                        channel_name: "valid_err",
+                        prop_decrease: .000,
+                        N : 10
+               }
+        },
+    extensions: [
+                !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+                        channel_name: "valid_err",
+                        save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+                }
+        ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}
