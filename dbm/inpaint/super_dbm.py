@@ -2788,7 +2788,12 @@ class DeepMLP_Wrapper(Model):
 
     def __init__(self, super_dbm, decapitate = True,
             decapitated_value = None,
+            inference_type = 0
             ):
+
+
+        self.stripped_down = False
+
         assert decapitate in [True, False, 0, 1]
         self.__dict__.update(locals())
 
@@ -2860,6 +2865,9 @@ class DeepMLP_Wrapper(Model):
             self.c.set_input_space(l3.get_output_space())
             self.c.set_weights(c.get_weights())
             self.c.set_biases(c.get_biases())
+        if inference_type == 1:
+            self.y_h2 = sharedX(self.c.get_weights().T)
+            self._params.append(self.y_h2)
         self._params = safe_union(self._params, self.c.get_params())
         self.hidden_layers = [ self.c ]
 
@@ -2880,37 +2888,95 @@ class DeepMLP_Wrapper(Model):
         for param, mask in safe_zip(params, masks):
             apply_mask(param, mask)
 
-    def mf(self, V, return_history = False, ** kwargs):
-        assert not return_history
-        q = self.super_dbm.mf(V, ** kwargs)
+    def strip_down(self):
+        self.stripped_down = True
+        del self.super_dbm
 
-        V = self.super_dbm.visible_layer.upward_state(V)
+    def dump_func(self):
+
+        V = T.matrix()
+        q = self.super_dbm.mf(V)
+
+        mod_V = self.super_dbm.visible_layer.upward_state(V)
 
         if self.decapitate:
             _, H1, H2 = q
+            _, H1 = H1
+            _, H2 = H2
+            outputs = [mod_V, H1, H2]
         else:
             _, H1, H2, y = q
-        _, H1 = H1
-        _, H2 = H2
+            _, H1 = H1
+            _, H2 = H2
+            outputs = [mod_V, H1, H2, y]
 
-        below = T.dot(V, self.vis_h0)
-        above = T.dot(H1, self.h1_h0)
-        H0 = T.nnet.sigmoid(below + above + self.h0_bias)
-        below = T.dot(H0, self.h0_h1)
-        above = T.dot(H2, self.h2_h1)
-        H1 = T.nnet.sigmoid(below + above + self.h1_bias)
-        below = T.dot(H1, self.h1_h2)
-        H2 = T.nnet.sigmoid(below + self.penbias)
-        Y = self.c.mf_update(state_below = H2)
+        output = T.concatenate(tuple(outputs), axis=1)
+
+        return function([V], output)
+
+
+    def mf(self, V, return_history = False, ** kwargs):
+        assert not return_history
+
+        if not self.stripped_down:
+            q = self.super_dbm.mf(V, ** kwargs)
+            V = self.super_dbm.visible_layer.upward_state(V)
+            if self.decapitate:
+                _, H1, H2 = q
+            else:
+                _, H1, H2, y = q
+            _, H1 = H1
+            _, H2 = H2
+        else:
+            packed = V
+            num_V = self.vis_h0.get_value().shape[0]
+            V = packed[:,:num_V]
+            pos = num_V
+            num_H1 = self.h1_h2.get_value().shape[0]
+            H1 = packed[:,pos:pos+num_H1]
+            pos += num_H1
+            num_H2 = self.h1_h2.get_value().shape[1]
+            H2 = packed[:,pos:pos+num_H2]
+            pos += num_H2
+            if not self.decapitate:
+                y = packed[:,pos:]
+
+
+        if self.inference_type == 0:
+            below = T.dot(V, self.vis_h0)
+            above = T.dot(H1, self.h1_h0)
+            H0 = T.nnet.sigmoid(below + above + self.h0_bias)
+            below = T.dot(H0, self.h0_h1)
+            above = T.dot(H2, self.h2_h1)
+            H1 = T.nnet.sigmoid(below + above + self.h1_bias)
+            below = T.dot(H1, self.h1_h2)
+            H2 = T.nnet.sigmoid(below + self.penbias)
+            Y = self.c.mf_update(state_below = H2)
+        elif self.inference_type == 1:
+            below = T.dot(V, self.vis_h0)
+            above = T.dot(H1, self.h1_h0)
+            H0 = T.nnet.sigmoid(below + above + self.h0_bias)
+            below = T.dot(H0, self.h0_h1)
+            above = T.dot(H2, self.h2_h1)
+            H1 = T.nnet.sigmoid(below + above + self.h1_bias)
+            below = T.dot(H1, self.h1_h2)
+            above = T.dot(y, self.y_h2)
+            H2 = T.nnet.sigmoid(below + above + self.penbias)
+            Y = self.c.mf_update(state_below = H2)
+        else:
+            raise ValueError()
 
         return [ Y ]
 
     def set_batch_size(self, batch_size):
-        self.super_dbm.set_batch_size(batch_size)
+        if not self.stripped_down:
+            self.super_dbm.set_batch_size(batch_size)
+            self.force_batch_size = self.super_dbm.force_batch_size
         self.c.set_batch_size(batch_size)
-        self.force_batch_size = self.super_dbm.force_batch_size
 
     def get_input_space(self):
+        if self.stripped_down:
+            return VectorSpace(self.vis_h0.get_value().shape[0])
         return self.super_dbm.get_input_space()
 
     def get_output_space(self):
@@ -2918,7 +2984,7 @@ class DeepMLP_Wrapper(Model):
 
     def get_weights(self):
         print 'MLP weights'
-        return self.vishid.get_value()
+        return self.vis_h0.get_value()
 
     def get_weights_format(self):
         return ('v','h')
@@ -3341,7 +3407,12 @@ class MoreConsistent(SuperWeightDoubling):
         if return_history:
             return [elem['H_hat'] for elem in history]
 
-        return history[-1]['H_hat']
+        rval =  history[-1]['H_hat']
+
+        if 'Y_hat_unmasked' in history[-1]:
+            rval[-1] = history[-1]['Y_hat_unmasked']
+
+        return rval
 
 class MoreConsistent2(WeightDoubling):
 
