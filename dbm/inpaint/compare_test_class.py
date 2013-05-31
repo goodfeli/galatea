@@ -43,7 +43,7 @@ def get_obj_func(model):
     X = model.get_input_space().make_batch_theano()
     Y = model.get_output_space().make_batch_theano()
     y = T.argmax(Y, axis=1)
-    drop_mask = mask_gen(X)
+    drop_mask = mask_gen(X, X_space=model.get_input_space())
     if isinstance(model, MLP_Wrapper):
         Q = model.mf_missing(X, drop_mask)
     else:
