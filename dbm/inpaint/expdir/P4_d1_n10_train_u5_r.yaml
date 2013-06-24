@@ -1,0 +1,27 @@
+
+!obj:pylearn2.train.Train {
+    dataset:  &train  !obj:pylearn2.datasets.dense_design_matrix.DenseDesignMatrix {
+        X: !pkl: "expdir/P4_d1_n10_r_train_X.npy",
+        y: !pkl: "expdir/P4_d1_n10_r_train_y.npy"
+    },
+    model: !pkl: "expdir/P4_d1_n10_r_stripped.pkl",
+    algorithm: !obj:pylearn2.training_algorithms.bgd.BGD {
+               line_search_mode: 'exhaustive',
+               batch_size: 1000,
+               set_batch_size: 1,
+               updates_per_batch: 5,
+               reset_alpha: 0,
+               conjugate: 1,
+               reset_conjugate: 0,
+               monitoring_dataset: {
+                               'test' :  !obj:pylearn2.datasets.dense_design_matrix.DenseDesignMatrix {
+                                    X: !pkl: "expdir/P4_d1_n10_r_test_X.npy",
+                                    y: !pkl: "expdir/P4_d1_n10_r_test_y.npy"
+                                },
+               },
+               cost : !obj:galatea.dbm.inpaint.super_dbm.SuperDBM_ConditionalNLL {
+               },
+        },
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq : 1
+}

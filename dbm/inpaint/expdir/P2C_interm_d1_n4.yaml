@@ -1,0 +1,7 @@
+!obj:galatea.dbm.inpaint.super_dbm.DeepMLP_Wrapper {
+    decapitate: 1,
+    super_dbm: !obj:galatea.dbm.inpaint.super_dbm.set_niter {
+            super_dbm: !pkl: "expdir/norb_P2C_interm.pkl",
+            niter: 4
+    }
+}
