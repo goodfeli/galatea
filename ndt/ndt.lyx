@@ -166,27 +166,47 @@ Suppose at each node of the tree we minimize the expected entropy of classes
 \begin_layout Standard
 \begin_inset Formula 
 \[
-=\sum_{s}\left[k\log p(s)-\sum_{c}\left[\log p(c)+\log p(s\mid c)\right]\right]
+=\sum_{s}\left[k\log p(s)-\sum_{c}\log p(c,s)\right]
 \]
 
 \end_inset
 
 
-\end_layout
-
-\begin_layout Standard
-We can drop the p(c) because it doesn't depend on any of the parameters.
 \end_layout
 
 \begin_layout Standard
 \begin_inset Formula 
 \[
-=\sum_{s}\left[k\log p(s)-\sum_{c}\log p(s\mid c)\right]
+=\sum_{s}\left[k\log\frac{1}{m}\sum_{x}p(s\mid x)-\sum_{c}\log\frac{1}{m}\sum_{x,y}\mathbb{I}_{y=c}p(s\mid x)\right]
 \]
 
 \end_inset
 
 
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $s$
+\end_inset
+
+ is the split (which child do we send the example to), 
+\begin_inset Formula $k$
+\end_inset
+
+ is the number of classes, 
+\begin_inset Formula $c$
+\end_inset
+
+ is a class.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $p(s)$
+\end_inset
+
+ is just a softmax over children, probably with a whole neural net feeding
+ into it.
 \end_layout
 
 \end_body
