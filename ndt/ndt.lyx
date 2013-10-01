@@ -155,7 +155,7 @@ Suppose at each node of the tree we minimize the expected entropy of classes
 \begin_layout Standard
 \begin_inset Formula 
 \[
-=\sum_{s}\left[k\log p(s)-\sum_{c}\log p(c,s)\right]
+=\sum_{s}\sum_{c}p(c,s)\log p(s)-\sum_{s}\sum_{c}p(c,s)\log p(c,s)
 \]
 
 \end_inset
@@ -166,7 +166,7 @@ Suppose at each node of the tree we minimize the expected entropy of classes
 \begin_layout Standard
 \begin_inset Formula 
 \[
-=\sum_{s}\left[k\log p(s)-\sum_{c}\log p(c,s)\right]
+=\sum_{s}\log p(s)\sum_{c}p(c,s)-\sum_{s}\sum_{c}p(c,s)\log p(c,s)
 \]
 
 \end_inset
@@ -177,7 +177,7 @@ Suppose at each node of the tree we minimize the expected entropy of classes
 \begin_layout Standard
 \begin_inset Formula 
 \[
-=\sum_{s}\left[k\log\frac{1}{m}\sum_{x}p(s\mid x)-\sum_{c}\log\frac{1}{m}\sum_{x,y}\mathbb{I}_{y=c}p(s\mid x)\right]
+=\sum_{s}p(s)\log p(s)-\sum_{s}\sum_{c}p(c,s)\log p(c,s)
 \]
 
 \end_inset
@@ -191,10 +191,6 @@ where
 \end_inset
 
  is the split (which child do we send the example to), 
-\begin_inset Formula $k$
-\end_inset
-
- is the number of classes, 
 \begin_inset Formula $c$
 \end_inset
 
