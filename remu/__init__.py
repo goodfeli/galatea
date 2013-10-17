@@ -4,28 +4,20 @@ __credits__ = ["Ian Goodfellow"]
 __license__ = "3-clause BSD"
 __maintainer__ = "Ian Goodfellow"
 
-import warnings
 
 import numpy as np
-from theano import config
 from theano.compat.python2x import OrderedDict
 from theano import function
 from theano.gof.op import get_debug_values
-from theano.sandbox import cuda
 from theano import tensor as T
 
 from pylearn2.linear.matrixmul import MatrixMul
 from pylearn2.models.mlp import Layer
+from pylearn2.models.mlp import Linear
 from pylearn2.space import Conv2DSpace
 from pylearn2.space import VectorSpace
-from pylearn2.utils import py_integer_types
 from pylearn2.utils import sharedX
 
-from pylearn2.linear.conv2d_c01b import setup_detector_layer_c01b
-if cuda.cuda_available:
-    from pylearn2.sandbox.cuda_convnet.pool import max_pool_c01b
-from pylearn2.linear import local_c01b
-from pylearn2.sandbox.cuda_convnet import check_cuda
 
 
 class RestrictedMaxout(Layer):
@@ -360,3 +352,56 @@ class RestrictedMaxout(Layer):
 
 
 
+class DSI_ReLU(Linear):
+    """
+    Direction-Slope-Intercept parameterization of ReLU
+    """
+
+    def __init__(self, islope, **kwargs):
+        assert 'max_col_norm' not in kwargs
+        assert 'max_row_norm' not in kwargs
+        super(DSI_ReLU, self).__init__(**kwargs)
+        self.islope = islope
+
+
+    def get_params(self):
+        return super(DSI_ReLU, self).get_params() + [self.slopes]
+
+    def set_input_space(self, space):
+
+        super(DSI_ReLU, self).set_input_space(space)
+
+        rng = self.mlp.rng
+
+        self.slopes = sharedX(rng.uniform(-self.islope, self.islope, (self.dim)), 'slopes')
+
+        # Apply constraints from start
+        identity_updates = OrderedDict()
+
+        for param in self.get_params():
+            identity_updates[param] = param
+
+        self.censor_updates(identity_updates)
+
+        f = function([], updates=identity_updates)
+        f()
+
+    def censor_updates(self, updates):
+
+        W ,= self.transformer.get_params()
+
+        if W in updates:
+            updated_W = updates[W]
+            col_norms = T.sqrt(T.sum(T.sqr(updated_W), axis=0))
+            desired_norms = 1.
+            updates[W] = updated_W * (desired_norms / (1e-7 + col_norms))
+
+    def fprop(self, state_below):
+        assert not self.copy_input
+        assert not self.softmax_columns
+        z = self.transformer.lmul(state_below) * self.slopes + self.b
+        h = z * (z > 0.)
+        return h
+
+    def cost(self, *args, **kwargs):
+        raise NotImplementedError()
