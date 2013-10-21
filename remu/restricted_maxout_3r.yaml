@@ -7,7 +7,7 @@
     },
     model: !obj:pylearn2.models.mlp.MLP {
         layers: [
-                 !obj:galatea.rmu.RestrictedMaxout {
+                 !obj:galatea.remu.RestrictedMaxout {
                      layer_name: 'h0',
                      num_units: 1200,
                      num_pieces: 2,
@@ -16,7 +16,7 @@
                      W_lr_scale: 1.,
                      slope_lr_scale: 1.,
                  },
-                 !obj:galatea.rmu.RestrictedMaxout {
+                 !obj:galatea.remu.RestrictedMaxout {
                      layer_name: 'h1',
                      num_units: 1200,
                      num_pieces: 2,
