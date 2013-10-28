@@ -880,6 +880,9 @@ class DSI_Softmax(Layer):
                             ('col_norms_min'  , col_norms.min()),
                             ('col_norms_mean' , col_norms.mean()),
                             ('col_norms_max'  , col_norms.max()),
+                            ('slope_min', self.slope.min()),
+                            ('slope_mean', self.slope.mean()),
+                            ('slope_max', self.slope.max())
                             ])
 
     def get_monitoring_channels_from_state(self, state, target=None):
