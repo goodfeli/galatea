@@ -525,9 +525,9 @@ class SuperInpaint(Cost):
 
         return total_cost
 
-
+default_seed = 20120712
 class MaskGen:
-    def __init__(self, drop_prob, balance = False, sync_channels = True, drop_prob_y = None, seed = 20120712):
+    def __init__(self, drop_prob, balance = False, sync_channels = True, drop_prob_y = None, seed = default_seed):
         self.__dict__.update(locals())
         del self.self
 
@@ -539,6 +539,8 @@ class MaskGen:
         assert X_space is not None
         self.called = True
         assert X.dtype == config.floatX
+        if not hasattr(self, 'seed'):
+            self.seed = default_seed
         theano_rng = RandomStreams(self.seed)
 
         if X.ndim == 2 and self.sync_channels:
