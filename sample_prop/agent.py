@@ -1,3 +1,4 @@
+from theano import config
 from pylearn2.models.model import Model
 from pylearn2.space import VectorSpace
 from theano.sandbox.rng_mrg import MRG_RandomStreams
@@ -5,7 +6,12 @@ from pylearn2.utils import sharedX
 import numpy as np
 import theano.tensor as T
 from pylearn2.costs.cost import Cost
-from theano.printing import Print
+from theano.printing import min_informative_str
+#from theano.printing import Print
+def ident(x):
+    return x
+def Print(name, attrs):
+    return ident
 from pylearn2.space import CompositeSpace
 from collections import OrderedDict
 from pylearn2.models.mlp import MLP
@@ -130,7 +136,9 @@ class LinearAgents(Layer):
         return rval
 
     def fprop(self, state_below):
-        rval = self.submodels[1].fprop(state_below) > self.submodels[0].fprop(state_below)
+        rval = T.cast(self.submodels[1].fprop(state_below) >
+                self.submodels[0].fprop(state_below), config.floatX)
+        assert rval.dtype == config.floatX
         return rval
 
 
@@ -148,7 +156,7 @@ class AgentHive1(MLP):
         theano_rng = MRG_RandomStreams(2013 + 11 + 1)
 
         for i in xrange(len(rval) - 1):
-            flip = theano_rng.binomial(p=flip_prob, size=rval[i].shape)
+            flip = theano_rng.binomial(p=flip_prob, size=rval[i].shape, dtype=rval[i].dtype)
             rval[i] = (1-rval[i]) * flip + rval[i] * (1-flip)
 
         return rval
@@ -184,6 +192,7 @@ class AgentHive1Cost1(Cost):
 
         rval = OrderedDict()
         for param, grad in zip(classifier_params, classifier_grads):
+            assert param.dtype == grad.dtype
             rval[param] = grad
 
         reward_vector = - cost_vector
@@ -201,18 +210,19 @@ class AgentHive1Cost1(Cost):
             opt.name = 'opt'
             target_matrix = reward_vector.dimshuffle(0, 'x') + T.alloc(0., reward_vector.shape[0], layer.submodels[0].dim)
             target_matrix.name = 'target_matrix'
-            #opt = Print('opt', attrs=['min', 'max', 'mean'])(opt)
+            opt = Print('opt_' + layer.layer_name, attrs=['min', 'max', 'mean'])(opt)
+            assert opt.dtype == 'float32', opt.dtype
             for idx in xrange(2):
                 if idx == 0:
                     mask = 1 - opt
                 else:
                     mask = opt
+                assert mask.dtype == 'float32'
                 submodel = layer.submodels[idx]
                 Y_hat = submodel.fprop(ipt)
                 Y_hat.name = 'Y_hat_' + layer.layer_name + '_' + str(idx)
                 Y_hat = Print(Y_hat.name, attrs=['min', 'mean', 'max'])(Y_hat)
                 cost_matrix = submodel.cost_matrix(Y_hat = Y_hat, Y=target_matrix)
-                from theano.printing import min_informative_str
                 cost_matrix.name = 'orig_cost_matrix'
                 cost_matrix = mask * cost_matrix
                 # cost_matrix = Print('cost_matrix', attrs=['min', 'mean', 'max'])(cost_matrix)
@@ -223,14 +233,17 @@ class AgentHive1Cost1(Cost):
                 weights.name = 'weights'
                 cost_matrix = cost_matrix / weights # when we do the sum, we want it to be the mean across examples that affected the cost
                 cost_matrix.name = 'weighted_cost_matrix'
-                grads = T.grad(cost_matrix.sum(), params, consider_constant=[ipt, mask])
+                grads = T.grad(cost_matrix.sum(), params, consider_constant=[ipt, opt, target_matrix, mask])
                 for param, grad in zip(params, grads):
+                    dtype = grad.dtype
+                    grad = Print(param.name + '_grad', attrs=['min', 'mean', 'max'])(grad)
+                    assert grad.dtype == dtype
+                    assert param.dtype == grad.dtype, (param, grad)
                     rval[param] = grad
 
         tc = .01
 
         return rval, OrderedDict([(mean_reward, tc * new_mean_reward + (1.-tc) * mean_reward)])
-
 
     def get_data_specs(self, model):
         space = CompositeSpace([model.get_input_space(), model.get_output_space()])

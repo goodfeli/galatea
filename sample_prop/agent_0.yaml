@@ -17,7 +17,7 @@
     },
     !obj:galatea.sample_prop.agent.LinearAgents {
         layer_name: 'h1',
-        irange: .05,
+        irange: .005,
         #max_col_norm: 10.,
         dim: 500
     },
