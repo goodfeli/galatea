@@ -311,7 +311,7 @@ class DebugGaussianLayer(GaussianVisLayer):
 GaussianConvolutionalVisLayer = GaussianVisLayer
 
 from pylearn2.models.dbm import ConvMaxPool
-from pylearn2.models.dbm import ConvC01b_MaxPool
+from pylearn2.models.dbm import ConvC01B_MaxPool
 
 DenseMaxPool = BinaryVectorMaxPool
 
@@ -3090,3 +3090,7 @@ class SoftplusMaxPool(HiddenLayer):
             raise NotImplementedError()
 
         return p, h
+
+from pylearn2.models.dbm import BiasInit
+from pylearn2.models.dbm import MoreConsistent
+from pylearn2.models.dbm import MoreConsistent2

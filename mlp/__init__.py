@@ -2770,29 +2770,8 @@ class make_mnisty(object):
         dataset.set_topological_view(topo)
         dataset.adjust_for_viewer = adjust_for_viewer
 
-class permute_and_flip(object):
-
-    def __init__(self, flip = True):
-        self.flip = flip
-
-    def apply(self, dataset, can_fit=False):
-
-        X = dataset.X
-        if X is None:
-            print '!!!!!!!!!!!!!!!!!permute_and_flip does nothing because no data!!!!!!!!!!!!!!!'
-            return
-
-        rng = np.random.RandomState([17., 35., 19.])
-        n = X.shape[1]
-
-        for i in xrange(X.shape[1]):
-            j = rng.randint(n)
-            tmp = X[:,i].copy()
-            X[:,i] = X[:,j].copy()
-            X[:,j] = tmp.copy()
-
-        if self.flip:
-            dataset.X = 1. - X
+# make old imports keep working. this has been moved to forgetting repo though
+from forgetting import permute_and_flip
 
 class ExtraChannels(MLP):
 
