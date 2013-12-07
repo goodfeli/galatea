@@ -152,6 +152,69 @@ class WiskottVideo(Dataset):
             return_tuple = return_tuple
         )
 
+def load_labels(path, is_fish):
+    """
+    path to a numpy file containing the labels
+    is_fish: bool, True=fish, False=spheres
+
+    numpy file has this format:
+        x
+        y
+        one-hot encoding of label (25 elements for fish, 10 for spheres)
+        sin(phi_y)         (25 elements for fish, 10 for spheres)
+        cos(phi_y)        (25 elements for fish, 10 for spheres)
+        sin(phi_z)         (not present for fish, they only rotate around 1
+                axis, 10 elements for spheres)
+        cos(phi_z)        (not present for fish, they only rotate around 1
+                axis, 10 elements for spheres)
+
+    This function loads the numpy file, collapses sin(phi_y) into one column,
+    cos(phi_y) into one column, sin(phi_z) into one column, and cos(phi_z) into
+    one column. It then returns data with this format:
+
+    id (one hot)
+    x
+    y
+    sin(phi_y)
+    cos(phi_y)
+    sin(phi_z)
+    cos(phi_z)
+    """
+
+    raw = np.load(path)
+
+    if is_fish:
+        assert raw.shape[1] == 77
+    else:
+        assert raw.shape[1] == 52
+
+    num_feat = 16
+    num_id = 10
+    if is_fish:
+        num_feat = 29
+        num_id = 25
+
+    batch_size = raw.shape[0]
+
+    rval = np.zeros((batch_size, num_feat), dtype=raw.dtype)
+
+    raw_start = 2
+    ids = raw[:, raw_start:raw_start + num_id]
+    raw_start += num_id
+    rval[:, 0:num_id] = ids
+    rval_start = num_id
+    rval[:, rval_start:rval_start + 2] = raw[:, 0:2]
+    rval_start += 2
+    for i in xrange(2 + (1 - is_fish) * 2):
+        raw[:, rval_start] = (ids * raw[raw_start:raw_start+num_id]).sum(axis=1)
+        rval_start += 1
+        raw_start += num_id
+
+    assert raw_start == raw.shape[1]
+    assert rval_start == rval.shape[1]
+
+    return rval
+
 
 
 def demo():
