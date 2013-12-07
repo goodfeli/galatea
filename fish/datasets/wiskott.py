@@ -2,7 +2,7 @@
 
 import functools
 import warnings
-import sys, os, cPickle, logging
+import sys, os, logging
 import glob
 _logger = logging.getLogger(__name__)
 
@@ -55,10 +55,10 @@ class WiskottVideo(Dataset):
 
     dirs_test = ['fish_test_25_standard',
                  'spheres_test_10_standard']
-    
+
     def __init__(self, which_set, config, quick = False):
         '''Create a WiskottVideo instance'''
-        
+
         assert which_set in ('train', 'test')
         self.which_set = which_set
         assert isinstance(quick, bool), 'quick must be a bool'
@@ -72,7 +72,7 @@ class WiskottVideo(Dataset):
         self.height          = config.height
         self.width           = config.width
         self.num_channels    = config.num_channels
-        
+
         # Load data into memory
         feature_regex = 'seq_0[0-9][0-9][0-9].zip.npy'
         label_regex   = 'seq_0[0-9][0-9][0-9].zip.labels.npy'
@@ -129,7 +129,7 @@ class WiskottVideo(Dataset):
             assert data_specs[1][0] == 'features', (
                 'data_specs must include only one tuple for "features"'
             )
-        
+
         #underlying_dataspecs = (self._output_space, 'features')
         underlying_space = Conv2DSpace((self.height, self.width),
                                        num_channels = self.num_channels)
@@ -145,7 +145,7 @@ class WiskottVideo(Dataset):
         )
 
         #pdb.set_trace()
-        
+
         return CopyingConcatenatingIterator(
             self._underlying_iterator,
             num_concat = batch_size,
