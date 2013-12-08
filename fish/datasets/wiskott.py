@@ -16,8 +16,7 @@ from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultView
 from pylearn2.expr.preprocessing import global_contrast_normalize
 from pylearn2.utils import image, string_utils, serial
 from pylearn2.space import CompositeSpace, Conv2DSpace
-
-
+from .videodaset import VideoDataset
 
 class WiskottVideoConfig(object):
     '''This is just a container for specifications for a WiskottVideo
@@ -38,8 +37,6 @@ class WiskottVideoConfig(object):
         self.width = width
         assert num_channels == 1, 'only 1 channel is supported for now'
         self.num_channels = num_channels
-
-
 
 class WiskottVideo(Dataset):
     '''Data from "Invariant Object Recognition and Pose Estimation with Slow
@@ -215,7 +212,16 @@ def load_labels(path, is_fish):
 
     return rval
 
+class WiskottVideo2(VideoDataset):
 
+    def __init__(self):
+        data =  WiskottVideo('train', config, quick = True)
+        self.data = (data._feature_matrices, data._label_matrices)
+        self.space = CompositeSpace((
+            Conv3DSpace(TODO),
+            VectorSpace(dim = TODO)))
+        self.source = ('features', 'labels')
+        self.data_specs = (self.space, self.soruce)
 
 def demo():
     num_frames = 300
@@ -231,7 +237,8 @@ def demo():
     wisk = WiskottVideo('train', config, quick = True)
 
     print 'done.'
-
+    import ipdb
+    ipdb .set_trace()
 
 
 if __name__ == '__main__':

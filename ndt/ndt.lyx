@@ -186,6 +186,33 @@ Suppose at each node of the tree we minimize the expected entropy of classes
 \end_layout
 
 \begin_layout Standard
+\begin_inset Formula 
+\[
+=\sum_{s}p(s)\log p(s)-\sum_{s}\sum_{c}p(c\mid s)p(s)\log p(c\mid s)p(s)
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+=\sum_{s}p(s)\log p(s)-\sum_{s}\sum_{c}p(c\mid s)p(s)\log p(c\mid s)-\sum_{s}\sum_{c}p(c\mid s)p(s)\log p(s)
+\]
+
+\end_inset
+
+
+\begin_inset Formula 
+\[
+=-\sum_{s}\sum_{c}p(c\mid s)p(s)\log p(c\mid s)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
 where 
 \begin_inset Formula $s$
 \end_inset
