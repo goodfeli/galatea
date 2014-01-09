@@ -16,12 +16,12 @@ from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultView
 from pylearn2.expr.preprocessing import global_contrast_normalize
 from pylearn2.utils import image, string_utils, serial
 from pylearn2.space import CompositeSpace, Conv2DSpace
-from .videodaset import VideoDataset
+from videodaset import VideoDataset
 
 class WiskottVideoConfig(object):
     '''This is just a container for specifications for a WiskottVideo
-    dataset (so that one can easily create train/valid/test datasets
-    with identical config using YAML anchors.
+    dataset. This allows one to easily create train/valid/test datasets
+    with identical configuration using anchors in YAML files.
     '''
 
     def __init__(self, axes = ('b', 0, 1, 2, 'c'),
@@ -74,12 +74,20 @@ class WiskottVideo(Dataset):
         feature_regex = 'seq_0[0-9][0-9][0-9].zip.npy'
         label_regex   = 'seq_0[0-9][0-9][0-9].zip.labels.npy'
         dirs = self.dirs_test if self.which_set == 'test' else self.dirs_train
+
+        # A list of data matrices, one per short video of ~200 frames
+        #   Example: self._feature_matrices[0].shape: (156, 156, 200)
         self._feature_matrices = self._load_data(dirs, feature_regex)
-        self._label_matrices = self._load_data(dirs, label_regex)
+        # A list of label matrices, one per short video of ~200 frames
+        #   Example: self._label_matrices[0].shape: (200, 77)
+        ####self._label_matrices = self._load_data(dirs, label_regex)
+        #   Example: self._label_matrices[0].shape: (200, 29)
+        self._label_matrices = self._load_data(dirs, label_regex, is_labels=True)
+
         assert len(self._feature_matrices) == len(self._label_matrices)
         self._n_matrices = len(self._feature_matrices)
 
-    def _load_data(self, data_directories, file_regex):
+    def _load_data(self, data_directories, file_regex, is_labels=False):
         filenames = []
         for data_directory in data_directories:
             file_filter = os.path.join(
@@ -93,7 +101,12 @@ class WiskottVideo(Dataset):
             filenames = filenames[:3]
         print 'Loading data from %d files:      ' % len(filenames),
         for ii, filename in enumerate(filenames):
-            matrices.append(serial.load(filename))
+            if is_labels:
+                assert ('fish' in filename) or ('spheres' in filename), 'Not sure if fish or spheres.'
+                is_fish = 'fish' in filename
+                matrices.append(load_labels(filename, is_fish))
+            else:
+                matrices.append(serial.load(filename))
             print '\b\b\b\b\b\b%5d' % (ii+1),
             sys.stdout.flush()
         print
@@ -198,12 +211,13 @@ def load_labels(path, is_fish):
     raw_start = 2
     ids = raw[:, raw_start:raw_start + num_id]
     raw_start += num_id
-    rval[:, 0:num_id] = ids
+    rval[:, 0:num_id] = ids                            # IDs
     rval_start = num_id
-    rval[:, rval_start:rval_start + 2] = raw[:, 0:2]
+    rval[:, rval_start:rval_start + 2] = raw[:, 0:2]   # x,y
     rval_start += 2
     for i in xrange(2 + (1 - is_fish) * 2):
-        raw[:, rval_start] = (ids * raw[raw_start:raw_start+num_id]).sum(axis=1)
+        #raw[:, rval_start] = (ids * raw[raw_start:raw_start+num_id]).sum(axis=1)
+        rval[:,rval_start] = raw[:,raw_start]
         rval_start += 1
         raw_start += num_id
 
@@ -214,9 +228,11 @@ def load_labels(path, is_fish):
 
 class WiskottVideo2(VideoDataset):
 
-    def __init__(self):
+    def __init__(self, config):
         data =  WiskottVideo('train', config, quick = True)
         self.data = (data._feature_matrices, data._label_matrices)
+        print 'TODO'
+        return
         self.space = CompositeSpace((
             Conv3DSpace(TODO),
             VectorSpace(dim = TODO)))
@@ -234,11 +250,14 @@ def demo():
         width  = width,
         )
 
-    wisk = WiskottVideo('train', config, quick = True)
+    #wisk = WiskottVideo2('train', config, quick = True)
+    wisk = WiskottVideo2(config)
+    pdb.set_trace()
+
+    it = wisk.iterator()
 
     print 'done.'
-    import ipdb
-    ipdb .set_trace()
+    pdb .set_trace()
 
 
 if __name__ == '__main__':
