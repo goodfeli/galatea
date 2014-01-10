@@ -56,7 +56,7 @@ class WiskottVideo(Dataset):
     def __init__(self, which_set, config, quick = False):
         '''Create a WiskottVideo instance'''
 
-        assert which_set in ('train', 'test')
+        assert which_set in ('train', 'valid', 'test')
         self.which_set = which_set
         assert isinstance(quick, bool), 'quick must be a bool'
         self.quick = quick
@@ -73,6 +73,7 @@ class WiskottVideo(Dataset):
         # Load data into memory
         feature_regex = 'seq_0[0-9][0-9][0-9].zip.npy'
         label_regex   = 'seq_0[0-9][0-9][0-9].zip.labels.npy'
+        # dirs_train is used for both train and valid! Separation is done in _load_data function.
         dirs = self.dirs_test if self.which_set == 'test' else self.dirs_train
 
         # A list of data matrices, one per short video of ~200 frames
@@ -96,10 +97,26 @@ class WiskottVideo(Dataset):
                 file_regex)
             filenames.extend(sorted(glob.glob(file_filter)))
 
-        matrices = []
+        # Here we split the training directories into train and valid
+        # sets and choose the appropriate set. The test set is separate.
+        if self.which_set in ('train', 'valid'):
+            rng = np.random.RandomState(self._default_seed)
+            rng.shuffle(filenames)
+            idx_train = int(len(filenames) * .8)  # 80% train, 20% valid
+            train_filenames = filenames[:idx_train]
+            valid_filenames = filenames[idx_train:]
+            assert len(train_filenames) > 10, 'too few files found'
+            assert len(valid_filenames) > 10, 'too few files found'
+            if self.which_set == 'train':
+                filenames = train_filenames
+            else:
+                filenames = valid_filenames
+
         if self.quick:
             filenames = filenames[:3]
         print 'Loading data from %d files:      ' % len(filenames),
+        
+        matrices = []
         for ii, filename in enumerate(filenames):
             if is_labels:
                 assert ('fish' in filename) or ('spheres' in filename), 'Not sure if fish or spheres.'
@@ -229,8 +246,13 @@ def load_labels(path, is_fish):
 class WiskottVideo2(VideoDataset):
 
     def __init__(self, config):
-        data =  WiskottVideo('train', config, quick = True)
+        data =  WiskottVideo('train', config, quick = False)
+        self.wisk = data
         self.data = (data._feature_matrices, data._label_matrices)
+
+        print 'bytes in feat : %12d' % sum([mat.nbytes for mat in self.wisk._feature_matrices])
+        print 'bytes in label: %12d' % sum([mat.nbytes for mat in self.wisk._label_matrices])
+
         print 'TODO'
         return
         self.space = CompositeSpace((
