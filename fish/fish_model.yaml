@@ -1,0 +1,115 @@
+#
+# JBY: from tutorial yaml
+#
+
+!obj:pylearn2.train.Train {
+    dataset: &train_dataset !obj:fish.datasets.wiskott.WiskottVideo {
+        which_set: 'train',   # train/valid/test just have different seeds
+        
+        config: &dataset_config !obj:fish.datasets.wiskott.WiskottVideoConfig {
+            is_fish: True,
+            num_frames: 3,
+        }
+    },
+
+    model: !obj:pylearn2.models.mlp.MLP {
+        batch_size: 32,
+
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [156, 156],
+            num_channels: 1,
+            axes: ['c', 0, 1, 'b']
+        }
+
+        layers: [
+            !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                layer_name: 'c0',     # (1,154,154) -> (16,50,60)
+                kernel_shape: [5, 5],
+                pool_shape: [3, 3],
+                pool_stride: [3, 3],
+                output_channels: 16,
+                irange: .05,
+                # Rather than using weight decay, we constrain the norms of the convolution kernels
+                # to be at most this value
+                max_kernel_norm: .9
+            },
+            !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                layer_name: 'c1',     # (16,50,60) -> (32,28,28)
+                kernel_shape: [5, 5],
+                pool_shape: [2, 2],
+                pool_stride: [2, 2],
+                output_channels: 32,
+                irange: .05,
+                # Rather than using weight decay, we constrain the norms of the convolution kernels
+                # to be at most this value
+                max_kernel_norm: .9
+            },
+            !obj:pylearn2.models.mlp.ConvRectifiedLinear {
+                layer_name: 'c2',     # (32,28,28) -> (32,8,8)
+                kernel_shape: [5, 5],
+                pool_shape: [3, 3],
+                pool_stride: [3, 3],
+                output_channels: 32,
+                irange: .05,
+                # Rather than using weight decay, we constrain the norms of the convolution kernels
+                # to be at most this value
+                max_kernel_norm: .9
+            },
+            !obj:pylearn2.models.mlp.Sigmoid {
+                dim: 2048,
+                layer_name: 'h0',
+                irange: .5,
+            },
+            !obj:pylearn2.models.mlp.Sigmoid {
+                dim: *rep_dim,
+                layer_name: 'up_2',
+                # 4 * sqrt(6. ./ (num_hidden + num_visible))
+                #irange: 0.565   #4 * sqrt(6. ./ (200 + 100)
+                irange: .3,      # good value found with CV
+            },
+        ]
+
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate : .5,
+
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: .9,
+        },
+
+        # Each gradient step will be based on this many examples
+        batch_size : 32,
+
+        # Batches in one epoch
+        batches_per_iter : 20,
+
+        monitoring_batches : 10,
+
+        monitoring_dataset : {
+            'train': *train_dataset,
+            'valid': &valid_dataset !obj:fish.datasets.wiskott.WiskottVideo {
+                which_set: 'valid',
+                config: *dataset_config   # Make sure config is the same as above
+            }
+        },
+
+        monitor_iteration_mode : 'shuffled_sequential',  # ...currently ignored anyway...
+
+        #cost : !obj:pylearn2.costs.cost_pred_net.PredNetCostMLP {
+        #},
+
+        # We'll use the monitoring dataset to figure out when to stop training.
+        #
+        # In this case, we stop if there is less than a 1% decrease in the
+        # training error in the last epoch.  You'll notice that the learned
+        # features are a bit noisy. If you'd like nice smooth features you can
+        # make this criterion stricter so that the model will train for longer.
+        # (setting N to 10 should make the weights prettier, but will make it
+        # run a lot longer)
+
+        termination_criterion : !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 5,
+        },
+
+        },
+    save_freq : 50
+}
