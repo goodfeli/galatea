@@ -15,8 +15,10 @@ from pylearn2.datasets import dense_design_matrix, Dataset
 from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix, DefaultViewConverter
 from pylearn2.expr.preprocessing import global_contrast_normalize
 from pylearn2.utils import image, string_utils, serial
-from pylearn2.space import CompositeSpace, Conv2DSpace
+from pylearn2.space import CompositeSpace, Conv2DSpace, VectorSpace
 from videodaset import VideoDataset
+
+
 
 class WiskottVideoConfig(object):
     '''This is just a container for specifications for a WiskottVideo
@@ -24,26 +26,28 @@ class WiskottVideoConfig(object):
     with identical configuration using anchors in YAML files.
     '''
 
-    def __init__(self, axes = ('c', 0, 1, 'b'),
+    def __init__(self, is_fish, axes = ('c', 0, 1, 'b'),
                  num_frames = 3,
                  #height = 32, width = 32,
                  num_channels = 1):
         # Arbitrary choice: we do the validation here, not in WiskottVideo
+        assert isinstance(is_fish, bool), 'is_fish must be a bool'
+        self.is_fish = is_fish
         assert isinstance(axes, tuple), 'axes must be a tuple'
         self.axes = axes
         assert num_frames > 0, 'num_frames must be positive'
         self.num_frames = num_frames
-        #assert height > 0, 'height must be positive'
-        #self.height = height
-        #assert width > 0, 'width must be positive'
-        #self.width = width
         assert num_channels == 1, 'only 1 channel is supported for now'
         self.num_channels = num_channels
+
+
 
 class WiskottVideo(Dataset):
     '''Data from "Invariant Object Recognition and Pose Estimation with Slow
     Feature Analysis"
     '''
+
+    video_size = (156,156)
 
     _default_seed = (17, 2, 946)
 
@@ -68,9 +72,8 @@ class WiskottVideo(Dataset):
         # Copy main config from provided config
         self.axes            = config.axes
         self.num_frames      = config.num_frames
-        #self.height          = config.height
-        #self.width           = config.width
         self.num_channels    = config.num_channels
+        self.is_fish         = config.is_fish
 
         # Load data into memory
         feature_regex = 'seq_0[0-9][0-9][0-9].zip.npy'
@@ -95,21 +98,25 @@ class WiskottVideo(Dataset):
             sum([mat.nbytes for mat in self._label_matrices]) / 1.0e9
             )
 
+        if self.is_fish:
+            label_space = VectorSpace(dim = 29)
+        else:
+            label_space = VectorSpace(dim = 16)  # for spheres
 
-        
-        print 'TODO'
-        return
-        self.__space = CompositeSpace((
-            Conv3DSpace(TODO),
-            VectorSpace(dim = TODO)))
+        self.space = CompositeSpace((
+            Conv2DSpace(self.video_size, num_channels = 1, axes = ('b', 0, 1, 'c')),
+            label_space))
         self.source = ('features', 'labels')
-        self.data_specs = (self.__space, self.soruce)
+        self.data_specs = (self.space, self.source)
 
 
-        
     def _load_data(self, data_directories, file_regex, is_labels=False):
         filenames = []
         for data_directory in data_directories:
+            if self.is_fish and not 'fish' in data_directory:
+                continue
+            if not self.is_fish and not 'sphere' in data_directory:
+                continue                
             file_filter = os.path.join(
                 string_utils.preprocess('${PYLEARN2_DATA_PATH}'),
                 'wiskott', data_directory, 'views',
@@ -144,7 +151,10 @@ class WiskottVideo(Dataset):
                 matrices.append(mat)
             else:
                 mat = serial.load(filename)    # e.g (156,156,201)
+                # Put batch index first
                 mat = np.array(np.rollaxis(mat, 2, 0), copy=True)   # e.g (201,156,156)
+                # Add dimension for channels
+                mat = np.reshape(mat, mat.shape + (1,))        # e.g. (201,156,156,1)
                 matrices.append(mat)
             print '\b\b\b\b\b\b%5d' % (ii+1),
             sys.stdout.flush()
@@ -170,24 +180,14 @@ class WiskottVideo(Dataset):
         assert targets is None
 
         assert mode is None        # TODO: later...
-        if mode is None: mode = 'shuffled_sequential'
+        #if mode is None: mode = 'shuffled_sequential'
         #assert mode in ('sequential', 'shuffled_sequential'), (
         #    'Mode must be one of: sequential, shuffled_sequential'
         #)
         #if mode != 'shuffled_sequential':
         #    warnings.warn('billiard dataset returning its only supported iterator type -- shuffled -- despite the request to the contrary')
 
-        print 'Got these data_specs:'
-        print data_specs
-        #if not ignore_data_specs:
-        if False:
-            assert data_specs != None, 'Must provide data_specs'
-            assert len(data_specs) == 2, 'data_specs must include only one tuple for "features"'
-            assert type(data_specs[0]) is CompositeSpace, 'must be composite space...??'
-            assert data_specs[0].num_components == 1, 'must only have one component, features'
-            assert data_specs[1][0] == 'features', (
-                'data_specs must include only one tuple for "features"'
-            )
+        print 'Got these data_specs:', data_specs
 
         if not hasattr(rng, 'random_integers'):
             rng = np.random.RandomState(rng)
@@ -195,48 +195,28 @@ class WiskottVideo(Dataset):
         return MultiplexingMatrixIterator(
             self._feature_matrices,
             self._label_matrices,
+            data_specs = data_specs,
             num_batches = num_batches,
             num_slices = slices_per_batch,
             slice_length = self.num_frames,
             rng = rng,
             )
-            
-        #underlying_dataspecs = (self._output_space, 'features')
-        underlying_space = Conv2DSpace((self.height, self.width),
-                                       num_channels = self.num_channels)
-        underlying_dataspecs = (underlying_space, 'features')
-
-        self._underlying_iterator = self._dense_design_matrix.iterator(
-            mode = 'random_slice',     # IMPORTANT: to return contiguous slices representing chunks of time!
-            batch_size = self.num_frames,
-            num_batches = num_batches * batch_size,
-            rng=rng,
-            data_specs=underlying_dataspecs,
-            return_tuple=False
-        )
-
-        #pdb.set_trace()
-
-        return CopyingConcatenatingIterator(
-            self._underlying_iterator,
-            num_concat = batch_size,
-            return_tuple = return_tuple
-        )
 
 
 
 class MultiplexingMatrixIterator(object):
-    '''An iterator that creates samples by randomly drawing from
-    ...
-
-    Hardcoded: sequential blocks from each matrix
-
-    TODO: write
+    '''An iterator that creates samples by randomly drawing contiguous blocks
+    of data from a number of lists, where the probability of drawing
+    from a list is proportional to the length of the list less the slice
+    length. The blocks are returned "unrolled", meaning they are stacked
+    together without adding an extra dimension. Supports 'features' and
+    'labels'.
     '''
 
     def __init__(self, list_features, list_labels,
                  num_slices, slice_length, num_batches,
-                 rng = None, return_tuple = False):
+                 data_specs,
+                 rng = None):
         '''
         num_slices: number of slices to take. Each slice is from a different
         randomly selected matrix (with replacement).
@@ -247,11 +227,6 @@ class MultiplexingMatrixIterator(object):
         choose 5 matrices and concatenate a slice of length 3 from each matrix for a
         total returned length of 15.
         '''
-        #self._underlying_iterator = underlying_iterator
-        #assert num_concat > 0, 'num_concat must be positive'
-        #self._num_concat = num_concat
-        self._return_tuple = return_tuple
-
         self.list_features = list_features
         self.list_labels   = list_labels
         assert len(list_features) == len(list_labels), 'list length mismatch'
@@ -281,36 +256,57 @@ class MultiplexingMatrixIterator(object):
             self.rng = rng
         else:
             self.rng = np.random.RandomState(rng)
+
+        # Check the data_specs
+        self.data_specs = data_specs
+        self.space,self.source = self.data_specs
+        if not isinstance(self.source, tuple):
+            self.source = (self.source,)
+        if not isinstance(self.space, CompositeSpace):
+            raise Exception('Not sure how to handle a non-CompositeSpace. Redo this part.')
+        # Create a list of references to the appropriate data given the data_specs
+        self.data_list = []
+        if len(self.source) == 0:
+            warnings.warn('Warning: null space? Perhaps indicative of some problem...')
+        for ii,src in enumerate(self.source):
+            if src not in ('features','labels'):
+                raise Exception('unknown source: %s' % src)
+            spc = self.space.components[ii]
+            if src == 'features':
+                assert isinstance(spc, Conv2DSpace)
+                assert spc.shape == WiskottVideo.video_size  # (156,156)
+                assert spc.num_channels == 1
+                self.data_list.append(self.list_features)
+            else:  # 'targets'
+                assert isinstance(spc, VectorSpace)
+                assert spc.dim in (16,29)
+                self.data_list.append(self.list_labels)
         
     def __iter__(self):
         return self
 
     def next(self):
+        ret_list = []
         for ii in xrange(self._num_slices):
             #listId = self.rng.choice(len(nFrames), 1, p = self.probabilities)[0]
             # Inefficient hack because Montreal's version of numpy is old
             list_idx = np.argwhere(self.rng.multinomial(1, self.probabilities))[0,0]
             slice_start = self.rng.randint(0, self.max_start_idxs[list_idx])
 
-            print 'TODO here: check right shape?'
-            print 'TODO here: which of {features,labels,both} do we return?'
-            #pdb.set_trace()
-            block = self.list_features[list_idx][:,:,slice_start:(slice_start+self._slice_length)]  # TODO: likely wrong!
+            for ss,data_source in enumerate(self.data_list):
+                block = data_source[list_idx][slice_start:(slice_start+self._slice_length)]
 
-            if ii == 0:
-                out = np.zeros((self._num_slices,) + block.shape,
-                               dtype = block.dtype)
-            out[ii] = block
+                if ii == 0:
+                    # Allocate memory the first time through
+                    return_shape = list(block.shape)
+                    # unroll (batch,) to (batch*num_slices)
+                    return_shape[0] = return_shape[0] * self._num_slices
+                    ret_list.append(np.zeros(return_shape,
+                                             dtype = block.dtype))
+                
+                ret_list[ss][(ii*self._slice_length):((ii+1)*self._slice_length)] = block
 
-        # Flatten out by one dimension before returning
-        print 'TODO: check dims here! Add this part!'
-        ret = out
-        #ret = reshape(out, ... DO THIS )
-
-        if self._return_tuple:
-            return (ret,)
-        else:
-            return ret
+        return tuple(ret_list)
 
     @property
     def batch_size(self):
@@ -398,17 +394,11 @@ def load_labels(path, is_fish):
 
 
 class WiskottVideo2_DEPRECATED(VideoDataset):
-
     def __init__(self, config):
         data =  WiskottVideo('train', config, quick = False)
         self.wisk = data
         self.data = (data._feature_matrices, data._label_matrices)
 
-        print 'bytes in feat : %12d' % sum([mat.nbytes for mat in self.wisk._feature_matrices])
-        print 'bytes in label: %12d' % sum([mat.nbytes for mat in self.wisk._label_matrices])
-
-        print 'TODO'
-        return
         self.space = CompositeSpace((
             Conv3DSpace(TODO),
             VectorSpace(dim = TODO)))
@@ -418,26 +408,35 @@ class WiskottVideo2_DEPRECATED(VideoDataset):
 
 
 def demo():
-    num_frames = 5
-    #height = 10
-    #width  = 10
-
     config = WiskottVideoConfig(
-        num_frames = num_frames,
-        #height = height,
-        #width  = width,
+        is_fish = True,
+        num_frames = 5,
         )
 
     wisk = WiskottVideo('train', config, quick = True)
-    #pdb.set_trace()
 
-    it = wisk.iterator()
+    if config.is_fish:
+        label_space = VectorSpace(dim = 29)
+    else:
+        label_space = VectorSpace(dim = 16)
+    space = CompositeSpace((
+        Conv2DSpace((156,156), num_channels = 1, axes = ('b', 0, 1, 'c')),
+        label_space))
+    source = ('features', 'labels')
+    data_specs = (space, source)
+
+    it = wisk.iterator(rng=0, data_specs = data_specs)
+
     example = it.next()
 
-    print 'got example of shape:', example.shape
+    print 'got example of shape: (%s)' % (
+        ', '.join([repr(ee.shape) for ee in example])
+        )
+
+    for ee in example:
+        print '  Mean of data is:', ee.mean()
     
     print 'done.'
-    pdb.set_trace()
 
 
 
