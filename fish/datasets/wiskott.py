@@ -405,8 +405,6 @@ def load_labels(path, is_fish):
         rval_start += 1
         raw_start += num_id
 
-    pdb.set_trace()
-        
     assert raw_start == raw.shape[1]
     assert rval_start == rval.shape[1]
 
