@@ -106,7 +106,7 @@ class WiskottVideo(Dataset):
         self.space = CompositeSpace((
             Conv2DSpace(self.video_size, num_channels = 1, axes = ('b', 0, 1, 'c')),
             label_space))
-        self.source = ('features', 'labels')
+        self.source = ('features', 'targets')
         self.data_specs = (self.space, self.source)
 
 
@@ -179,7 +179,9 @@ class WiskottVideo(Dataset):
         assert topo is None
         assert targets is None
 
-        assert mode is None        # TODO: later...
+        if mode is not None:
+            warnings.warn('Warnign: ignoring iterator mode of: %s' % repr(mode))
+        #assert mode is None        # TODO: later...
         #if mode is None: mode = 'shuffled_sequential'
         #assert mode in ('sequential', 'shuffled_sequential'), (
         #    'Mode must be one of: sequential, shuffled_sequential'
@@ -195,6 +197,7 @@ class WiskottVideo(Dataset):
         return MultiplexingMatrixIterator(
             self._feature_matrices,
             self._label_matrices,
+            incoming_axes = ('b', 0, 1, 'c'),
             data_specs = data_specs,
             num_batches = num_batches,
             num_slices = slices_per_batch,
@@ -210,13 +213,12 @@ class MultiplexingMatrixIterator(object):
     from a list is proportional to the length of the list less the slice
     length. The blocks are returned "unrolled", meaning they are stacked
     together without adding an extra dimension. Supports 'features' and
-    'labels'.
+    'targets'.
     '''
 
     def __init__(self, list_features, list_labels,
                  num_slices, slice_length, num_batches,
-                 data_specs,
-                 rng = None):
+                 data_specs, incoming_axes, rng = None):
         '''
         num_slices: number of slices to take. Each slice is from a different
         randomly selected matrix (with replacement).
@@ -240,7 +242,11 @@ class MultiplexingMatrixIterator(object):
                 )
         self._num_slices = num_slices
         self._slice_length = slice_length
-
+        assert incoming_axes in (('b', 0, 1, 'c'), ('c', 0, 1, 'b')), (
+            'Unsupported incoming_axes: %s' % incoming_axes
+            )        
+        self.incoming_axes = incoming_axes
+        
         # Never used except to return our num_batches
         assert num_batches > 0
         self._num_batches = num_batches
@@ -266,10 +272,11 @@ class MultiplexingMatrixIterator(object):
             raise Exception('Not sure how to handle a non-CompositeSpace. Redo this part.')
         # Create a list of references to the appropriate data given the data_specs
         self.data_list = []
+        self.transformer_list = []
         if len(self.source) == 0:
             warnings.warn('Warning: null space? Perhaps indicative of some problem...')
         for ii,src in enumerate(self.source):
-            if src not in ('features','labels'):
+            if src not in ('features','targets'):
                 raise Exception('unknown source: %s' % src)
             spc = self.space.components[ii]
             if src == 'features':
@@ -277,10 +284,15 @@ class MultiplexingMatrixIterator(object):
                 assert spc.shape == WiskottVideo.video_size  # (156,156)
                 assert spc.num_channels == 1
                 self.data_list.append(self.list_features)
+                if self.incoming_axes == ('b',0,1,'c') and spc.axes == ('c',0,1,'b'):
+                    self.transformer_list.append(lambda data : data.transpose((3,1,2,0)))
+                else:
+                    self.transformer_list.append(None)
             else:  # 'targets'
                 assert isinstance(spc, VectorSpace)
                 assert spc.dim in (16,29)
                 self.data_list.append(self.list_labels)
+                self.transformer_list.append(None)
         
     def __iter__(self):
         return self
@@ -295,7 +307,7 @@ class MultiplexingMatrixIterator(object):
 
             for ss,data_source in enumerate(self.data_list):
                 block = data_source[list_idx][slice_start:(slice_start+self._slice_length)]
-
+                
                 if ii == 0:
                     # Allocate memory the first time through
                     return_shape = list(block.shape)
@@ -305,6 +317,13 @@ class MultiplexingMatrixIterator(object):
                                              dtype = block.dtype))
                 
                 ret_list[ss][(ii*self._slice_length):((ii+1)*self._slice_length)] = block
+
+        # Reshape ('b',0,1,'c') -> ('c',0,1,'b') if necessary
+        for ss in range(len(ret_list)):
+            transformer = self.transformer_list[ss]
+            if transformer is not None:
+                print 'TRANSFORMING'
+                ret_list[ss] = transformer(ret_list[ss])
 
         return tuple(ret_list)
 
@@ -380,12 +399,14 @@ def load_labels(path, is_fish):
     rval_start = num_id
     rval[:, rval_start:rval_start + 2] = raw[:, 0:2]   # x,y
     rval_start += 2
-    for i in xrange(2 + (1 - is_fish) * 2):
+    for i in xrange(2 + (1 - is_fish) * 2):            # sin/cos cols
         #raw[:, rval_start] = (ids * raw[raw_start:raw_start+num_id]).sum(axis=1)
         rval[:,rval_start] = raw[:,raw_start]
         rval_start += 1
         raw_start += num_id
 
+    pdb.set_trace()
+        
     assert raw_start == raw.shape[1]
     assert rval_start == rval.shape[1]
 
@@ -402,7 +423,7 @@ class WiskottVideo2_DEPRECATED(VideoDataset):
         self.space = CompositeSpace((
             Conv3DSpace(TODO),
             VectorSpace(dim = TODO)))
-        self.source = ('features', 'labels')
+        self.source = ('features', 'targets')
         self.data_specs = (self.space, self.soruce)
 
 
@@ -420,9 +441,10 @@ def demo():
     else:
         label_space = VectorSpace(dim = 16)
     space = CompositeSpace((
-        Conv2DSpace((156,156), num_channels = 1, axes = ('b', 0, 1, 'c')),
+        #Conv2DSpace((156,156), num_channels = 1),
+        Conv2DSpace((156,156), num_channels = 1, axes = ('c', 0, 1, 'b')),
         label_space))
-    source = ('features', 'labels')
+    source = ('features', 'targets')
     data_specs = (space, source)
 
     it = wisk.iterator(rng=0, data_specs = data_specs)
