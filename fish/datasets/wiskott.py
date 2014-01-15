@@ -247,9 +247,9 @@ class MultiplexingMatrixIterator(object):
             )        
         self.incoming_axes = incoming_axes
         
-        # Never used except to return our num_batches
         assert num_batches > 0
         self._num_batches = num_batches
+        self._returned_batches = 0
         
         # Compute max starting indices and probability for all lists
         self.max_start_idxs = [mm.shape[0] - self._slice_length for mm in self.list_features]
@@ -298,6 +298,11 @@ class MultiplexingMatrixIterator(object):
         return self
 
     def next(self):
+        if self._returned_batches >= self._num_batches:
+            raise StopIteration
+        else:
+            self._returned_batches += 1
+
         ret_list = []
         for ii in xrange(self._num_slices):
             #listId = self.rng.choice(len(nFrames), 1, p = self.probabilities)[0]
@@ -322,7 +327,7 @@ class MultiplexingMatrixIterator(object):
         for ss in range(len(ret_list)):
             transformer = self.transformer_list[ss]
             if transformer is not None:
-                print 'TRANSFORMING'
+                #print 'TRANSFORMING (call %d)' % self._returned_batches
                 ret_list[ss] = transformer(ret_list[ss])
 
         return tuple(ret_list)

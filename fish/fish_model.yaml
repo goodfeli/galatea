@@ -5,7 +5,8 @@
 !obj:pylearn2.train.Train {
     dataset: &train_dataset !obj:fish.datasets.wiskott.WiskottVideo {
         which_set: 'train',   # train/valid/test just have different seeds
-        
+        quick: &enable_quick_mode True,
+
         config: &dataset_config !obj:fish.datasets.wiskott.WiskottVideoConfig {
             is_fish: True,
             num_frames: 3,
@@ -13,13 +14,13 @@
     },
 
     model: !obj:pylearn2.models.mlp.MLP {
-        batch_size: 32,
+        batch_size: 6,   # Must be a multiple of num_frames!
 
         input_space: !obj:pylearn2.space.Conv2DSpace {
             shape: [156, 156],
             num_channels: 1,
             axes: ['c', 0, 1, 'b']
-        }
+        },
 
         layers: [
             !obj:pylearn2.models.mlp.ConvRectifiedLinear {
@@ -61,13 +62,12 @@
                 irange: .5,
             },
             !obj:pylearn2.models.mlp.Sigmoid {
-                dim: *rep_dim,
-                layer_name: 'up_2',
-                # 4 * sqrt(6. ./ (num_hidden + num_visible))
-                #irange: 0.565   #4 * sqrt(6. ./ (200 + 100)
-                irange: .3,      # good value found with CV
+                dim: 29,    # Replace this with something smarter to output 25 units softmax + 4 sigmoid...
+                layer_name: 'hout',
+                irange: .5,
             },
-        ]
+        ],
+    },
 
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         learning_rate : .5,
@@ -77,18 +77,19 @@
         },
 
         # Each gradient step will be based on this many examples
-        batch_size : 32,
+        #batch_size : 48,
 
         # Batches in one epoch
-        batches_per_iter : 20,
+        batches_per_iter : 4,
 
-        monitoring_batches : 10,
+        monitoring_batches : 2,
 
         monitoring_dataset : {
             'train': *train_dataset,
             'valid': &valid_dataset !obj:fish.datasets.wiskott.WiskottVideo {
                 which_set: 'valid',
-                config: *dataset_config   # Make sure config is the same as above
+                config: *dataset_config,   # Make sure config is the same as above
+                quick: *enable_quick_mode
             }
         },
 
@@ -110,6 +111,7 @@
             max_epochs: 5,
         },
 
-        },
+    },
+
     save_freq : 50
 }
