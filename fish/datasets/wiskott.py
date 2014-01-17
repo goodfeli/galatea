@@ -202,6 +202,7 @@ class WiskottVideo(Dataset):
             num_batches = num_batches,
             num_slices = slices_per_batch,
             slice_length = self.num_frames,
+            cast_to_floatX = True,
             rng = rng,
             )
 
@@ -218,7 +219,8 @@ class MultiplexingMatrixIterator(object):
 
     def __init__(self, list_features, list_labels,
                  num_slices, slice_length, num_batches,
-                 data_specs, incoming_axes, rng = None):
+                 data_specs, incoming_axes, cast_to_floatX,
+                 rng = None):
         '''
         num_slices: number of slices to take. Each slice is from a different
         randomly selected matrix (with replacement).
@@ -250,6 +252,7 @@ class MultiplexingMatrixIterator(object):
         assert num_batches > 0
         self._num_batches = num_batches
         self._returned_batches = 0
+        self.cast_to_floatX = cast_to_floatX
         
         # Compute max starting indices and probability for all lists
         self.max_start_idxs = [mm.shape[0] - self._slice_length for mm in self.list_features]
@@ -318,8 +321,8 @@ class MultiplexingMatrixIterator(object):
                     return_shape = list(block.shape)
                     # unroll (batch,) to (batch*num_slices)
                     return_shape[0] = return_shape[0] * self._num_slices
-                    ret_list.append(np.zeros(return_shape,
-                                             dtype = block.dtype))
+                    dtype = theano.config.floatX if self.cast_to_floatX else block.dtype
+                    ret_list.append(np.zeros(return_shape, dtype = dtype))
                 
                 ret_list[ss][(ii*self._slice_length):((ii+1)*self._slice_length)] = block
 
