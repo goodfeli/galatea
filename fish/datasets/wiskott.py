@@ -35,6 +35,7 @@ class WiskottVideoConfig(object):
         self.is_fish = is_fish
         assert isinstance(axes, tuple), 'axes must be a tuple'
         self.axes = axes
+
         assert num_frames > 0, 'num_frames must be positive'
         self.num_frames = num_frames
         assert num_channels == 1, 'only 1 channel is supported for now'
@@ -90,6 +91,13 @@ class WiskottVideo(Dataset):
         #   Example: self._label_matrices[0].shape: (200, 29)
         self._label_matrices = self._load_data(dirs, label_regex, is_labels=True)
 
+        if self.is_fish:
+            self._target_1_matrices = [np.array(lm[:,:25]) for lm in self._label_matrices]
+            self._target_2_matrices = [np.array(lm[:,25:29]) for lm in self._label_matrices]
+        else:
+            self._target_1_matrices = [np.array(lm[:,:10]) for lm in self._label_matrices]
+            self._target_2_matrices = [np.array(lm[:,10:16]) for lm in self._label_matrices]
+        
         assert len(self._feature_matrices) == len(self._label_matrices)
         self._n_matrices = len(self._feature_matrices)
 
@@ -99,14 +107,24 @@ class WiskottVideo(Dataset):
             )
 
         if self.is_fish:
-            label_space = VectorSpace(dim = 29)
+            #label_space = VectorSpace(dim = 29)
+            label_space = CompositeSpace((
+                VectorSpace(dim = 25),
+                VectorSpace(dim = 4),
+            ))
         else:
-            label_space = VectorSpace(dim = 16)  # for spheres
+            # spheres
+            #label_space = VectorSpace(dim = 16)
+            label_space = CompositeSpace((
+                VectorSpace(dim = 10),
+                VectorSpace(dim = 6),
+            ))
 
         self.space = CompositeSpace((
             Conv2DSpace(self.video_size, num_channels = 1, axes = ('b', 0, 1, 'c')),
             label_space))
-        self.source = ('features', 'targets')
+        #self.source = ('features', 'targets')
+        self.source = ('features', ('targets1', 'targets2'))
         self.data_specs = (self.space, self.source)
 
 
@@ -189,14 +207,17 @@ class WiskottVideo(Dataset):
         #if mode != 'shuffled_sequential':
         #    warnings.warn('billiard dataset returning its only supported iterator type -- shuffled -- despite the request to the contrary')
 
-        print 'Got these data_specs:', data_specs
+        #print 'Got these data_specs:', data_specs
+
+        #pdb.set_trace()
 
         if not hasattr(rng, 'random_integers'):
             rng = np.random.RandomState(rng)
 
         return MultiplexingMatrixIterator(
             self._feature_matrices,
-            self._label_matrices,
+            self._target_1_matrices,
+            self._target_2_matrices,
             incoming_axes = ('b', 0, 1, 'c'),
             data_specs = data_specs,
             num_batches = num_batches,
@@ -217,7 +238,7 @@ class MultiplexingMatrixIterator(object):
     'targets'.
     '''
 
-    def __init__(self, list_features, list_labels,
+    def __init__(self, list_features, list_targets_1, list_targets_2,
                  num_slices, slice_length, num_batches,
                  data_specs, incoming_axes, cast_to_floatX,
                  rng = None):
@@ -232,16 +253,19 @@ class MultiplexingMatrixIterator(object):
         total returned length of 15.
         '''
         self.list_features = list_features
-        self.list_labels   = list_labels
-        assert len(list_features) == len(list_labels), 'list length mismatch'
+        self.list_targets_1 = list_targets_1
+        self.list_targets_2 = list_targets_2
+        assert len(list_features) == len(list_targets_1), 'list length mismatch'
+        assert len(list_features) == len(list_targets_2), 'list length mismatch'
         self.n_lists = len(list_features)
         assert num_slices > 0
         assert slice_length > 0
-        for m1,m2 in zip(self.list_features, self.list_labels):
-            assert m1.shape[0] == m2.shape[0], 'matrix leading dimensions must match'
-            assert m1.shape[0] >= slice_length, (
-                'matrix of size (%d,...) not long enough for slice of length %d' % (m1.shape[0], slice_length)
-                )
+        for target_list in (self.list_targets_1, self.list_targets_2):
+            for m1,m2 in zip(self.list_features, target_list):
+                assert m1.shape[0] == m2.shape[0], 'matrix leading dimensions must match'
+                assert m1.shape[0] >= slice_length, (
+                    'matrix of size (%d,...) not long enough for slice of length %d' % (m1.shape[0], slice_length)
+                    )
         self._num_slices = num_slices
         self._slice_length = slice_length
         assert incoming_axes in (('b', 0, 1, 'c'), ('c', 0, 1, 'b')), (
@@ -279,7 +303,7 @@ class MultiplexingMatrixIterator(object):
         if len(self.source) == 0:
             warnings.warn('Warning: null space? Perhaps indicative of some problem...')
         for ii,src in enumerate(self.source):
-            if src not in ('features','targets'):
+            if src not in ('features','targets1','targets2'):
                 raise Exception('unknown source: %s' % src)
             spc = self.space.components[ii]
             if src == 'features':
@@ -291,11 +315,14 @@ class MultiplexingMatrixIterator(object):
                     self.transformer_list.append(lambda data : data.transpose((3,1,2,0)))
                 else:
                     self.transformer_list.append(None)
-            else:  # 'targets'
-                assert isinstance(spc, VectorSpace)
-                assert spc.dim in (16,29)
-                self.data_list.append(self.list_labels)
+            elif src == 'targets1':  # 'targets2'
+                self.data_list.append(self.list_targets_1)
                 self.transformer_list.append(None)
+            elif src == 'targets2':  # 'targets2'
+                self.data_list.append(self.list_targets_2)
+                self.transformer_list.append(None)
+            else:
+                raise Exception('logic error')
         
     def __iter__(self):
         return self
@@ -443,7 +470,11 @@ def demo():
     wisk = WiskottVideo('train', config, quick = True)
 
     if config.is_fish:
-        label_space = VectorSpace(dim = 29)
+        #label_space = VectorSpace(dim = 29)
+        label_space = CompositeSpace((
+            VectorSpace(dim = 25),
+            VectorSpace(dim = 4),
+            ))
     else:
         label_space = VectorSpace(dim = 16)
     space = CompositeSpace((

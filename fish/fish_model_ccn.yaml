@@ -13,7 +13,8 @@
         }
     },
 
-    model: !obj:pylearn2.models.mlp.MLP {
+    #model: !obj:pylearn2.models.mlp.MLP {
+    model: !obj:fish.fish_model.FishMLP {         # In Galatea repo
         batch_size: 6,   # Must be a multiple of num_frames!
 
         input_space: !obj:pylearn2.space.Conv2DSpace {
@@ -109,11 +110,24 @@
                 layer_name: 'h0',
                 irange: .5,
             },
-            !obj:pylearn2.models.mlp.Sigmoid {
-                dim: 29,    # Replace this with something smarter to output 25 units softmax + 4 sigmoid...
+
+            !obj:pylearn2.models.mlp.CompositeLayer {
                 layer_name: 'hout',
-                irange: .5,
+                layers: [
+                    !obj:pylearn2.models.mlp.Softmax {
+                        layer_name: 'hout_id',
+                        max_col_norm: 1.0,
+                        n_classes: 25,
+                        irange: .005
+                    },
+                    !obj:pylearn2.models.mlp.Sigmoid {
+                        layer_name: 'hout_xysincos',
+                        dim: 4,
+                        irange: .5,
+                    },
+                ]
             },
+
         ],
     },
 
