@@ -161,6 +161,7 @@ class WiskottVideo(Dataset):
         print 'Loading data from %d files:      ' % len(filenames),
         
         matrices = []
+        n_files = len(filenames)
         for ii, filename in enumerate(filenames):
             if is_labels:
                 assert ('fish' in filename) or ('spheres' in filename), 'Not sure if fish or spheres.'
@@ -174,8 +175,9 @@ class WiskottVideo(Dataset):
                 # Add dimension for channels
                 mat = np.reshape(mat, mat.shape + (1,))        # e.g. (201,156,156,1)
                 matrices.append(mat)
-            print '\b\b\b\b\b\b%5d' % (ii+1),
-            sys.stdout.flush()
+            if (ii+1) % 10 == 0 or ii == (n_files-1):
+                print '\b\b\b\b\b\b%5d' % (ii+1),
+                sys.stdout.flush()
         print
         return matrices
 
@@ -198,7 +200,7 @@ class WiskottVideo(Dataset):
         assert targets is None
 
         if mode is not None:
-            warnings.warn('Warnign: ignoring iterator mode of: %s' % repr(mode))
+            warnings.warn('Ignoring iterator mode of: %s' % repr(mode))
         #assert mode is None        # TODO: later...
         #if mode is None: mode = 'shuffled_sequential'
         #assert mode in ('sequential', 'shuffled_sequential'), (
@@ -283,7 +285,7 @@ class MultiplexingMatrixIterator(object):
         probs = [mm+1 for mm in self.max_start_idxs]  # proportional to number of possible windows
         self.probabilities = np.array(probs, dtype=float)
         self.probabilities /= float(sum(self.probabilities))
-        assert sum(self.probabilities) == 1.0
+        assert abs(1-sum(self.probabilities)) < 1e-10
         
         if hasattr(rng, 'random_integers'):
             self.rng = rng
@@ -495,7 +497,8 @@ def demo():
     for ee in example:
         print '  Mean of data is:', ee.mean()
     
-    print 'done.'
+    print 'done, dropping into debugger (q to quit).'
+    pdb.set_trace()
 
 
 

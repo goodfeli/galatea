@@ -5,7 +5,7 @@
 !obj:pylearn2.train.Train {
     dataset: &train_dataset !obj:fish.datasets.wiskott.WiskottVideo {
         which_set: 'train',   # train/valid/test just have different seeds
-        quick: &enable_quick_mode True,
+        quick: &enable_quick_mode False,
 
         config: &dataset_config !obj:fish.datasets.wiskott.WiskottVideoConfig {
             is_fish: True,
@@ -15,7 +15,7 @@
 
     #model: !obj:pylearn2.models.mlp.MLP {
     model: !obj:fish.fish_model.FishMLP {         # In Galatea repo
-        batch_size: 6,   # Must be a multiple of num_frames!
+        batch_size: 60,   # Must be a multiple of num_frames!
 
         input_space: !obj:pylearn2.space.Conv2DSpace {
             shape: [156, 156],
@@ -24,17 +24,6 @@
         },
 
         layers: [
-            #!obj:pylearn2.models.mlp.ConvRectifiedLinear {
-            #    layer_name: 'c0',     # (1,154,154) -> (16,50,60)
-            #    kernel_shape: [5, 5],
-            #    pool_shape: [3, 3],
-            #    pool_stride: [3, 3],
-            #    output_channels: 16,
-            #    irange: .05,
-            #    # Rather than using weight decay, we constrain the norms of the convolution kernels
-            #    # to be at most this value
-            #    max_kernel_norm: .9
-            #},
             !obj:pylearn2.models.maxout.MaxoutConvC01B {
                 layer_name: 'c0',     # (1,154,154) -> (16,50,60)
                 tied_b: 1,
@@ -50,18 +39,6 @@
                 max_kernel_norm: .9,
                 #partial_sum: 33,
             },
-
-            #!obj:pylearn2.models.mlp.ConvRectifiedLinear {
-            #    layer_name: 'c1',     # (16,50,60) -> (32,28,28)
-            #    kernel_shape: [5, 5],
-            #    pool_shape: [2, 2],
-            #    pool_stride: [2, 2],
-            #    output_channels: 32,
-            #    irange: .05,
-            #    # Rather than using weight decay, we constrain the norms of the convolution kernels
-            #    # to be at most this value
-            #    max_kernel_norm: .9
-            #},
             !obj:pylearn2.models.maxout.MaxoutConvC01B {
                 layer_name: 'c1',     # (16,50,60) -> (32,28,28)
                 tied_b: 1,
@@ -77,18 +54,6 @@
                 max_kernel_norm: .9,
                 #partial_sum: 33,
             },
-
-            #!obj:pylearn2.models.mlp.ConvRectifiedLinear {
-            #    layer_name: 'c2',     # (32,28,28) -> (32,8,8)
-            #    kernel_shape: [5, 5],
-            #    pool_shape: [3, 3],
-            #    pool_stride: [3, 3],
-            #    output_channels: 32,
-            #    irange: .05,
-            #    # Rather than using weight decay, we constrain the norms of the convolution kernels
-            #    # to be at most this value
-            #    max_kernel_norm: .9
-            #},
             !obj:pylearn2.models.maxout.MaxoutConvC01B {
                 layer_name: 'c2',     # (32,28,28) -> (32,8,8)
                 tied_b: 1,
@@ -142,9 +107,9 @@
         #batch_size : 48,
 
         # Batches in one epoch
-        batches_per_iter : 4,
+        batches_per_iter : 200,
 
-        monitoring_batches : 2,
+        monitoring_batches : 20,
 
         monitoring_dataset : {
             'train': *train_dataset,
@@ -160,20 +125,11 @@
         #cost : !obj:pylearn2.costs.cost_pred_net.PredNetCostMLP {
         #},
 
-        # We'll use the monitoring dataset to figure out when to stop training.
-        #
-        # In this case, we stop if there is less than a 1% decrease in the
-        # training error in the last epoch.  You'll notice that the learned
-        # features are a bit noisy. If you'd like nice smooth features you can
-        # make this criterion stricter so that the model will train for longer.
-        # (setting N to 10 should make the weights prettier, but will make it
-        # run a lot longer)
-
         termination_criterion : !obj:pylearn2.termination_criteria.EpochCounter {
-            max_epochs: 5,
+            max_epochs: 100,
         },
 
     },
 
-    save_freq : 50
+    save_freq : 5
 }
