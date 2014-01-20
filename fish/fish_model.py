@@ -1,7 +1,4 @@
-'''
-Convnet PredNets, denoising autoencoders, and stacked DAEs.
-'''
-
+#! /usr/bin/env python
 
 # Standard library imports
 #import functools
