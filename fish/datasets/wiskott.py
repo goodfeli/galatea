@@ -3,6 +3,7 @@
 import functools
 import warnings
 import sys, os, logging
+import hashlib
 import glob
 _logger = logging.getLogger(__name__)
 
@@ -29,7 +30,8 @@ class WiskottVideoConfig(object):
     def __init__(self, is_fish, axes = ('c', 0, 1, 'b'),
                  num_frames = 3,
                  #height = 32, width = 32,
-                 num_channels = 1):
+                 num_channels = 1,
+                 trim = 0):
         # Arbitrary choice: we do the validation here, not in WiskottVideo
         assert isinstance(is_fish, bool), 'is_fish must be a bool'
         self.is_fish = is_fish
@@ -40,6 +42,8 @@ class WiskottVideoConfig(object):
         self.num_frames = num_frames
         assert num_channels == 1, 'only 1 channel is supported for now'
         self.num_channels = num_channels
+        assert trim >= 0, 'trim must be non-negative'
+        self.trim = trim
 
 
 
@@ -48,7 +52,7 @@ class WiskottVideo(Dataset):
     Feature Analysis"
     '''
 
-    video_size = (156,156)
+    raw_video_size = (156,156)
 
     _default_seed = (17, 2, 946)
 
@@ -75,6 +79,11 @@ class WiskottVideo(Dataset):
         self.num_frames      = config.num_frames
         self.num_channels    = config.num_channels
         self.is_fish         = config.is_fish
+        self.trim            = config.trim
+
+        self.video_size = tuple([dd-2*self.trim for dd in self.raw_video_size])
+        for dd in self.video_size:
+            assert dd > 0, 'too much trimming'
 
         # Load data into memory
         feature_regex = 'seq_0[0-9][0-9][0-9].zip.npy'
@@ -187,6 +196,13 @@ class WiskottVideo(Dataset):
                  topo=None, targets=None, rng=None, data_specs=None,
                  return_tuple=False, ignore_data_specs=False):
 
+        #print 'Getting new iterator for %s dataset' % self.which_set
+        #print '   rng passed is:', rng
+
+        if self.which_set in ('valid', 'test') and rng is None:
+            # valid and test sets should not be stochastic unless explicitly requested
+            rng = np.random.RandomState(self._default_seed)
+
         # The batch_size contains the "unrolled" size, since we're returning a Conv2DSpace.
         if batch_size is None: batch_size = 10 * self.num_frames
         if num_batches is None: num_batches = 20
@@ -226,7 +242,10 @@ class WiskottVideo(Dataset):
             num_slices = slices_per_batch,
             slice_length = self.num_frames,
             cast_to_floatX = True,
+            trim = self.trim,
+            video_size = self.video_size,
             rng = rng,
+            descrip = '%s set' % self.which_set,
             )
 
 
@@ -243,7 +262,8 @@ class MultiplexingMatrixIterator(object):
     def __init__(self, list_features, list_targets_1, list_targets_2,
                  num_slices, slice_length, num_batches,
                  data_specs, incoming_axes, cast_to_floatX,
-                 rng = None):
+                 trim, video_size,
+                 rng = None, descrip = ''):
         '''
         num_slices: number of slices to take. Each slice is from a different
         randomly selected matrix (with replacement).
@@ -279,6 +299,9 @@ class MultiplexingMatrixIterator(object):
         self._num_batches = num_batches
         self._returned_batches = 0
         self.cast_to_floatX = cast_to_floatX
+        self.trim = trim
+        self.video_size = video_size
+        self.descrip = descrip
         
         # Compute max starting indices and probability for all lists
         self.max_start_idxs = [mm.shape[0] - self._slice_length for mm in self.list_features]
@@ -301,6 +324,7 @@ class MultiplexingMatrixIterator(object):
             raise Exception('Not sure how to handle a non-CompositeSpace. Redo this part.')
         # Create a list of references to the appropriate data given the data_specs
         self.data_list = []
+        self.block_transformer_list = []
         self.transformer_list = []
         if len(self.source) == 0:
             warnings.warn('Warning: null space? Perhaps indicative of some problem...')
@@ -310,18 +334,21 @@ class MultiplexingMatrixIterator(object):
             spc = self.space.components[ii]
             if src == 'features':
                 assert isinstance(spc, Conv2DSpace)
-                assert spc.shape == WiskottVideo.video_size  # (156,156)
+                assert spc.shape == self.video_size  # (156,156) or smaller after trimming
                 assert spc.num_channels == 1
                 self.data_list.append(self.list_features)
+                self.block_transformer_list.append(lambda block: block[:,self.trim:block.shape[1]-self.trim,self.trim:block.shape[2]-self.trim])
                 if self.incoming_axes == ('b',0,1,'c') and spc.axes == ('c',0,1,'b'):
                     self.transformer_list.append(lambda data : data.transpose((3,1,2,0)))
                 else:
                     self.transformer_list.append(None)
             elif src == 'targets1':  # 'targets2'
                 self.data_list.append(self.list_targets_1)
+                self.block_transformer_list.append(None)
                 self.transformer_list.append(None)
             elif src == 'targets2':  # 'targets2'
                 self.data_list.append(self.list_targets_2)
+                self.block_transformer_list.append(None)
                 self.transformer_list.append(None)
             else:
                 raise Exception('logic error')
@@ -344,7 +371,11 @@ class MultiplexingMatrixIterator(object):
 
             for ss,data_source in enumerate(self.data_list):
                 block = data_source[list_idx][slice_start:(slice_start+self._slice_length)]
-                
+
+                block_transformer = self.block_transformer_list[ss]
+                if block_transformer is not None:
+                    block = block_transformer(block)       # e.g. to trim block
+
                 if ii == 0:
                     # Allocate memory the first time through
                     return_shape = list(block.shape)
@@ -362,6 +393,9 @@ class MultiplexingMatrixIterator(object):
                 #print 'TRANSFORMING (call %d)' % self._returned_batches
                 ret_list[ss] = transformer(ret_list[ss])
 
+        #print 'returning data %s: (%s)' % (('(%s)' % self.descrip) if self.descrip else '', ','.join([hashof(dd)[:6] for dd in ret_list]))
+        #pdb.set_trace()
+                
         return tuple(ret_list)
 
     @property
@@ -449,6 +483,13 @@ def load_labels(path, is_fish):
 
 
 
+def hashof(obj):
+    hashAlg = hashlib.sha1()
+    hashAlg.update(obj)
+    return hashAlg.hexdigest()
+
+
+
 class WiskottVideo2_DEPRECATED(VideoDataset):
     def __init__(self, config):
         data =  WiskottVideo('train', config, quick = False)
@@ -464,6 +505,8 @@ class WiskottVideo2_DEPRECATED(VideoDataset):
 
 
 def demo():
+    from fish.util import imagesc
+    
     config = WiskottVideoConfig(
         is_fish = True,
         num_frames = 5,
@@ -471,24 +514,27 @@ def demo():
 
     wisk = WiskottVideo('train', config, quick = True)
 
+    feature_space = Conv2DSpace((156,156), num_channels = 1, axes = ('c', 0, 1, 'b'))
     if config.is_fish:
-        #label_space = VectorSpace(dim = 29)
-        label_space = CompositeSpace((
+        space = CompositeSpace((
+            feature_space,
             VectorSpace(dim = 25),
-            VectorSpace(dim = 4),
+            VectorSpace(dim = 4)
             ))
     else:
-        label_space = VectorSpace(dim = 16)
-    space = CompositeSpace((
-        #Conv2DSpace((156,156), num_channels = 1),
-        Conv2DSpace((156,156), num_channels = 1, axes = ('c', 0, 1, 'b')),
-        label_space))
-    source = ('features', 'targets')
+        space = CompositeSpace((
+            feature_space,
+            VectorSpace(dim = 10),
+            VectorSpace(dim = 6)
+            ))
+    source = ('features', 'targets1', 'targets2')
     data_specs = (space, source)
 
-    it = wisk.iterator(rng=0, data_specs = data_specs)
+    it = wisk.iterator(rng=0, data_specs = data_specs,
+                       batch_size = 500)
 
     example = it.next()
+    dat,ids,xy = example
 
     print 'got example of shape: (%s)' % (
         ', '.join([repr(ee.shape) for ee in example])
@@ -496,7 +542,7 @@ def demo():
 
     for ee in example:
         print '  Mean of data is:', ee.mean()
-    
+        
     print 'done, dropping into debugger (q to quit).'
     pdb.set_trace()
 
