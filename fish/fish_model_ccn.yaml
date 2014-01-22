@@ -190,10 +190,10 @@
         },
         !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
             start: 1,
-            saturate: 500,
+            saturate: 100,
             decay_factor: .01
         }
     ],
 
-    save_freq : 5
+    save_freq : 10
 }
