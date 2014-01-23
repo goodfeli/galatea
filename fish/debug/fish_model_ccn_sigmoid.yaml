@@ -1,0 +1,199 @@
+#
+# JBY: from tutorial yaml
+#
+
+!obj:pylearn2.train.Train {
+    dataset: &train_dataset !obj:fish.datasets.wiskott.WiskottVideo {
+        which_set: 'train',   # train/valid/test just have different seeds
+        quick: &enable_quick_mode True,
+
+        config: &dataset_config !obj:fish.datasets.wiskott.WiskottVideoConfig {
+            is_fish: True,
+            num_frames: 3,
+            trim: 1,     # (156,156) -> (154,154)
+        }
+    },
+
+    #model: !obj:pylearn2.models.mlp.MLP {
+    model: !obj:fish.fish_model.FishMLP {         # In Galatea repo
+        batch_size: 60,   # Must be a multiple of num_frames!
+
+        input_space: !obj:pylearn2.space.Conv2DSpace {
+            shape: [154, 154],
+            num_channels: 1,
+            axes: ['c', 0, 1, 'b']
+        },
+
+        layers: [
+            !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                layer_name: 'c0',
+                tied_b: 1,
+                W_lr_scale: .05,
+                b_lr_scale: .05,
+                num_channels: 64,
+                num_pieces: 1,
+                min_zero: True,
+
+                # (1,156,156) -> (64,37,37)            (156-11+1 +0*2)/4+1   =  37.500
+                kernel_shape: [11, 11],
+                kernel_stride: [4, 4],
+                # 37 -> 18                             (37-3)/2+1 = 18
+                pool_shape: [3, 3],
+                pool_stride: [2, 2],
+
+                irange: .005,
+                max_kernel_norm: .9,
+                #partial_sum: 33,
+            },
+            !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                layer_name: 'c1',
+                tied_b: 1,
+                W_lr_scale: .05,
+                b_lr_scale: .05,
+                num_channels: 128,
+                num_pieces: 1,
+                min_zero: True,
+
+                # (64,18,18) -> (128,18,18)
+                pad: 2,
+                kernel_shape: [5, 5],
+                # 18 -> 8                         (18-3)/2+1 = 8.5000
+                pool_shape: [3, 3],
+                pool_stride: [2, 2],
+
+                irange: .005,
+                max_kernel_norm: .9,
+                #partial_sum: 33,
+            },
+            !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                layer_name: 'c2',
+                tied_b: 1,
+                W_lr_scale: .05,
+                b_lr_scale: .05,
+                num_channels: 192,
+                num_pieces: 1,
+                min_zero: True,
+
+                # (128,8,8) -> (192,8,8)
+                pad: 1,
+                kernel_shape: [3, 3],
+                # <no pooling>
+                pool_shape: [1, 1],
+                pool_stride: [1, 1],
+
+                irange: .005,
+                max_kernel_norm: .9,
+                #partial_sum: 33,
+            },
+
+            !obj:pylearn2.models.maxout.MaxoutConvC01B {
+                layer_name: 'c3',
+                tied_b: 1,
+                W_lr_scale: .05,
+                b_lr_scale: .05,
+                num_channels: 192,
+                num_pieces: 1,
+                min_zero: True,
+
+                # (192,8,8) -> (192,8,8)
+                pad: 1,
+                kernel_shape: [3, 3],
+                # 8 -> 3                          (8-3)/2+1
+                pool_shape: [3, 3],
+                pool_stride: [2, 2],
+
+                irange: .005,
+                max_kernel_norm: .9,
+                #partial_sum: 33,
+            },
+
+            !obj:pylearn2.models.mlp.RectifiedLinear {
+                layer_name: 'h0',
+                dim: 500,
+                irange: .05,
+                # Rather than using weight decay, we constrain the norms of the weight vectors
+                max_col_norm: 2.
+            },
+
+            !obj:pylearn2.models.mlp.RectifiedLinear {
+                layer_name: 'h1',
+                dim: 500,
+                irange: .05,
+                # Rather than using weight decay, we constrain the norms of the weight vectors
+                max_col_norm: 2.
+            },
+
+            !obj:pylearn2.models.mlp.CompositeLayer {
+                layer_name: 'hout',
+                layers: [
+                    !obj:pylearn2.models.mlp.Softmax {
+                        layer_name: 'hout_id',
+                        max_col_norm: 1.0,
+                        n_classes: 25,
+                        irange: .005
+                    },
+                    !obj:pylearn2.models.mlp.Sigmoid {
+                        layer_name: 'hout_xysincos',
+                        dim: 4,
+                        irange: .5,
+                    },
+                ]
+            },
+
+        ],
+    },
+
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        learning_rate : .2,
+
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: .5,
+        },
+
+        # Each gradient step will be based on this many examples
+        #batch_size : 48,
+
+        # Batches in one epoch
+        batches_per_iter : 200,
+
+        monitoring_batches : 20,
+
+        monitoring_dataset : {
+            'train': *train_dataset,
+            'valid': &valid_dataset !obj:fish.datasets.wiskott.WiskottVideo {
+                which_set: 'valid',
+                config: *dataset_config,   # Make sure config is the same as above
+                quick: *enable_quick_mode
+            }
+        },
+
+        monitor_iteration_mode : 'shuffled_sequential',  # ...currently ignored anyway...
+
+        #cost : !obj:pylearn2.costs.cost_pred_net.PredNetCostMLP {
+        #},
+
+        termination_criterion : !obj:pylearn2.termination_criteria.EpochCounter {
+            max_epochs: 100,
+        },
+
+    },
+
+    extensions: [
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_objective',
+             save_path: "model_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.learning_rule.MomentumAdjustor {
+            start: 1,
+            saturate: 50,
+            final_momentum: .9
+        },
+        !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
+            start: 1,
+            saturate: 100,
+            decay_factor: .01
+        }
+    ],
+
+    save_freq : 10
+}
