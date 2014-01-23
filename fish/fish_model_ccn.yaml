@@ -132,10 +132,10 @@
                         n_classes: 25,
                         irange: .005
                     },
-                    !obj:pylearn2.models.mlp.Sigmoid {
+                    !obj:pylearn2.models.mlp.Linear {
                         layer_name: 'hout_xysincos',
                         dim: 4,
-                        irange: .5,
+                        irange: .005,
                     },
                 ]
             },
@@ -173,7 +173,7 @@
         #},
 
         termination_criterion : !obj:pylearn2.termination_criteria.EpochCounter {
-            max_epochs: 100,
+            max_epochs: 300,
         },
 
     },
@@ -190,7 +190,7 @@
         },
         !obj:pylearn2.training_algorithms.sgd.LinearDecayOverEpoch {
             start: 1,
-            saturate: 100,
+            saturate: 300,
             decay_factor: .01
         }
     ],
