@@ -83,33 +83,35 @@ def main():
     space_tuple = mapping.flatten(data_specs[0], return_tuple=True)
     source_tuple = mapping.flatten(data_specs[1], return_tuple=True)
     flat_data_specs = (CompositeSpace(space_tuple), source_tuple)
+
+    num_frames = model.num_frames
+    num_batches = 100
+    batch_size = train.algorithm.batch_size if train.algorithm.batch_size else 20*num_frames
     
     train_dataset = train.dataset
     valid_dataset = train.algorithm.monitoring_dataset['valid']
-
+    
     rng = train.algorithm.rng
     if not is_stochastic(train.algorithm.train_iteration_mode):
         rng = None
     
     train_iterator = train_dataset.iterator(mode = train.algorithm.train_iteration_mode,
-                                            batch_size = train.algorithm.batch_size,
+                                            batch_size = batch_size,
                                             data_specs = flat_data_specs,
                                             return_tuple = True, rng=rng,
-                                            num_batches = train.algorithm.batches_per_iter)
+                                            num_batches = num_batches * 10)
     valid_iterator = valid_dataset.iterator(mode = train.algorithm.train_iteration_mode,
-                                            batch_size = train.algorithm.batch_size,
+                                            batch_size = batch_size,
                                             data_specs = flat_data_specs,
                                             return_tuple = True,  # No rng override
-                                            num_batches = train.algorithm.batches_per_iter)
+                                            num_batches = num_batches * 10)
 
-    train_batches = [train_iterator.next() for ii in range(10)]
-    valid_batches = [valid_iterator.next() for ii in range(10)]
+    train_batches = [train_iterator.next() for ii in range(num_batches)]
+    valid_batches = [valid_iterator.next() for ii in range(num_batches)]
 
     print 'got batches with shape:'
     for dat in train_batches[0]:
         print '  ', dat.shape
-
-
 
 
 
@@ -127,18 +129,44 @@ def main():
     
     plot(x_vals, ch_train_objective.val_record, 'b-')
     plot(x_vals, ch_valid_objective.val_record, 'r-')
+    legend(('train', 'valid'))
 
     if args.save:
         savefig(os.path.join(result_dir, 'costs_lin.png'))
         savefig(os.path.join(result_dir, 'costs_lin.pdf'))
-    gca().set_yscale('log')
     if args.save:
+        gca().set_yscale('log')
         savefig(os.path.join(result_dir, 'costs_log.png'))
         savefig(os.path.join(result_dir, 'costs_log.pdf'))
-        #gca().set_yscale('linear')
+        gca().set_yscale('linear')
 
 
 
+        
+
+    #########################
+    # Compute some accuracies
+    #########################
+
+    n_correct = 0
+    n_total = 0
+    for bb,batch in enumerate(train_batches):
+        feat,ids,xy = batch
+        ids_hat,xy_hat = model.fns.feat_to_idxy(feat)
+
+        idx_true = np.where( ids == 1 )[1]
+        idx_hat = np.where(np.sign(ids_hat.T - ids_hat.max(1)).T + 1)[1]
+        n_correct += (idx_true == idx_hat).sum()
+        n_total += len(idx_true)
+    print 'Class ID accuracy:', float(n_correct)/n_total
+
+        
+        #batch_size = ids.shape[0]
+        #for ii in xrange(batch_size):
+        #    idx_true = np.where(ids[ii,:])[0][0]
+        #    print ii, idx_true, ids_hat[ii,idx_true] / ids_hat[ii,:].max()
+        
+        
     #########################
     # Embed
     #########################

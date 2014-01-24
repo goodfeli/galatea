@@ -9,13 +9,14 @@
 
         config: &dataset_config !obj:fish.datasets.wiskott.WiskottVideoConfig {
             is_fish: True,
-            num_frames: 3,
+            num_frames: &num_frames 3,     # number of consecutive frames
             trim: 1,     # (156,156) -> (154,154)
         }
     },
 
     #model: !obj:pylearn2.models.mlp.MLP {
     model: !obj:fish.fish_model.FishMLP {         # In Galatea repo
+        num_frames: *num_frames,
         batch_size: 60,   # Must be a multiple of num_frames!
 
         input_space: !obj:pylearn2.space.Conv2DSpace {
@@ -144,7 +145,7 @@
     },
 
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
-        learning_rate : .2,
+        learning_rate : .01,
 
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: .5,
@@ -195,5 +196,5 @@
         }
     ],
 
-    save_freq : 10
+    save_freq : 5
 }
