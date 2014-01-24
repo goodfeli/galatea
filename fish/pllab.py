@@ -46,6 +46,11 @@ ipshell = InteractiveShellEmbed(config=cfg,
                                 exit_msg = 'Exited interpreter.')
 
 
+# Check X display up front
+if os.system('python -c "import matplotlib.pyplot as plt;plt.figure()"') != 0:
+    raise Exception('X not working %s' % ('(DISPLAY=%s)' % os.environ['DISPLAY'] if 'DISPLAY' in os.environ else '(DISPLAY not set)'))
+
+
 
 def main():
     parser = argparse.ArgumentParser(description='Pylearn2 lab.')
