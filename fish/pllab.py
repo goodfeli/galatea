@@ -22,6 +22,7 @@ import os
 
 # Third-party imports
 import numpy as np
+import theano
 
 # Local imports
 from pylearn2.utils import serial
@@ -153,24 +154,35 @@ def main():
     # Compute some accuracies
     #########################
 
-    n_correct = 0
-    n_total = 0
+    try:
+        model.fns.feat_to_compout
+    except:
+        model.redo_theano()
+    all_acc_id = []
+    all_xy_errs = []
+
+    print 'Training set:'
+    print '   acc_id\tx_err\ty_err'
     for bb,batch in enumerate(train_batches):
         feat,ids,xy = batch
-        ids_hat,xy_hat = model.fns.feat_to_idxy(feat)
 
-        idx_true = np.where( ids == 1 )[1]
-        idx_hat = np.where(np.sign(ids_hat.T - ids_hat.max(1)).T + 1)[1]
-        n_correct += (idx_true == idx_hat).sum()
-        n_total += len(idx_true)
-    print 'Class ID accuracy:', float(n_correct)/n_total
+        idsN_floatX = array(ids.argmax(1), dtype=theano.config.floatX)
+        acc_id = model.fns.wiskott_id_accuracy(feat, idsN_floatX)
+        all_acc_id.append(acc_id)
+        
+        xy_errs = model.fns.wiskott_xy_errors(feat, xy[:,0:2])
+        all_xy_errs.append(xy_errs)
+        
+        # Old numpy way
+        #ids_hat,xy_hat = model.fns.feat_to_idxy(feat)    
+        #idx_true = np.where( ids == 1 )[1]
+        #idx_hat = np.where(np.sign(ids_hat.T - ids_hat.max(1)).T + 1)[1]
+        #n_correct += (idx_true == idx_hat).sum()
+        #n_total += len(idx_true)
 
+        print '%2d:\t%g,\t%g,\t%g' % (bb, acc_id, xy_errs[0], xy_errs[1])
         
-        #batch_size = ids.shape[0]
-        #for ii in xrange(batch_size):
-        #    idx_true = np.where(ids[ii,:])[0][0]
-        #    print ii, idx_true, ids_hat[ii,idx_true] / ids_hat[ii,:].max()
-        
+
         
     #########################
     # Embed
