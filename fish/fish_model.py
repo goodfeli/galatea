@@ -29,6 +29,10 @@ from pylearn2.models.mlp import MLP
 #theano.config.warn.sum_div_dimshuffle_bug = False
 #theano.config.compute_test_value = 'raise'
 #theano.config.exception_verbosity = 'high'
+from fish.helper import (softmax_to_idsN, xysincos_to_xy,
+                         xysincos_to_angles, ids_to_wiskott_id_accuracy,
+                         xyhat_to_wiskott_xy_errors, angles_to_wiskott_angle_errors)
+
 
 
 class Container(object):
@@ -278,13 +282,13 @@ class FishMLP(MLP):
         # to fail for other reasons).
         run_extra_tests = True
         if run_extra_tests:
-            junk = self.fns.feat_to_compout(example_feat)
-            junk = self.fns.feat_to_idsN(example_feat)
-            junk = self.fns.feat_to_xy(example_feat)
-            junk = self.fns.feat_to_angles(example_feat)
-            junk = self.fns.wiskott_id_accuracy(example_feat, example_idN)
-            junk = self.fns.wiskott_xy_errors(example_feat, example_xy[:,0:2])
-            junk = self.fns.wiskott_angle_errors(example_feat, example_xy[:,2:])
+            self.fns.feat_to_compout(example_feat)
+            self.fns.feat_to_idsN(example_feat)
+            self.fns.feat_to_xy(example_feat)
+            self.fns.feat_to_angles(example_feat)
+            self.fns.wiskott_id_accuracy(example_feat, example_idN)
+            self.fns.wiskott_xy_errors(example_feat, example_xy[:,0:2])
+            self.fns.wiskott_angle_errors(example_feat, example_xy[:,2:])
 
     def feat_to_compout(self, feat):
         '''
@@ -329,11 +333,8 @@ class FishMLP(MLP):
 
         softmax_ids1H = compout_tuple[0]
         softmax_ids1H.name = 'softmax_ids1H'
-        
-        idsN = tensor.argmax(softmax_ids1H, axis=1)
-        idsN.name = 'idsN'
 
-        return idsN
+        return softmax_to_idsN(softmax_ids1H)
 
     def feat_to_xy(self, feat):
         '''
@@ -356,10 +357,7 @@ class FishMLP(MLP):
         xysincos = compout_tuple[1]
         xysincos.name = 'xysincos'
 
-        xy_hat = xysincos[:,0:2]      # xy is always first two columns for fish or spheres
-        xy_hat.name = 'xy_hat'
-
-        return xy_hat
+        return xysincos_to_xy(xysincos)
     
     def feat_to_angles(self, feat, is_fish = True):
         '''
@@ -382,19 +380,7 @@ class FishMLP(MLP):
         xysincos = compout_tuple[1]
         xysincos.name = 'xysincos'
 
-        sincos_hat = xysincos[:,2:]      # either 2 or 4 sincos values for fish or spheres
-        sincos_hat.name = 'sincos_hat'
-
-        if is_fish:
-            angles_hat   = tensor.arctan2(sincos_hat[:,0], sincos_hat[:,1])
-            angles_hat.name = 'angles_hat'
-            return angles_hat
-        else:
-            angles_hat_0 = tensor.arctan2(sincos_hat[:,0], sincos_hat[:,1])
-            angles_hat_1 = tensor.arctan2(sincos_hat[:,2], sincos_hat[:,3])
-            angles_hat_0.name = 'angles_hat_0'
-            angles_hat_1.name = 'angles_hat_1'
-            return angles_hat_0, angles_hat_1
+        return xysincos_to_angles(xysincos, is_fish = is_fish)
 
     def wiskott_id_accuracy(self, feat, ids_true):
         '''
@@ -419,13 +405,7 @@ class FishMLP(MLP):
 
         ids_hat = self.feat_to_idsN(feat)
 
-        accuracy_tmp = tensor.eq(ids_hat, ids_true).mean()
-        accuracy_tmp.name = 'accuracy_tmp'
-        
-        accuracy = tensor.cast(accuracy_tmp, theano.config.floatX)
-        accuracy.name = 'accuracy'
-        
-        return accuracy
+        return ids_to_wiskott_id_accuracy(ids_hat, ids_true)
 
     def wiskott_xy_errors(self, feat, xy_true):
         '''
@@ -475,17 +455,15 @@ class FishMLP(MLP):
             franzius2008invariant-object-recognition.
         '''
 
-        if is_fish:
-            angles_hat = self.feat_to_angles(feat, is_fish=is_fish)
-            angles_true = tensor.arctan2(sincos_true[:,0], sincos_true[:,1])
-            angle_errors = angles_hat - angles_true
-            angle_errors = tensor.minimum(angle_errors, 360 - angle_errors)
-            angle_errors = tensor.minimum(angle_errors, 360 + angle_errors)
-        else:
-            angles_hat_0, angles_hat_1 = self.feat_to_angles(feat, is_fish=is_fish)
-            raise Exception('not implemented yet')
-
-        rms_angle_err = tensor.sqrt(tensor.sqr(angle_errors).mean(0))
-        rms_angle_err.name = 'rms_angle_err'
+        angles_hat = self.feat_to_angles(feat, is_fish = is_fish)
         
-        return rms_angle_err
+        return angles_to_wiskott_angle_errors(angles_hat, sincos_true, is_fish = is_fish)
+
+
+
+
+
+
+
+
+

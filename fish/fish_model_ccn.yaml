@@ -124,7 +124,8 @@
                 max_col_norm: 2.
             },
 
-            !obj:pylearn2.models.mlp.CompositeLayer {
+            #!obj:pylearn2.models.mlp.CompositeLayer {
+            !obj:fish.layers.FishyCompositeLayer {
                 layer_name: 'hout',
                 layers: [
                     !obj:pylearn2.models.mlp.Softmax {
