@@ -16,13 +16,14 @@ from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano import tensor as T
 
 from pylearn2.costs.cost import Cost
+from pylearn2.costs.cost import DefaultDataSpecsMixin
 from pylearn2.models import dbm
 from pylearn2.models.dbm import flatten
 from pylearn2.utils import safe_izip
 from pylearn2.utils import safe_zip
 
 
-class VariationalPCD_VarianceReduction(Cost):
+class VariationalPCD_VarianceReduction(DefaultDataSpecsMixin, Cost):
     """
     Like pylearn2.costs.dbm.VariationalPCD, indeed a copy-paste of it,
     but with the right variance reduction rule hard-coded for 2 binary
@@ -40,18 +41,25 @@ class VariationalPCD_VarianceReduction(Cost):
         self.theano_rng = MRG_RandomStreams(2012 + 10 + 14)
         assert supervised in [True, False]
 
-    def __call__(self, model, X, Y=None):
+    def expr(self, model, data):
         """
         The partition function makes this intractable.
         """
 
         if self.supervised:
+            X, Y = data
             assert Y is not None
 
         return None
 
-    def get_monitoring_channels(self, model, X, Y = None):
+    def get_monitoring_channels(self, model, data):
         rval = OrderedDict()
+
+        if self.supervised:
+            X, Y = data
+        else:
+            X = data
+            Y = None
 
         history = model.mf(X, return_history = True)
         q = history[-1]
@@ -81,7 +89,7 @@ class VariationalPCD_VarianceReduction(Cost):
 
         return rval
 
-    def get_gradients(self, model, X, Y=None):
+    def get_gradients(self, model, data):
         """
         PCD approximation to the gradient of the bound.
         Keep in mind this is a cost, so we are upper bounding
@@ -89,10 +97,14 @@ class VariationalPCD_VarianceReduction(Cost):
         """
 
         if self.supervised:
+            X, Y = data
             assert Y is not None
             # note: if the Y layer changes to something without linear energy,
             # we'll need to make the expected energy clamp Y in the positive phase
             assert isinstance(model.hidden_layers[-1], dbm.Softmax)
+        else:
+            X = data
+            Y = None
 
 
 
