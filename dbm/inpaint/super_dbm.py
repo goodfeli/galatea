@@ -47,6 +47,7 @@ from pylearn2.models import dbm
 from pylearn2.train_extensions import TrainExtension
 from theano.gof.op import get_debug_values
 from theano import printing
+from pylearn2.models.dbm.inference_procedure import SuperWeightDoubling
 
 
 class SuperDBM(DBM):
@@ -2406,9 +2407,9 @@ class SpeedMonitoringDBM(SuperDBM):
         updates[self.param_speed]  = (1. - time_constant) * self.param_speed + time_constant * cur_param_speed
 
 
-    def get_monitoring_channels(self, X, Y=None, **kwargs):
+    def get_monitoring_channels(self, data, **kwargs):
 
-        rval = SuperDBM.get_monitoring_channels(self, X, Y, ** kwargs)
+        rval = SuperDBM.get_monitoring_channels(self, data, ** kwargs)
 
         rval['param_speed'] = self.param_speed
 
