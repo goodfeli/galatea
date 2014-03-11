@@ -644,6 +644,7 @@ from pylearn2.models.dbm import CompositeLayer
 
 
 BinaryVector = dbm.BinaryVector
+BinaryVisLayer = BinaryVector
 
 
 
