@@ -1,5 +1,5 @@
 # like cifar10_N3 but with both dense and convolutional units
-!obj:pylearn2.scripts.train.Train {
+!obj:pylearn2.train.Train {
     dataset: &data !obj:galatea.datasets.zca_dataset.ZCA_Dataset {
         preprocessed_dataset: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/train.pkl",
         preprocessor: !pkl: "/data/lisa/data/cifar10/pylearn2_gcn_whitened/preprocessor.pkl"
