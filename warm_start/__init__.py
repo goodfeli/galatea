@@ -334,12 +334,11 @@ class FindBasis2(TrainExtension):
         direction = self.soln - self.origin
         norm = np.sqrt(np.square(direction).sum())
         self.unit = direction / norm
-        sheep_coord = np.dot(self.black_sheep, self.unit)
-        sheep_proj = self.black_sheep * sheep_coord
-        direction = self.black_sheep - sheep_proj
+        sheep_coord = np.dot(self.black_sheep - self.origin, self.unit)
+        sheep_proj = self.unit * sheep_coord
+        direction = self.black_sheep - self.origin - sheep_proj
         norm = np.sqrt(np.square(direction).sum())
         self.unit2 = direction / norm
-        del self.black_sheep
         model.monitor.add_channel(
                     name="soln_coord",
                     ipt=None,
