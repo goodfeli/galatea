@@ -446,6 +446,7 @@ class Booster(TrainExtension):
             print "Evaluating cost at scale ", scale
 
             model.set_param_vector(self.origin + scale * d)
+            model.enforce_constraints()
 
             cost_values.append(self.cost_fn(*data))
 
