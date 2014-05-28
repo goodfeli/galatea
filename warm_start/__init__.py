@@ -1,6 +1,11 @@
 import numpy as np
 import warnings
 
+from theano.sandbox.rng_mrg import MRG_RandomStreams
+from theano import tensor as T
+
+from pylearn2.models.maxout import Maxout
+from pylearn2.models.mlp import Softmax
 from pylearn2.space import NullSpace
 from pylearn2.train_extensions import TrainExtension
 from pylearn2.utils.data_specs import DataSpecsMapping
@@ -114,7 +119,7 @@ class WarmStart(TrainExtension):
 
 
         if self.method == 'gaussian':
-            basis = rng.randn(dim, self.num_basis_vectors).astype(root.dtype)
+            basis = rng.normal(dim, self.num_basis_vectors).astype(root.dtype)
         elif self.method == 'element':
             basis = np.zeros((dim, self.num_basis_vectors)).astype(root.dtype)
             for i in xrange(self.num_basis_vectors):
@@ -456,3 +461,131 @@ class Booster(TrainExtension):
         best_scale = self.scales[cost_values.index(min(cost_values))]
         print "best_scale: ", best_scale
         model.set_param_vector(self.origin + best_scale * d)
+
+
+class NoisyLayer(object):
+
+    def param_noise(self, param):
+        if noise.scale == 0.:
+            return 0.
+        return noise.theano_rng.normal(size=param.shape, dtype=param.dtype,
+                avg=0., std=noise.scale)
+
+    def W_noise(self):
+        if hasattr(self, 'W'):
+            return self.param_noise(self.W)
+        return self.param_noise(self.transformer.get_params()[0])
+
+    def b_noise(self):
+        return self.param_noise(self.b)
+
+class NoisySoftmax(Softmax, NoisyLayer):
+    def fprop(self, state_below):
+
+        self.input_space.validate(state_below)
+
+        if self.needs_reformat:
+            state_below = self.input_space.format_as(state_below,
+                                                     self.desired_space)
+
+        self.desired_space.validate(state_below)
+        assert state_below.ndim == 2
+
+        if not hasattr(self, 'no_affine'):
+            self.no_affine = False
+
+        if self.no_affine:
+            Z = state_below
+        else:
+            assert self.W.ndim == 2
+            b = self.b
+
+            Z = T.dot(state_below, self.W + self.W_noise()) + b + self.b_noise()
+
+        rval = T.nnet.softmax(Z)
+
+        return rval
+
+class NoisyMaxout(Maxout, NoisyLayer):
+    def fprop(self, state_below):
+
+        self.input_space.validate(state_below)
+
+        if self.requires_reformat:
+            state_below = self.input_space.format_as(state_below,
+                                                     self.desired_space)
+
+        W, = self.transformer.get_params()
+        z = T.dot(state_below, W + self.W_noise()) + self.b + self.b_noise()
+
+        if not hasattr(self, 'randomize_pools'):
+            self.randomize_pools = False
+
+        if not hasattr(self, 'pool_stride'):
+            self.pool_stride = self.pool_size
+
+        if self.randomize_pools:
+            z = T.dot(z, self.permute)
+
+        if not hasattr(self, 'min_zero'):
+            self.min_zero = False
+
+        if self.min_zero:
+            p = 0.
+        else:
+            p = None
+
+        last_start = self.detector_layer_dim - self.pool_size
+        for i in xrange(self.pool_size):
+            cur = z[:, i:last_start+i+1:self.pool_stride]
+            if p is None:
+                p = cur
+            else:
+                p = T.maximum(cur, p)
+
+        p.name = self.layer_name + '_p_'
+
+        return p
+
+
+class Noise(object):
+
+    scale = 0.
+
+noise = Noise()
+
+from pylearn2.costs.cost import Cost
+from theano.compat import OrderedDict
+
+class NoisyCost(Cost):
+
+    def __init__(self, cost, noise_scale = .01, points=5):
+        self.__dict__.update(locals())
+        del self.self
+
+    def expr(self, *args, **kwargs):
+        return self.cost.expr(*args, **kwargs)
+
+    def get_monitoring_channels(self, *args, **kwargs):
+        return self.cost.get_monitoring_channels(*args, **kwargs)
+
+    def get_data_specs(self, *args, **kwargs):
+        return self.cost.get_data_specs(*args, **kwargs)
+
+    def get_gradients(self, model, data, **kwargs):
+        grads = []
+        theano_rng = MRG_RandomStreams(2014)
+        num_points = self.points
+        noise.scale = self.noise_scale
+        noise.theano_rng = theano_rng
+        for i in xrange(num_points):
+            grads.append(self.cost.get_gradients(model, data, **kwargs)[0])
+        noise.scale = 0.
+
+        rval = OrderedDict()
+
+        for key in grads[0].keys():
+            rval[key] = sum(grad[key] for grad in grads) / float(num_points)
+
+        return rval, OrderedDict()
+

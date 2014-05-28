@@ -6,21 +6,21 @@
     },
     model: !obj:pylearn2.models.mlp.MLP {
         layers: [
-                 !obj:pylearn2.models.maxout.Maxout {
+                 !obj:galatea.warm_start.NoisyMaxout {
                      layer_name: 'h0',
                      num_units: 240,
                      num_pieces: 5,
                      irange: .005,
                      max_col_norm: 1.9365,
                  },
-                 !obj:pylearn2.models.maxout.Maxout {
+                 !obj:galatea.warm_start.NoisyMaxout {
                      layer_name: 'h1',
                      num_units: 240,
                      num_pieces: 5,
                      irange: .005,
                      max_col_norm: 1.9365,
                  },
-                 !obj:pylearn2.models.mlp.Softmax {
+                 !obj:galatea.warm_start.NoisySoftmax {
                      max_col_norm: 1.9365,
                      layer_name: 'y',
                      n_classes: 10,
@@ -47,10 +47,11 @@
                               which_set: 'test',
                           }
             },
-        cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
+        cost: !obj:galatea.warm_start.NoisyCost {
+            cost: !obj:pylearn2.costs.mlp.dropout.Dropout {
             input_include_probs: { 'h0' : .8 },
             input_scales: { 'h0': 1. }
-        },
+        }},
         termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
             channel_name: "valid_y_misclass",
             prop_decrease: 0.,

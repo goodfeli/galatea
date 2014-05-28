@@ -289,12 +289,10 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         del self.self
 
     def expr(self, model, data, **kwargs):
-        """
-        The generator and discriminator objectives always cancel out.
-        """
-        return T.constant(0.)
+        S, d_obj, g_obj = self.get_samples_and_objectives(model, data)
+        return d_obj + g_obj
 
-    def get_gradients(self, model, data, **kwargs):
+    def get_samples_and_objectives(self, model, data):
         space, sources = self.get_data_specs(model)
         space.validate(data)
         assert isinstance(model, AdversaryPair)
@@ -318,6 +316,17 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
 
         d_obj =  0.5 * (d.layers[-1].cost(y1, y_hat1) + d.layers[-1].cost(y0, y_hat0))
         g_obj = d.layers[-1].cost(y1, y_hat0)
+
+        return S, d_obj, g_obj
+
+    def get_gradients(self, model, data, **kwargs):
+        space, sources = self.get_data_specs(model)
+        space.validate(data)
+        assert isinstance(model, AdversaryPair)
+        g = model.generator
+        d = model.discriminator
+
+        S, d_obj, g_obj = self.get_samples_and_objectives(model, data)
 
         g_params = g.get_params()
         d_params = d.get_params()
