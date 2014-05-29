@@ -88,6 +88,14 @@ class Generator(Model):
     def get_output_space(self):
         return self.mlp.get_output_space()
 
+    def ll(self, data, n_samples, sigma):
+
+        samples = self.sample(n_samples)
+        parzen = theano_parzen(data, samples, sigma)
+        return parzen
+
+
+
 class IntrinsicDropoutGenerator(Generator):
     def __init__(self, default_input_include_prob, default_input_scale, **kwargs):
         super(IntrinsicDropoutGenerator, self).__init__(**kwargs)
@@ -103,12 +111,6 @@ class IntrinsicDropoutGenerator(Generator):
         noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
         return self.mlp.dropout_fprop(noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale)
 
-
-    def ll(self, data, n_samples, sigma):
-
-        samples = self.sample(n_samples)
-        parzen = theano_parzen(data, samples, sigma)
-        return parzen
 
 
 # Used to be AdversaryCost, but has a bug. Use AdversaryCost2
