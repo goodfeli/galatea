@@ -1,3 +1,5 @@
+import theano
+import numpy
 from theano.compat import OrderedDict
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano import tensor as T
@@ -47,10 +49,15 @@ class AdversaryPair(Model):
 
         return rval
 
+    def get_monitoring_data_specs(self):
+
+        space = self.discriminator.get_input_space()
+        source = self.discriminator.get_input_source()
+        return (space, source)
 
 class Generator(Model):
 
-    def __init__(self, mlp):
+    def __init__(self, mlp, monitor_ll = False, ll_n_samples = 100, ll_sigma = 0.2):
         self.__dict__.update(locals())
         del self.self
         self.theano_rng = MRG_RandomStreams(2014 * 5 + 27)
@@ -69,7 +76,11 @@ class Generator(Model):
             m = data.shape[0]
         n = self.mlp.get_input_space().get_total_dimension()
         noise = self.theano_rng.normal(size=(m, n), dtype='float32')
-        return self.mlp.get_monitoring_channels((noise, None))
+        rval = self.mlp.get_monitoring_channels((noise, None))
+        if  self.monitor_ll:
+            rval['ll'] = T.cast(self.ll(data, self.ll_n_samples, self.ll_sigma),
+                                        theano.config.floatX).mean()
+        return rval
 
     def get_params(self):
         return self.mlp.get_params()
@@ -91,6 +102,13 @@ class IntrinsicDropoutGenerator(Generator):
         n = self.mlp.get_input_space().get_total_dimension()
         noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
         return self.mlp.dropout_fprop(noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale)
+
+
+    def ll(self, data, n_samples, sigma):
+
+        samples = self.sample(n_samples)
+        parzen = theano_parzen(data, samples, sigma)
+        return parzen
 
 
 # Used to be AdversaryCost, but has a bug. Use AdversaryCost2
@@ -396,3 +414,28 @@ def recapitate_discriminator(pair_path, new_head):
     del d.layers[-1]
     d.add_layers([new_head])
     return d
+
+def theano_parzen(data, mu, sigma):
+    """
+    Credit: Yann N. Dauphin
+    """
+    x = data
+
+    a = ( x.dimshuffle(0, 'x', 1) - mu.dimshuffle('x', 0, 1) ) / sigma
+
+    E = log_mean_exp(-0.5*(a**2).sum(2))
+
+    Z = mu.shape[1] * T.log(sigma * numpy.sqrt(numpy.pi * 2))
+
+    #return theano.function([x], E - Z)
+    return E - Z
+
+
+def log_mean_exp(a):
+    """
+    Credit: Yann N. Dauphin
+    """
+
+    max_ = a.max(1)
+
+    return max_ + T.log(T.exp(a - max_.dimshuffle(0, 'x')).mean(1))
