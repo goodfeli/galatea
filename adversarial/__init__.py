@@ -74,6 +74,9 @@ class Generator(Model):
     def get_params(self):
         return self.mlp.get_params()
 
+    def get_output_space(self):
+        return self.mlp.get_output_space()
+
 class IntrinsicDropoutGenerator(Generator):
     def __init__(self, default_input_include_prob, default_input_scale, **kwargs):
         super(IntrinsicDropoutGenerator, self).__init__(**kwargs)
