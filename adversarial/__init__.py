@@ -194,7 +194,7 @@ class BadAdversaryCost(DefaultDataSpecsMixin, Cost):
         samples = g.sample(m)
         y_hat = d.fprop(samples)
         rval['false_positives'] = T.cast((y_hat > 0.5).mean(), 'float32')
-        y = T.alloc(0., m, 1)
+        # y = T.alloc(0., m, 1)
         cost = d.cost_from_X((samples, y_hat))
         sample_grad = T.grad(-cost, samples)
         rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
@@ -229,14 +229,13 @@ class IndistCost(DefaultDataSpecsMixin, Cost):
         assert isinstance(model, AdversaryPair)
         g = model.generator
         d = model.discriminator
-
         # Note: this assumes data is design matrix
         X = data
         m = X.shape[0]
         y1 = T.alloc(1, m, 1)
         y0 = T.alloc(0, m, 1)
         S = g.sample(m, default_input_include_prob=self.generator_default_input_include_prob, default_input_scale=self.generator_default_input_scale)
-        discriminator_X = T.concatenate((X, S), axis=0)
+        # discriminator_X = T.concatenate((X, S), axis=0)
         y_hat1 = d.dropout_fprop(X, self.discriminator_default_input_include_prob,
                                      self.discriminator_input_include_probs,
                                      self.discriminator_default_input_scale,
@@ -253,7 +252,7 @@ class IndistCost(DefaultDataSpecsMixin, Cost):
             assert param not in d_params
         for param in d_params:
             assert param not in g_params
-        d_grads = T.grad(discrim_obj, d_params)
+        # d_grads = T.grad(discrim_obj, d_params)
 
         # KL(B(p), B(sigmoid(z)))
         # p log (p/sigmoid(z)) + (1 - p) log (1 - p)/sigmoid(-z)
@@ -308,7 +307,7 @@ class IndistCost(DefaultDataSpecsMixin, Cost):
         samples = g.sample(m)
         y_hat = d.fprop(samples)
         rval['false_positives'] = T.cast((y_hat > 0.5).mean(), 'float32')
-        y = T.alloc(0., m, 1)
+        # y = T.alloc(0., m, 1)
         cost = d.cost_from_X((samples, y_hat))
         sample_grad = T.grad(-cost, samples)
         rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
@@ -407,7 +406,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         samples = g.sample(m)
         y_hat = d.fprop(samples)
         rval['false_positives'] = T.cast((y_hat > 0.5).mean(), 'float32')
-        y = T.alloc(0., m, 1)
+        # y = T.alloc(0., m, 1)
         cost = d.cost_from_X((samples, y_hat))
         sample_grad = T.grad(-cost, samples)
         rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
