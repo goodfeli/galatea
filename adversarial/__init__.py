@@ -443,4 +443,3 @@ def log_mean_exp(a):
     max_ = a.max(1)
 
     return max_ + T.log(T.exp(a - max_.dimshuffle(0, 'x')).mean(1))
-
