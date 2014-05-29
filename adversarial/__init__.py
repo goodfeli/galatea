@@ -303,7 +303,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
 
         # Note: this assumes data is design matrix
         X = data
-        m = X.shape[0]
+        m = data.shape[space.get_batch_axis()]
         y1 = T.alloc(1, m, 1)
         y0 = T.alloc(0, m, 1)
         S = g.sample(m, default_input_include_prob=self.generator_default_input_include_prob, default_input_scale=self.generator_default_input_scale)
