@@ -2,6 +2,7 @@ from theano.compat import OrderedDict
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano import tensor as T
 
+from pylearn2.space import VectorSpace
 from pylearn2.costs.cost import Cost
 from pylearn2.costs.cost import DefaultDataSpecsMixin
 from pylearn2.expr.nnet import kl
@@ -57,7 +58,8 @@ class Generator(Model):
         # Assumes design matrix
         n = self.mlp.get_input_space().get_total_dimension()
         noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
-        return self.mlp.dropout_fprop(noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale)
+        formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
+        return self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale)
 
     def get_monitoring_channels(self, data):
         if data is None:
