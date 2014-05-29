@@ -7,6 +7,7 @@ from pylearn2.costs.cost import DefaultDataSpecsMixin
 from pylearn2.expr.nnet import kl
 from pylearn2.models import Model
 from pylearn2.utils import safe_zip
+from pylearn2.utils import serial
 
 class AdversaryPair(Model):
 
@@ -70,6 +71,21 @@ class Generator(Model):
 
     def get_params(self):
         return self.mlp.get_params()
+
+class IntrinsicDropoutGenerator(Generator):
+    def __init__(self, default_input_include_prob, default_input_scale, **kwargs):
+        super(IntrinsicDropoutGenerator, self).__init__(**kwargs)
+        self.__dict__.update(locals())
+        del self.self
+
+    def sample(self, num_samples, default_input_include_prob=None, default_input_scale=None):
+        # ignores dropout args
+        default_input_include_prob = self.default_input_include_prob
+        default_input_scale = self.default_input_scale
+        # Assumes design matrix
+        n = self.mlp.get_input_space().get_total_dimension()
+        noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
+        return self.mlp.dropout_fprop(noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale)
 
 
 # Used to be AdversaryCost, but has a bug. Use AdversaryCost2
@@ -368,3 +384,10 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
 
         return rval
+
+def recapitate_discriminator(pair_path, new_head):
+    pair = serial.load(pair_path)
+    d = pair.discriminator
+    del d.layers[-1]
+    d.add_layers([new_head])
+    return d
