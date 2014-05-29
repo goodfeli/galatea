@@ -83,6 +83,7 @@ class Generator(Model):
         if  self.monitor_ll:
             rval['ll'] = T.cast(self.ll(data, self.ll_n_samples, self.ll_sigma),
                                         theano.config.floatX).mean()
+            rval['nll'] = -rval['ll']
         return rval
 
     def get_params(self):
