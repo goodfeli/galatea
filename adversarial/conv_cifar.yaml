@@ -111,7 +111,7 @@
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 128,
-        learning_rate: .025,
+        learning_rate: .0125,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: .5,
         },
@@ -142,10 +142,6 @@
                 'dh0': 1.25   
             }
             },
-        #!obj:pylearn2.costs.mlp.dropout.Dropout {
-        #    input_include_probs: { 'h0' : .8 },
-        #    input_scales: { 'h0': 1. }
-        #},
         #termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
         #    channel_name: "valid_y_misclass",
         #    prop_decrease: 0.,
