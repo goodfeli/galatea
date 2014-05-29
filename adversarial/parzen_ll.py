@@ -31,7 +31,7 @@ def get_nll(x, parzen, batch_size=10):
         if i % 10 == 0:
             print i, numpy.mean(times), numpy.mean(nlls)
 
-    return numpy.mean(nlls)
+    return numpy.array(nlls)
 
 def log_mean_exp(a):
     """
@@ -78,5 +78,5 @@ if __name__ == "__main__":
     parzen = theano_parzen(samples, sigma)
     ll = get_nll(test.X, parzen)
 
-    print "Log-Likelihood of test set = {}".format(ll)
+    print "Log-Likelihood of test set = {}, std: {}".format(ll.mean(), ll.std())
 
