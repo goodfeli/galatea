@@ -22,6 +22,9 @@ class AdversaryPair(Model):
     def get_input_space(self):
         return self.discriminator.get_input_space()
 
+    def get_weights_topo(self):
+        return self.discriminator.get_weights_topo()
+
     def get_weights(self):
         return self.discriminator.get_weights()
 
