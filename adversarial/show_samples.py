@@ -22,8 +22,10 @@ else:
             space=desired_space).eval()
     is_color = samples.shape[-1] == 3
 print (samples.min(), samples.mean(), samples.max())
+<<<<<<< Updated upstream
 # Hack for detecting MNIST [0, 1] values. Otherwise we assume centered images
 if samples.min() >0:
     samples = samples * 2.0 - 1.0
 viewer = make_viewer(samples, is_color=is_color)
-viewer.show()
+viewer.save("samples.png")
+

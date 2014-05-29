@@ -1,8 +1,10 @@
 !obj:pylearn2.train.Train {
-    dataset: &train !obj:pylearn2.datasets.mnist.MNIST {
+    dataset: &train !obj:pylearn2.datasets.svhn.SVHN_On_Memory {
         which_set: 'train',
-        start: 0,
-        stop: 50000
+        #path: '/u/ozairs/data/',
+        scale : True,
+        #start: 0,
+        #stop: 50000
     },
     model: !obj:galatea.adversarial.AdversaryPair {
         generator: !obj:galatea.adversarial.Generator {
@@ -10,22 +12,22 @@
             layers: [
                      !obj:pylearn2.models.mlp.RectifiedLinear {
                          layer_name: 'h0',
-                         dim: 1200,
+                         dim: 4000,
                          irange: .05,
                          max_col_norm: 1.9365,
                      },
                      !obj:pylearn2.models.mlp.RectifiedLinear {
                          layer_name: 'h1',
-                         dim: 1200,
+                         dim: 4000,
                          irange: .05,
                          max_col_norm: 1.9365,
                      },
                      !obj:pylearn2.models.mlp.Sigmoid {
                          max_col_norm: 1.9365,
-                         init_bias: !obj:pylearn2.models.dbm.init_sigmoid_bias_from_marginals { dataset: *train},
+                         #init_bias: !obj:pylearn2.models.dbm.init_sigmoid_bias_from_marginals { dataset: *train},
                          layer_name: 'y',
                          irange: .05,
-                         dim: 784
+                         dim: 3072
                      }
                     ],
             nvis: 100,
@@ -37,7 +39,7 @@
                          #W_lr_scale: .1,
                          #b_lr_scale: .1,
                          layer_name: 'h0',
-                         num_units: 240,
+                         num_units: 1200,
                          num_pieces: 5,
                          irange: .005,
                          max_col_norm: 1.9365,
@@ -46,7 +48,7 @@
                          #W_lr_scale: .1,
                          #b_lr_scale: .1,
                          layer_name: 'h1',
-                         num_units: 240,
+                         num_units: 1200,
                          num_pieces: 5,
                          irange: .005,
                          max_col_norm: 1.9365,
@@ -60,25 +62,31 @@
                          irange: .005
                      }
                     ],
-            nvis: 784,
+            nvis: 3072,
         },
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 100,
-        learning_rate: .1,
+        learning_rate: .01,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: .5,
         },
         monitoring_dataset:
             {
                 'train' : *train,
-                'valid' : !obj:pylearn2.datasets.mnist.MNIST {
-                              which_set: 'train',
-                              start: 50000,
-                              stop:  60000
+                'valid' : !obj:pylearn2.datasets.svhn.SVHN_On_Memory {
+                              which_set: 'valid',
+                                #path: '/u/ozairs/data/',
+                              scale: True,
+    #                          #start: 50000,
+     #                         #stop:  60000
                           },
-                'test'  : !obj:pylearn2.datasets.mnist.MNIST {
+                'test'  : !obj:pylearn2.datasets.svhn.SVHN_On_Memory {
                               which_set: 'test',
+                            #path: '/u/ozairs/data/',
+                              #start: 73257,
+                              #stop: 83257,
+                              scale: True
                           }
             },
         cost: !obj:galatea.adversarial.AdversaryCost2 {
