@@ -10,11 +10,7 @@ from pylearn2.costs.cost import DefaultDataSpecsMixin
 from pylearn2.expr.nnet import kl
 from pylearn2.models import Model
 from pylearn2.utils import safe_zip
-<<<<<<< HEAD
 from pylearn2.utils import serial
-=======
-from pylearn2.utils import sharedX
->>>>>>> add log likliehood to generator monitoring channel
 
 class AdversaryPair(Model):
 
