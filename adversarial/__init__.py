@@ -39,8 +39,6 @@ class AdversaryPair(Model):
     def get_monitoring_channels(self, data):
         rval = OrderedDict()
 
-        assert data is None or data.ndim == 2
-
         g_ch = self.generator.get_monitoring_channels(data)
         # need to spoof targets: d_ch = self.discriminator.get_monitoring_channels(data)
         d_ch = OrderedDict()

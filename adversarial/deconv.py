@@ -1,132 +1,39 @@
+import functools
+import logging
+import numpy as np
 
-class MaxoutConvC01B(Layer):
-    """
-    Maxout units arranged in a convolutional layer, with
-    spatial max pooling on top of the maxout. If you use this
-    code in a research project, please cite
+from theano.compat import OrderedDict
+from theano import tensor as T
 
-    "Maxout Networks" Ian J. Goodfellow, David Warde-Farley,
-    Mehdi Mirza, Aaron Courville, and Yoshua Bengio. ICML 2013
+from pylearn2.linear.conv2d_c01b import make_random_conv2D
+from pylearn2.models import Model
+from pylearn2.models.maxout import check_cuda # TODO: import from original path
+from pylearn2.models.mlp import Layer
+#from pylearn2.models.maxout import py_integer_types # TODO: import from orig path
+from pylearn2.space import Conv2DSpace
+from pylearn2.utils import sharedX
 
+logger = logging.getLogger(__name__)
 
-    This uses the C01B ("channels", topological axis 0,
-    topological axis 1, "batch") format of tensors for input
-    and output.
-
-    The back-end is Alex Krizhevsky's cuda-convnet library,
-    so it is extremely fast, but requires a GPU.
-
-    Parameters
-    ----------
-    num_channels : int
-        The number of output channels the layer should have.
-        Note that it must internally compute num_channels * num_pieces
-        convolution channels.
-    num_pieces : int
-        The number of linear pieces used to make each maxout unit.
-    kernel_shape : tuple
-        The shape of the convolution kernel.
-    pool_shape : tuple
-        The shape of the spatial max pooling. A two-tuple of ints.
-        This is redundant as cuda-convnet requires the pool shape to
-        be square.
-    pool_stride : tuple
-        The stride of the spatial max pooling. Also must be square.
-    layer_name : str
-        A name for this layer that will be prepended to
-        monitoring channels related to this layer.
-    irange : float, optional
-        if specified, initializes each weight randomly in
-        U(-irange, irange)
-    init_bias : float, optional
-        All biases are initialized to this number
-    W_lr_scale : float, optional
-        The learning rate on the weights for this layer is
-        multiplied by this scaling factor
-    b_lr_scale : float, optional
-        The learning rate on the biases for this layer is
-        multiplied by this scaling factor
-    pad : int, optional
-        The amount of zero-padding to implicitly add to the boundary of the
-        image when computing the convolution. Useful for making sure pixels
-        at the edge still get to influence multiple hidden units.
-    fix_pool_shape : bool, optional
-        If True, will modify self.pool_shape to avoid having
-        pool shape bigger than the entire detector layer.
-        If you have this on, you should probably also have
-        fix_pool_stride on, since the pool shape might shrink
-        smaller than the stride, even if the stride was initially
-        valid.
-        The "fix" parameters are useful for working with a hyperparameter
-        optimization package, which might often propose sets of
-        hyperparameters that are not feasible, but can easily be projected
-        back into the feasible set.
-    fix_pool_stride : bool, optional
-        WRITEME
-    fix_kernel_shape : bool, optional
-        if True, will modify self.kernel_shape to avoid having the kernel
-        shape bigger than the implicitly zero padded input layer
-    partial_sum : int, optional
-        a parameter that controls whether to prefer runtime savings
-        or memory savings when computing the gradient with respect to
-        the kernels. See pylearn2.sandbox.cuda_convnet.weight_acts.py
-        for details. The default is to prefer high speed.
-        Note that changing this setting may change the value of computed
-        results slightly due to different rounding error.
-    tied_b : bool, optional
-        If true, all biases in the same channel are constrained to be the
-        same as each other. Otherwise, each bias at each location is
-        learned independently.
-    max_kernel_norm : float, optional
-        If specified, each kernel is constrained to have at most this norm.
-    input_normalization : callable, optional
-        see output normalization
-    detector_normalization : callable, optional
-        see output normalization
-    min_zero : bool, optional
-        WRITEME
-    output_normalization : callable, optional
-        if specified, should be a callable object. the state of the
-        network is optionally replaced with normalization(state) at each
-        of the 3 points in processing:
-
-          - input: the input the layer receives can be normalized right
-            away
-          - detector: the maxout units can be normalized prior to the
-            spatial pooling
-          - output: the output of the layer, after sptial pooling,
-            can be normalized as well
-    kernel_stride : tuple, optional
-        vertical and horizontal pixel stride between each detector.
-    """
-
+class Deconv(Layer):
     def __init__(self,
                  num_channels,
-                 num_pieces,
                  kernel_shape,
-                 pool_shape,
-                 pool_stride,
                  layer_name,
                  irange=None,
                  init_bias=0.,
                  W_lr_scale=None,
                  b_lr_scale=None,
-                 pad=0,
-                 fix_pool_shape=False,
-                 fix_pool_stride=False,
+                 pad_out=0,
                  fix_kernel_shape=False,
                  partial_sum=1,
                  tied_b=False,
                  max_kernel_norm=None,
-                 input_normalization=None,
-                 detector_normalization=None,
-                 min_zero=False,
-                 output_normalization=None,
-                 kernel_stride=(1, 1)):
+                 output_stride=(1, 1)):
         check_cuda(str(type(self)))
-        super(MaxoutConvC01B, self).__init__()
+        super(Deconv, self).__init__()
 
-        detector_channels = num_channels * num_pieces
+        detector_channels = num_channels
 
         self.__dict__.update(locals())
         del self.self
@@ -164,7 +71,7 @@ class MaxoutConvC01B(Layer):
             The Space that the input will lie in.
         """
 
-        setup_detector_layer_c01b(layer=self,
+        setup_deconv_detector_layer_c01b(layer=self,
                                   input_space=space,
                                   rng=self.mlp.rng)
 
@@ -172,48 +79,8 @@ class MaxoutConvC01B(Layer):
 
         detector_shape = self.detector_space.shape
 
-        def handle_pool_shape(idx):
-            if self.pool_shape[idx] < 1:
-                raise ValueError("bad pool shape: " + str(self.pool_shape))
-            if self.pool_shape[idx] > detector_shape[idx]:
-                if self.fix_pool_shape:
-                    assert detector_shape[idx] > 0
-                    self.pool_shape[idx] = detector_shape[idx]
-                else:
-                    raise ValueError("Pool shape exceeds detector layer shape "
-                                     "on axis %d" % idx)
 
-        map(handle_pool_shape, [0, 1])
-
-        assert self.pool_shape[0] == self.pool_shape[1]
-        assert self.pool_stride[0] == self.pool_stride[1]
-        assert all(isinstance(elem, py_integer_types)
-                   for elem in self.pool_stride)
-        if self.pool_stride[0] > self.pool_shape[0]:
-            if self.fix_pool_stride:
-                warnings.warn("Fixing the pool stride")
-                ps = self.pool_shape[0]
-                assert isinstance(ps, py_integer_types)
-                self.pool_stride = [ps, ps]
-            else:
-                raise ValueError("Stride too big.")
-        assert all(isinstance(elem, py_integer_types)
-                   for elem in self.pool_stride)
-
-        dummy_detector = sharedX(self.detector_space.get_origin_batch(2)[0:16,
-                                                                         :,
-                                                                         :,
-                                                                         :])
-
-        dummy_p = max_pool_c01b(c01b=dummy_detector,
-                                pool_shape=self.pool_shape,
-                                pool_stride=self.pool_stride,
-                                image_shape=self.detector_space.shape)
-        dummy_p = dummy_p.eval()
-        self.output_space = Conv2DSpace(shape=[dummy_p.shape[1],
-                                               dummy_p.shape[2]],
-                                        num_channels=self.num_channels,
-                                        axes=('c', 0, 1, 'b'))
+        self.output_space = self.detector_space
 
         logger.info('Output space: {0}'.format(self.output_space.shape))
 
@@ -300,21 +167,10 @@ class MaxoutConvC01B(Layer):
 
         self.input_space.validate(state_below)
 
-        if not hasattr(self, 'input_normalization'):
-            self.input_normalization = None
+        z = self.transformer.lmul_T(state_below)
 
-        if self.input_normalization:
-            state_below = self.input_normalization(state_below)
+        self.output_space.validate(z)
 
-        # Alex's code requires # input channels to be <= 3 or a multiple of 4
-        # so we add dummy channels if necessary
-        if not hasattr(self, 'dummy_channels'):
-            self.dummy_channels = 0
-        if self.dummy_channels > 0:
-            zeros = T.zeros_like(state_below[0:self.dummy_channels, :, :, :])
-            state_below = T.concatenate((state_below, zeros), axis=0)
-
-        z = self.transformer.lmul(state_below)
         if not hasattr(self, 'tied_b'):
             self.tied_b = False
         if self.tied_b:
@@ -322,81 +178,7 @@ class MaxoutConvC01B(Layer):
         else:
             b = self.b.dimshuffle(0, 1, 2, 'x')
 
-        z = z + b
-        if self.layer_name is not None:
-            z.name = self.layer_name + '_z'
-
-        self.detector_space.validate(z)
-
-        assert self.detector_space.num_channels % 16 == 0
-
-        if self.output_space.num_channels % 16 == 0:
-            # alex's max pool op only works when the number of channels
-            # is divisible by 16. we can only do the cross-channel pooling
-            # first if the cross-channel pooling preserves that property
-            if self.num_pieces != 1:
-                s = None
-                for i in xrange(self.num_pieces):
-                    t = z[i::self.num_pieces, :, :, :]
-                    if s is None:
-                        s = t
-                    else:
-                        s = T.maximum(s, t)
-                z = s
-
-            if self.detector_normalization:
-                z = self.detector_normalization(z)
-
-            p = max_pool_c01b(c01b=z, pool_shape=self.pool_shape,
-                              pool_stride=self.pool_stride,
-                              image_shape=self.detector_space.shape)
-        else:
-
-            if self.detector_normalization is not None:
-                raise NotImplementedError("We can't normalize the detector "
-                                          "layer because the detector layer "
-                                          "never exists as a stage of "
-                                          "processing in this implementation.")
-            z = max_pool_c01b(c01b=z, pool_shape=self.pool_shape,
-                              pool_stride=self.pool_stride,
-                              image_shape=self.detector_space.shape)
-            if self.num_pieces != 1:
-                s = None
-                for i in xrange(self.num_pieces):
-                    t = z[i::self.num_pieces, :, :, :]
-                    if s is None:
-                        s = t
-                    else:
-                        s = T.maximum(s, t)
-                z = s
-            p = z
-
-        self.output_space.validate(p)
-
-        if hasattr(self, 'min_zero') and self.min_zero:
-            p = p * (p > 0.)
-
-        if not hasattr(self, 'output_normalization'):
-            self.output_normalization = None
-
-        if self.output_normalization:
-            p = self.output_normalization(p)
-
-        return p
-
-    @functools.wraps(Model.get_weights_view_shape)
-    def get_weights_view_shape(self):
-        total = self.detector_channels
-        cols = self.num_pieces
-        if cols == 1:
-            # Let the PatchViewer decide how to arrange the units
-            # when they're not pooled
-            raise NotImplementedError()
-        # When they are pooled, make each pooling unit have one row
-        rows = total // cols
-        if rows * cols < total:
-            rows = rows + 1
-        return rows, cols
+        return z + b
 
     @functools.wraps(Layer.get_monitoring_channels_from_state)
     def get_monitoring_channels_from_state(self, state):
@@ -436,3 +218,162 @@ class MaxoutConvC01B(Layer):
                 rval[prefix+key] = val
 
         return rval
+
+def setup_deconv_detector_layer_c01b(layer, input_space, rng, irange="not specified"):
+    """
+    layer. This function sets up only the detector layer.
+
+    Does the following:
+
+    * raises a RuntimeError if cuda is not available
+    * sets layer.input_space to input_space
+    * sets up addition of dummy channels for compatibility with cuda-convnet:
+
+      - layer.dummy_channels: # of dummy channels that need to be added
+        (You might want to check this and raise an Exception if it's not 0)
+      - layer.dummy_space: The Conv2DSpace representing the input with dummy
+        channels added
+
+    * sets layer.detector_space to the space for the detector layer
+    * sets layer.transformer to be a Conv2D instance
+    * sets layer.b to the right value
+
+    Parameters
+    ----------
+    layer : object
+        Any python object that allows the modifications described below and
+        has the following attributes:
+
+          * pad : int describing amount of zero padding to add
+          * kernel_shape : 2-element tuple or list describing spatial shape of
+            kernel
+          * fix_kernel_shape : bool, if true, will shrink the kernel shape to
+            make it feasible, as needed (useful for hyperparameter searchers)
+          * detector_channels : The number of channels in the detector layer
+          * init_bias : numeric constant added to a tensor of zeros to
+            initialize the bias
+          * tied_b : If true, biases are shared across all spatial locations
+    input_space : WRITEME
+        A Conv2DSpace to be used as input to the layer
+    rng : WRITEME
+        A numpy RandomState or equivalent
+    """
+
+    if irange != "not specified":
+        raise AssertionError(
+            "There was a bug in setup_detector_layer_c01b."
+            "It uses layer.irange instead of the irange parameter to the "
+            "function. The irange parameter is now disabled by this "
+            "AssertionError, so that this error message can alert you that "
+            "the bug affected your code and explain why the interface is "
+            "changing. The irange parameter to the function and this "
+            "error message may be removed after April 21, 2014."
+        )
+
+    # Use "self" to refer to layer from now on, so we can pretend we're
+    # just running in the set_input_space method of the layer
+    self = layer
+
+    # Make sure cuda is available
+    check_cuda(str(type(self)))
+
+    # Validate input
+    if not isinstance(input_space, Conv2DSpace):
+        raise TypeError("The input to a convolutional layer should be a "
+                        "Conv2DSpace, but layer " + self.layer_name + " got " +
+                        str(type(self.input_space)))
+
+    if not hasattr(self, 'detector_channels'):
+        raise ValueError("layer argument must have a 'detector_channels' "
+                         "attribute specifying how many channels to put in "
+                         "the convolution kernel stack.")
+
+    # Store the input space
+    self.input_space = input_space
+
+    # Make sure number of channels is supported by cuda-convnet
+    # (multiple of 4 or <= 3)
+    # If not supported, pad the input with dummy channels
+    ch = self.detector_channels
+    rem = ch % 4
+    if ch > 3 and rem != 0:
+        raise NotImplementedError("Need to do dummy channels on the output")
+    #    self.dummy_channels = 4 - rem
+    #else:
+    #    self.dummy_channels = 0
+    #self.dummy_space = Conv2DSpace(
+    #    shape=input_space.shape,
+    #    channels=input_space.num_channels + self.dummy_channels,
+    #    axes=('c', 0, 1, 'b')
+    #)
+
+    if hasattr(self, 'output_stride'):
+        kernel_stride = self.output_stride
+    else:
+        assert False # not sure if I got the name right, remove this assert if I did
+        kernel_stride = [1, 1]
+
+
+    #o_sh = int(np.ceil((i_sh + 2. * self.pad - k_sh) / float(k_st))) + 1
+    #o_sh -1 = np.ceil((i_sh + 2. * self.pad - k_sh) / float(k_st))
+    #inv_ceil(o_sh -1) = (i_sh + 2. * self.pad - k_sh) / float(k_st)
+    #float(k_st) inv_cel(o_sh -1) = (i_sh + 2 * self.pad -k_sh)
+    # i_sh = k_st inv_ceil(o_sh-1) - 2 * self.pad + k_sh
+
+    output_shape = \
+        [k_st * (i_sh - 1) - 2 * self.pad_out + k_sh
+         for i_sh, k_sh, k_st in zip(self.input_space.shape,
+                                     self.kernel_shape, kernel_stride)]
+
+
+    if self.input_space.num_channels < 16:
+        raise ValueError("Cuda-convnet requires the input to lmul_T to have "
+                         "at least 16 channels.")
+
+    self.detector_space = Conv2DSpace(shape=output_shape,
+                                      num_channels=self.detector_channels,
+                                      axes=('c', 0, 1, 'b'))
+
+    if hasattr(self, 'partial_sum'):
+        partial_sum = self.partial_sum
+    else:
+        partial_sum = 1
+
+    if hasattr(self, 'sparse_init') and self.sparse_init is not None:
+        self.transformer = \
+            checked_call(make_sparse_random_conv2D,
+                         OrderedDict([('num_nonzero', self.sparse_init),
+                                      ('input_space', self.detector_space),
+                                      ('output_space', self.input_space),
+                                      ('kernel_shape', self.kernel_shape),
+                                      ('pad', self.pad),
+                                      ('partial_sum', partial_sum),
+                                      ('kernel_stride', kernel_stride),
+                                      ('rng', rng)]))
+    else:
+        self.transformer = make_random_conv2D(
+            irange=self.irange,
+            input_axes=self.detector_space.axes,
+            output_axes=self.input_space.axes,
+            input_channels=self.detector_space.num_channels,
+            output_channels=self.input_space.num_channels,
+            kernel_shape=self.kernel_shape,
+            pad=self.pad_out,
+            partial_sum=partial_sum,
+            kernel_stride=kernel_stride,
+            rng=rng,
+            input_shape=self.detector_space.shape
+        )
+
+    W, = self.transformer.get_params()
+    W.name = self.layer_name + '_W'
+
+    if self.tied_b:
+        self.b = sharedX(np.zeros(self.detector_space.num_channels) +
+                         self.init_bias)
+    else:
+        self.b = sharedX(self.detector_space.get_origin() + self.init_bias)
+    self.b.name = self.layer_name + '_b'
+
+    logger.info('Input shape: {0}'.format(self.input_space.shape))
+    logger.info('Detector space: {0}'.format(self.detector_space.shape))
