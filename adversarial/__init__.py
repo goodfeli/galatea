@@ -371,9 +371,18 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             inference_default_input_include_prob=None,
             inference_input_include_probs=None,
             inference_default_input_scale=1.,
-            inference_input_scales=None):
+            inference_input_scales=None,
+            ever_train_discriminator=True,
+            ever_train_generator=True,
+            ever_train_inference=True):
         self.__dict__.update(locals())
         del self.self
+        # These allow you to dynamically switch off training parts.
+        # If the corresponding ever_train_* is False, these have
+        # no effect.
+        self.now_train_generator = T.shared(numpy.array(1., dtype='float32'))
+        self.now_train_discriminator = T.shared(numpy.array(1., dtype='float32'))
+        self.now_train_inference = T.shared(numpy.array(1., dtype='float32'))
 
     def expr(self, model, data, **kwargs):
         S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
@@ -443,12 +452,15 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             scale = T.maximum(1., self.target_scale / T.sqrt(T.sqr(S_grad).sum()))
             g_grads = [g_grad * scale for g_grad in g_grads]
 
-        rval = OrderedDict(safe_zip(d_params + g_params,
-            d_grads + g_grads))
-        if model.inferer is not None:
+        rval = OrderedDict()
+        if self.ever_train_discriminator:
+            rval.update(OrderedDict(safe_zip(d_params, self.now_train_discriminator * d_grads)))
+        if self.ever_train_generator:
+            rval.update(OrderedDict(safe_zip(g_params, self.now_train_generator * g_grads)))
+        if self.ever_train_inference and model.inferer is not None:
             i_params = model.inferer.get_params()
             i_grads = T.grad(i_obj, i_params)
-            rval.update(OrderedDict(safe_zip(i_params, i_grads)))
+            rval.update(OrderedDict(safe_zip(i_params, self.now_train_inference * i_grads)))
         return rval, OrderedDict()
 
     def get_monitoring_channels(self, model, data, **kwargs):
