@@ -80,7 +80,6 @@ class Generator(Model):
 
 
     def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1.):
-        # Assumes design matrix
         n = self.mlp.get_input_space().get_total_dimension()
         noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
         formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
