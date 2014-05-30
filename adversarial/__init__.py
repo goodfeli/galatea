@@ -8,10 +8,12 @@ from pylearn2.space import VectorSpace
 from pylearn2.costs.cost import Cost
 from pylearn2.costs.cost import DefaultDataSpecsMixin
 from pylearn2.expr.nnet import kl
+from pylearn2.models.mlp import Layer
 from pylearn2.models import Model
+from pylearn2.space import CompositeSpace
+from pylearn2.utils import block_gradient
 from pylearn2.utils import safe_zip
 from pylearn2.utils import serial
-from pylearn2.utils import block_gradient
 
 class AdversaryPair(Model):
 
@@ -449,7 +451,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         sample_grad = T.grad(-cost, samples)
         rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
         _, _, _, iobj = self.get_samples_and_objectives(model, data)
-        rval['inf_mse'] = iobj
+        if iobj != 0:
+            rval['inf_mse'] = iobj
         return rval
 
 def recapitate_discriminator(pair_path, new_head):
@@ -483,3 +486,18 @@ def log_mean_exp(a):
     max_ = a.max(1)
 
     return max_ + T.log(T.exp(a - max_.dimshuffle(0, 'x')).mean(1))
+
+class Sum(Layer):
+
+    def __init__(self, layer_name):
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        self.input_space = space
+        assert isinstance(space, CompositeSpace)
+        self.output_space = space.components[0]
+
+    def fprop(self, state_below):
+        return sum(state_below)
