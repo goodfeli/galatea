@@ -1,7 +1,7 @@
 !obj:pylearn2.train.Train {
     dataset: &train !obj:pylearn2.datasets.tfd.TFD {
         which_set: 'unlabeled',
-        scale: True
+        scale: True,
     },
     model: !obj:galatea.adversarial.AdversaryPair {
         generator: !obj:galatea.adversarial.Generator {
@@ -14,13 +14,13 @@
                          irange: .05,
                          max_col_norm: 1.9365,
                      },
-                     !obj:pylearn2.models.mlp.RectifiedLinear {
+                     !obj:pylearn2.models.mlp.Sigmoid {
                          layer_name: 'h1',
                          dim: 8000,
                          irange: .05,
                          max_col_norm: 1.9365,
                      },
-                     !obj:pylearn2.models.mlp.Sigmoid {
+                     !obj:pylearn2.models.mlp.Linear {
                          max_col_norm: 1.9365,
                          init_bias: !obj:pylearn2.models.dbm.init_sigmoid_bias_from_marginals { dataset: *train},
                          layer_name: 'y',
@@ -65,7 +65,7 @@
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 100,
-        learning_rate: .1,
+        learning_rate: .05,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: .5,
         },
@@ -74,11 +74,11 @@
                 'train' : *train,
                 'valid' : !obj:pylearn2.datasets.tfd.TFD {
                               which_set: 'valid',
-                              scale: True
+                              scale: True,
                           },
                 'test'  : !obj:pylearn2.datasets.tfd.TFD {
                               which_set: 'test',
-                              scale: True
+                              scale: True,
                           }
             },
         cost: !obj:galatea.adversarial.AdversaryCost2 {
@@ -119,5 +119,5 @@
         }
     ],
     save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
-    save_freq: 10
+    save_freq: 5
 }
