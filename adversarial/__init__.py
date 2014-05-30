@@ -74,6 +74,8 @@ class AdversaryPair(Model):
     def _modify_updates(self, updates):
         self.generator.modify_updates(updates)
         self.discriminator.modify_updates(updates)
+        if self.inferer is not None:
+            self.inferer.modify_updates(updates)
 
 
 class Generator(Model):
