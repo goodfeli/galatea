@@ -381,4 +381,4 @@ def setup_deconv_detector_layer_c01b(layer, input_space, rng, irange="not specif
     self.b.name = self.layer_name + '_b'
 
     logger.info('Input shape: {0}'.format(self.input_space.shape))
-    logger.info('Detector space: {0}'.format(self.detector_space.shape))
+    print layer.layer_name + ' detector space: {0}'.format(self.detector_space.shape)

@@ -23,9 +23,9 @@
                                 layer_name: "conv_subnet",
                                 layers: [
                                      !obj:pylearn2.models.mlp.Sigmoid {
-                                         layer_name: 'h1',
+                                         layer_name: 'conv_subnet_h0',
                                          dim: 8000,
-                                         irange: .05,
+                                         irange: 15,
                                          max_col_norm: 1.9365,
                                      },
                                      !obj:pylearn2.models.mlp.SpaceConverter {
@@ -36,15 +36,15 @@
                                         axes: ['c', 0, 1, 'b'],
                                     }},
                                      !obj:galatea.adversarial.deconv.Deconv {
-                                     W_lr_scale: .05,
-                                     b_lr_scale: .05,
+                                     #W_lr_scale: .05,
+                                     #b_lr_scale: .05,
                                          num_channels: 3,
                                          output_stride: [3, 3],
                                          kernel_shape: [5, 5],
                                          pad_out: 0,
                                          max_kernel_norm: 1.9365,
                                          # init_bias: !obj:pylearn2.models.dbm.init_sigmoid_bias_from_marginals { dataset: *train},
-                                         layer_name: 'y',
+                                         layer_name: 'conv_subnet_y',
                                          irange: .05,
                                          tied_b: 0
                                      }
@@ -102,7 +102,7 @@
                      partial_sum: 33,
                  },
                  !obj:pylearn2.models.maxout.MaxoutConvC01B {
-                     layer_name: 'h1',
+                     layer_name: 'dh1',
                      pad: 3,
                      tied_b: 1,
                      W_lr_scale: .05,
@@ -118,7 +118,7 @@
                  },
                  !obj:pylearn2.models.maxout.MaxoutConvC01B {
                      pad: 3,
-                     layer_name: 'h2',
+                     layer_name: 'dh2',
                      tied_b: 1,
                      W_lr_scale: .05,
                      b_lr_scale: .05,
@@ -131,7 +131,7 @@
                      max_kernel_norm: 1.9365,
                  },
                  !obj:pylearn2.models.maxout.Maxout {
-                    layer_name: 'h3',
+                    layer_name: 'dh3',
                     irange: .005,
                     num_units: 500,
                     num_pieces: 5,
@@ -141,7 +141,7 @@
                          #W_lr_scale: .1,
                          #b_lr_scale: .1,
                          max_col_norm: 1.9365,
-                         layer_name: 'y',
+                         layer_name: 'dy',
                          dim: 1,
                          irange: .005
                      }
