@@ -70,13 +70,19 @@ if __name__ == "__main__":
     sigma = 0.2
     model.set_batch_size(batch_size)
 
-    assert src.find('train') != -1
+    #assert src.find('train') != -1
     test = yaml_parse.load(src)
     test = test.get_test_set()
 
     samples = model.generator.sample(num_samples).eval()
     parzen = theano_parzen(samples, sigma)
-    ll = get_nll(test.X, parzen)
+    ll = get_nll(test.X, parzen, batch_size = batch_size)
 
     print "Log-Likelihood of test set = {}, std: {}".format(ll.mean(), ll.std())
 
+    # valid
+    if 0:
+        from pylearn2.datasets.mnist import MNIST
+        valid = MNIST(which_set='train', start=50000, stop=60000)
+        ll = get_nll(valid.X, parzen, batch_size = batch_size)
+        print "Log-Likelihood of valid set = {}, std: {}".format(ll.mean(), ll.std())
