@@ -1,3 +1,4 @@
+import functools
 import theano
 import numpy
 from theano.compat import OrderedDict
@@ -70,6 +71,10 @@ class AdversaryPair(Model):
         source = self.discriminator.get_input_source()
         return (space, source)
 
+    def _modify_updates(self, updates):
+        self.generator._modify_updates(updates)
+        self.discriminator._modify_updates(updates)
+
 
 class Generator(Model):
 
@@ -115,6 +120,9 @@ class Generator(Model):
         samples = self.sample(n_samples)
         parzen = theano_parzen(data, samples, sigma)
         return parzen
+
+    def _modify_updates(self, updates):
+        self.mlp._modify_updates(updates)
 
 
 
@@ -501,3 +509,35 @@ class Sum(Layer):
 
     def fprop(self, state_below):
         return sum(state_below)
+
+    @functools.wraps(Layer.get_layer_monitoring_channels)
+    def get_layer_monitoring_channels(self, state_below=None,
+                                    state=None, targets=None):
+        rval = OrderedDict()
+
+        if (state is not None) or (state_below is not None):
+            if state is None:
+                state = self.fprop(state_below)
+
+            mx = state.max(axis=0)
+            mean = state.mean(axis=0)
+            mn = state.min(axis=0)
+            rg = mx - mn
+
+            rval['range_x_max_u'] = rg.max()
+            rval['range_x_mean_u'] = rg.mean()
+            rval['range_x_min_u'] = rg.min()
+
+            rval['max_x_max_u'] = mx.max()
+            rval['max_x_mean_u'] = mx.mean()
+            rval['max_x_min_u'] = mx.min()
+
+            rval['mean_x_max_u'] = mean.max()
+            rval['mean_x_mean_u'] = mean.mean()
+            rval['mean_x_min_u'] = mean.min()
+
+            rval['min_x_max_u'] = mn.max()
+            rval['min_x_mean_u'] = mn.mean()
+            rval['min_x_min_u'] = mn.min()
+
+        return rval

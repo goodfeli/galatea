@@ -147,7 +147,7 @@ class Deconv(Layer):
         return self.transformer.get_weights_topo()
 
     @functools.wraps(Layer.get_monitoring_channels)
-    def get_monitoring_channels(self):
+    def get_layer_monitoring_channels(self, state_below=None, state=None, targets=None):
 
         W, = self.transformer.get_params()
 
@@ -157,32 +157,6 @@ class Deconv(Layer):
 
         row_norms = T.sqrt(sq_W.sum(axis=(0, 1, 2)))
 
-        return OrderedDict([('kernel_norms_min',  row_norms.min()),
-                            ('kernel_norms_mean', row_norms.mean()),
-                            ('kernel_norms_max',  row_norms.max()), ])
-
-    @functools.wraps(Layer.fprop)
-    def fprop(self, state_below):
-        check_cuda(str(type(self)))
-
-        self.input_space.validate(state_below)
-
-        z = self.transformer.lmul_T(state_below)
-
-        self.output_space.validate(z)
-
-        if not hasattr(self, 'tied_b'):
-            self.tied_b = False
-        if self.tied_b:
-            b = self.b.dimshuffle(0, 'x', 'x', 'x')
-        else:
-            b = self.b.dimshuffle(0, 1, 2, 'x')
-
-        return z + b
-
-    @functools.wraps(Layer.get_monitoring_channels_from_state)
-    def get_monitoring_channels_from_state(self, state):
-
         P = state
 
         rval = OrderedDict()
@@ -190,7 +164,13 @@ class Deconv(Layer):
         vars_and_prefixes = [(P, '')]
 
         for var, prefix in vars_and_prefixes:
-            assert var.ndim == 4
+            if not hasattr(var, 'ndim') or var.ndim != 4:
+                print "expected 4D tensor, got "
+                print var
+                print type(var)
+                if isinstance(var, tuple):
+                    print "tuple length: ", len(var)
+                assert False
             v_max = var.max(axis=(1, 2, 3))
             v_min = var.min(axis=(1, 2, 3))
             v_mean = var.mean(axis=(1, 2, 3))
@@ -217,7 +197,32 @@ class Deconv(Layer):
                              ('mean_x.min_u',   v_mean.min())]:
                 rval[prefix+key] = val
 
+        rval.update(OrderedDict([('kernel_norms_min',  row_norms.min()),
+                            ('kernel_norms_mean', row_norms.mean()),
+                            ('kernel_norms_max',  row_norms.max()), ]))
+
         return rval
+
+    @functools.wraps(Layer.fprop)
+    def fprop(self, state_below):
+        check_cuda(str(type(self)))
+
+        self.input_space.validate(state_below)
+
+        z = self.transformer.lmul_T(state_below)
+
+        self.output_space.validate(z)
+
+        if not hasattr(self, 'tied_b'):
+            self.tied_b = False
+        if self.tied_b:
+            b = self.b.dimshuffle(0, 'x', 'x', 'x')
+        else:
+            b = self.b.dimshuffle(0, 1, 2, 'x')
+
+        return z + b
+
+
 
 def setup_deconv_detector_layer_c01b(layer, input_space, rng, irange="not specified"):
     """

@@ -12,7 +12,7 @@
             layers: [
                      !obj:pylearn2.models.mlp.RectifiedLinear {
                          layer_name: 'gh0',
-                         dim: 8000,
+                         dim: 6000,
                          sparse_init: 15,
                          max_col_norm: 1.9365,
                      },
@@ -81,7 +81,7 @@
                         layer_name: "summer"
                      }
                     ],
-            nvis: 100,
+            nvis: 4000,
         }},
         discriminator: 
             !obj:pylearn2.models.mlp.MLP {
@@ -155,7 +155,7 @@
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 128,
-        learning_rate: .015,
+        learning_rate: .0075,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: .5,
         },
