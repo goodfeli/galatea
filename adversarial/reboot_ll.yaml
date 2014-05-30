@@ -41,7 +41,6 @@
                          num_units: 240,
                          num_pieces: 5,
                          irange: .005,
-                         max_col_norm: 1.9365,
                      },
                      !obj:pylearn2.models.maxout.Maxout {
                          #W_lr_scale: .1,
@@ -50,12 +49,10 @@
                          num_units: 240,
                          num_pieces: 5,
                          irange: .005,
-                         max_col_norm: 1.9365,
                      },
                      !obj:pylearn2.models.mlp.Sigmoid {
                          #W_lr_scale: .1,
                          #b_lr_scale: .1,
-                         max_col_norm: 1.9365,
                          layer_name: 'y',
                          dim: 1,
                          irange: .005
