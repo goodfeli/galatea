@@ -12,7 +12,7 @@
             layers: [
                      !obj:pylearn2.models.mlp.RectifiedLinear {
                          layer_name: 'gh0',
-                         dim: 6000,
+                         dim: 7000,
                          sparse_init: 15,
                          max_col_norm: 1.9365,
                      },
@@ -155,7 +155,7 @@
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 128,
-        learning_rate: .0075,
+        learning_rate: .01,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: .5,
         },

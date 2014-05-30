@@ -20,6 +20,7 @@ class AdversaryPair(Model):
 
     def __init__(self, generator, discriminator, inferer=None,
                  inference_monitoring_batch_size=128):
+        Model.__init__(self)
         self.__dict__.update(locals())
         del self.self
 
@@ -75,10 +76,17 @@ class AdversaryPair(Model):
         self.generator.modify_updates(updates)
         self.discriminator.modify_updates(updates)
 
+    def get_lr_scalers(self):
+
+        rval = self.generator.get_lr_scalers()
+        rval.update(self.discriminator.get_lr_scalers())
+        return rval
+
 
 class Generator(Model):
 
     def __init__(self, mlp, monitor_ll = False, ll_n_samples = 100, ll_sigma = 0.2):
+        Model.__init__(self)
         self.__dict__.update(locals())
         del self.self
         self.theano_rng = MRG_RandomStreams(2014 * 5 + 27)
@@ -123,6 +131,9 @@ class Generator(Model):
 
     def _modify_updates(self, updates):
         self.mlp.modify_updates(updates)
+
+    def get_lr_scalers(self):
+        return self.mlp.get_lr_scalers()
 
 
 
@@ -498,6 +509,7 @@ def log_mean_exp(a):
 class Sum(Layer):
 
     def __init__(self, layer_name):
+        Model.__init__(self)
         self.__dict__.update(locals())
         del self.self
         self._params = []
