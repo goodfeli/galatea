@@ -5,9 +5,23 @@ model = serial.load(model_path)
 from pylearn2.gui.patch_viewer import make_viewer
 space = model.generator.get_output_space()
 from pylearn2.space import VectorSpace
+from pylearn2.config import yaml_parse
+import numpy as np
+
+match_train = False
+if match_train:
+    dataset = yaml_parse.load(model.dataset_yaml_src)
+
 if isinstance(space, VectorSpace):
     # For some reason format_as from VectorSpace is not working right
     samples = model.generator.sample(100).eval()
+
+    if match_train:
+        matched = np.zeros((samples.shape[0] * 2, samples.shape[1]))
+        for i in xrange(samples.shape[0]):
+            matched[2 * i, :] = samples[i, :].copy()
+        raise NotImplementedError("finish this")
+
     is_color = samples.shape[-1] % 3 == 0
 else:
     total_dimension = space.get_total_dimension()
