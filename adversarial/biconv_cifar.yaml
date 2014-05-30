@@ -30,6 +30,8 @@
                         axes: ['c', 0, 1, 'b'],
                     }},
                      !obj:galatea.adversarial.deconv.Deconv {
+                     W_lr_scale: .05,
+                     b_lr_scale: .05,
                          num_channels: 3,
                          output_stride: [3, 3],
                          kernel_shape: [5, 5],
@@ -115,7 +117,7 @@
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
         batch_size: 128,
-        learning_rate: .0125,
+        learning_rate: .006,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
             init_momentum: .5,
         },
