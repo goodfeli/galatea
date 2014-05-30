@@ -88,7 +88,7 @@ def main():
     # cross validate simga
     if args.sigma is None:
         rng = numpy.random.RandomState(2014)
-        sigma_range = numpy.linspace(0.001, 1., num=2)
+        sigma_range = numpy.linspace(0.001, 1., num=10)
         sample_size = 1000
         ind = rng.randint(0, test.X.shape[0], sample_size)
         sigma = cross_validate_sigma(samples[ind], test.X[ind], sigma_range, batch_size)
