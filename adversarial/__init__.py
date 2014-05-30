@@ -450,7 +450,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         cost = d.cost_from_X((samples, y_hat))
         sample_grad = T.grad(-cost, samples)
         rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
-
+        _, _, _, iobj = self.get_samples_and_objectives(model, data)
+        rval['inf_mse'] = iobj
         return rval
 
 def recapitate_discriminator(pair_path, new_head):
