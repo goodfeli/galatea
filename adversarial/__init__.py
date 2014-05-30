@@ -1,4 +1,5 @@
 import functools
+import itertools
 import theano
 import numpy
 from theano.compat import OrderedDict
@@ -252,8 +253,12 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         rval = OrderedDict()
         if self.ever_train_discriminator:
             rval.update(OrderedDict(safe_zip(d_params, [self.now_train_discriminator * dg for dg in d_grads])))
+        else:
+            rval.update(OrderedDict(zip(d_params, itertools.repeat(theano.tensor.constant(0., dtype='float32')))))
         if self.ever_train_generator:
             rval.update(OrderedDict(safe_zip(g_params, [self.now_train_generator * gg for gg in g_grads])))
+        else:
+            rval.update(OrderedDict(zip(g_params, itertools.repeat(theano.tensor.constant(0., dtype='float32')))))
         if self.ever_train_inference and model.inferer is not None:
             i_params = model.inferer.get_params()
             i_grads = T.grad(i_obj, i_params)
