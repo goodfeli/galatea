@@ -454,13 +454,13 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
 
         rval = OrderedDict()
         if self.ever_train_discriminator:
-            rval.update(OrderedDict(safe_zip(d_params, self.now_train_discriminator * d_grads)))
+            rval.update(OrderedDict(safe_zip(d_params, [self.now_train_discriminator * dg for dg in d_grads])))
         if self.ever_train_generator:
-            rval.update(OrderedDict(safe_zip(g_params, self.now_train_generator * g_grads)))
+            rval.update(OrderedDict(safe_zip(g_params, [self.now_train_generator * gg for gg in g_grads])))
         if self.ever_train_inference and model.inferer is not None:
             i_params = model.inferer.get_params()
             i_grads = T.grad(i_obj, i_params)
-            rval.update(OrderedDict(safe_zip(i_params, self.now_train_inference * i_grads)))
+            rval.update(OrderedDict(safe_zip(i_params, [self.now_train_inference * ig for ig in i_grads])))
         return rval, OrderedDict()
 
     def get_monitoring_channels(self, model, data, **kwargs):
