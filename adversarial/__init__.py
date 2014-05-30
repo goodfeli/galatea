@@ -24,6 +24,7 @@ class AdversaryPair(Model):
         p = self.generator.get_params() + self.discriminator.get_params()
         if self.inferer is not None:
             p += self.inferer.get_params()
+        return p
 
     def get_input_space(self):
         return self.discriminator.get_input_space()
@@ -50,7 +51,7 @@ class AdversaryPair(Model):
         d_ch = OrderedDict()
 
         i_ch = OrderedDict()
-        if self.inferer is None:
+        if self.inferer is not None:
             batch_size = self.inference_monitoring_batch_size
             sample, noise = self.generator.sample_and_noise(batch_size)
             i_ch.update(self.inferer.get_monitoring_channels((sample, noise)))
