@@ -385,15 +385,15 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         d_obj =  0.5 * (d.layers[-1].cost(y1, y_hat1) + d.layers[-1].cost(y0, y_hat0))
         g_obj = d.layers[-1].cost(y1, y_hat0)
 
-        if self.inferer is not None:
+        if model.inferer is not None:
             # Change this if we ever switch to using dropout in the
             # construction of S.
             S_nograd = block_gradient(S)  # Redundant as long as we have custom get_gradients
-            z_hat = self.inferer.dropout_fprop(S_nograd, self.inference_default_input_include_prob,
-                                               self.inference_input_include_probs,
-                                               self.inference_default_input_scale,
-                                               self.inference_input_scales)
-            i_obj = self.inferer.layers[-1].cost(z, z_hat)
+            z_hat = model.inferer.dropout_fprop(S_nograd, self.inference_default_input_include_prob,
+                                                self.inference_input_include_probs,
+                                                self.inference_default_input_scale,
+                                                self.inference_input_scales)
+            i_obj = model.inferer.layers[-1].cost(z, z_hat)
         else:
             i_obj = 0
 
