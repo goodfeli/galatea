@@ -15,7 +15,8 @@ from pylearn2.utils import block_gradient
 
 class AdversaryPair(Model):
 
-    def __init__(self, generator, discriminator, inferer=None):
+    def __init__(self, generator, discriminator, inferer=None,
+                 inference_monitoring_batch_size=128):
         self.__dict__.update(locals())
         del self.self
 
@@ -48,11 +49,18 @@ class AdversaryPair(Model):
         # need to spoof targets: d_ch = self.discriminator.get_monitoring_channels(data)
         d_ch = OrderedDict()
 
+        i_ch = OrderedDict()
+        if self.inferer is None:
+            batch_size = self.inference_monitoring_batch_size
+            sample, noise = self.generator.sample_and_noise(batch_size)
+            i_ch.update(self.inferer.get_monitoring_channels((sample, noise)))
+
         for key in g_ch:
             rval['gen_' + key] = g_ch[key]
         for key in d_ch:
             rval['dis_' + key] = d_ch[key]
-
+        for key in i_ch:
+            rval['inf_' + key] = i_ch[key]
         return rval
 
     def get_monitoring_data_specs(self):
