@@ -72,8 +72,8 @@ class AdversaryPair(Model):
         return (space, source)
 
     def _modify_updates(self, updates):
-        self.generator._modify_updates(updates)
-        self.discriminator._modify_updates(updates)
+        self.generator.modify_updates(updates)
+        self.discriminator.modify_updates(updates)
 
 
 class Generator(Model):
@@ -122,7 +122,7 @@ class Generator(Model):
         return parzen
 
     def _modify_updates(self, updates):
-        self.mlp._modify_updates(updates)
+        self.mlp.modify_updates(updates)
 
 
 
