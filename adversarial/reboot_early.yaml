@@ -100,7 +100,7 @@
         #},
         termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
             channel_name: "valid_gen_nll",
-            prop_decrease: 0.1,
+            prop_decrease: 0.01,
             N: 100
         },
         update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
