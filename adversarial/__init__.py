@@ -24,6 +24,11 @@ class AdversaryPair(Model):
         self.__dict__.update(locals())
         del self.self
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if 'inference_monitoring_batch_size' not in state:
+            self.inference_monitoring_batch_size = 128  # TODO: HACK
+
     def get_params(self):
         p = self.generator.get_params() + self.discriminator.get_params()
         if self.inferer is not None:
@@ -136,6 +141,12 @@ class Generator(Model):
 
     def get_lr_scalers(self):
         return self.mlp.get_lr_scalers()
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        if 'monitor_ll' not in state:
+            self.monitor_ll = False
+
 
 class IntrinsicDropoutGenerator(Generator):
     def __init__(self, default_input_include_prob, default_input_scale, **kwargs):
