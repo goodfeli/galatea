@@ -96,6 +96,7 @@ def main():
     parser.add_argument('-f', '--fold', default = 0, type=int)
     parser.add_argument('-v', '--valid', default = False, action='store_true')
     parser.add_argument('-n', '--num_samples', default=10000, type=int)
+    parser.add_argument('-l', '--limit_size', default=1000, type=int)
     args = parser.parse_args()
 
     # load model
@@ -113,7 +114,7 @@ def main():
 
     # cross validate simga
     if args.sigma is None:
-        valid = get_valid(args.dataset)
+        valid = get_valid(args.dataset, limit_size = args.limit_size, fold = args.fold)
         sigma_range = numpy.logspace(-1., 0, num=15)
         sigma = cross_validate_sigma(samples, valid, sigma_range, batch_size)
     else:
