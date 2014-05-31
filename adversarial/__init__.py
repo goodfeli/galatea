@@ -15,6 +15,7 @@ from pylearn2.space import CompositeSpace
 from pylearn2.utils import block_gradient
 from pylearn2.utils import safe_zip
 from pylearn2.utils import serial
+from pylearn2.utils import sharedX
 
 class AdversaryPair(Model):
 
@@ -31,7 +32,7 @@ class AdversaryPair(Model):
 
     def get_params(self):
         p = self.generator.get_params() + self.discriminator.get_params()
-        if self.inferer is not None:
+        if hasattr(self, 'inferer') and self.inferer is not None:
             p += self.inferer.get_params()
         return p
 
@@ -188,8 +189,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         # These allow you to dynamically switch off training parts.
         # If the corresponding ever_train_* is False, these have
         # no effect.
-        self.now_train_generator = T.shared(numpy.array(1., dtype='float32'))
-        self.now_train_discriminator = T.shared(numpy.array(1., dtype='float32'))
+        self.now_train_generator = sharedX(numpy.array(1., dtype='float32'))
+        self.now_train_discriminator = sharedX(numpy.array(1., dtype='float32'))
         self.now_train_inference = T.shared(numpy.array(1., dtype='float32'))
 
     def expr(self, model, data, **kwargs):
