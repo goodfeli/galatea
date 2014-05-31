@@ -33,6 +33,7 @@ def get_nll(x, parzen, batch_size=10):
 
     return numpy.array(nlls)
 
+
 def log_mean_exp(a):
     """
     Credit: Yann N. Dauphin
@@ -41,6 +42,7 @@ def log_mean_exp(a):
     max_ = a.max(1)
 
     return max_ + T.log(T.exp(a - max_.dimshuffle(0, 'x')).mean(1))
+
 
 def theano_parzen(mu, sigma):
     """
@@ -64,6 +66,8 @@ def cross_validate_sigma(samples, data, sigmas, batch_size):
         parzen = theano_parzen(samples, sigma)
         tmp = get_nll(data, parzen, batch_size = batch_size)
         lls.append(numpy.asarray(tmp).mean())
+        del parzen
+        gc.collect()
 
     ind = numpy.argmax(lls)
     return sigmas[ind]
@@ -77,7 +81,8 @@ def get_valid(ds, limit_size = -1, fold = 0):
         data = TFD('valid', fold = fold)
         return data.X
     else:
-        raise ValueError("Unknow dataset: {}".format(args.dataet))
+         raise ValueError("Unknow dataset: {}".format(args.dataet))
+
 
 def get_test(ds, test, fold=0):
     if ds == 'mnist':
@@ -98,6 +103,8 @@ def main():
     parser.add_argument('-n', '--num_samples', default=10000, type=int)
     parser.add_argument('-l', '--limit_size', default=1000, type=int)
     parser.add_argument('-b', '--batch_size', default=100, type=int)
+    parser.add_argument('-c', '--cross_val', default=10, type=int,
+                            help="Number of cross valiation folds")
     args = parser.parse_args()
 
     # load model
@@ -118,7 +125,7 @@ def main():
     # cross validate simga
     if args.sigma is None:
         valid = get_valid(args.dataset, limit_size = args.limit_size, fold = args.fold)
-        sigma_range = numpy.logspace(-1., 0, num=15)
+        sigma_range = numpy.logspace(-1., 0, num=arg.cross_val)
         sigma = cross_validate_sigma(samples, valid, sigma_range, batch_size)
     else:
         sigma = float(args.sigma)
@@ -137,7 +144,7 @@ def main():
     if args.valid:
         valid = get_valid(args.dataset)
         ll = get_nll(valid, parzen, batch_size = batch_size)
-        se = ll.std() / numpy.sqrt(test.X.shape[0])
+        se = ll.std() / numpy.sqrt(val.shape[0])
         print "Log-Likelihood of valid set = {}, se: {}".format(ll.mean(), se)
 
 
