@@ -115,7 +115,7 @@ def main():
     if args.sigma is None:
         valid = get_valid(args.dataset)
         sigma_range = numpy.logspace(-1., 0, num=15)
-        simga = cross_validate_sigma(samples, valid, sigma_range, batch_size)
+        sigma = cross_validate_sigma(samples, valid, sigma_range, batch_size)
     else:
         sigma = float(args.sigma)
 
