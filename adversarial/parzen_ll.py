@@ -97,12 +97,13 @@ def main():
     parser.add_argument('-v', '--valid', default = False, action='store_true')
     parser.add_argument('-n', '--num_samples', default=10000, type=int)
     parser.add_argument('-l', '--limit_size', default=1000, type=int)
+    parser.add_argument('-b', '--batch_size', default=100, type=int)
     args = parser.parse_args()
 
     # load model
     model = serial.load(args.path)
     src = model.dataset_yaml_src
-    batch_size = 100
+    batch_size = args.batch_size
     model.set_batch_size(batch_size)
 
     # load test set
@@ -111,6 +112,8 @@ def main():
 
     # generate samples
     samples = model.generator.sample(args.num_samples).eval()
+    del model
+    gc.collect()
 
     # cross validate simga
     if args.sigma is None:
