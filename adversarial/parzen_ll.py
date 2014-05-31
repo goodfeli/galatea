@@ -113,7 +113,7 @@ def main():
 
     # cross validate simga
     if args.sigma is None:
-        valid = get_valid(args.ds)
+        valid = get_valid(args.dataset)
         sigma_range = numpy.logspace(-1., 0, num=15)
         simga = cross_validate_sigma(samples, valid.X[ind], sigma_range, batch_size)
     else:
