@@ -12,7 +12,7 @@
             layers: [
                      !obj:pylearn2.models.mlp.RectifiedLinear {
                          layer_name: 'gh0',
-                         dim: 7000,
+                         dim: 6000,
                          sparse_init: 15,
                          max_col_norm: 1.9365,
                      },
@@ -131,6 +131,7 @@
                      max_kernel_norm: 1.9365,
                  },
                  !obj:pylearn2.models.maxout.Maxout {
+                     monitor_row_norm: 0,
                     layer_name: 'dh3',
                     irange: .005,
                     num_units: 500,

@@ -48,8 +48,7 @@ class AdversaryPair(Model):
         rval = OrderedDict()
 
         g_ch = self.generator.get_monitoring_channels(data)
-        # need to spoof targets: d_ch = self.discriminator.get_monitoring_channels(data)
-        d_ch = OrderedDict()
+        d_ch = self.discriminator.get_monitoring_channels((data, None))
 
         i_ch = OrderedDict()
         if self.inferer is not None:
