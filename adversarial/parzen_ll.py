@@ -6,6 +6,8 @@ import theano
 import theano.tensor as T
 from pylearn2.utils import serial
 from pylearn2.config import yaml_parse
+from pylearn2.datasets.mnist import MNIST
+from pylearn2.datasets.tfd import TFD
 
 
 
@@ -66,52 +68,73 @@ def cross_validate_sigma(samples, data, sigmas, batch_size):
     ind = numpy.argmax(lls)
     return sigmas[ind]
 
+
+def get_valid(ds, limit_size = -1, fold = 0):
+    if ds == 'mnist':
+        data = MNIST('train', start=50000, stop=60000)
+        return data.X[:limit_size]
+    elif ds == 'tfd':
+        data = TFD('valid', fold = fold)
+        return data.X
+    else:
+        raise ValueError("Unknow dataset: {}".format(args.dataet))
+
+def get_test(ds, test, fold=0):
+    if ds == 'mnist':
+        return test.get_test_set()
+    elif ds == 'tfd':
+        return test.get_test_set(fold=fold)
+    else:
+        raise ValueError("Unknow dataset: {}".format(args.dataet))
+
+
 def main():
     parser = argparse.ArgumentParser(description = 'Parzen window, log-likelihood estimator')
     parser.add_argument('-p', '--path', help='model path')
     parser.add_argument('-s', '--sigma', default = None)
+    parser.add_argument('-d', '--dataset', choices=['mnist', 'tfd'])
+    parser.add_argument('-f', '--fold', default = 0, type=int)
+    parser.add_argument('-v', '--valid', default = False, action='store_true')
+    parser.add_argument('-n', '--num_samples', default=10000, type=int)
     args = parser.parse_args()
 
+    # load model
     model = serial.load(args.path)
-
     src = model.dataset_yaml_src
     batch_size = 100
-    num_samples = 10000
     model.set_batch_size(batch_size)
 
-    #assert src.find('train') != -1
+    # load test set
     test = yaml_parse.load(src)
-    test = test.get_test_set()
+    test = get_test(args.dataset, test, args.fold)
 
-    samples = model.generator.sample(num_samples).eval()
+    # generate samples
+    samples = model.generator.sample(args.num_samples).eval()
 
     # cross validate simga
     if args.sigma is None:
-        rng = numpy.random.RandomState(2014)
-        sigma_range = numpy.linspace(0.001, 1., num=10)
-        sample_size = 1000
-        ind = rng.randint(0, test.X.shape[0], sample_size)
-        sigma = cross_validate_sigma(samples[ind], test.X[ind], sigma_range, batch_size)
+        valid = get_valid(args.ds)
+        sigma_range = numpy.logspace(-1., 0, num=15)
+        simga = cross_validate_sigma(samples, valid.X[ind], sigma_range, batch_size)
     else:
         sigma = float(args.sigma)
 
     print "Using simga: {}".format(sigma)
-
     gc.collect()
 
     # fit and evaulate
     parzen = theano_parzen(samples, sigma)
     ll = get_nll(test.X, parzen, batch_size = batch_size)
+    se = ll.std() / numpy.sqrt(test.X.shape[0])
 
-    print "Log-Likelihood of test set = {}, std: {}".format(ll.mean(), ll.std())
+    print "Log-Likelihood of test set = {}, se: {}".format(ll.mean(), se)
 
     # valid
-    if 0:
-        from pylearn2.datasets.mnist import MNIST
-        valid = MNIST(which_set='train', start=50000, stop=60000)
-        ll = get_nll(valid.X, parzen, batch_size = batch_size)
-        print "Log-Likelihood of valid set = {}, std: {}".format(ll.mean(), ll.std())
-
+    if args.valid:
+        valid = get_valid(args.dataset)
+        ll = get_nll(valid, parzen, batch_size = batch_size)
+        se = ll.std() / numpy.sqrt(test.X.shape[0])
+        print "Log-Likelihood of valid set = {}, se: {}".format(ll.mean(), se)
 
 
 if __name__ == "__main__":
