@@ -78,7 +78,7 @@ def get_valid(ds, limit_size = -1, fold = 0):
         data = MNIST('train', start=50000, stop=60000)
         return data.X[:limit_size]
     elif ds == 'tfd':
-        data = TFD('valid', fold = fold)
+        data = TFD('valid', fold = fold, scale=True)
         return data.X
     else:
          raise ValueError("Unknow dataset: {}".format(args.dataet))
@@ -125,7 +125,7 @@ def main():
     # cross validate simga
     if args.sigma is None:
         valid = get_valid(args.dataset, limit_size = args.limit_size, fold = args.fold)
-        sigma_range = numpy.logspace(-1., 0, num=arg.cross_val)
+        sigma_range = numpy.logspace(-1., 0, num=args.cross_val)
         sigma = cross_validate_sigma(samples, valid, sigma_range, batch_size)
     else:
         sigma = float(args.sigma)
