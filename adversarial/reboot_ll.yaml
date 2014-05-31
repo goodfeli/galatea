@@ -13,16 +13,13 @@
                          layer_name: 'h0',
                          dim: 1200,
                          irange: .05,
-                         max_col_norm: 1.9365,
                      },
                      !obj:pylearn2.models.mlp.RectifiedLinear {
                          layer_name: 'h1',
                          dim: 1200,
                          irange: .05,
-                         max_col_norm: 1.9365,
                      },
                      !obj:pylearn2.models.mlp.Sigmoid {
-                         max_col_norm: 1.9365,
                          init_bias: !obj:pylearn2.models.dbm.init_sigmoid_bias_from_marginals { dataset: *train},
                          layer_name: 'y',
                          irange: .05,
@@ -35,24 +32,18 @@
             !obj:pylearn2.models.mlp.MLP {
             layers: [
                      !obj:pylearn2.models.maxout.Maxout {
-                         #W_lr_scale: .1,
-                         #b_lr_scale: .1,
                          layer_name: 'h0',
                          num_units: 240,
                          num_pieces: 5,
                          irange: .005,
                      },
                      !obj:pylearn2.models.maxout.Maxout {
-                         #W_lr_scale: .1,
-                         #b_lr_scale: .1,
                          layer_name: 'h1',
                          num_units: 240,
                          num_pieces: 5,
                          irange: .005,
                      },
                      !obj:pylearn2.models.mlp.Sigmoid {
-                         #W_lr_scale: .1,
-                         #b_lr_scale: .1,
                          layer_name: 'y',
                          dim: 1,
                          irange: .005
