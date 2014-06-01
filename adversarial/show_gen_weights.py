@@ -49,7 +49,7 @@ print "Out of the while loop"
 
 
 print "weights shape ", weights.shape
-viewer = make_viewer(weights, is_color=weights.shape[1] % 3 == 0)
+viewer = make_viewer(weights, is_color=weights.shape[1] % 3 == 0 and weights.shape[1] != 48*48)
 print "image shape ", viewer.image.shape
 
 print "made viewer"

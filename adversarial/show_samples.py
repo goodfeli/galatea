@@ -29,7 +29,7 @@ if isinstance(space, VectorSpace):
             matched[2 * i + 1, :] = X[j, :]
         samples = matched
 
-    is_color = samples.shape[-1] % 3 == 0
+    is_color = samples.shape[-1] % 3 == 0 and samples.shape[-1] != 48 * 48
 else:
     total_dimension = space.get_total_dimension()
     import numpy as np
