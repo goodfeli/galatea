@@ -127,7 +127,7 @@ def main():
     # cross validate simga
     if args.sigma is None:
         valid = get_valid(args.dataset, limit_size = args.limit_size, fold = args.fold)
-        sigma_range = numpy.logspace(arg.sigma_start, args.sigma_end, num=args.cross_val)
+        sigma_range = numpy.logspace(args.sigma_start, args.sigma_end, num=args.cross_val)
         sigma = cross_validate_sigma(samples, valid, sigma_range, batch_size)
     else:
         sigma = float(args.sigma)
