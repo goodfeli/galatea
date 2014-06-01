@@ -198,7 +198,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         # no effect.
         self.now_train_generator = sharedX(numpy.array(1., dtype='float32'))
         self.now_train_discriminator = sharedX(numpy.array(1., dtype='float32'))
-        self.now_train_inference = T.shared(numpy.array(1., dtype='float32'))
+        self.now_train_inference = sharedX(numpy.array(1., dtype='float32'))
 
     def expr(self, model, data, **kwargs):
         S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
