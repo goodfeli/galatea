@@ -382,3 +382,6 @@ class Sum(Layer):
             rval['min_x_min_u'] = mn.min()
 
         return rval
+
+def marginals(dataset):
+    return dataset.X.mean(axis=0)
