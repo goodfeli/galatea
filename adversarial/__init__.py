@@ -193,7 +193,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             init_now_train_generator=True,
             ever_train_discriminator=True,
             ever_train_generator=True,
-            ever_train_inference=True):
+            ever_train_inference=True,
+            no_drop_in_d_for_g=False):
         self.__dict__.update(locals())
         del self.self
         # These allow you to dynamically switch off training parts.
@@ -232,7 +233,12 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
                                      self.discriminator_input_scales)
 
         d_obj =  0.5 * (d.layers[-1].cost(y1, y_hat1) + d.layers[-1].cost(y0, y_hat0))
-        g_obj = d.layers[-1].cost(y1, y_hat0)
+
+        if self.no_drop_in_d_for_g:
+            y_hat0_no_drop = d.dropout_fprop(S)
+            g_obj = d.layers[-1].cost(y1, y_hat0)
+        else:
+            g_obj = d.layers[-1].cost(y1, y_hat0)
 
         if model.inferer is not None:
             # Change this if we ever switch to using dropout in the
