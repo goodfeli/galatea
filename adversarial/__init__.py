@@ -149,7 +149,8 @@ class Generator(Model):
 
 
 class IntrinsicDropoutGenerator(Generator):
-    def __init__(self, default_input_include_prob, default_input_scale, **kwargs):
+    def __init__(self, default_input_include_prob, default_input_scale,
+                        input_include_probs=None, input_scales=None, **kwargs):
         super(IntrinsicDropoutGenerator, self).__init__(**kwargs)
         self.__dict__.update(locals())
         del self.self
@@ -161,7 +162,13 @@ class IntrinsicDropoutGenerator(Generator):
         # ignores dropout args
         default_input_include_prob = self.default_input_include_prob
         default_input_scale = self.default_input_scale
-        return self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale), formatted_noise
+        input_include_probs = self.input_include_probs
+        input_scales = self.input_scales
+        return self.mlp.dropout_fprop(formatted_noise,
+                                      default_input_include_prob=default_input_include_prob,
+                                      default_input_scale=default_input_scale,
+                                      input_include_probs=input_include_probs,
+                                      input_scales=input_scales), formatted_noise
 
 class AdversaryCost2(DefaultDataSpecsMixin, Cost):
     """
