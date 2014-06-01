@@ -2,6 +2,7 @@ import functools
 import itertools
 import theano
 import numpy
+np = numpy
 from theano.compat import OrderedDict
 from theano.sandbox.rng_mrg import MRG_RandomStreams
 from theano import tensor as T
@@ -12,6 +13,7 @@ from pylearn2.costs.cost import DefaultDataSpecsMixin
 from pylearn2.models.mlp import Layer
 from pylearn2.models import Model
 from pylearn2.space import CompositeSpace
+from pylearn2.train_extensions import TrainExtension
 from pylearn2.utils import block_gradient
 from pylearn2.utils import safe_zip
 from pylearn2.utils import serial
@@ -188,6 +190,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             inference_input_include_probs=None,
             inference_default_input_scale=1.,
             inference_input_scales=None,
+            init_now_train_generator=True,
             ever_train_discriminator=True,
             ever_train_generator=True,
             ever_train_inference=True):
@@ -196,7 +199,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         # These allow you to dynamically switch off training parts.
         # If the corresponding ever_train_* is False, these have
         # no effect.
-        self.now_train_generator = sharedX(numpy.array(1., dtype='float32'))
+        self.now_train_generator = sharedX(init_now_train_generator)
         self.now_train_discriminator = sharedX(numpy.array(1., dtype='float32'))
         self.now_train_inference = sharedX(numpy.array(1., dtype='float32'))
 
@@ -308,6 +311,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             rval['objective_i'] = i_obj
         rval['objective_d'] = d_obj
         rval['objective_g'] = g_obj
+
+        rval['now_train_generator'] = self.now_train_generator
         return rval
 
 def recapitate_discriminator(pair_path, new_head):
@@ -392,3 +397,15 @@ class Sum(Layer):
 
 def marginals(dataset):
     return dataset.X.mean(axis=0)
+
+class ActivateGenerator(TrainExtension):
+    def __init__(self, active_after):
+        self.__dict__.update(locals())
+        del self.self
+        self.cur_epoch = 0
+
+    def on_monitor(self, model, dataset, algorithm):
+        if self.cur_epoch == self.active_after:
+            algorithm.cost.now_train_generator.set_value(np.array(1., dtype='float32'))
+        self.cur_epoch += 1
+
