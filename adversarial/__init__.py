@@ -24,7 +24,10 @@ from pylearn2.utils import sharedX
 class AdversaryPair(Model):
 
     def __init__(self, generator, discriminator, inferer=None,
-                 inference_monitoring_batch_size=128):
+                 inference_monitoring_batch_size=128,
+                 monitor_generator=True,
+                 monitor_discriminator=True,
+                 monitor_inference=True):
         Model.__init__(self)
         self.__dict__.update(locals())
         del self.self
@@ -240,9 +243,6 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             ever_train_inference=True,
             no_drop_in_d_for_g=False,
             alternate_g = False,
-            monitor_generator=True,
-            monitor_discriminator=True,
-            monitor_inference=True,
             infer_layer=None):
         self.__dict__.update(locals())
         del self.self
