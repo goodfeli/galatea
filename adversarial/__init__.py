@@ -243,7 +243,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             ever_train_inference=True,
             no_drop_in_d_for_g=False,
             alternate_g = False,
-            infer_layer=None):
+            infer_layer=None,
+            noise_both = 0.):
         self.__dict__.update(locals())
         del self.self
         # These allow you to dynamically switch off training parts.
@@ -272,6 +273,12 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         # NOTE: if this changes to optionally use dropout, change the inference
         # code below to use a non-dropped-out version.
         S, z, other_layers = g.sample_and_noise(m, default_input_include_prob=self.generator_default_input_include_prob, default_input_scale=self.generator_default_input_scale, all_g_layers=(self.infer_layer is not None))
+
+        if self.noise_both != 0.:
+            rng = MRG_RandomStreams(2014 / 6 + 2)
+            S = S + rng.normal(size=S.shape, dtype=S.dtype) * self.noise_both
+            X = X + rng.normal(size=X.shape, dtype=S.dtype) * self.noise_both
+
         y_hat1 = d.dropout_fprop(X, self.discriminator_default_input_include_prob,
                                      self.discriminator_input_include_probs,
                                      self.discriminator_default_input_scale,
