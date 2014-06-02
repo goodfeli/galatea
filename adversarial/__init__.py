@@ -70,7 +70,7 @@ class AdversaryPair(Model):
         i_ch = OrderedDict()
         if self.inferer is not None:
             batch_size = self.inference_monitoring_batch_size
-            sample, noise = self.generator.sample_and_noise(batch_size)
+            sample, noise, _ = self.generator.sample_and_noise(batch_size)
             i_ch.update(self.inferer.get_monitoring_channels((sample, noise)))
 
         if self.monitor_generator:
@@ -120,14 +120,19 @@ class Generator(Model):
         self.theano_rng = MRG_RandomStreams(2014 * 5 + 27)
 
 
-    def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1.):
+    def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1., all_g_layers=False):
         n = self.mlp.get_input_space().get_total_dimension()
         noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
         formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
-        return self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale), formatted_noise
+        rval = self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale, return_all=all_g_layers)
+        if all_g_layers:
+            other_layers, rval = rval[:-1], rval[-1]
+        else:
+            other_layers = None
+        return rval, formatted_noise, other_layers
 
     def sample(self, num_samples, default_input_include_prob=1., default_input_scale=1.):
-        sample, _ = self.sample_and_noise(num_samples, default_input_include_prob, default_input_scale)
+        sample, _, _ = self.sample_and_noise(num_samples, default_input_include_prob, default_input_scale)
         return sample
 
     def inpainting_sample_and_noise(self, X, default_input_include_prob=1., default_input_scale=1.):
@@ -193,7 +198,9 @@ class IntrinsicDropoutGenerator(Generator):
         self.__dict__.update(locals())
         del self.self
 
-    def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1.):
+    def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1., all_g_layers=False):
+        if all_g_layers:
+            raise NotImplementedError()
         n = self.mlp.get_input_space().get_total_dimension()
         noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
         formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
@@ -206,7 +213,7 @@ class IntrinsicDropoutGenerator(Generator):
                                       default_input_include_prob=default_input_include_prob,
                                       default_input_scale=default_input_scale,
                                       input_include_probs=input_include_probs,
-                                      input_scales=input_scales), formatted_noise
+                                      input_scales=input_scales), formatted_noise, None
 
 class AdversaryCost2(DefaultDataSpecsMixin, Cost):
     """
@@ -234,7 +241,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             alternate_g = False,
             monitor_generator=True,
             monitor_discriminator=True,
-            monitor_inference=True):
+            monitor_inference=True,
+            infer_layer=None):
         self.__dict__.update(locals())
         del self.self
         # These allow you to dynamically switch off training parts.
@@ -262,7 +270,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         y0 = T.alloc(0, m, 1)
         # NOTE: if this changes to optionally use dropout, change the inference
         # code below to use a non-dropped-out version.
-        S, z = g.sample_and_noise(m, default_input_include_prob=self.generator_default_input_include_prob, default_input_scale=self.generator_default_input_scale)
+        S, z, other_layers = g.sample_and_noise(m, default_input_include_prob=self.generator_default_input_include_prob, default_input_scale=self.generator_default_input_scale, all_g_layers=(self.infer_layer is not None))
         y_hat1 = d.dropout_fprop(X, self.discriminator_default_input_include_prob,
                                      self.discriminator_input_include_probs,
                                      self.discriminator_default_input_scale,
@@ -284,11 +292,15 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             # Change this if we ever switch to using dropout in the
             # construction of S.
             S_nograd = block_gradient(S)  # Redundant as long as we have custom get_gradients
-            z_hat = model.inferer.dropout_fprop(S_nograd, self.inference_default_input_include_prob,
+            pred = model.inferer.dropout_fprop(S_nograd, self.inference_default_input_include_prob,
                                                 self.inference_input_include_probs,
                                                 self.inference_default_input_scale,
                                                 self.inference_input_scales)
-            i_obj = model.inferer.layers[-1].cost(z, z_hat)
+            if self.infer_layer is None:
+                target = z
+            else:
+                target = other_layers[self.infer_layer]
+            i_obj = model.inferer.layers[-1].cost(target, pred)
         else:
             i_obj = 0
 
