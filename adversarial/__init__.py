@@ -626,3 +626,14 @@ class InpaintingAdversaryCost(DefaultDataSpecsMixin, Cost):
 
         rval['now_train_generator'] = self.now_train_generator
         return rval
+
+class Cycler(object):
+
+    def __init__(self, k):
+        self.__dict__.update(locals())
+        del self.self
+        self.i = 0
+
+    def __call__(self, sgd):
+        self.i = (self.i + 1) % self.k
+        self.sgd.cost.now_train_generator.set_value(np.cast['float32'](self.i == 0))
