@@ -264,7 +264,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
 
         if self.no_drop_in_d_for_g:
             y_hat0_no_drop = d.dropout_fprop(S)
-            g_obj = d.layers[-1].cost(y1, y_hat0)
+            g_obj = d.layers[-1].cost(y1, y_hat0_no_drop)
         else:
             g_obj = d.layers[-1].cost(y1, y_hat0)
 
