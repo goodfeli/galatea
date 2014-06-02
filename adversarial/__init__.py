@@ -31,6 +31,12 @@ class AdversaryPair(Model):
         self.__dict__.update(state)
         if 'inference_monitoring_batch_size' not in state:
             self.inference_monitoring_batch_size = 128  # TODO: HACK
+        if 'monitor_generator' not in state:
+            self.monitor_generator = True
+        if 'monitor_discriminator' not in state:
+            self.monitor_discriminator = True
+        if 'monitor_inference' not in state:
+            self.monitor_inference = True
 
     def get_params(self):
         p = self.generator.get_params() + self.discriminator.get_params()
@@ -65,12 +71,15 @@ class AdversaryPair(Model):
             sample, noise = self.generator.sample_and_noise(batch_size)
             i_ch.update(self.inferer.get_monitoring_channels((sample, noise)))
 
-        for key in g_ch:
-            rval['gen_' + key] = g_ch[key]
-        for key in d_ch:
-            rval['dis_' + key] = d_ch[key]
-        for key in i_ch:
-            rval['inf_' + key] = i_ch[key]
+        if self.monitor_generator:
+            for key in g_ch:
+                rval['gen_' + key] = g_ch[key]
+        if self.monitor_discriminator:
+            for key in d_ch:
+                rval['dis_' + key] = d_ch[key]
+        if self.monitor_inference:
+            for key in i_ch:
+                rval['inf_' + key] = i_ch[key]
         return rval
 
     def get_monitoring_data_specs(self):
@@ -202,7 +211,10 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             ever_train_generator=True,
             ever_train_inference=True,
             no_drop_in_d_for_g=False,
-            alternate_g = False):
+            alternate_g = False,
+            monitor_generator=True,
+            monitor_discriminator=True,
+            monitor_inference=True):
         self.__dict__.update(locals())
         del self.self
         # These allow you to dynamically switch off training parts.
@@ -330,10 +342,12 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
         sample_grad = T.grad(-cost, samples)
         rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
         _S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
-        if i_obj != 0:
+        if model.monitor_inference and i_obj != 0:
             rval['objective_i'] = i_obj
-        rval['objective_d'] = d_obj
-        rval['objective_g'] = g_obj
+        if model.monitor_discriminator:
+            rval['objective_d'] = d_obj
+        if model.monitor_generator:
+            rval['objective_g'] = g_obj
 
         rval['now_train_generator'] = self.now_train_generator
         return rval
