@@ -91,6 +91,14 @@ class AdversaryPair(Model):
         rval.update(self.discriminator.get_lr_scalers())
         return rval
 
+def add_layers(mlp, pretrained):
+    model = serial.load(pretrained)
+    pretrained_layers = model.generator.mlp.layers
+    pretrained_layers[0].set_input_space(mlp.layers[-1].get_output_space())
+    mlp.layers.extend(pretrained_layers)
+    return mlp
+
+
 
 class Generator(Model):
 
@@ -99,7 +107,6 @@ class Generator(Model):
         self.__dict__.update(locals())
         del self.self
         self.theano_rng = MRG_RandomStreams(2014 * 5 + 27)
-
 
 
     def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1.):
