@@ -91,11 +91,11 @@ class AdversaryPair(Model):
         rval.update(self.discriminator.get_lr_scalers())
         return rval
 
-def add_layers(mlp, pretrained):
+def add_layers(mlp, pretrained, start_layer=0):
     model = serial.load(pretrained)
     pretrained_layers = model.generator.mlp.layers
-    pretrained_layers[0].set_input_space(mlp.layers[-1].get_output_space())
-    mlp.layers.extend(pretrained_layers)
+    assert pretrained_layers[start_layer].get_input_space() == mlp.layers[-1].get_output_space()
+    mlp.layers.extend(pretrained_layers[start_layer:])
     return mlp
 
 
