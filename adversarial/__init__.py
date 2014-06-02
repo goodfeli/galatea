@@ -124,10 +124,11 @@ class Generator(Model):
         n = self.mlp.get_input_space().get_total_dimension()
         noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
         formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
-        rval = self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale, return_all=all_g_layers)
         if all_g_layers:
+            rval = self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale, return_all=all_g_layers)
             other_layers, rval = rval[:-1], rval[-1]
         else:
+            rval = self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale)
             other_layers = None
         return rval, formatted_noise, other_layers
 
