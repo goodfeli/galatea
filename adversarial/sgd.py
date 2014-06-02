@@ -161,7 +161,8 @@ class SGD(TrainingAlgorithm):
                  set_batch_size = False,
                  train_iteration_mode = None, batches_per_iter=None,
                  theano_function_mode = None, monitoring_costs=None,
-                 seed=[2012, 10, 5]):
+                 seed=[2012, 10, 5], discriminator_steps=1):
+        self.discriminator_steps = discriminator_steps
 
         if isinstance(cost, (list, tuple, set)):
             raise TypeError("SGD no longer supports using collections of " +
@@ -308,6 +309,8 @@ class SGD(TrainingAlgorithm):
         for i, param in enumerate(params):
             if param.name is None:
                 param.name = 'sgd_params[%d]' % i
+        self.params = params
+
 
         grads, updates = self.cost.get_gradients(model, nested_args,
                                                  ** fixed_var_descr.fixed_vars)
@@ -321,13 +324,6 @@ class SGD(TrainingAlgorithm):
         for param in params:
             assert param in grads
 
-        for param in grads:
-            if grads[param].name is None and cost_value is not None:
-                grads[param].name = ('grad(%(costname)s, %(paramname)s)' %
-                                     {'costname': cost_value.name,
-                                      'paramname': param.name})
-            assert grads[param].dtype == param.dtype
-
         lr_scalers = model.get_lr_scalers()
 
         for key in lr_scalers:
@@ -335,47 +331,78 @@ class SGD(TrainingAlgorithm):
                 raise ValueError("Tried to scale the learning rate on " +\
                         str(key)+" which is not an optimization parameter.")
 
-        log.info('Parameter and initial learning rate summary:')
-        for param in params:
-            param_name = param.name
-            if param_name is None:
-                param_name = 'anon_param'
-            lr = learning_rate.get_value() * lr_scalers.get(param,1.)
-            log.info('\t' + param_name + ': ' + str(lr))
+        assert len(updates.keys()) == 0
 
-        if self.learning_rule:
-            updates.update(self.learning_rule.get_updates(
-                learning_rate, grads, lr_scalers))
-        else:
-            # Use standard SGD updates with fixed learning rate.
-            updates.update( dict(safe_zip(params, [param - learning_rate * \
-                lr_scalers.get(param, 1.) * grads[param]
-                                    for param in params])))
+        def get_func(learn_discriminator, learn_generator):
 
-        for param in params:
-            if updates[param].name is None:
-                updates[param].name = 'sgd_update(' + param.name + ')'
-        model.modify_updates(updates)
-        for param in params:
-            update = updates[param]
-            if update.name is None:
-                update.name = 'censor(sgd_update(' + param.name + '))'
-            for update_val in get_debug_values(update):
-                if np.any(np.isinf(update_val)):
-                    raise ValueError("debug value of %s contains infs" %
-                            update.name)
-                if np.any(np.isnan(update_val)):
-                    raise ValueError("debug value of %s contains nans" %
-                            update.name)
+            updates = OrderedDict()
+
+            assert (learn_discriminator or learn_generator) and not (learn_discriminator and learn_generator)
+
+            if learn_discriminator:
+                cur_params = model.generator.get_params()
+            else:
+                cur_params = model.discriminator.get_params()
+
+            cur_grads = OrderedDict()
+            for param in cur_params:
+                cur_grads[param] = grads[param]
+
+            for param in grads:
+                if grads[param].name is None and cost_value is not None:
+                    grads[param].name = ('grad(%(costname)s, %(paramname)s)' %
+                                         {'costname': cost_value.name,
+                                          'paramname': param.name})
+                assert grads[param].dtype == param.dtype
+
+            cur_lr_scalers = OrderedDict()
+            for param in cur_params:
+                if param in lr_scalers:
+                    lr_scaler = lr_scalers[param]
+                    cur_lr_scalers[param] = lr_scaler
+
+            log.info('Parameter and initial learning rate summary:')
+            for param in cur_params:
+                param_name = param.name
+                if param_name is None:
+                    param_name = 'anon_param'
+                lr = learning_rate.get_value() * cur_lr_scalers.get(param,1.)
+                log.info('\t' + param_name + ': ' + str(lr))
+
+            if self.learning_rule:
+                updates.update(self.learning_rule.get_updates(
+                    learning_rate, grads, lr_scalers))
+            else:
+                # Use standard SGD updates with fixed learning rate.
+                updates.update( dict(safe_zip(params, [param - learning_rate * \
+                    lr_scalers.get(param, 1.) * grads[param]
+                                        for param in params])))
+
+            for param in cur_params:
+                if updates[param].name is None:
+                    updates[param].name = 'sgd_update(' + param.name + ')'
+            model.modify_updates(updates)
+            for param in params:
+                update = updates[param]
+                if update.name is None:
+                    update.name = 'censor(sgd_update(' + param.name + '))'
+                for update_val in get_debug_values(update):
+                    if np.any(np.isinf(update_val)):
+                        raise ValueError("debug value of %s contains infs" %
+                                update.name)
+                    if np.any(np.isnan(update_val)):
+                        raise ValueError("debug value of %s contains nans" %
+                                update.name)
 
 
-        with log_timing(log, 'Compiling sgd_update'):
-            self.sgd_update = function(theano_args,
-                                       updates=updates,
-                                       name='sgd_update',
-                                       on_unused_input='ignore',
-                                       mode=self.theano_function_mode)
-        self.params = params
+            with log_timing(log, 'Compiling sgd_update'):
+                return function(theano_args,
+                                           updates=updates,
+                                           name='sgd_update',
+                                           on_unused_input='ignore',
+                                           mode=self.theano_function_mode)
+        self.d_func = get_func(1, 0)
+        self.g_func = get_func(0, 1)
 
     def train(self, dataset):
         """
@@ -385,7 +412,7 @@ class SGD(TrainingAlgorithm):
         ----------
         dataset : Dataset
         """
-        if not hasattr(self, 'sgd_update'):
+        if not hasattr(self, 'd_func'):
             raise Exception("train called without first calling setup")
 
         # Make sure none of the parameters have bad values
@@ -424,7 +451,9 @@ class SGD(TrainingAlgorithm):
         for batch in iterator:
             for callback in on_load_batch:
                 callback(*batch)
-            self.sgd_update(*batch)
+            for i in xrange(self.discriminator_steps):
+                self.d_func(*batch)
+            self.g_func(*batch)
             # iterator might return a smaller batch if dataset size
             # isn't divisible by batch_size
             # Note: if data_specs[0] is a NullSpace, there is no way to know

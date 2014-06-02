@@ -656,4 +656,4 @@ class Cycler(object):
 
     def __call__(self, sgd):
         self.i = (self.i + 1) % self.k
-        self.sgd.cost.now_train_generator.set_value(np.cast['float32'](self.i == 0))
+        sgd.cost.now_train_generator.set_value(np.cast['float32'](self.i == 0))
