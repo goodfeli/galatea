@@ -194,7 +194,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             ever_train_discriminator=True,
             ever_train_generator=True,
             ever_train_inference=True,
-            no_drop_in_d_for_g=False):
+            no_drop_in_d_for_g=False,
+            alternate_g = False):
         self.__dict__.update(locals())
         del self.self
         # These allow you to dynamically switch off training parts.
@@ -282,15 +283,24 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             rval.update(OrderedDict(safe_zip(d_params, [self.now_train_discriminator * dg for dg in d_grads])))
         else:
             rval.update(OrderedDict(zip(d_params, itertools.repeat(theano.tensor.constant(0., dtype='float32')))))
+
         if self.ever_train_generator:
             rval.update(OrderedDict(safe_zip(g_params, [self.now_train_generator * gg for gg in g_grads])))
         else:
             rval.update(OrderedDict(zip(g_params, itertools.repeat(theano.tensor.constant(0., dtype='float32')))))
+
         if self.ever_train_inference and model.inferer is not None:
             i_params = model.inferer.get_params()
             i_grads = T.grad(i_obj, i_params)
             rval.update(OrderedDict(safe_zip(i_params, [self.now_train_inference * ig for ig in i_grads])))
-        return rval, OrderedDict()
+
+        updates = OrderedDict()
+
+        # Two d steps for every g step
+        if self.alternate_g:
+            updates[self.now_train_generator] = 1. - self.now_train_generator
+
+        return rval, updates
 
     def get_monitoring_channels(self, model, data, **kwargs):
 
