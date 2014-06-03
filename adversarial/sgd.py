@@ -448,12 +448,16 @@ class SGD(TrainingAlgorithm):
                 rng = rng, num_batches = self.batches_per_iter)
 
         on_load_batch = self.on_load_batch
+        i = 0
         for batch in iterator:
             for callback in on_load_batch:
                 callback(*batch)
-            for i in xrange(self.discriminator_steps):
+            if i == self.discriminator_steps:
+                self.g_func(*batch)
+                i = 0
+            else:
                 self.d_func(*batch)
-            self.g_func(*batch)
+                i += 1
             # iterator might return a smaller batch if dataset size
             # isn't divisible by batch_size
             # Note: if data_specs[0] is a NullSpace, there is no way to know
