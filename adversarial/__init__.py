@@ -310,7 +310,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             g_obj = d.layers[-1].cost(y1, y_hat0)
 
         if self.blend_obj:
-            g_obj = 0.5 * (g_obj + d_obj)
+            g_obj = 0.5 * (g_obj - d_obj)
 
         if model.inferer is not None:
             # Change this if we ever switch to using dropout in the
