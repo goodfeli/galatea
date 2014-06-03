@@ -11,14 +11,15 @@ import ipdb
 # TODO, only works for CIFAR10 for now
 
 grid_shape = None
-num_samples = 2
+repeat_samples = 1
+num_samples = 5
 
 
 _, model_path = sys.argv
 model = serial.load(model_path)
 rng = np.random.RandomState(20232)
 
-def get_data_samples(dataset, n = 2):
+def get_data_samples(dataset, n = num_samples):
     unique_y = np.unique(dataset.y)
     rval = []
     for y in np.unique(dataset.y):
@@ -40,7 +41,7 @@ samples, _ = model.generator.inpainting_sample_and_noise(X)
 f = theano.function([X], samples)
 
 samples = []
-for i in xrange(num_samples):
+for i in xrange(repeat_samples):
     samples.append(f(data))
 
 samples = np.concatenate(samples)
