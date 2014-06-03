@@ -3,7 +3,6 @@
     preprocessed_dataset: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/train.pkl",
     preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
     start: 0, stop: 40000,
-    axes: ['c', 0, 1, 'b']
     },
     model: !obj:galatea.adversarial.AdversaryPair {
         generator: !obj:galatea.adversarial.Generator {
@@ -29,7 +28,6 @@
             input_space: !obj:pylearn2.space.Conv2DSpace {
                 shape: [32, 32],
                 num_channels: 3,
-                axes: ['b', 0, 1, 'c']
             }
         }},
         discriminator: 
@@ -56,7 +54,6 @@
             input_space: !obj:pylearn2.space.Conv2DSpace {
                 shape: [32, 32],
                 num_channels: 3,
-                axes: ['b', 0, 1, 'c']
             }
         },
     },
@@ -73,7 +70,6 @@
         preprocessor: !pkl: "${PYLEARN2_DATA_PATH}/cifar10/pylearn2_gcn_whitened/preprocessor.pkl",
         start: 40000,
         stop: 50000,
-        axes: ['c', 0, 1, 'b']
                           },
             },
         cost: !obj:galatea.adversarial.InpaintingAdversaryCost {
