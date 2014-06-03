@@ -275,7 +275,16 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
 
     def expr(self, model, data, **kwargs):
         S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
-        return d_obj + g_obj + i_obj
+        l = []
+        # This stops stuff from ever getting computed if we're not training
+        # it.
+        if self.ever_train_discriminator:
+            l.append(d_obj)
+        if self.ever_train_generator:
+            l.append(g_obj)
+        if self.ever_train_inference:
+            l.append(i_obj)
+        return sum(l)
 
     def get_samples_and_objectives(self, model, data):
         space, sources = self.get_data_specs(model)
