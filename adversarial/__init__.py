@@ -125,12 +125,7 @@ class Generator(Model):
 
     def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1., all_g_layers=False):
         n = self.mlp.get_input_space().get_total_dimension()
-        if self.noise == "uniform":
-            noise = self.theano_rng.uniform(low=-np.sqrt(3), high=np.sqrt(3), size=(num_samples, n), dtype='float32')
-        elif noise == "gaussian":
-            noise - self.theano_rng.normal(size=(num_samples, n), dtype='float32')
-        else:
-            raise NotImplementedError("noise should be gaussian or uniform")
+        noise = self.get_noise((num_samples, n))
         formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
         if all_g_layers:
             rval = self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale, return_all=all_g_layers)
@@ -162,12 +157,7 @@ class Generator(Model):
         else:
             m = data.shape[0]
         n = self.mlp.get_input_space().get_total_dimension()
-        if self.noise == "uniform":
-            noise = self.theano_rng.uniform(low=-np.sqrt(3), high=np.sqrt(3), size=(m, n), dtype='float32')
-        elif noise == "gaussian":
-            noise - self.theano_rng.normal(size=(m, n), dtype='float32')
-        else:
-            raise NotImplementedError("noise should be gaussian or uniform")
+        noise = self.get_noise((m, n))
         rval = OrderedDict()
 
         try:
@@ -180,6 +170,18 @@ class Generator(Model):
                                         theano.config.floatX).mean()
             rval['nll'] = -rval['ll']
         return rval
+
+    def get_noise(self, size):
+
+        if not hasattr(self, 'noise'):
+            self.noise = "gaussian"
+        if self.noise == "uniform":
+            return self.theano_rng.uniform(low=-np.sqrt(3), high=np.sqrt(3), size=size, dtype='float32')
+        elif self.noise == "gaussian":
+            return self.theano_rng.normal(size=size, dtype='float32')
+        else:
+            raise NotImplementedError("noise should be gaussian or uniform")
+
 
     def get_params(self):
         return self.mlp.get_params()
