@@ -244,7 +244,8 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             no_drop_in_d_for_g=False,
             alternate_g = False,
             infer_layer=None,
-            noise_both = 0.):
+            noise_both = 0.,
+            blend_obj = False):
         self.__dict__.update(locals())
         del self.self
         # These allow you to dynamically switch off training parts.
@@ -295,6 +296,9 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             g_obj = d.layers[-1].cost(y1, y_hat0_no_drop)
         else:
             g_obj = d.layers[-1].cost(y1, y_hat0)
+
+        if self.blend_obj:
+            g_obj = 0.5 * (g_obj + d_obj)
 
         if model.inferer is not None:
             # Change this if we ever switch to using dropout in the
