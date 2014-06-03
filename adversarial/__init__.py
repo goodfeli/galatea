@@ -4,6 +4,7 @@ import numpy
 np = numpy
 import theano
 import warnings
+import math
 
 from theano.compat import OrderedDict
 from theano.sandbox.rng_mrg import MRG_RandomStreams
@@ -116,7 +117,7 @@ def add_layers(mlp, pretrained, start_layer=0):
 
 class Generator(Model):
 
-    def __init__(self, mlp, monitor_ll = False, ll_n_samples = 100, ll_sigma = 0.2):
+    def __init__(self, mlp, noise = "gaussian", monitor_ll = False, ll_n_samples = 100, ll_sigma = 0.2):
         Model.__init__(self)
         self.__dict__.update(locals())
         del self.self
@@ -125,7 +126,12 @@ class Generator(Model):
 
     def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1., all_g_layers=False):
         n = self.mlp.get_input_space().get_total_dimension()
-        noise = self.theano_rng.normal(size=(num_samples, n), dtype='float32')
+        if self.noise == "uniform":
+            noise = self.theano_rng.uniform(size=(num_samples, n), dtype='float32')
+            noise = 2 * noise - 1
+            noise = math.sqrt(3) * noise
+        elif noise == "gaussian":
+            noise - self.theano_rng.normal(size=(num_samples, n), dtype='float32')
         formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
         if all_g_layers:
             rval = self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale, return_all=all_g_layers)
@@ -157,7 +163,12 @@ class Generator(Model):
         else:
             m = data.shape[0]
         n = self.mlp.get_input_space().get_total_dimension()
-        noise = self.theano_rng.normal(size=(m, n), dtype='float32')
+        if self.noise == "uniform":
+            noise = self.theano_rng.uniform(size=(m, n), dtype='float32')
+            noise = 2 * noise - 1
+            noise = math.sqrt(3) * noise
+        elif noise == "gaussian":
+            noise - self.theano_rng.normal(size=(m, n), dtype='float32')
         rval = OrderedDict()
 
         try:
