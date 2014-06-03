@@ -141,13 +141,19 @@ class Generator(Model):
 
     def inpainting_sample_and_noise(self, X, default_input_include_prob=1., default_input_scale=1.):
         # Very hacky! Specifically for inpainting right half of CIFAR-10 given left half
+        # assumes X is b01c
         assert X.ndim == 4
-        n = self.mlp.get_input_space().get_total_dimension()
-        noise = self.theano_rng.normal(size=(X.shape[0], 32, 16, 3), dtype='float32')
-        Xg = T.set_subtensor(X[:,:,16:,:], noise)
+        input_space = self.mlp.get_input_space()
+        n = input_space.get_total_dimension()
+        image_size = input_space.shape[0]
+        half_image = int(image_size / 2)
+        data_shape = (X.shape[0], image_size, half_image, input_space.num_channels)
+
+        noise = self.theano_rng.normal(size=data_shape, dtype='float32')
+        Xg = T.set_subtensor(X[:,:,half_image:,:], noise)
         sampled_part, noise =  self.mlp.dropout_fprop(Xg, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale), noise
-        sampled_part = sampled_part.reshape((X.shape[0], 32, 16, 3))
-        rval = T.set_subtensor(X[:, :, 16:, :], sampled_part)
+        sampled_part = sampled_part.reshape(data_shape)
+        rval = T.set_subtensor(X[:, :, half_image:, :], sampled_part)
         return rval, noise
 
 
