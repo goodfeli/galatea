@@ -4,7 +4,6 @@ import numpy
 np = numpy
 import theano
 import warnings
-import math
 
 from theano.compat import OrderedDict
 from theano.sandbox.rng_mrg import MRG_RandomStreams
@@ -127,11 +126,11 @@ class Generator(Model):
     def sample_and_noise(self, num_samples, default_input_include_prob=1., default_input_scale=1., all_g_layers=False):
         n = self.mlp.get_input_space().get_total_dimension()
         if self.noise == "uniform":
-            noise = self.theano_rng.uniform(size=(num_samples, n), dtype='float32')
-            noise = 2 * noise - 1
-            noise = math.sqrt(3) * noise
+            noise = self.theano_rng.uniform(low=-np.sqrt(3), high=np.sqrt(3), size=(num_samples, n), dtype='float32')
         elif noise == "gaussian":
             noise - self.theano_rng.normal(size=(num_samples, n), dtype='float32')
+        else:
+            raise NotImplementedError("noise should be gaussian or uniform")
         formatted_noise = VectorSpace(n).format_as(noise, self.mlp.get_input_space())
         if all_g_layers:
             rval = self.mlp.dropout_fprop(formatted_noise, default_input_include_prob=default_input_include_prob, default_input_scale=default_input_scale, return_all=all_g_layers)
@@ -164,11 +163,11 @@ class Generator(Model):
             m = data.shape[0]
         n = self.mlp.get_input_space().get_total_dimension()
         if self.noise == "uniform":
-            noise = self.theano_rng.uniform(size=(m, n), dtype='float32')
-            noise = 2 * noise - 1
-            noise = math.sqrt(3) * noise
+            noise = self.theano_rng.uniform(low=-np.sqrt(3), high=np.sqrt(3), size=(m, n), dtype='float32')
         elif noise == "gaussian":
             noise - self.theano_rng.normal(size=(m, n), dtype='float32')
+        else:
+            raise NotImplementedError("noise should be gaussian or uniform")
         rval = OrderedDict()
 
         try:
