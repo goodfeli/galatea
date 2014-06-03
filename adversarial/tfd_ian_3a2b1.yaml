@@ -1,0 +1,136 @@
+!obj:pylearn2.train.Train {
+    dataset: &train !obj:pylearn2.datasets.tfd.TFD {
+        which_set: 'unlabeled',
+        scale: True,
+    },
+    model: !obj:galatea.adversarial.AdversaryPair {
+        generator: !obj:galatea.adversarial.Generator {
+            monitor_ll: 1,
+            mlp: !obj:pylearn2.models.mlp.MLP {
+            layers: [
+                     !obj:pylearn2.models.mlp.RectifiedLinear {
+                         layer_name: 'h0',
+                         dim: 1200,
+                         irange: .05,
+                         max_col_norm: 1.9365,
+                     },
+                     !obj:pylearn2.models.mlp.RectifiedLinear {
+                         layer_name: 'h1',
+                         dim: 1200,
+                         irange: .05,
+                         max_col_norm: 1.9365,
+                     },
+                     !obj:pylearn2.models.mlp.RectifiedLinear {
+                         layer_name: 'h2',
+                         dim: 1200,
+                         irange: .05,
+                         max_col_norm: 1.9365,
+                     },
+                     !obj:pylearn2.models.mlp.RectifiedLinear {
+                         layer_name: 'h3',
+                         dim: 1200,
+                         irange: .05,
+                         max_col_norm: 1.9365,
+                     },
+                     !obj:pylearn2.models.mlp.Sigmoid {
+                         layer_name: 'h_pen',
+                         dim: 1200,
+                         irange: .05,
+                         max_col_norm: 1.9365,
+                     },
+                     !obj:pylearn2.models.mlp.Linear {
+                         max_col_norm: 1.9365,
+                         init_bias: !obj:galatea.adversarial.marginals { dataset: *train},
+                         layer_name: 'y',
+                         irange: .05,
+                         dim: 2304
+                     }
+                    ],
+            nvis: 100,
+        }},
+        discriminator:
+            !obj:pylearn2.models.mlp.MLP {
+            layers: [
+                     !obj:pylearn2.models.maxout.Maxout {
+                         #W_lr_scale: .1,
+                         #b_lr_scale: .1,
+                         layer_name: 'h0',
+                         num_units: 1200,
+                         num_pieces: 5,
+                         irange: .005,
+                         max_col_norm: 1.9365,
+                     },
+                     !obj:pylearn2.models.maxout.Maxout {
+                         #W_lr_scale: .1,
+                         #b_lr_scale: .1,
+                         layer_name: 'h1',
+                         num_units: 1200,
+                         num_pieces: 5,
+                         irange: .005,
+                         max_col_norm: 1.9365,
+                     },
+                     !obj:pylearn2.models.mlp.Sigmoid {
+                         #W_lr_scale: .1,
+                         #b_lr_scale: .1,
+                         max_col_norm: 1.9365,
+                         layer_name: 'y',
+                         dim: 1,
+                         irange: .005
+                     }
+                    ],
+            nvis: 2304,
+        },
+    },
+    algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 100,
+        learning_rate: .00025,
+        learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {
+            init_momentum: .5,
+        },
+        monitoring_dataset:
+            {
+                'train' : *train,
+                'valid' : !obj:pylearn2.datasets.tfd.TFD {
+                              which_set: 'valid',
+                              scale: True,
+                          },
+            },
+        cost: !obj:galatea.adversarial.AdversaryCost2 {
+            init_now_train_generator: 0,
+            scale_grads: 0,
+            discriminator_default_input_include_prob: .5,
+            discriminator_input_include_probs: {
+                'h0': .8
+            },
+            discriminator_default_input_scale: 2.,
+            discriminator_input_scales: {
+                'h0': 1.25
+            }
+            },
+        #termination_criterion: !obj:pylearn2.termination_criteria.MonitorBased {
+        #    channel_name: "valid_y_misclass",
+        #    prop_decrease: 0.,
+        #    N: 100
+        #},
+        update_callbacks: !obj:pylearn2.training_algorithms.sgd.ExponentialDecay {
+            decay_factor: 1.000004,
+            min_lr: .000001
+        }
+    },
+    extensions: [
+        !obj:galatea.adversarial.ActivateGenerator {
+            active_after: 1
+        },
+        !obj:pylearn2.train_extensions.best_params.MonitorBasedSaveBest {
+             channel_name: 'valid_gen_nll',
+             save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}_best.pkl"
+        },
+        !obj:pylearn2.training_algorithms.learning_rule.MomentumAdjustor {
+            start: 1,
+            saturate: 250,
+            final_momentum: .7
+        }
+    ],
+    save_path: "${PYLEARN2_TRAIN_FILE_FULL_STEM}.pkl",
+    save_freq: 5
+}

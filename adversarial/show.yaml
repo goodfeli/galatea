@@ -1,0 +1,4 @@
+!obj:pylearn2.datasets.cifar10.CIFAR10 {
+    which_set: 'train',
+    gcn: 55.
+}
