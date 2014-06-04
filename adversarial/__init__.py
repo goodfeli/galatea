@@ -701,7 +701,9 @@ class RectifiedLinear(Layer):
 
     def set_input_space(self, space):
         self.input_space = space
+        self.output_space = space
 
     def fprop(self, state_below):
+        p = state_below
         p = T.switch(p > 0., p, self.left_slope * p)
         return p
