@@ -690,3 +690,18 @@ class Cycler(object):
     def __call__(self, sgd):
         self.i = (self.i + 1) % self.k
         sgd.cost.now_train_generator.set_value(np.cast['float32'](self.i == 0))
+
+class RectifiedLinear(Layer):
+
+    def __init__(self, layer_name, left_slope=0.0, **kwargs):
+        super(RectifiedLinear, self).__init__(**kwargs)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        self.input_space = space
+
+    def fprop(self, state_below):
+        p = T.switch(p > 0., p, self.left_slope * p)
+        return p
