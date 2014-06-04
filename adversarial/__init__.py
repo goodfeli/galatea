@@ -34,7 +34,7 @@ class AdversaryPair(Model):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        if 'inferer' not in state;
+        if 'inferer' not in state:
             self.inferer = None
         if 'inference_monitoring_batch_size' not in state:
             self.inference_monitoring_batch_size = 128  # TODO: HACK
