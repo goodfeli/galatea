@@ -85,7 +85,7 @@ class AdversaryPair(Model):
                 rval['gen_' + key] = g_ch[key]
         if self.monitor_discriminator:
             for key in d_ch:
-                rval['dis_on_data_' + key] = d_ch[key]
+                rval['dis_on_data_' + key] = d_samp_ch[key]
             for key in d_ch:
                 rval['dis_on_samp_' + key] = d_ch[key]
         if self.monitor_inference:
@@ -516,14 +516,14 @@ def marginals(dataset):
     return dataset.X.mean(axis=0)
 
 class ActivateGenerator(TrainExtension):
-    def __init__(self, active_after):
+    def __init__(self, active_after, value=1.):
         self.__dict__.update(locals())
         del self.self
         self.cur_epoch = 0
 
     def on_monitor(self, model, dataset, algorithm):
         if self.cur_epoch == self.active_after:
-            algorithm.cost.now_train_generator.set_value(np.array(1., dtype='float32'))
+            algorithm.cost.now_train_generator.set_value(np.array(self.value, dtype='float32'))
         self.cur_epoch += 1
 
 class InpaintingAdversaryCost(DefaultDataSpecsMixin, Cost):
