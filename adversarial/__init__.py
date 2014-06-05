@@ -267,7 +267,9 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             alternate_g = False,
             infer_layer=None,
             noise_both = 0.,
-            blend_obj = False):
+            blend_obj = False,
+            minimax_coeff = 1.,
+            zurich_coeff = 1.):
         self.__dict__.update(locals())
         del self.self
         # These allow you to dynamically switch off training parts.
@@ -320,7 +322,7 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
             g_obj = d.layers[-1].cost(y1, y_hat0)
 
         if self.blend_obj:
-            g_obj = 0.5 * (g_obj - d_obj)
+            g_obj = (self.zurich_coeff * g_obj - self.minimax_coeff * d_obj) / (self.zurich_coeff + self.minimax_coeff)
 
         if model.inferer is not None:
             # Change this if we ever switch to using dropout in the
@@ -683,3 +685,41 @@ class Cycler(object):
     def __call__(self, sgd):
         self.i = (self.i + 1) % self.k
         sgd.cost.now_train_generator.set_value(np.cast['float32'](self.i == 0))
+
+class NoiseCat(Layer):
+
+    def __init__(self, new_dim, std, layer_name):
+        Layer.__init__(self)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        assert isinstance(space, VectorSpace)
+        self.input_space = space
+        self.output_space = VectorSpace(space.dim + self.new_dim)
+        self.theano_rng = MRG_RandomStreams(self.mlp.rng.randint(2 ** 16))
+
+    def fprop(self, state):
+        noise = self.theano_rng.normal(std=self.std, avg=0., size=(state.shape[0], self.new_dim),
+                dtype=state.dtype)
+        return T.concatenate((state, noise), axis=1)
+
+class Clusterize(Layer):
+
+    def __init__(self, scale, layer_name):
+        Layer.__init__(self)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        assert isinstance(space, VectorSpace)
+        self.input_space = space
+        self.output_space = space
+        self.theano_rng = MRG_RandomStreams(self.mlp.rng.randint(2 ** 16))
+
+    def fprop(self, state):
+        noise = self.theano_rng.binomial(size=state.shape, p=0.5,
+                dtype=state.dtype) * 2. - 1.
+        return state + self.scale * noise
