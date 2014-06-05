@@ -34,6 +34,8 @@ class AdversaryPair(Model):
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        if 'inferer' not in state:
+            self.inferer = None
         if 'inference_monitoring_batch_size' not in state:
             self.inference_monitoring_batch_size = 128  # TODO: HACK
         if 'monitor_generator' not in state:
@@ -281,7 +283,16 @@ class AdversaryCost2(DefaultDataSpecsMixin, Cost):
 
     def expr(self, model, data, **kwargs):
         S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
-        return d_obj + g_obj + i_obj
+        l = []
+        # This stops stuff from ever getting computed if we're not training
+        # it.
+        if self.ever_train_discriminator:
+            l.append(d_obj)
+        if self.ever_train_generator:
+            l.append(g_obj)
+        if self.ever_train_inference:
+            l.append(i_obj)
+        return sum(l)
 
     def get_samples_and_objectives(self, model, data):
         space, sources = self.get_data_specs(model)
@@ -690,9 +701,6 @@ class NoiseCat(Layer):
 
     def __init__(self, new_dim, std, layer_name):
         Layer.__init__(self)
-        self.__dict__.update(locals())
-        del self.self
-        self._params = []
 
     def set_input_space(self, space):
         assert isinstance(space, VectorSpace)
@@ -704,6 +712,24 @@ class NoiseCat(Layer):
         noise = self.theano_rng.normal(std=self.std, avg=0., size=(state.shape[0], self.new_dim),
                 dtype=state.dtype)
         return T.concatenate((state, noise), axis=1)
+
+class RectifiedLinear(Layer):
+
+    def __init__(self, layer_name, left_slope=0.0, **kwargs):
+        super(RectifiedLinear, self).__init__(**kwargs)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        self.input_space = space
+        self.output_space = space
+
+    def fprop(self, state_below):
+        p = state_below
+        p = T.switch(p > 0., p, self.left_slope * p)
+        return p
+
 
 class Clusterize(Layer):
 
