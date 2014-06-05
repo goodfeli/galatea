@@ -214,6 +214,7 @@ class SGD(TrainingAlgorithm):
         model : a Model instance
         dataset : Dataset
         """
+        self.i = 0
         if self.cost is None:
             self.cost = model.get_default_cost()
 
@@ -448,7 +449,7 @@ class SGD(TrainingAlgorithm):
                 rng = rng, num_batches = self.batches_per_iter)
 
         on_load_batch = self.on_load_batch
-        i = 0
+        i = self.i
         for batch in iterator:
             for callback in on_load_batch:
                 callback(*batch)
@@ -473,6 +474,7 @@ class SGD(TrainingAlgorithm):
             value = param.get_value(borrow=True)
             if np.any(np.isnan(value)) or np.any(np.isinf(value)):
                 raise Exception("NaN in " + param.name)
+        self.i = i
 
     def continue_learning(self, model):
         """
