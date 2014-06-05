@@ -69,6 +69,8 @@ class AdversaryPair(Model):
 
         g_ch = self.generator.get_monitoring_channels(data)
         d_ch = self.discriminator.get_monitoring_channels((data, None))
+        samples = self.generator.sample(100)
+        d_samp_ch = self.discriminator.get_monitoring_channels((samples, None))
 
         i_ch = OrderedDict()
         if self.inferer is not None:
@@ -81,7 +83,9 @@ class AdversaryPair(Model):
                 rval['gen_' + key] = g_ch[key]
         if self.monitor_discriminator:
             for key in d_ch:
-                rval['dis_' + key] = d_ch[key]
+                rval['dis_on_data_' + key] = d_ch[key]
+            for key in d_ch:
+                rval['dis_on_samp_' + key] = d_ch[key]
         if self.monitor_inference:
             for key in i_ch:
                 rval['inf_' + key] = i_ch[key]
