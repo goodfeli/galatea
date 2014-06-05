@@ -340,9 +340,9 @@ class SGD(TrainingAlgorithm):
             assert (learn_discriminator or learn_generator) and not (learn_discriminator and learn_generator)
 
             if learn_discriminator:
-                cur_params = model.generator.get_params()
-            else:
                 cur_params = model.discriminator.get_params()
+            else:
+                cur_params = model.generator.get_params()
 
             cur_grads = OrderedDict()
             for param in cur_params:
@@ -371,7 +371,7 @@ class SGD(TrainingAlgorithm):
 
             if self.learning_rule:
                 updates.update(self.learning_rule.get_updates(
-                    learning_rate, grads, lr_scalers))
+                    learning_rate, cur_grads, cur_lr_scalers))
             else:
                 # Use standard SGD updates with fixed learning rate.
                 updates.update( dict(safe_zip(params, [param - learning_rate * \
@@ -382,7 +382,7 @@ class SGD(TrainingAlgorithm):
                 if updates[param].name is None:
                     updates[param].name = 'sgd_update(' + param.name + ')'
             model.modify_updates(updates)
-            for param in params:
+            for param in cur_params:
                 update = updates[param]
                 if update.name is None:
                     update.name = 'censor(sgd_update(' + param.name + '))'
