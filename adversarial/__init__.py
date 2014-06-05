@@ -204,6 +204,12 @@ class Generator(Model):
     def ll(self, data, n_samples, sigma):
 
         samples = self.sample(n_samples)
+        output_space = self.mlp.get_output_space()
+        if 'Conv2D' in str(output_space):
+            samples = output_space.convert(samples, output_space.axes, ('b', 0, 1, 'c'))
+            samples = samples.flatten(2)
+            data = output_space.convert(data, output_space.axes, ('b', 0, 1, 'c'))
+            data = data.flatten(2)
         parzen = theano_parzen(data, samples, sigma)
         return parzen
 
