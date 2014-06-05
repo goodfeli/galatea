@@ -731,6 +731,22 @@ class RectifiedLinear(Layer):
         return p
 
 
+class SubtractHalf(Layer):
+
+    def __init__(self, layer_name, left_slope=0.0, **kwargs):
+        super(SubtractHalf, self).__init__(**kwargs)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        self.input_space = space
+        self.output_space = space
+
+    def fprop(self, state_below):
+        return state_below - 0.5
+
+
 class Clusterize(Layer):
 
     def __init__(self, scale, layer_name):
