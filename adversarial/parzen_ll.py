@@ -124,7 +124,7 @@ def main():
     del model
     gc.collect()
 
-    # cross validate simga
+    # cross validate sigma
     if args.sigma is None:
         valid = get_valid(args.dataset, limit_size = args.limit_size, fold = args.fold)
         sigma_range = numpy.logspace(args.sigma_start, args.sigma_end, num=args.cross_val)
@@ -132,7 +132,7 @@ def main():
     else:
         sigma = float(args.sigma)
 
-    print "Using simga: {}".format(sigma)
+    print "Using Sigma: {}".format(sigma)
     gc.collect()
 
     # fit and evaulate
