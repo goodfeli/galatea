@@ -1,4 +1,5 @@
 import functools
+wraps = functools.wraps
 import itertools
 import numpy
 np = numpy
@@ -13,6 +14,7 @@ from pylearn2.space import VectorSpace
 from pylearn2.costs.cost import Cost
 from pylearn2.costs.cost import DefaultDataSpecsMixin
 from pylearn2.models.mlp import Layer
+from pylearn2.models.mlp import Linear
 from pylearn2.models import Model
 from pylearn2.space import CompositeSpace
 from pylearn2.train_extensions import TrainExtension
@@ -763,12 +765,14 @@ class SubtractHalf(Layer):
 
 class SubtractRealMean(Layer):
 
-    def __init__(self, layer_name, dataset, **kwargs):
+    def __init__(self, layer_name, dataset, also_sd = False, **kwargs):
         super(SubtractRealMean, self).__init__(**kwargs)
         self.__dict__.update(locals())
         del self.self
         self._params = []
         self.mean = sharedX(dataset.X.mean(axis=0))
+        if also_sd:
+            self.sd = sharedX(dataset.X.std(axis=0))
         del self.dataset
 
     def set_input_space(self, space):
@@ -776,7 +780,7 @@ class SubtractRealMean(Layer):
         self.output_space = space
 
     def fprop(self, state_below):
-        return state_below - self.mean
+        return (state_below - self.mean) / self.sd
 
 
 class Clusterize(Layer):
