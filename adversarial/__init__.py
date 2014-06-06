@@ -709,6 +709,9 @@ class NoiseCat(Layer):
 
     def __init__(self, new_dim, std, layer_name):
         Layer.__init__(self)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
 
     def set_input_space(self, space):
         assert isinstance(space, VectorSpace)
@@ -738,6 +741,21 @@ class RectifiedLinear(Layer):
         p = T.switch(p > 0., p, self.left_slope * p)
         return p
 
+class Sigmoid(Layer):
+
+    def __init__(self, layer_name, left_slope=0.0, **kwargs):
+        super(Sigmoid, self).__init__(**kwargs)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+
+    def set_input_space(self, space):
+        self.input_space = space
+        self.output_space = space
+
+    def fprop(self, state_below):
+        p = T.nnet.sigmoid(state_below)
+        return p
 
 class SubtractHalf(Layer):
 
