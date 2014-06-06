@@ -752,6 +752,32 @@ class SubtractHalf(Layer):
     def fprop(self, state_below):
         return state_below - 0.5
 
+    def get_weights(self):
+        return self.mlp.layers[1].get_weights()
+
+    def get_weights_format(self):
+        return self.mlp.layers[1].get_weights_format()
+
+    def get_weights_view_shape(self):
+        return self.mlp.layers[1].get_weights_view_shape()
+
+class SubtractRealMean(Layer):
+
+    def __init__(self, layer_name, dataset, **kwargs):
+        super(SubtractRealMean, self).__init__(**kwargs)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
+        self.mean = sharedX(dataset.X.mean(axis=0))
+        del self.dataset
+
+    def set_input_space(self, space):
+        self.input_space = space
+        self.output_space = space
+
+    def fprop(self, state_below):
+        return state_below - self.mean
+
 
 class Clusterize(Layer):
 
@@ -771,6 +797,7 @@ class Clusterize(Layer):
         noise = self.theano_rng.binomial(size=state.shape, p=0.5,
                 dtype=state.dtype) * 2. - 1.
         return state + self.scale * noise
+
 
 
 class ThresholdedAdversaryCost(DefaultDataSpecsMixin, Cost):
