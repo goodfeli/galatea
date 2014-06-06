@@ -121,6 +121,10 @@ def main():
 
     # generate samples
     samples = model.generator.sample(args.num_samples).eval()
+    output_space = model.generator.mlp.get_output_space()
+    if 'Conv2D' in str(output_space):
+        samples = output_space.convert(samples, output_space.axes, ('b', 0, 1, 'c'))
+        samples = samples.reshape((samples.shape[0], numpy.prod(samples.shape[1:])))
     del model
     gc.collect()
 
