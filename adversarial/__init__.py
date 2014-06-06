@@ -707,6 +707,9 @@ class NoiseCat(Layer):
 
     def __init__(self, new_dim, std, layer_name):
         Layer.__init__(self)
+        self.__dict__.update(locals())
+        del self.self
+        self._params = []
 
     def set_input_space(self, space):
         assert isinstance(space, VectorSpace)
