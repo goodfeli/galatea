@@ -993,3 +993,29 @@ class ThresholdedAdversaryCost(DefaultDataSpecsMixin, Cost):
 
         rval['now_train_generator'] = self.now_train_generator
         return rval
+
+
+class HardSigmoid(Linear):
+    """
+    Hard "sigmoid" (note: shifted along the x axis)
+    """
+
+    def __init__(self, left_slope=0.0, **kwargs):
+        super(RectifiedLinear, self).__init__(**kwargs)
+        self.left_slope = left_slope
+
+    @wraps(Layer.fprop)
+    def fprop(self, state_below):
+
+        p = self._linear_part(state_below)
+        # Original: p = p * (p > 0.) + self.left_slope * p * (p < 0.)
+        # T.switch is faster.
+        # For details, see benchmarks in
+        # pylearn2/scripts/benchmark/time_relu.py
+        p = T.clip(0., 1., p)
+        return p
+
+    @wraps(Layer.cost)
+    def cost(self, *args, **kwargs):
+
+        raise NotImplementedError()
