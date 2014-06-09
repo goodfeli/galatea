@@ -1044,10 +1044,214 @@ class HardSigmoid(Linear):
         # T.switch is faster.
         # For details, see benchmarks in
         # pylearn2/scripts/benchmark/time_relu.py
-        p = T.clip(0., 1., p)
+        p = T.clip(p, 0., 1.)
         return p
 
     @wraps(Layer.cost)
     def cost(self, *args, **kwargs):
 
         raise NotImplementedError()
+
+
+class LazyAdversaryCost(DefaultDataSpecsMixin, Cost):
+    """
+    """
+
+    # Supplies own labels, don't get them from the dataset
+    supervised = False
+
+    def __init__(self, scale_grads=1, target_scale=.1,
+            discriminator_default_input_include_prob = 1.,
+            discriminator_input_include_probs=None,
+            discriminator_default_input_scale=1.,
+            discriminator_input_scales=None,
+            generator_default_input_include_prob = 1.,
+            generator_default_input_scale=1.,
+            inference_default_input_include_prob=None,
+            inference_input_include_probs=None,
+            inference_default_input_scale=1.,
+            inference_input_scales=None,
+            init_now_train_generator=True,
+            ever_train_discriminator=True,
+            ever_train_generator=True,
+            ever_train_inference=True,
+            no_drop_in_d_for_g=False,
+            alternate_g = False,
+            infer_layer=None,
+            noise_both = 0.,
+            g_eps = 0.,
+            d_eps =0.):
+        self.__dict__.update(locals())
+        del self.self
+        # These allow you to dynamically switch off training parts.
+        # If the corresponding ever_train_* is False, these have
+        # no effect.
+        self.now_train_generator = sharedX(init_now_train_generator)
+        self.now_train_discriminator = sharedX(numpy.array(1., dtype='float32'))
+        self.now_train_inference = sharedX(numpy.array(1., dtype='float32'))
+
+    def expr(self, model, data, **kwargs):
+        S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
+        l = []
+        # This stops stuff from ever getting computed if we're not training
+        # it.
+        if self.ever_train_discriminator:
+            l.append(d_obj)
+        if self.ever_train_generator:
+            l.append(g_obj)
+        if self.ever_train_inference:
+            l.append(i_obj)
+        return sum(l)
+
+    def get_samples_and_objectives(self, model, data):
+        space, sources = self.get_data_specs(model)
+        space.validate(data)
+        assert isinstance(model, AdversaryPair)
+        g = model.generator
+        d = model.discriminator
+
+        # Note: this assumes data is design matrix
+        X = data
+        m = data.shape[space.get_batch_axis()]
+        y1 = T.alloc(1, m, 1)
+        y0 = T.alloc(0, m, 1)
+        # NOTE: if this changes to optionally use dropout, change the inference
+        # code below to use a non-dropped-out version.
+        S, z, other_layers = g.sample_and_noise(m, default_input_include_prob=self.generator_default_input_include_prob, default_input_scale=self.generator_default_input_scale, all_g_layers=(self.infer_layer is not None))
+
+        if self.noise_both != 0.:
+            rng = MRG_RandomStreams(2014 / 6 + 2)
+            S = S + rng.normal(size=S.shape, dtype=S.dtype) * self.noise_both
+            X = X + rng.normal(size=X.shape, dtype=S.dtype) * self.noise_both
+
+        y_hat1 = d.dropout_fprop(X, self.discriminator_default_input_include_prob,
+                                     self.discriminator_input_include_probs,
+                                     self.discriminator_default_input_scale,
+                                     self.discriminator_input_scales)
+        y_hat0 = d.dropout_fprop(S, self.discriminator_default_input_include_prob,
+                                     self.discriminator_input_include_probs,
+                                     self.discriminator_default_input_scale,
+                                     self.discriminator_input_scales)
+
+        # d_obj =  0.5 * (d.layers[-1].cost(y1, y_hat1) + d.layers[-1].cost(y0, y_hat0))
+
+        pos_mask = y_hat1 < .5 + self.d_eps
+        neg_mask = y_hat0 > .5 - self.d_eps
+
+        pos_cost_matrix = d.layers[-1].cost_matrix(y1, y_hat1)
+        neg_cost_matrix = d.layers[-1].cost_matrix(y0, y_hat0)
+
+        pos_cost = (pos_mask * pos_cost_matrix).mean()
+        neg_cost = (neg_mask * neg_cost_matrix).mean()
+
+        d_obj = 0.5 * (pos_cost + neg_cost)
+
+        if self.no_drop_in_d_for_g:
+            y_hat0_no_drop = d.dropout_fprop(S)
+            g_cost_mat = d.layers[-1].cost_matrix(y1, y_hat0_no_drop)
+        else:
+            g_cost_mat = d.layers[-1].cost_matrix(y1, y_hat0)
+        assert g_cost_mat.ndim == 2
+        assert y_hat0.ndim == 2
+
+        mask = y_hat0 < 0.5 + self.g_eps
+        masked_cost = g_cost_mat * mask
+        g_obj = masked_cost.mean()
+
+
+        if model.inferer is not None:
+            # Change this if we ever switch to using dropout in the
+            # construction of S.
+            S_nograd = block_gradient(S)  # Redundant as long as we have custom get_gradients
+            pred = model.inferer.dropout_fprop(S_nograd, self.inference_default_input_include_prob,
+                                                self.inference_input_include_probs,
+                                                self.inference_default_input_scale,
+                                                self.inference_input_scales)
+            if self.infer_layer is None:
+                target = z
+            else:
+                target = other_layers[self.infer_layer]
+            i_obj = model.inferer.layers[-1].cost(target, pred)
+        else:
+            i_obj = 0
+
+        return S, d_obj, g_obj, i_obj
+
+    def get_gradients(self, model, data, **kwargs):
+        space, sources = self.get_data_specs(model)
+        space.validate(data)
+        assert isinstance(model, AdversaryPair)
+        g = model.generator
+        d = model.discriminator
+
+        S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
+
+        g_params = g.get_params()
+        d_params = d.get_params()
+        for param in g_params:
+            assert param not in d_params
+        for param in d_params:
+            assert param not in g_params
+        d_grads = T.grad(d_obj, d_params)
+        g_grads = T.grad(g_obj, g_params)
+
+        if self.scale_grads:
+            S_grad = T.grad(g_obj, S)
+            scale = T.maximum(1., self.target_scale / T.sqrt(T.sqr(S_grad).sum()))
+            g_grads = [g_grad * scale for g_grad in g_grads]
+
+        rval = OrderedDict()
+        zeros = itertools.repeat(theano.tensor.constant(0., dtype='float32'))
+        if self.ever_train_discriminator:
+            rval.update(OrderedDict(safe_zip(d_params, [self.now_train_discriminator * dg for dg in d_grads])))
+        else:
+            rval.update(OrderedDict(zip(d_params, zeros)))
+        if self.ever_train_generator:
+            rval.update(OrderedDict(safe_zip(g_params, [self.now_train_generator * gg for gg in g_grads])))
+        else:
+            rval.update(OrderedDict(zip(g_params, zeros)))
+        if self.ever_train_inference and model.inferer is not None:
+            i_params = model.inferer.get_params()
+            i_grads = T.grad(i_obj, i_params)
+            rval.update(OrderedDict(safe_zip(i_params, [self.now_train_inference * ig for ig in i_grads])))
+        elif model.inferer is not None:
+            rval.update(OrderedDict(model.inferer.get_params(), zeros))
+
+        updates = OrderedDict()
+
+        # Two d steps for every g step
+        if self.alternate_g:
+            updates[self.now_train_generator] = 1. - self.now_train_generator
+
+        return rval, updates
+
+    def get_monitoring_channels(self, model, data, **kwargs):
+
+        rval = OrderedDict()
+
+        m = data.shape[0]
+
+        g = model.generator
+        d = model.discriminator
+
+        y_hat = d.fprop(data)
+
+        rval['false_negatives'] = T.cast((y_hat < 0.5).mean(), 'float32')
+
+        samples = g.sample(m)
+        y_hat = d.fprop(samples)
+        rval['false_positives'] = T.cast((y_hat > 0.5).mean(), 'float32')
+        # y = T.alloc(0., m, 1)
+        cost = d.cost_from_X((samples, y_hat))
+        sample_grad = T.grad(-cost, samples)
+        rval['sample_grad_norm'] = T.sqrt(T.sqr(sample_grad).sum())
+        _S, d_obj, g_obj, i_obj = self.get_samples_and_objectives(model, data)
+        if model.monitor_inference and i_obj != 0:
+            rval['objective_i'] = i_obj
+        if model.monitor_discriminator:
+            rval['objective_d'] = d_obj
+        if model.monitor_generator:
+            rval['objective_g'] = g_obj
+
+        rval['now_train_generator'] = self.now_train_generator
+        return rval
