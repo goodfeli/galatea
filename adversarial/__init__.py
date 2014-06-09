@@ -29,7 +29,8 @@ class AdversaryPair(Model):
                  inference_monitoring_batch_size=128,
                  monitor_generator=True,
                  monitor_discriminator=True,
-                 monitor_inference=True):
+                 monitor_inference=True,
+                 shrink_d = 0.):
         Model.__init__(self)
         self.__dict__.update(locals())
         del self.self
@@ -104,6 +105,10 @@ class AdversaryPair(Model):
     def _modify_updates(self, updates):
         self.generator.modify_updates(updates)
         self.discriminator.modify_updates(updates)
+        if self.shrink_d != 0.:
+            for param in self.discriminator.get_params():
+                if param in updates:
+                    updates[param] = self.shrink_d * updates[param]
         if self.inferer is not None:
             self.inferer.modify_updates(updates)
 
@@ -800,6 +805,15 @@ class SubtractRealMean(Layer):
     def fprop(self, state_below):
         return (state_below - self.mean) / self.sd
 
+    def get_weights(self):
+        return self.mlp.layers[1].get_weights()
+
+    def get_weights_format(self):
+        return self.mlp.layers[1].get_weights_format()
+
+    def get_weights_view_shape(self):
+        return self.mlp.layers[1].get_weights_view_shape()
+
 
 class Clusterize(Layer):
 
@@ -1019,7 +1033,7 @@ class HardSigmoid(Linear):
     """
 
     def __init__(self, left_slope=0.0, **kwargs):
-        super(RectifiedLinear, self).__init__(**kwargs)
+        super(HardSigmoid, self).__init__(**kwargs)
         self.left_slope = left_slope
 
     @wraps(Layer.fprop)
