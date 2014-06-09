@@ -86,7 +86,7 @@ def get_valid(ds, limit_size = -1, fold = 0):
                        start=4000,
                        stop=50000,
                        gcn=55.)
-        return data.X
+        return data.X[:limit_size]
     else:
          raise ValueError("Unknow dataset: {}".format(args.dataet))
 
