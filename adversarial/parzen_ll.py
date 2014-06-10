@@ -8,6 +8,7 @@ from pylearn2.utils import serial
 from pylearn2.config import yaml_parse
 from pylearn2.datasets.mnist import MNIST
 from pylearn2.datasets.tfd import TFD
+from pylearn2.datasets.cifar10 import CIFAR10
 
 
 
@@ -80,24 +81,30 @@ def get_valid(ds, limit_size = -1, fold = 0):
     elif ds == 'tfd':
         data = TFD('valid', fold = fold, scale=True)
         return data.X
+    elif ds == 'cifar10':
+        data = CIFAR10(which_set='train',
+                       start=4000,
+                       stop=50000,
+                       gcn=55.)
+        return data.X[:limit_size]
     else:
          raise ValueError("Unknow dataset: {}".format(args.dataet))
 
 
 def get_test(ds, test, fold=0):
-    if ds == 'mnist':
+    if ds in ['mnist', 'cifar10']:
         return test.get_test_set()
     elif ds == 'tfd':
         return test.get_test_set(fold=fold)
     else:
-        raise ValueError("Unknow dataset: {}".format(args.dataet))
+        raise ValueError("Unknow dataset: {}".format(ds))
 
 
 def main():
     parser = argparse.ArgumentParser(description = 'Parzen window, log-likelihood estimator')
     parser.add_argument('-p', '--path', help='model path')
     parser.add_argument('-s', '--sigma', default = None)
-    parser.add_argument('-d', '--dataset', choices=['mnist', 'tfd'])
+    parser.add_argument('-d', '--dataset', choices=['mnist', 'tfd', 'cifar10'])
     parser.add_argument('-f', '--fold', default = 0, type=int)
     parser.add_argument('-v', '--valid', default = False, action='store_true')
     parser.add_argument('-n', '--num_samples', default=10000, type=int)
