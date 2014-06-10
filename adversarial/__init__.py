@@ -198,6 +198,10 @@ class Generator(Model):
             return self.theano_rng.uniform(low=-np.sqrt(3), high=np.sqrt(3), size=size, dtype='float32')
         elif self.noise == "gaussian":
             return self.theano_rng.normal(size=size, dtype='float32')
+        elif self.noise == "spherical":
+            noise = self.theano_rng.normal(size=size, dtype='float32')
+            noise = noise / T.maximum(1e-7, T.sqrt(T.sqr(noise).sum(axis=1))).dimshuffle(0, 'x')
+            return noise
         else:
             raise NotImplementedError("noise should be gaussian or uniform")
 
