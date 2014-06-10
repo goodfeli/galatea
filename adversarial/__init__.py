@@ -482,6 +482,9 @@ def log_mean_exp(a):
     return max_ + T.log(T.exp(a - max_.dimshuffle(0, 'x')).mean(1))
 
 class Sum(Layer):
+    """
+    Monitoring channels are hardcoded for C01B batches
+    """
 
     def __init__(self, layer_name):
         Model.__init__(self)
@@ -495,37 +498,54 @@ class Sum(Layer):
         self.output_space = space.components[0]
 
     def fprop(self, state_below):
-        return sum(state_below)
+        rval = state_below[0]
+        for i in xrange(1, len(state_below)):
+            rval = rval + state_below[i]
+        rval.came_from_sum = True
+        return rval
 
     @functools.wraps(Layer.get_layer_monitoring_channels)
     def get_layer_monitoring_channels(self, state_below=None,
                                     state=None, targets=None):
         rval = OrderedDict()
 
-        if (state is not None) or (state_below is not None):
-            if state is None:
+        if state is None:
                 state = self.fprop(state_below)
+        vars_and_prefixes = [(state, '')]
 
-            mx = state.max(axis=0)
-            mean = state.mean(axis=0)
-            mn = state.min(axis=0)
-            rg = mx - mn
+        for var, prefix in vars_and_prefixes:
+            if not hasattr(var, 'ndim') or var.ndim != 4:
+                print "expected 4D tensor, got "
+                print var
+                print type(var)
+                if isinstance(var, tuple):
+                    print "tuple length: ", len(var)
+                assert False
+            v_max = var.max(axis=(1, 2, 3))
+            v_min = var.min(axis=(1, 2, 3))
+            v_mean = var.mean(axis=(1, 2, 3))
+            v_range = v_max - v_min
 
-            rval['range_x_max_u'] = rg.max()
-            rval['range_x_mean_u'] = rg.mean()
-            rval['range_x_min_u'] = rg.min()
-
-            rval['max_x_max_u'] = mx.max()
-            rval['max_x_mean_u'] = mx.mean()
-            rval['max_x_min_u'] = mx.min()
-
-            rval['mean_x_max_u'] = mean.max()
-            rval['mean_x_mean_u'] = mean.mean()
-            rval['mean_x_min_u'] = mean.min()
-
-            rval['min_x_max_u'] = mn.max()
-            rval['min_x_mean_u'] = mn.mean()
-            rval['min_x_min_u'] = mn.min()
+            # max_x.mean_u is "the mean over *u*nits of the max over
+            # e*x*amples" The x and u are included in the name because
+            # otherwise its hard to remember which axis is which when reading
+            # the monitor I use inner.outer rather than outer_of_inner or
+            # something like that because I want mean_x.* to appear next to
+            # each other in the alphabetical list, as these are commonly
+            # plotted together
+            for key, val in [('max_x.max_u',    v_max.max()),
+                             ('max_x.mean_u',   v_max.mean()),
+                             ('max_x.min_u',    v_max.min()),
+                             ('min_x.max_u',    v_min.max()),
+                             ('min_x.mean_u',   v_min.mean()),
+                             ('min_x.min_u',    v_min.min()),
+                             ('range_x.max_u',  v_range.max()),
+                             ('range_x.mean_u', v_range.mean()),
+                             ('range_x.min_u',  v_range.min()),
+                             ('mean_x.max_u',   v_mean.max()),
+                             ('mean_x.mean_u',  v_mean.mean()),
+                             ('mean_x.min_u',   v_mean.min())]:
+                rval[prefix+key] = val
 
         return rval
 
