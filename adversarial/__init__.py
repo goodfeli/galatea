@@ -88,9 +88,9 @@ class AdversaryPair(Model):
                 rval['gen_' + key] = g_ch[key]
         if self.monitor_discriminator:
             for key in d_ch:
-                rval['dis_on_data_' + key] = d_samp_ch[key]
+                rval['dis_on_data_' + key] = d_ch[key]
             for key in d_ch:
-                rval['dis_on_samp_' + key] = d_ch[key]
+                rval['dis_on_samp_' + key] = d_samp_ch[key]
         if self.monitor_inference:
             for key in i_ch:
                 rval['inf_' + key] = i_ch[key]
@@ -521,10 +521,12 @@ class Sum(Layer):
                 if isinstance(var, tuple):
                     print "tuple length: ", len(var)
                 assert False
-            v_max = var.max(axis=(1, 2, 3))
-            v_min = var.min(axis=(1, 2, 3))
-            v_mean = var.mean(axis=(1, 2, 3))
+            v_max = var.max(axis=3)
+            v_min = var.min(axis=3)
+            v_mean = var.mean(axis=3)
             v_range = v_max - v_min
+            v_max = v_max.max(axis=(1,2))
+            v_min = v_min.min(axis=(1,2))
 
             # max_x.mean_u is "the mean over *u*nits of the max over
             # e*x*amples" The x and u are included in the name because
