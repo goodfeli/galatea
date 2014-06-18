@@ -1281,3 +1281,21 @@ class LazyAdversaryCost(DefaultDataSpecsMixin, Cost):
 
         rval['now_train_generator'] = self.now_train_generator
         return rval
+
+def pca_init(outer_model, model, dataset):
+    W, = model.transformer.get_params()
+    num_components = W.get_value().shape[0]
+    cov = np.dot(dataset.X.T, dataset.X) / float(dataset.X.shape[0])
+    d = cov.shape[0]
+    from scipy import linalg
+    v, components = linalg.eigh(cov, eigvals=(d - num_components, d - 1))
+    components = components[:, ::-1]
+    components = components.T
+    assert W.get_value().shape == components.shape
+    W.set_value(components.astype(W.dtype))
+    norms = np.sqrt(np.square(components).sum(axis=0))
+    print norms.min(), norms.mean(), norms.max()
+    print components.shape
+
+    return outer_model
+
